@@ -384,7 +384,7 @@ export default function IdeaDetailPage() {
                   className="inline-flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm font-medium text-amber-400 shadow transition-all hover:border-amber-400 hover:bg-amber-500/20 active:bg-amber-500/30"
                 >
                   <SparklesIcon />
-                  Refinar idea
+                  Pulir idea
                 </button>
               )}
             </div>

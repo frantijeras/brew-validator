@@ -401,7 +401,7 @@ export default function RefineQuizModal({
           <div className="flex items-center gap-2.5">
             <Sparkles className="size-5 text-amber-400" />
             <h2 className="text-lg font-semibold text-white">
-              {screen === "manual" ? "Escribir refinamiento" : "Refinar idea"}
+              {screen === "manual" ? "Redactar manualmente" : "Pulir idea"}
             </h2>
           </div>
           <button
@@ -425,7 +425,7 @@ export default function RefineQuizModal({
           {screen === "choice" && (
             <div>
               <p className="text-sm text-slate-400 mb-4">
-                Elige cómo quieres refinar tu idea:
+                Elige cómo quieres pulir tu idea:
               </p>
 
               {/* Current idea data */}
@@ -462,7 +462,7 @@ export default function RefineQuizModal({
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-white">
-                      ✏️ Escribir mi refinamiento
+                      Redactar manualmente
                     </p>
                     <p className="mt-1 text-xs text-slate-400">
                       Edita directamente el texto de la idea como prefieras
@@ -479,7 +479,7 @@ export default function RefineQuizModal({
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-white">
-                      🤖 Responder preguntas
+                      Responder preguntas
                     </p>
                     <p className="mt-1 text-xs text-slate-400">
                       La IA te guía con preguntas para mejorar la idea
