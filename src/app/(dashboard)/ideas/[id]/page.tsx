@@ -288,7 +288,7 @@ export default function IdeaDetailPage() {
                 title={idea.isArchived ? "Desarchivar" : "Archivar"}
                 aria-label={idea.isArchived ? "Desarchivar" : "Archivar"}
               >
-                <span className="text-slate-400">{idea.isArchived ? "📁" : "📂"}</span>
+                {idea.isArchived ? "⚑" : <span className="text-slate-400">⚐</span>}
               </button>
               <button
                 onClick={handleDelete}

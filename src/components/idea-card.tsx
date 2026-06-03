@@ -146,7 +146,7 @@ export function IdeaCard({ idea }: IdeaCardProps) {
           title={isArchived ? "Desarchivar" : "Archivar"}
           aria-label={isArchived ? "Desarchivar" : "Archivar"}
         >
-          <span className="text-slate-400">{isArchived ? "📁" : "📂"}</span>
+          {isArchived ? "⚑" : <span className="text-slate-400">⚐</span>}
         </button>
       </div>
     </Link>

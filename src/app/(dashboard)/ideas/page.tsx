@@ -62,16 +62,16 @@ export default async function IdeasPage({ searchParams }: Props) {
 
       {/* Tabs */}
       <div className="mb-6 flex gap-1 rounded-xl border border-slate-800 bg-slate-900/50 p-1">
-        <TabLink href="/ideas" active={activeTab === "all"} label="Todas" />
+        <TabLink href="/ideas" active={activeTab === "all"} label="📋 Todas" />
         <TabLink
           href="/ideas?tab=favorites"
           active={activeTab === "favorites"}
-          label="Favoritas ❤️"
+          label="⭐ Favoritas"
         />
         <TabLink
           href="/ideas?tab=archived"
           active={activeTab === "archived"}
-          label="Archivadas 📦"
+          label="⚐ Archivadas"
         />
       </div>
 
