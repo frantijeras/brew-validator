@@ -136,9 +136,12 @@ export function IdeaCard({
     year: "numeric",
   });
 
-  const badgeLabel = idea.verdict
-    ? translateVerdict(idea.verdict)
-    : translateStatus(idea.validationStatus || idea.status);
+  const isGenerating = idea.status === "GENERATING";
+  const badgeLabel = isGenerating
+    ? "Generando…"
+    : idea.verdict
+      ? translateVerdict(idea.verdict)
+      : translateStatus(idea.validationStatus || idea.status);
 
   return (
     <>
@@ -157,14 +160,14 @@ export function IdeaCard({
                 Archivada
               </span>
             )}
-            {idea.validationStatus === "RUNNING" && <Spinner />}
+            {(idea.validationStatus === "RUNNING" || isGenerating) && <Spinner />}
             <span
               className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium ${
                 idea.validationStatus === "DONE" && idea.verdict
                   ? verdictColor
                   : idea.validationStatus === "DONE"
                     ? "text-slate-300 bg-slate-500/10 border-slate-500/30"
-                    : idea.validationStatus === "RUNNING"
+                    : idea.validationStatus === "RUNNING" || isGenerating
                       ? "text-amber-400 bg-amber-500/10 border-amber-500/30"
                       : "text-slate-400 bg-slate-500/10 border-slate-500/30"
               }`}
@@ -269,7 +272,10 @@ export function IdeaCard({
               </div>
             </>
           )}
-          {idea.validationStatus === "RUNNING" && (
+          {isGenerating && (
+            <span className="text-amber-400">Generando…</span>
+          )}
+          {!isGenerating && idea.validationStatus === "RUNNING" && (
             <span className="text-amber-400">Validando…</span>
           )}
           {idea.validationStatus === "DONE" && !idea.verdict && (
