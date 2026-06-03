@@ -1,0 +1,299 @@
+"use client";
+
+import { useState } from "react";
+import { renderMarkdown } from "./markdown-renderer";
+
+interface ReportData {
+  id: string;
+  agentName: string;
+  title: string;
+  content: string;
+  verdict: string | null;
+  scorecard: string | null;
+  createdAt: string;
+}
+
+interface ReportViewerProps {
+  report: ReportData;
+}
+
+export function ReportViewer({ report }: ReportViewerProps) {
+  const [open, setOpen] = useState(true);
+
+  const agentLabel =
+    report.agentName === "skeptic"
+      ? "Escéptico"
+      : report.agentName === "advocate"
+        ? "Abogado del diablo"
+        : report.agentName === "judge"
+          ? "Juez"
+          : report.agentName;
+
+  const agentIcon =
+    report.agentName === "skeptic"
+      ? "search"
+      : report.agentName === "advocate"
+        ? "scale"
+        : report.agentName === "judge"
+          ? "gavel"
+          : "file";
+
+  const agentColor =
+    report.agentName === "skeptic"
+      ? "amber"
+      : report.agentName === "advocate"
+        ? "sky"
+        : report.agentName === "judge"
+          ? "violet"
+          : "slate";
+
+  const htmlContent = renderMarkdown(report.content);
+
+  // Parse scorecard
+  const scorecard = parseScorecard(report.scorecard);
+
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-900/50 overflow-hidden">
+      {/* Header */}
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex w-full items-center justify-between px-6 py-4 text-left hover:bg-slate-800/30 transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className={`flex size-8 items-center justify-center rounded-lg bg-${agentColor}-500/10 text-${agentColor}-400`}
+          >
+            <AgentIcon icon={agentIcon} color={agentColor} />
+          </div>
+          <div>
+            <h3 className="font-semibold text-white">{agentLabel}</h3>
+            <p className="text-xs text-slate-500">
+              {report.title} ·{" "}
+              {new Date(report.createdAt).toLocaleDateString("es-ES", {
+                day: "numeric",
+                month: "short",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </p>
+          </div>
+        </div>
+
+        {/* Agent verdict badge */}
+        {report.verdict && (
+          <span
+            className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${
+              report.verdict === "GO"
+                ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"
+                : report.verdict === "PIVOT"
+                  ? "text-amber-400 bg-amber-500/10 border-amber-500/30"
+                  : report.verdict === "KILL"
+                    ? "text-red-400 bg-red-500/10 border-red-500/30"
+                    : "text-slate-400 bg-slate-500/10 border-slate-500/30"
+            }`}
+          >
+            {report.verdict}
+          </span>
+        )}
+
+        <ChevronIcon open={open} />
+      </button>
+
+      {/* Content */}
+      {open && (
+        <div className="border-t border-slate-800 px-6 py-5">
+          {/* Scorecard table */}
+          {scorecard && scorecard.length > 0 && (
+            <div className="mb-6">
+              <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
+                Scorecard
+              </h4>
+              <div className="overflow-hidden rounded-lg border border-slate-700">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-700 bg-slate-800/50">
+                      <th className="px-4 py-2.5 text-left font-semibold text-slate-200">
+                        Dimensión
+                      </th>
+                      <th className="px-4 py-2.5 text-center font-semibold text-slate-200 w-20">
+                        Puntuación
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scorecard.map((item, i) => {
+                      const isLast = i === scorecard.length - 1;
+                      const isTotal =
+                        item.key.toLowerCase() === "total" ||
+                        item.key.toLowerCase() === "total score" ||
+                        item.key.toLowerCase() === "puntuación total";
+                      return (
+                        <tr
+                          key={item.key}
+                          className={`${
+                            isTotal
+                              ? "bg-slate-800/50 font-bold"
+                              : ""
+                          } ${isLast ? "" : "border-b border-slate-800"}`}
+                        >
+                          <td
+                            className={`px-4 py-2.5 ${
+                              isTotal ? "text-white" : "text-slate-300"
+                            }`}
+                          >
+                            {item.key}
+                          </td>
+                          <td
+                            className={`px-4 py-2.5 text-center tabular-nums ${
+                              isTotal
+                                ? "text-amber-400 font-bold"
+                                : "text-slate-400"
+                            }`}
+                          >
+                            {formatScore(item.value)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Markdown content */}
+          <div
+            className="prose prose-invert prose-sm max-w-none
+              prose-headings:text-white prose-p:text-slate-300
+              prose-strong:text-slate-200 prose-li:text-slate-300
+              prose-a:text-amber-400 prose-code:text-amber-300
+              prose-pre:bg-slate-800 prose-pre:border prose-pre:border-slate-700"
+            dangerouslySetInnerHTML={{ __html: htmlContent }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Helpers ── */
+
+function parseScorecard(
+  scorecard: string | null
+): { key: string; value: number | string }[] {
+  if (!scorecard) return [];
+
+  try {
+    const parsed = JSON.parse(scorecard);
+    if (Array.isArray(parsed)) {
+      const result: { key: string; value: string | number }[] = [];
+      for (const item of parsed) {
+        if (typeof item === "object" && item !== null && !Array.isArray(item)) {
+          const entries = Object.entries(item as Record<string, unknown>);
+          if (entries.length > 0) {
+            const val = entries[0][1];
+            result.push({
+              key: String(entries[0][0]),
+              value: typeof val === "number" || typeof val === "string" ? val : String(val),
+            });
+          }
+        } else {
+          result.push({ key: String(item), value: 0 });
+        }
+      }
+      return result;
+    }
+
+    if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+      const obj = parsed as Record<string, unknown>;
+      return Object.entries(obj).map(([key, value]) => ({
+        key,
+        value: typeof value === "number" || typeof value === "string" ? value : String(value),
+      }));
+    }
+  } catch {
+    // Not JSON, try line-by-line
+    return scorecard
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => {
+        const parts = line.split(":");
+        return {
+          key: parts[0]?.trim() ?? "",
+          value: parts[1]?.trim() ?? 0,
+        };
+      });
+  }
+
+  return [];
+}
+
+function formatScore(value: number | string): string {
+  if (typeof value === "number") {
+    return Number.isInteger(value) ? String(value) : value.toFixed(1);
+  }
+  return String(value);
+}
+
+/* ── Icons ── */
+
+function AgentIcon({
+  icon,
+  color,
+}: {
+  icon: string;
+  color: string;
+}) {
+  const className = `size-4 text-${color}-400`;
+
+  switch (icon) {
+    case "search":
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+      );
+    case "scale":
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <path d="M3 12h18" />
+          <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+      );
+    case "gavel":
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14 13l-7.5 7.5c-.83.83-2.17.83-3 0 0 0 0 0 0 0a2.12 2.12 0 0 1 0-3L11 10" />
+          <path d="M16 16l6-6" />
+          <path d="M8 8l6-6" />
+          <path d="M9 7l8 8" />
+          <path d="M21 11l-2-2" />
+        </svg>
+      );
+    default:
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+          <polyline points="14 2 14 8 20 8" />
+        </svg>
+      );
+  }
+}
+
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      className={`size-4 text-slate-500 transition-transform shrink-0 ${open ? "rotate-180" : ""}`}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
