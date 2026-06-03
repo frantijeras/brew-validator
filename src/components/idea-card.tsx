@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Heart, Archive, Trash2, Undo2, MoreHorizontal } from "lucide-react";
 import { translateVerdict, translateStatus } from "@/lib/translations";
 import { ConfirmModal } from "@/components/confirm-modal";
@@ -30,6 +31,7 @@ export function IdeaCard({
   showDelete = false,
   onDeleted,
 }: IdeaCardProps) {
+  const router = useRouter();
   const [isFavorite, setIsFavorite] = useState(idea.isFavorite);
   const [isArchived, setIsArchived] = useState(idea.isArchived);
   const [showMenu, setShowMenu] = useState(false);
@@ -72,10 +74,11 @@ export function IdeaCard({
         credentials: "same-origin",
         body: JSON.stringify({ isArchived: next }),
       });
+      router.refresh();
     } catch {
       setIsArchived(!next);
     }
-  }, [idea.id, isArchived]);
+  }, [idea.id, isArchived, router]);
 
   const handleDelete = useCallback(async () => {
     try {
@@ -90,12 +93,13 @@ export function IdeaCard({
         return;
       }
       setShowDeleteModal(false);
+      router.refresh();
       onDeleted?.();
     } catch (err) {
       console.error("[DELETE idea]", err);
       setShowDeleteModal(false);
     }
-  }, [idea.id, onDeleted]);
+  }, [idea.id, onDeleted, router]);
 
   function onDeleteClick() {
     setShowMenu(false);
