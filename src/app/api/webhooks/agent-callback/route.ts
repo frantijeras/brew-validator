@@ -43,14 +43,6 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // If idea-generator fails, mark idea status
-      if (job.agentName === "idea-generator") {
-        await prisma.idea.update({
-          where: { id: job.ideaId },
-          data: { status: "FAILED" },
-        });
-      }
-
       return NextResponse.json({ success: true });
     }
 
@@ -67,51 +59,6 @@ export async function POST(req: NextRequest) {
         cost,
       },
     });
-
-    // ── idea-generator callback: update idea directly ──
-    if (job.agentName === "idea-generator") {
-      const ideas = output.ideas as Array<{
-        title: string;
-        description: string;
-        targetUser: string;
-        monetization: string;
-        score: number;
-        rationale: string;
-      }> | undefined;
-
-      // Create a report with the generated ideas
-      await prisma.report.create({
-        data: {
-          ideaId: job.ideaId,
-          agentName: "idea-generator",
-          title: "Ideas generadas por IA",
-          content: JSON.stringify(output),
-        },
-      });
-
-      // Update the idea with the first generated idea's details
-      if (ideas && ideas.length > 0) {
-        const first = ideas[0];
-        await prisma.idea.update({
-          where: { id: job.ideaId },
-          data: {
-            title: first.title,
-            description: first.description,
-            targetUser: first.targetUser,
-            monetization: first.monetization,
-            score: first.score,
-            status: "DRAFT",
-          },
-        });
-      } else {
-        await prisma.idea.update({
-          where: { id: job.ideaId },
-          data: { status: "DRAFT" },
-        });
-      }
-
-      return NextResponse.json({ success: true });
-    }
 
     // ── Validation agent callback (skeptic / advocate / judge) ──
 
