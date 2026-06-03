@@ -48,7 +48,7 @@ export default function DashboardLayout({
     : session?.user?.email?.charAt(0).toUpperCase() ?? "?";
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen overflow-x-hidden">
       {/* ── Mobile overlay ── */}
       {mobileOpen && (
         <div
@@ -137,7 +137,7 @@ export default function DashboardLayout({
       </div>
 
       {/* ── Main content ── */}
-      <main className="flex-1 pt-14 md:pt-0 md:pl-64">
+      <main className="flex-1 pt-14 md:pt-0 md:pl-64 overflow-x-hidden">
         <div className="mx-auto max-w-5xl p-4 md:p-8">{children}</div>
       </main>
     </div>
