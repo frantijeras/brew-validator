@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { List, Heart, Archive } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { BUSINESS_MODELS } from "@/lib/business-models";
 import { IdeaCard } from "@/components/idea-card";
+import { IdeasAutoRefresh } from "./auto-refresh";
+import { IdeasToolbar } from "./ideas-toolbar";
 
 export const dynamic = "force-dynamic";
 
@@ -46,8 +46,12 @@ export default async function IdeasPage({ searchParams }: Props) {
         ? "Archivadas"
         : "Todas";
 
+  const hasGenerating = ideas.some((i) => i.status === "GENERATING");
+
   return (
     <div>
+      <IdeasAutoRefresh hasGenerating={hasGenerating} />
+
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -67,44 +71,8 @@ export default async function IdeasPage({ searchParams }: Props) {
         </Link>
       </div>
 
-      {/* Tabs */}
-      <div className="mb-4 flex gap-1 rounded-xl border border-slate-800 bg-slate-900/50 p-1">
-        <TabLink
-          href={activeModel ? `/ideas?model=${activeModel}` : "/ideas"}
-          active={activeTab === "all"}
-          icon={<List className="size-4" />}
-          label="Todas"
-        />
-        <TabLink
-          href={activeModel ? `/ideas?tab=favorites&model=${activeModel}` : "/ideas?tab=favorites"}
-          active={activeTab === "favorites"}
-          icon={<Heart className="size-4" />}
-          label="Favoritas"
-        />
-        <TabLink
-          href={activeModel ? `/ideas?tab=archived&model=${activeModel}` : "/ideas?tab=archived"}
-          active={activeTab === "archived"}
-          icon={<Archive className="size-4" />}
-          label="Archivadas"
-        />
-      </div>
-
-      {/* Model filter */}
-      <div className="mb-6 flex flex-wrap gap-1.5">
-        <ModelFilterChip
-          href={buildHref(activeTab, "")}
-          active={!activeModel}
-          label="Todos los modelos"
-        />
-        {BUSINESS_MODELS.map((m) => (
-          <ModelFilterChip
-            key={m.value}
-            href={buildHref(activeTab, m.value)}
-            active={activeModel === m.value}
-            label={`${m.icon} ${m.label}`}
-          />
-        ))}
-      </div>
+      {/* Tabs + Filter toolbar */}
+      <IdeasToolbar activeTab={activeTab} activeModel={activeModel} />
 
       {/* Ideas grid */}
       {ideas.length === 0 ? (
@@ -139,34 +107,6 @@ export default async function IdeasPage({ searchParams }: Props) {
         </div>
       )}
     </div>
-  );
-}
-
-/* ── Tab link ── */
-
-function TabLink({
-  href,
-  active,
-  icon,
-  label,
-}: {
-  href: string;
-  active: boolean;
-  icon: React.ReactNode;
-  label: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className={`flex-1 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-        active
-          ? "bg-slate-800 text-white shadow-sm"
-          : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
-      }`}
-    >
-      {icon}
-      {label}
-    </Link>
   );
 }
 
@@ -205,33 +145,4 @@ interface IdeaCardData {
   updatedAt: Date;
 }
 
-function buildHref(tab: Tab, model: string): string {
-  const params = new URLSearchParams();
-  if (tab !== "all") params.set("tab", tab);
-  if (model) params.set("model", model);
-  const qs = params.toString();
-  return qs ? `/ideas?${qs}` : "/ideas";
-}
 
-function ModelFilterChip({
-  href,
-  active,
-  label,
-}: {
-  href: string;
-  active: boolean;
-  label: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-all ${
-        active
-          ? "bg-amber-500/15 border-amber-500/40 text-amber-400"
-          : "border-slate-700 bg-slate-900/60 text-slate-400 hover:border-slate-600 hover:text-slate-300"
-      }`}
-    >
-      {label}
-    </Link>
-  );
-}

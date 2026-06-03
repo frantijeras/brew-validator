@@ -2,11 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 
-const messageSchema = z.object({
-  message: z.string().min(1, "El mensaje no puede estar vacío"),
-  mode: z.enum(["chat"]).optional(),
+// ── Schema: manual mode with structured fields ──
+const manualFieldsSchema = z.object({
+  mode: z.literal("manual"),
+  title: z.string().min(3).optional(),
+  description: z.string().min(10).optional(),
+  problem: z.string().optional(),
+  valueProposition: z.string().optional(),
+  targetUser: z.string().min(3).optional(),
+  monetization: z.string().min(3).optional(),
 });
 
+// ── Schema: manual mode with raw text ──
+const manualRawSchema = z.object({
+  mode: z.literal("manual"),
+  rawText: z.string().min(10, "El texto debe tener al menos 10 caracteres"),
+});
+
+// ── Schema: quiz mode ──
 const quizSchema = z.object({
   mode: z.literal("quiz"),
   currentQuestion: z.number().int().min(0).max(6),
@@ -18,7 +31,7 @@ const quizSchema = z.object({
   ),
 });
 
-const refineSchema = z.union([messageSchema, quizSchema]);
+const refineSchema = z.union([manualFieldsSchema, manualRawSchema, quizSchema]);
 
 const REFINER_AGENT = "brew-qa-refiner";
 
@@ -37,13 +50,18 @@ export async function POST(
       return NextResponse.json({ error: "Idea no encontrada" }, { status: 404 });
     }
 
-    // ── Quiz mode ──
-    if (parsed.mode === "quiz") {
-      return handleQuizMode(idea, parsed);
+    // ── Manual mode (structured fields) ──
+    if (parsed.mode === "manual" && "rawText" in parsed === false) {
+      return handleManualMode(idea, parsed);
     }
 
-    // ── Chat mode (legacy) ──
-    return handleChatMode(idea, parsed);
+    // ── Manual mode (raw text) ──
+    if (parsed.mode === "manual" && "rawText" in parsed) {
+      return handleManualRawMode(idea, parsed);
+    }
+
+    // ── Quiz mode ──
+    return handleQuizMode(idea, parsed);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -60,14 +78,85 @@ export async function POST(
   }
 }
 
+// ── Manual mode (structured fields): update idea directly + save IdeaVersion ──
+async function handleManualMode(
+  idea: { id: string; title: string; description: string; problem: string | null; valueProposition: string | null; targetUser: string; monetization: string },
+  input: z.infer<typeof manualFieldsSchema>
+) {
+  const updateData: Record<string, unknown> = {};
+
+  if (input.title) updateData.title = input.title;
+  if (input.description) updateData.description = input.description;
+  if (input.problem !== undefined) updateData.problem = input.problem;
+  if (input.valueProposition !== undefined) updateData.valueProposition = input.valueProposition;
+  if (input.targetUser) updateData.targetUser = input.targetUser;
+  if (input.monetization) updateData.monetization = input.monetization;
+
+  // Only update if there are actual changes
+  if (Object.keys(updateData).length === 0) {
+    return NextResponse.json({ error: "No hay campos para actualizar" }, { status: 400 });
+  }
+
+  // Save previous version
+  await prisma.ideaVersion.create({
+    data: {
+      ideaId: idea.id,
+      title: idea.title,
+      description: idea.description,
+      targetUser: idea.targetUser,
+      monetization: idea.monetization,
+      phase: "pre-validation",
+    },
+  });
+
+  // Update the idea
+  const updated = await prisma.idea.update({
+    where: { id: idea.id },
+    data: updateData,
+  });
+
+  return NextResponse.json({ success: true, idea: updated });
+}
+
+// ── Manual mode (raw text): update description + save IdeaVersion ──
+async function handleManualRawMode(
+  idea: { id: string; title: string; description: string; problem: string | null; valueProposition: string | null; targetUser: string; monetization: string },
+  input: z.infer<typeof manualRawSchema>
+) {
+  // Save previous version
+  await prisma.ideaVersion.create({
+    data: {
+      ideaId: idea.id,
+      title: idea.title,
+      description: idea.description,
+      targetUser: idea.targetUser,
+      monetization: idea.monetization,
+      phase: "pre-validation",
+    },
+  });
+
+  // Update the idea with the raw text as new description
+  const updated = await prisma.idea.update({
+    where: { id: idea.id },
+    data: {
+      description: input.rawText.trim(),
+    },
+  });
+
+  return NextResponse.json({ success: true, idea: updated });
+}
+
+// ── Quiz mode ──
 async function handleQuizMode(
-  idea: { id: string; title: string; description: string; targetUser: string; monetization: string },
+  idea: { id: string; title: string; description: string; problem: string | null; valueProposition: string | null; targetUser: string; monetization: string },
   input: z.infer<typeof quizSchema>
 ) {
   const jobInput = {
     idea: {
       title: idea.title,
       description: idea.description,
+      problem: idea.problem,
+      valueProposition: idea.valueProposition,
       targetUser: idea.targetUser,
       monetization: idea.monetization,
     },
@@ -92,90 +181,7 @@ async function handleQuizMode(
   });
 }
 
-async function handleChatMode(
-  idea: { id: string; title: string; description: string; targetUser: string; monetization: string },
-  input: z.infer<typeof messageSchema>
-) {
-  // Look for existing RUNNING or PENDING job for this idea + agent
-  const existingJob = await prisma.job.findFirst({
-    where: {
-      ideaId: idea.id,
-      agentName: REFINER_AGENT,
-      status: { in: ["PENDING", "RUNNING"] },
-    },
-  });
-
-  let job = existingJob;
-  let conversationHistory: Array<{ role: string; content: string }> = [];
-
-  if (job) {
-    try {
-      const prevInput = job.input ? JSON.parse(job.input) : {};
-      conversationHistory = prevInput.conversationHistory || [];
-    } catch {
-      conversationHistory = [];
-    }
-
-    try {
-      if (job.output) {
-        const prevOutput = JSON.parse(job.output);
-        if (prevOutput.status === "DONE") {
-          return NextResponse.json({
-            status: "DONE",
-            message: prevOutput.summary || "Refinamiento completado",
-            summary: prevOutput.summary,
-            title: prevOutput.title,
-            description: prevOutput.description,
-            targetUser: prevOutput.targetUser,
-            monetization: prevOutput.monetization,
-            jobId: job.id,
-          });
-        }
-      }
-    } catch {
-      // output not valid JSON yet
-    }
-  }
-
-  conversationHistory.push({ role: "user", content: input.message });
-
-  const jobInput = {
-    idea: {
-      title: idea.title,
-      description: idea.description,
-      targetUser: idea.targetUser,
-      monetization: idea.monetization,
-    },
-    conversationHistory,
-    mode: "chat",
-  };
-
-  if (!job) {
-    job = await prisma.job.create({
-      data: {
-        ideaId: idea.id,
-        agentName: REFINER_AGENT,
-        status: "PENDING",
-        input: JSON.stringify(jobInput),
-      },
-    });
-  } else {
-    job = await prisma.job.update({
-      where: { id: job.id },
-      data: {
-        input: JSON.stringify(jobInput),
-        status: "PENDING",
-      },
-    });
-  }
-
-  return NextResponse.json({
-    status: "RUNNING",
-    message: "Procesando tu respuesta...",
-    jobId: job.id,
-  });
-}
-
+// ── GET: poll job status ──
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -210,6 +216,8 @@ export async function GET(
         summary: outputData.summary,
         title: outputData.title,
         description: outputData.description,
+        problem: outputData.problem,
+        valueProposition: outputData.valueProposition,
         targetUser: outputData.targetUser,
         monetization: outputData.monetization,
         jobId: job.id,

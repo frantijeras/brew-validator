@@ -61,6 +61,8 @@ model Idea {
   id               String   @id @default(cuid())
   title            String
   description      String
+  problem          String?
+  valueProposition  String?
   targetUser       String
   monetization     String
   status           String   @default("DRAFT")

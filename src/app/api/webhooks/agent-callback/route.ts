@@ -76,6 +76,8 @@ export async function POST(req: NextRequest) {
     if (isGeneratorAgent) {
       const title = (output.title as string) || "";
       const description = (output.description as string) || "";
+      const problem = (output.problem as string) || "";
+      const valueProposition = (output.valueProposition as string) || "";
       const targetUser = (output.targetUser as string) || "";
       const monetization = (output.monetization as string) || "";
 
@@ -85,6 +87,8 @@ export async function POST(req: NextRequest) {
           data: {
             title,
             description,
+            problem: problem || null,
+            valueProposition: valueProposition || null,
             targetUser: targetUser || "Por determinar",
             monetization: monetization || "Por determinar",
             status: "DRAFT",
@@ -113,6 +117,8 @@ export async function POST(req: NextRequest) {
         // Update the idea with refined data
         const newTitle = (output.title as string) || "";
         const newDescription = (output.description as string) || "";
+        const newProblem = (output.problem as string) || "";
+        const newValueProposition = (output.valueProposition as string) || "";
         const newTargetUser = (output.targetUser as string) || "";
         const newMonetization = (output.monetization as string) || "";
 
@@ -135,14 +141,18 @@ export async function POST(req: NextRequest) {
             });
           }
 
+          const updateData: Record<string, unknown> = {
+            title: newTitle,
+            description: newDescription,
+            targetUser: newTargetUser || "Por determinar",
+            monetization: newMonetization || "Por determinar",
+          };
+          if (newProblem) updateData.problem = newProblem;
+          if (newValueProposition) updateData.valueProposition = newValueProposition;
+
           await prisma.idea.update({
             where: { id: job.ideaId },
-            data: {
-              title: newTitle,
-              description: newDescription,
-              targetUser: newTargetUser || "Por determinar",
-              monetization: newMonetization || "Por determinar",
-            },
+            data: updateData,
           });
         }
       }

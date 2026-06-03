@@ -14,6 +14,8 @@ interface IdeaData {
   id: string;
   title: string;
   description: string;
+  problem: string | null;
+  valueProposition: string | null;
   originalIdea: string | null;
   targetUser: string;
   monetization: string;
@@ -51,12 +53,8 @@ export default function IdeaDetailPage() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [favPending, setFavPending] = useState(false);
   const [archPending, setArchPending] = useState(false);
-  const [reformulating, setReformulating] = useState(false);
-  const [reformulatePrompt, setReformulatePrompt] = useState("");
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showReformulate, setShowReformulate] = useState(false);
-  const [showReformulateWarningModal, setShowReformulateWarningModal] = useState(false);
   const [showRefineQuiz, setShowRefineQuiz] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -146,42 +144,6 @@ export default function IdeaDetailPage() {
       setApiError(err instanceof Error ? err.message : "Error");
     } finally {
       setValidating(false);
-    }
-  }
-
-  function openReformulate() {
-    if (isCompleted) {
-      setShowReformulateWarningModal(true);
-    } else {
-      setShowReformulate(true);
-      setReformulatePrompt("");
-    }
-    setShowMenu(false);
-  }
-
-  async function handleReformulate() {
-    if (!reformulatePrompt.trim()) return;
-    setReformulating(true);
-    setApiError("");
-    try {
-      const res = await fetch(`/api/ideas/${ideaId}/reformulate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ prompt: reformulatePrompt }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Error al reformular");
-      }
-      const updated = await res.json();
-      setIdea(updated);
-      setReformulatePrompt("");
-      setShowReformulate(false);
-    } catch (err) {
-      setApiError(err instanceof Error ? err.message : "Error");
-    } finally {
-      setReformulating(false);
     }
   }
 
@@ -366,17 +328,6 @@ export default function IdeaDetailPage() {
                       )
                     )}
 
-                    {/* Reformulate */}
-                    {(idea.status === "DRAFT" || isCompleted) && (
-                      <button
-                        onClick={openReformulate}
-                        className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
-                      >
-                        <EditIcon />
-                        Reformular
-                      </button>
-                    )}
-
                     {/* Separator */}
                     <div className="my-1 border-t border-slate-700" />
 
@@ -427,15 +378,6 @@ export default function IdeaDetailPage() {
                   )}
                 </button>
               )}
-              {(idea.status === "DRAFT" || isCompleted) && (
-                <button
-                  onClick={openReformulate}
-                  className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-200 shadow transition-all hover:border-slate-600 hover:bg-slate-700 active:bg-slate-900"
-                >
-                  <EditIcon />
-                  Reformular
-                </button>
-              )}
               {idea.status === "DRAFT" && (
                 <button
                   onClick={() => setShowRefineQuiz(true)}
@@ -453,56 +395,6 @@ export default function IdeaDetailPage() {
               </div>
             )}
 
-            {/* Reformulate form */}
-            {showReformulate && (
-              <div className="mt-6 rounded-lg border border-slate-700 bg-slate-900 p-5">
-                <h3 className="text-base font-semibold text-white mb-4">
-                  Reformular idea
-                </h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-400 mb-1.5">
-                      Que quieres cambiar?
-                    </label>
-                    <textarea
-                      value={reformulatePrompt}
-                      onChange={(e) => setReformulatePrompt(e.target.value)}
-                      placeholder="Describe los cambios que quieres hacer a la idea..."
-                      rows={3}
-                      className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/50 focus:outline-none resize-none"
-                    />
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={handleReformulate}
-                      disabled={reformulating || !reformulatePrompt.trim()}
-                      className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {reformulating ? (
-                        <>
-                          <Spinner />
-                          Reformulando...
-                        </>
-                      ) : (
-                        <>
-                          <RefreshIcon />
-                          Aplicar reformulacion
-                        </>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setReformulatePrompt("");
-                        setShowReformulate(false);
-                      }}
-                      className="text-sm text-slate-400 hover:text-slate-200 transition-colors"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -514,6 +406,8 @@ export default function IdeaDetailPage() {
           id: idea.id,
           title: idea.title,
           description: idea.description,
+          problem: idea.problem,
+          valueProposition: idea.valueProposition,
           targetUser: idea.targetUser,
           monetization: idea.monetization,
         }}
@@ -646,19 +540,6 @@ export default function IdeaDetailPage() {
         onCancel={() => setShowDeleteModal(false)}
       />
 
-      <ConfirmModal
-        open={showReformulateWarningModal}
-        title="Reformular idea"
-        message="Al reformular una idea ya validada, se perderan los resultados anteriores. Continuar?"
-        confirmText="Continuar"
-        variant="default"
-        onConfirm={() => {
-          setShowReformulateWarningModal(false);
-          setShowReformulate(true);
-          setReformulatePrompt("");
-        }}
-        onCancel={() => setShowReformulateWarningModal(false)}
-      />
     </div>
   );
 }
@@ -787,21 +668,4 @@ function SparklesIcon() {
   );
 }
 
-function EditIcon() {
-  return (
-    <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-    </svg>
-  );
-}
 
-function RefreshIcon() {
-  return (
-    <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="23 4 23 10 17 10" />
-      <polyline points="1 20 1 14 7 14" />
-      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-    </svg>
-  );
-}

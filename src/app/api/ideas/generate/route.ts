@@ -37,6 +37,8 @@ export async function POST(req: NextRequest) {
             targetUser: data.targetUser?.trim() || "",
             hints: data.hints?.trim() || "",
             businessModel: data.businessModel?.trim() || undefined,
+            problem: "Por determinar",
+            valueProposition: "Por determinar",
           };
 
     const placeholderTitle =
@@ -58,11 +60,15 @@ export async function POST(req: NextRequest) {
       ideaData.description = data.rawIdea.trim();
       ideaData.targetUser = data.targetUser?.trim() || "Por determinar";
       ideaData.monetization = "Por determinar";
+      ideaData.problem = "Por determinar";
+      ideaData.valueProposition = "Por determinar";
       ideaData.originalIdea = data.rawIdea.trim();
     } else {
       ideaData.description = "Buscando tendencias de mercado…";
       ideaData.targetUser = "Por determinar";
       ideaData.monetization = "Por determinar";
+      ideaData.problem = "Por determinar";
+      ideaData.valueProposition = "Por determinar";
     }
 
     const idea = await prisma.idea.create({

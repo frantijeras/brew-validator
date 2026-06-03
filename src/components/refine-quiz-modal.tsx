@@ -17,6 +17,8 @@ import {
   MessageSquare,
   ThumbsUp,
   ThumbsDown,
+  Edit3,
+  Bot,
 } from "lucide-react";
 
 interface QuizAnswer {
@@ -27,6 +29,8 @@ interface QuizAnswer {
 interface RefineResult {
   title: string;
   description: string;
+  problem: string;
+  valueProposition: string;
   targetUser: string;
   monetization: string;
   summary: string;
@@ -43,6 +47,8 @@ interface IdeaInput {
   id: string;
   title: string;
   description: string;
+  problem: string | null;
+  valueProposition: string | null;
   targetUser: string;
   monetization: string;
 }
@@ -54,16 +60,9 @@ interface RefineQuizModalProps {
   onApplied: () => void;
 }
 
-type Screen = "intro" | "quiz" | "result" | "applied";
+type Screen = "choice" | "manual" | "quiz" | "result" | "applied";
 
-const QUESTION_AREAS = [
-  { icon: Users, label: "Quien paga" },
-  { icon: Search, label: "Demanda real" },
-  { icon: Target, label: "Diferenciacion" },
-  { icon: TrendingUp, label: "Primeros usuarios" },
-  { icon: Lightbulb, label: "Disposicion a pagar" },
-  { icon: AlertTriangle, label: "Mayor riesgo" },
-];
+const QUESTION_ICONS = [Users, Search, Target, TrendingUp, Lightbulb, AlertTriangle];
 
 export default function RefineQuizModal({
   open,
@@ -71,7 +70,7 @@ export default function RefineQuizModal({
   onClose,
   onApplied,
 }: RefineQuizModalProps) {
-  const [screen, setScreen] = useState<Screen>("intro");
+  const [screen, setScreen] = useState<Screen>("choice");
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<QuizAnswer[]>([]);
   const [loading, setLoading] = useState(false);
@@ -80,6 +79,9 @@ export default function RefineQuizModal({
   const [quizQuestion, setQuizQuestion] = useState<QuizQuestion | null>(null);
   const [refineResult, setRefineResult] = useState<RefineResult | null>(null);
   const [applying, setApplying] = useState(false);
+
+  // Manual mode state
+  const [manualText, setManualText] = useState("");
 
   // Current answer state for the active question
   const [ynAnswer, setYnAnswer] = useState<"yes" | "no" | null>(null);
@@ -92,7 +94,7 @@ export default function RefineQuizModal({
   // Reset state when modal opens
   useEffect(() => {
     if (open) {
-      setScreen("intro");
+      setScreen("choice");
       setCurrentQuestionIndex(0);
       setAnswers([]);
       setLoading(false);
@@ -101,6 +103,7 @@ export default function RefineQuizModal({
       setQuizQuestion(null);
       setRefineResult(null);
       setApplying(false);
+      setManualText("");
       setYnAnswer(null);
       setCustomAnswer("");
       setTextAnswer("");
@@ -183,6 +186,8 @@ export default function RefineQuizModal({
           setRefineResult({
             title: data.title || "",
             description: data.description || "",
+            problem: data.problem || "",
+            valueProposition: data.valueProposition || "",
             targetUser: data.targetUser || "",
             monetization: data.monetization || "",
             summary: data.summary || data.message || "",
@@ -293,8 +298,42 @@ export default function RefineQuizModal({
     }
   }
 
+  // ── Manual mode ──
+
+  async function handleManualApply() {
+    if (!manualText.trim()) return;
+    setApplying(true);
+    setError("");
+
+    try {
+      const res = await fetch(`/api/ideas/${idea.id}/refine`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          mode: "manual",
+          rawText: manualText.trim(),
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Error al aplicar cambios");
+      }
+
+      setScreen("applied");
+      onApplied();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al aplicar cambios");
+    } finally {
+      setApplying(false);
+    }
+  }
+
+  // ── Quiz result apply ──
+
   function handleRestart() {
-    setScreen("intro");
+    setScreen("choice");
     setCurrentQuestionIndex(0);
     setAnswers([]);
     setLoading(false);
@@ -303,23 +342,27 @@ export default function RefineQuizModal({
     setQuizQuestion(null);
     setRefineResult(null);
     setApplying(false);
+    setManualText("");
     resetQuestionState();
   }
 
-  async function handleApply() {
+  async function handleApplyResult() {
     if (!refineResult) return;
     setApplying(true);
     setError("");
 
     try {
       // Update the idea
-      const patchRes = await fetch(`/api/ideas/${idea.id}`, {
-        method: "PATCH",
+      const patchRes = await fetch(`/api/ideas/${idea.id}/refine`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
         body: JSON.stringify({
+          mode: "manual",
           title: refineResult.title,
           description: refineResult.description,
+          problem: refineResult.problem,
+          valueProposition: refineResult.valueProposition,
           targetUser: refineResult.targetUser,
           monetization: refineResult.monetization,
         }),
@@ -329,19 +372,6 @@ export default function RefineQuizModal({
         const data = await patchRes.json();
         throw new Error(data.error || "Error al aplicar cambios");
       }
-
-      // Save IdeaVersion
-      await fetch(`/api/ideas/${idea.id}/refine/apply`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({
-          title: refineResult.title,
-          description: refineResult.description,
-          targetUser: refineResult.targetUser,
-          monetization: refineResult.monetization,
-        }),
-      });
 
       setScreen("applied");
       onApplied();
@@ -370,7 +400,9 @@ export default function RefineQuizModal({
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
           <div className="flex items-center gap-2.5">
             <Sparkles className="size-5 text-amber-400" />
-            <h2 className="text-lg font-semibold text-white">Refinar idea</h2>
+            <h2 className="text-lg font-semibold text-white">
+              {screen === "manual" ? "Escribir refinamiento" : "Refinar idea"}
+            </h2>
           </div>
           <button
             onClick={onClose}
@@ -389,51 +421,118 @@ export default function RefineQuizModal({
             </div>
           )}
 
-          {/* ── Intro Screen ── */}
-          {screen === "intro" && (
+          {/* ── Choice Screen ── */}
+          {screen === "choice" && (
             <div>
-              <div className="mb-6">
-                <h3 className="text-base font-medium text-slate-300 mb-4">
-                  Antes de refinar, responderas 6 preguntas clave sobre tu idea:
-                </h3>
+              <p className="text-sm text-slate-400 mb-4">
+                Elige cómo quieres refinar tu idea:
+              </p>
 
-                {/* Idea data preview */}
-                <div className="rounded-lg border border-slate-800 bg-slate-800/50 p-4 mb-5">
-                  <p className="text-sm font-medium text-white">{idea.title}</p>
-                  <p className="mt-1 text-sm text-slate-400 line-clamp-2">
-                    {idea.description}
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs">
+              {/* Current idea data */}
+              <div className="rounded-lg border border-slate-800 bg-slate-800/50 p-4 mb-6">
+                <p className="text-sm font-medium text-white">{idea.title}</p>
+                <p className="mt-1 text-sm text-slate-400 line-clamp-2">
+                  {idea.description}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                  {idea.targetUser && (
                     <span className="rounded-full border border-slate-700 px-2.5 py-0.5 text-slate-400">
                       {idea.targetUser}
                     </span>
-                    <span className="rounded-full border border-slate-700 px-2.5 py-0.5 text-slate-400">
-                      {idea.monetization}
-                    </span>
-                  </div>
+                  )}
+                  <span className="rounded-full border border-slate-700 px-2.5 py-0.5 text-slate-400">
+                    {idea.monetization}
+                  </span>
                 </div>
-
-                {/* Question area chips */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                  {QUESTION_AREAS.map((area, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/30 px-3 py-2.5 text-sm"
-                    >
-                      <area.icon className="size-4 text-amber-400 shrink-0" />
-                      <span className="text-slate-300">{area.label}</span>
-                    </div>
-                  ))}
-                </div>
+                {idea.problem && (
+                  <p className="mt-3 text-xs text-slate-500">
+                    <span className="font-medium">Problema:</span> {idea.problem}
+                  </p>
+                )}
               </div>
 
-              <button
-                onClick={startQuiz}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-3 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600"
-              >
-                Comenzar
-                <ArrowRight className="size-4" />
-              </button>
+              {/* Two action buttons */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  onClick={() => setScreen("manual")}
+                  className="flex flex-col items-center gap-3 rounded-xl border border-slate-700 bg-slate-800/50 p-6 text-left transition-all hover:border-slate-600 hover:bg-slate-800 active:bg-slate-900"
+                >
+                  <div className="rounded-full bg-amber-500/10 p-3">
+                    <Edit3 className="size-6 text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-white">
+                      ✏️ Escribir mi refinamiento
+                    </p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      Edita directamente el texto de la idea como prefieras
+                    </p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={startQuiz}
+                  className="flex flex-col items-center gap-3 rounded-xl border border-slate-700 bg-slate-800/50 p-6 text-left transition-all hover:border-slate-600 hover:bg-slate-800 active:bg-slate-900"
+                >
+                  <div className="rounded-full bg-amber-500/10 p-3">
+                    <Bot className="size-6 text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-white">
+                      🤖 Responder preguntas
+                    </p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      La IA te guía con preguntas para mejorar la idea
+                    </p>
+                  </div>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Manual Screen ── */}
+          {screen === "manual" && (
+            <div>
+              <p className="text-sm text-slate-400 mb-4">
+                Escribe cómo quieres refinar la idea. Se guardará una versión automáticamente.
+              </p>
+
+              <textarea
+                value={manualText}
+                onChange={(e) => setManualText(e.target.value)}
+                placeholder={`Describe los cambios que quieres hacer a "${idea.title}"...`}
+                rows={8}
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-slate-200 placeholder:text-slate-500 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/50 focus:outline-none resize-none"
+              />
+
+              <div className="mt-4 flex items-center gap-3">
+                <button
+                  onClick={handleManualApply}
+                  disabled={applying || !manualText.trim()}
+                  className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {applying ? (
+                    <>
+                      <Spinner />
+                      Aplicando...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="size-4" />
+                      Aplicar
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    setManualText("");
+                    setScreen("choice");
+                  }}
+                  className="text-sm text-slate-400 hover:text-slate-200 transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
             </div>
           )}
 
@@ -444,7 +543,7 @@ export default function RefineQuizModal({
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Pregunta {quizQuestion ? quizQuestion.questionNumber : currentQuestionIndex + 1} de 6
+                    Pregunta {quizQuestion ? quizQuestion.questionNumber : currentQuestionIndex + 1} de {quizQuestion?.totalQuestions || 6}
                   </span>
                   <span className="text-xs font-medium text-amber-400">
                     {quizQuestion
@@ -503,7 +602,7 @@ export default function RefineQuizModal({
                           }`}
                         >
                           <ThumbsUp className="size-4" />
-                          Si
+                          Sí
                         </button>
                         <button
                           onClick={() => {
@@ -521,7 +620,6 @@ export default function RefineQuizModal({
                         </button>
                       </div>
 
-                      {/* Custom answer toggle */}
                       {!showCustom ? (
                         <button
                           onClick={() => setShowCustom(true)}
@@ -534,7 +632,7 @@ export default function RefineQuizModal({
                           <textarea
                             value={customAnswer}
                             onChange={(e) => setCustomAnswer(e.target.value)}
-                            placeholder="Explica tu respuesta con mas detalle..."
+                            placeholder="Explica tu respuesta con más detalle..."
                             rows={3}
                             className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/50 focus:outline-none resize-none"
                           />
@@ -597,22 +695,33 @@ export default function RefineQuizModal({
 
               {/* Before / After comparison cards */}
               <div className="space-y-4 mb-6">
-                {/* Title */}
                 <ComparisonCard
-                  label="Titulo"
+                  label="Título"
                   before={idea.title}
                   after={refineResult.title}
                 />
-
-                {/* Description */}
                 <ComparisonCard
-                  label="Descripcion"
+                  label="Descripción"
                   before={idea.description}
                   after={refineResult.description}
                   multiline
                 />
-
-                {/* Target user */}
+                {refineResult.problem && (
+                  <ComparisonCard
+                    label="Problema"
+                    before={idea.problem || "—"}
+                    after={refineResult.problem}
+                    multiline
+                  />
+                )}
+                {refineResult.valueProposition && (
+                  <ComparisonCard
+                    label="Propuesta de valor"
+                    before={idea.valueProposition || "—"}
+                    after={refineResult.valueProposition}
+                    multiline
+                  />
+                )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <ComparisonCard
                     label="Usuario objetivo"
@@ -620,7 +729,7 @@ export default function RefineQuizModal({
                     after={refineResult.targetUser}
                   />
                   <ComparisonCard
-                    label="Monetizacion"
+                    label="Monetización"
                     before={idea.monetization}
                     after={refineResult.monetization}
                   />
@@ -630,7 +739,7 @@ export default function RefineQuizModal({
               {/* Action buttons */}
               <div className="flex items-center gap-3">
                 <button
-                  onClick={handleApply}
+                  onClick={handleApplyResult}
                   disabled={applying}
                   className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -667,7 +776,7 @@ export default function RefineQuizModal({
                 Cambios aplicados
               </h3>
               <p className="text-sm text-slate-400 mb-6">
-                La idea ha sido actualizada con la version refinada.
+                La idea ha sido actualizada con la versión refinada.
               </p>
               <button
                 onClick={onClose}
@@ -716,7 +825,7 @@ function ComparisonCard({
         </div>
         <div className="p-3 bg-amber-500/[0.03]">
           <span className="text-[10px] font-medium text-amber-500/70 uppercase tracking-wider">
-            Despues
+            Después
           </span>
           <p
             className={`mt-1 text-sm text-slate-200 ${multiline ? "" : "truncate"}`}
