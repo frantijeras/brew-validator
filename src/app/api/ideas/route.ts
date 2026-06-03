@@ -14,13 +14,25 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const data = createIdeaSchema.parse(body);
 
-    const idea = await prisma.idea.create({
+    const ideaData = {
+      title: data.title,
+      description: data.description,
+      originalIdea: data.description,
+      targetUser: data.targetUser,
+      monetization: data.monetization,
+    };
+
+    const idea = await prisma.idea.create({ data: ideaData });
+
+    // Auto-create initial version
+    await prisma.ideaVersion.create({
       data: {
-        title: data.title,
-        description: data.description,
-        originalIdea: data.description,
-        targetUser: data.targetUser,
-        monetization: data.monetization,
+        ideaId: idea.id,
+        title: ideaData.title,
+        description: ideaData.description,
+        targetUser: ideaData.targetUser,
+        monetization: ideaData.monetization,
+        phase: "initial",
       },
     });
 

@@ -12,6 +12,7 @@ const callbackSchema = z.object({
 
 const VALIDATION_AGENTS = ["skeptic", "advocate", "judge"];
 const GENERATOR_AGENT = "idea-generator";
+const REFINER_AGENT = "brew-qa-refiner";
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,6 +26,7 @@ export async function POST(req: NextRequest) {
 
     const isValidationAgent = VALIDATION_AGENTS.includes(job.agentName);
     const isGeneratorAgent = job.agentName === GENERATOR_AGENT;
+    const isRefinerAgent = job.agentName === REFINER_AGENT;
 
     if (data.status === "FAILED") {
       await prisma.job.update({
@@ -99,6 +101,52 @@ export async function POST(req: NextRequest) {
           },
         });
       }
+
+      return NextResponse.json({ success: true });
+    }
+
+    // ── QA Refiner callback ──
+    if (isRefinerAgent) {
+      const agentStatus = (output.status as string) || "";
+
+      if (agentStatus === "DONE") {
+        // Update the idea with refined data
+        const newTitle = (output.title as string) || "";
+        const newDescription = (output.description as string) || "";
+        const newTargetUser = (output.targetUser as string) || "";
+        const newMonetization = (output.monetization as string) || "";
+
+        if (newTitle && newDescription) {
+          // Save previous version before updating
+          const currentIdea = await prisma.idea.findUnique({
+            where: { id: job.ideaId },
+            select: { title: true, description: true, targetUser: true, monetization: true },
+          });
+          if (currentIdea) {
+            await prisma.ideaVersion.create({
+              data: {
+                ideaId: job.ideaId,
+                title: currentIdea.title,
+                description: currentIdea.description,
+                targetUser: currentIdea.targetUser,
+                monetization: currentIdea.monetization,
+                phase: "pre-validation",
+              },
+            });
+          }
+
+          await prisma.idea.update({
+            where: { id: job.ideaId },
+            data: {
+              title: newTitle,
+              description: newDescription,
+              targetUser: newTargetUser || "Por determinar",
+              monetization: newMonetization || "Por determinar",
+            },
+          });
+        }
+      }
+      // For RUNNING status, just store the output so the UI can read it via GET /api/ideas/:id/refine
 
       return NextResponse.json({ success: true });
     }

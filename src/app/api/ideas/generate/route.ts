@@ -62,6 +62,18 @@ export async function POST(req: NextRequest) {
       data: ideaData as Parameters<typeof prisma.idea.create>[0]["data"],
     });
 
+    // Auto-create initial version
+    await prisma.ideaVersion.create({
+      data: {
+        ideaId: idea.id,
+        title: typeof ideaData.title === "string" ? ideaData.title : String(ideaData.title ?? ""),
+        description: typeof ideaData.description === "string" ? ideaData.description : String(ideaData.description ?? ""),
+        targetUser: typeof ideaData.targetUser === "string" ? ideaData.targetUser : String(ideaData.targetUser ?? "Por determinar"),
+        monetization: typeof ideaData.monetization === "string" ? ideaData.monetization : String(ideaData.monetization ?? "Por determinar"),
+        phase: "initial",
+      },
+    });
+
     // Create PENDING job for the idea-generator agent
     const job = await prisma.job.create({
       data: {

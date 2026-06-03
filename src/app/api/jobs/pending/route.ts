@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 
-const MONITORED_AGENTS = ["skeptic", "advocate", "judge", "idea-generator"];
+const MONITORED_AGENTS = ["skeptic", "advocate", "judge", "idea-generator", "brew-qa-refiner"];
 
 /**
  * GET /api/jobs/pending

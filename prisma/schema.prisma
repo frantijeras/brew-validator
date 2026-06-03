@@ -73,8 +73,9 @@ model Idea {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  jobs    Job[]
-  reports Report[]
+  jobs     Job[]
+  reports  Report[]
+  versions IdeaVersion[]
 }
 
 model Job {
@@ -104,4 +105,16 @@ model Report {
   scorecard String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model IdeaVersion {
+  id           String   @id @default(cuid())
+  ideaId       String
+  idea         Idea     @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  title        String
+  description  String
+  targetUser   String
+  monetization String
+  phase        String   @default("pre-validation")
+  createdAt    DateTime @default(now())
 }

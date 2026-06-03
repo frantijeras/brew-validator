@@ -84,8 +84,9 @@ export async function DELETE(
       return NextResponse.json({ error: "Idea no encontrada" }, { status: 404 });
     }
 
-    // Cascade: delete reports and jobs first, then the idea
+    // Cascade: delete versions, reports and jobs first, then the idea
     await prisma.$transaction([
+      prisma.ideaVersion.deleteMany({ where: { ideaId: id } }),
       prisma.report.deleteMany({ where: { ideaId: id } }),
       prisma.job.deleteMany({ where: { ideaId: id } }),
       prisma.idea.delete({ where: { id } }),
