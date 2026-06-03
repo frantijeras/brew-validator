@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { renderMarkdown } from "./markdown-renderer";
+import { translateVerdict } from "@/lib/translations";
 
 interface ReportData {
   id: string;
@@ -89,10 +90,12 @@ export function ReportViewer({ report }: ReportViewerProps) {
                   ? "text-amber-400 bg-amber-500/10 border-amber-500/30"
                   : report.verdict === "KILL"
                     ? "text-red-400 bg-red-500/10 border-red-500/30"
-                    : "text-slate-400 bg-slate-500/10 border-slate-500/30"
+                    : report.verdict === "ITERATE"
+                      ? "text-blue-400 bg-blue-500/10 border-blue-500/30"
+                      : "text-slate-400 bg-slate-500/10 border-slate-500/30"
             }`}
           >
-            {report.verdict}
+            {translateVerdict(report.verdict)}
           </span>
         )}
 
@@ -102,11 +105,11 @@ export function ReportViewer({ report }: ReportViewerProps) {
       {/* Content */}
       {open && (
         <div className="border-t border-slate-800 px-6 py-5">
-          {/* Scorecard table */}
+          {/* Tabla de puntuación */}
           {scorecard && scorecard.length > 0 && (
             <div className="mb-6">
               <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
-                Scorecard
+                Puntuación
               </h4>
               <div className="overflow-hidden rounded-lg border border-slate-700">
                 <table className="w-full text-sm">

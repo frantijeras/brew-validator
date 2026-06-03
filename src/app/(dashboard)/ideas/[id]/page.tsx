@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ValidationProgress } from "@/components/validation-progress";
 import { ReportViewer } from "@/components/report-viewer";
+import { translateVerdict, translateStatus } from "@/lib/translations";
 
 interface IdeaData {
   id: string;
@@ -16,6 +17,8 @@ interface IdeaData {
   validationStatus: string;
   verdict: string | null;
   score: number | null;
+  isFavorite: boolean;
+  isArchived: boolean;
   createdAt: string;
   updatedAt: string;
   reports: ReportData[];
@@ -42,6 +45,8 @@ export default function IdeaDetailPage() {
   const [validating, setValidating] = useState(false);
   const [apiError, setApiError] = useState("");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [favPending, setFavPending] = useState(false);
+  const [archPending, setArchPending] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchIdea = useCallback(async () => {
@@ -115,6 +120,44 @@ export default function IdeaDetailPage() {
     }
   }
 
+  async function toggleFavorite() {
+    if (!idea || favPending) return;
+    setFavPending(true);
+    const next = !idea.isFavorite;
+    setIdea({ ...idea, isFavorite: next });
+    try {
+      await fetch(`/api/ideas/${ideaId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ isFavorite: next }),
+      });
+    } catch {
+      setIdea({ ...idea, isFavorite: !next });
+    } finally {
+      setFavPending(false);
+    }
+  }
+
+  async function toggleArchive() {
+    if (!idea || archPending) return;
+    setArchPending(true);
+    const next = !idea.isArchived;
+    setIdea({ ...idea, isArchived: next });
+    try {
+      await fetch(`/api/ideas/${ideaId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ isArchived: next }),
+      });
+    } catch {
+      setIdea({ ...idea, isArchived: !next });
+    } finally {
+      setArchPending(false);
+    }
+  }
+
   // ── States ──
 
   if (loading) {
@@ -156,7 +199,7 @@ export default function IdeaDetailPage() {
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-start justify-between gap-4">
-          <div>
+          <div className="flex-1">
             <h1 className="text-3xl font-bold tracking-tight text-white">
               {idea.title}
             </h1>
@@ -176,6 +219,27 @@ export default function IdeaDetailPage() {
                   {elapsedStr}
                 </span>
               )}
+            </div>
+            {/* Favorite / Archive toggles */}
+            <div className="mt-3 flex items-center gap-2">
+              <button
+                onClick={toggleFavorite}
+                disabled={favPending}
+                className="rounded-md p-1 text-lg leading-none transition-colors hover:bg-slate-800 disabled:opacity-50"
+                title={idea.isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
+                aria-label={idea.isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
+              >
+                {idea.isFavorite ? "❤️" : "🤍"}
+              </button>
+              <button
+                onClick={toggleArchive}
+                disabled={archPending}
+                className="rounded-md p-1 text-lg leading-none transition-colors hover:bg-slate-800 disabled:opacity-50"
+                title={idea.isArchived ? "Desarchivar" : "Archivar"}
+                aria-label={idea.isArchived ? "Desarchivar" : "Archivar"}
+              >
+                {idea.isArchived ? "🗂️" : "📦"}
+              </button>
             </div>
           </div>
 
@@ -320,13 +384,14 @@ function getVerdictBadge(verdict: string | null) {
     GO: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30",
     PIVOT: "text-amber-400 bg-amber-500/10 border-amber-500/30",
     KILL: "text-red-400 bg-red-500/10 border-red-500/30",
+    ITERATE: "text-blue-400 bg-blue-500/10 border-blue-500/30",
   };
 
   return (
     <span
       className={`inline-block rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wider ${styles[verdict] || "text-slate-400 bg-slate-500/10 border-slate-500/30"}`}
     >
-      {verdict}
+      {translateVerdict(verdict)}
     </span>
   );
 }
@@ -340,14 +405,12 @@ function StatusBadge({
 }) {
   const label =
     validationStatus === "RUNNING"
-      ? "Validando"
+      ? "En progreso"
       : validationStatus === "DONE"
-        ? "Validado"
+        ? "Finalizado"
         : validationStatus === "FAILED"
-          ? "Error"
-          : status === "DRAFT"
-            ? "Borrador"
-            : status;
+          ? "Falló"
+          : translateStatus(status);
 
   const color =
     validationStatus === "RUNNING"

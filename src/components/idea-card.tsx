@@ -1,4 +1,8 @@
+"use client";
+
+import { useState, useCallback } from "react";
 import Link from "next/link";
+import { translateVerdict, translateStatus } from "@/lib/translations";
 
 interface IdeaCardProps {
   idea: {
@@ -8,12 +12,51 @@ interface IdeaCardProps {
     validationStatus: string;
     verdict: string | null;
     score: number | null;
+    isFavorite: boolean;
+    isArchived: boolean;
     createdAt: Date;
     updatedAt: Date;
   };
 }
 
 export function IdeaCard({ idea }: IdeaCardProps) {
+  const [isFavorite, setIsFavorite] = useState(idea.isFavorite);
+  const [isArchived, setIsArchived] = useState(idea.isArchived);
+
+  const toggleFavorite = useCallback(async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const next = !isFavorite;
+    setIsFavorite(next);
+    try {
+      await fetch(`/api/ideas/${idea.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ isFavorite: next }),
+      });
+    } catch {
+      setIsFavorite(!next);
+    }
+  }, [idea.id, isFavorite]);
+
+  const toggleArchive = useCallback(async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const next = !isArchived;
+    setIsArchived(next);
+    try {
+      await fetch(`/api/ideas/${idea.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ isArchived: next }),
+      });
+    } catch {
+      setIsArchived(!next);
+    }
+  }, [idea.id, isArchived]);
+
   const isDone = idea.verdict !== null;
   const verdictColor = idea.verdict === "GO"
     ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"
@@ -35,6 +78,10 @@ export function IdeaCard({ idea }: IdeaCardProps) {
     month: "short",
     year: "numeric",
   });
+
+  const badgeLabel = idea.verdict
+    ? translateVerdict(idea.verdict)
+    : translateStatus(idea.validationStatus || idea.status);
 
   return (
     <Link
@@ -62,7 +109,7 @@ export function IdeaCard({ idea }: IdeaCardProps) {
                     : "text-slate-400 bg-slate-500/10 border-slate-500/30"
             }`}
           >
-            {idea.verdict || idea.status || "DRAFT"}
+            {badgeLabel}
           </span>
         </div>
       </div>
@@ -81,6 +128,26 @@ export function IdeaCard({ idea }: IdeaCardProps) {
         {idea.validationStatus === "DONE" && !idea.verdict && (
           <span className="text-slate-400">Completado</span>
         )}
+      </div>
+
+      {/* Favorite / Archive toggles */}
+      <div className="mt-3 flex items-center gap-2">
+        <button
+          onClick={toggleFavorite}
+          className="rounded-md p-1 text-lg leading-none transition-colors hover:bg-slate-800"
+          title={isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
+          aria-label={isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
+        >
+          {isFavorite ? "❤️" : "🤍"}
+        </button>
+        <button
+          onClick={toggleArchive}
+          className="rounded-md p-1 text-lg leading-none transition-colors hover:bg-slate-800"
+          title={isArchived ? "Desarchivar" : "Archivar"}
+          aria-label={isArchived ? "Desarchivar" : "Archivar"}
+        >
+          {isArchived ? "🗂️" : "📦"}
+        </button>
       </div>
     </Link>
   );

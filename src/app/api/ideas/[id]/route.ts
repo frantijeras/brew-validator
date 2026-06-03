@@ -8,6 +8,8 @@ const updateIdeaSchema = z.object({
   targetUser: z.string().min(3).optional(),
   monetization: z.string().min(3).optional(),
   status: z.string().optional(),
+  isArchived: z.boolean().optional(),
+  isFavorite: z.boolean().optional(),
 });
 
 export async function GET(

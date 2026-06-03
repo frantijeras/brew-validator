@@ -4,21 +4,51 @@ import { IdeaCard } from "@/components/idea-card";
 
 export const dynamic = "force-dynamic";
 
-export default async function IdeasPage() {
+type Tab = "all" | "favorites" | "archived";
+
+interface Props {
+  searchParams: Promise<{ tab?: string }>;
+}
+
+export default async function IdeasPage({ searchParams }: Props) {
+  const { tab: rawTab } = await searchParams;
+  const activeTab: Tab =
+    rawTab === "favorites" ? "favorites" : rawTab === "archived" ? "archived" : "all";
+
+  const where =
+    activeTab === "favorites"
+      ? { isFavorite: true }
+      : activeTab === "archived"
+        ? { isArchived: true }
+        : { isArchived: false };
+
+  const orderBy =
+    activeTab === "all"
+      ? [{ isFavorite: "desc" as const }, { updatedAt: "desc" as const }]
+      : [{ updatedAt: "desc" as const }];
+
   const ideas = await prisma.idea.findMany({
-    orderBy: { updatedAt: "desc" },
+    where,
+    orderBy,
   });
+
+  const tabLabel =
+    activeTab === "favorites"
+      ? "Favoritas"
+      : activeTab === "archived"
+        ? "Archivadas"
+        : "Todas";
 
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-white">Ideas</h1>
           <p className="mt-1 text-sm text-slate-400">
             {ideas.length === 0
-              ? "Aún no hay ideas. ¡Crea la primera!"
-              : `${ideas.length} idea${ideas.length === 1 ? "" : "s"} registrada${ideas.length === 1 ? "" : "s"}`}
+              ? `No hay ideas en ${tabLabel.toLowerCase()}`
+              : `${ideas.length} idea${ideas.length === 1 ? "" : "s"} en ${tabLabel.toLowerCase()}`}
           </p>
         </div>
         <Link
@@ -30,19 +60,40 @@ export default async function IdeasPage() {
         </Link>
       </div>
 
+      {/* Tabs */}
+      <div className="mb-6 flex gap-1 rounded-xl border border-slate-800 bg-slate-900/50 p-1">
+        <TabLink href="/ideas" active={activeTab === "all"} label="Todas" />
+        <TabLink
+          href="/ideas?tab=favorites"
+          active={activeTab === "favorites"}
+          label="Favoritas ❤️"
+        />
+        <TabLink
+          href="/ideas?tab=archived"
+          active={activeTab === "archived"}
+          label="Archivadas 📦"
+        />
+      </div>
+
       {/* Ideas grid */}
       {ideas.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-700 bg-slate-900/50 py-16">
           <LightbulbIcon className="size-12 text-slate-600" />
           <p className="mt-4 text-sm text-slate-500">
-            No hay ideas todavía
+            {activeTab === "favorites"
+              ? "No hay ideas favoritas todavía"
+              : activeTab === "archived"
+                ? "No hay ideas archivadas"
+                : "No hay ideas todavía"}
           </p>
-          <Link
-            href="/ideas/new"
-            className="mt-4 text-sm font-medium text-amber-400 hover:text-amber-300 transition-colors"
-          >
-            Crear la primera idea →
-          </Link>
+          {activeTab === "all" && (
+            <Link
+              href="/ideas/new"
+              className="mt-4 text-sm font-medium text-amber-400 hover:text-amber-300 transition-colors"
+            >
+              Crear la primera idea →
+            </Link>
+          )}
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
@@ -52,6 +103,31 @@ export default async function IdeasPage() {
         </div>
       )}
     </div>
+  );
+}
+
+/* ── Tab link ── */
+
+function TabLink({
+  href,
+  active,
+  label,
+}: {
+  href: string;
+  active: boolean;
+  label: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`flex-1 rounded-lg px-4 py-2 text-center text-sm font-medium transition-colors ${
+        active
+          ? "bg-slate-800 text-white shadow-sm"
+          : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
+      }`}
+    >
+      {label}
+    </Link>
   );
 }
 
@@ -83,6 +159,8 @@ interface IdeaCardData {
   validationStatus: string;
   verdict: string | null;
   score: number | null;
+  isFavorite: boolean;
+  isArchived: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
