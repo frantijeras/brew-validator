@@ -36,22 +36,30 @@ export async function POST(req: NextRequest) {
             hints: data.hints?.trim() || "",
           };
 
-    // Create placeholder idea
     const placeholderTitle =
       data.mode === "random"
         ? "Generando idea aleatoria…"
         : data.rawIdea.trim().slice(0, 80);
 
+    const ideaData: Record<string, unknown> = {
+      title: placeholderTitle,
+      status: "GENERATING",
+      validationStatus: "PENDING",
+    };
+
+    if (data.mode === "custom") {
+      ideaData.description = data.rawIdea.trim();
+      ideaData.targetUser = data.targetUser?.trim() || "Por determinar";
+      ideaData.monetization = "Por determinar";
+      ideaData.originalIdea = data.rawIdea.trim();
+    } else {
+      ideaData.description = "Buscando tendencias de mercado…";
+      ideaData.targetUser = "Por determinar";
+      ideaData.monetization = "Por determinar";
+    }
+
     const idea = await prisma.idea.create({
-      data: {
-        title: placeholderTitle,
-        description: data.mode === "custom" ? data.rawIdea.trim() : "Buscando tendencias de mercado…",
-        targetUser: data.targetUser?.trim() || "Por determinar",
-        monetization: "Por determinar",
-        status: "GENERATING",
-        validationStatus: "PENDING",
-        originalIdea: data.mode === "custom" ? data.rawIdea.trim() : null,
-      },
+      data: ideaData as Parameters<typeof prisma.idea.create>[0]["data"],
     });
 
     // Create PENDING job for the idea-generator agent
