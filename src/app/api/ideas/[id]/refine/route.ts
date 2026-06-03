@@ -39,8 +39,8 @@ const quizAnswersSchema = z.object({
 const refineSchema = z.union([
   manualFieldsSchema,
   manualRawSchema,
-  quizStartSchema,
   quizAnswersSchema,
+  quizStartSchema,
 ]);
 
 const REFINER_AGENT = "brew-qa-refiner";
