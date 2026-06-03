@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 
+const MONITORED_AGENTS = ["skeptic", "advocate", "judge", "idea-generator"];
+
 /**
  * GET /api/jobs/pending
  *
@@ -14,7 +16,7 @@ export async function GET(req: NextRequest) {
 
     const where: Record<string, unknown> = {
       status: { in: ["PENDING", "RUNNING"] },
-      agentName: { in: ["skeptic", "advocate", "judge"] },
+      agentName: { in: MONITORED_AGENTS },
     };
 
     if (ideaId) {

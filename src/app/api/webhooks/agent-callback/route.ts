@@ -11,6 +11,7 @@ const callbackSchema = z.object({
 });
 
 const VALIDATION_AGENTS = ["skeptic", "advocate", "judge"];
+const GENERATOR_AGENT = "idea-generator";
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,6 +24,7 @@ export async function POST(req: NextRequest) {
     }
 
     const isValidationAgent = VALIDATION_AGENTS.includes(job.agentName);
+    const isGeneratorAgent = job.agentName === GENERATOR_AGENT;
 
     if (data.status === "FAILED") {
       await prisma.job.update({
@@ -43,10 +45,18 @@ export async function POST(req: NextRequest) {
         });
       }
 
+      // If idea-generator fails, mark idea as FAILED
+      if (isGeneratorAgent) {
+        await prisma.idea.update({
+          where: { id: job.ideaId },
+          data: { status: "FAILED", validationStatus: "FAILED" },
+        });
+      }
+
       return NextResponse.json({ success: true });
     }
 
-    // COMPLETED
+    // ── COMPLETED ──
     const output = data.output || {};
     const cost = data.cost || 0.02;
 
@@ -59,6 +69,39 @@ export async function POST(req: NextRequest) {
         cost,
       },
     });
+
+    // ── Idea Generator callback ──
+    if (isGeneratorAgent) {
+      const title = (output.title as string) || "";
+      const description = (output.description as string) || "";
+      const targetUser = (output.targetUser as string) || "";
+      const monetization = (output.monetization as string) || "";
+
+      if (title && description) {
+        await prisma.idea.update({
+          where: { id: job.ideaId },
+          data: {
+            title,
+            description,
+            targetUser: targetUser || "Por determinar",
+            monetization: monetization || "Por determinar",
+            status: "DRAFT",
+            validationStatus: "PENDING",
+          },
+        });
+      } else {
+        // Output missing required fields
+        await prisma.idea.update({
+          where: { id: job.ideaId },
+          data: {
+            status: "FAILED",
+            validationStatus: "FAILED",
+          },
+        });
+      }
+
+      return NextResponse.json({ success: true });
+    }
 
     // ── Validation agent callback (skeptic / advocate / judge) ──
 
@@ -148,14 +191,6 @@ export async function POST(req: NextRequest) {
       await prisma.idea.update({
         where: { id: job.ideaId },
         data: updateData,
-      });
-    }
-
-    // Track cost
-    if (cost > 0) {
-      const idea = await prisma.idea.findUnique({
-        where: { id: job.ideaId },
-        select: { title: true },
       });
     }
 
