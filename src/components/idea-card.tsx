@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import Link from "next/link";
 import { Heart, Archive, Trash2, Undo2, MoreHorizontal } from "lucide-react";
 import { translateVerdict, translateStatus } from "@/lib/translations";
+import { ConfirmModal } from "@/components/confirm-modal";
 
 interface IdeaCardProps {
   idea: {
@@ -32,9 +33,9 @@ export function IdeaCard({
   const [isFavorite, setIsFavorite] = useState(idea.isFavorite);
   const [isArchived, setIsArchived] = useState(idea.isArchived);
   const [showMenu, setShowMenu] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Close menu on click outside
   useEffect(() => {
     if (!showMenu) return;
     function handleClickOutside(e: MouseEvent) {
@@ -78,15 +79,27 @@ export function IdeaCard({
 
   const handleDelete = useCallback(async () => {
     try {
-      await fetch(`/api/ideas/${idea.id}`, {
+      const res = await fetch(`/api/ideas/${idea.id}`, {
         method: "DELETE",
         credentials: "same-origin",
       });
+      if (!res.ok) {
+        const data = await res.json();
+        console.error("[DELETE idea]", data.error || "Error al eliminar");
+        setShowDeleteModal(false);
+      }
+      setShowDeleteModal(false);
       onDeleted?.();
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error("[DELETE idea]", err);
+      setShowDeleteModal(false);
     }
   }, [idea.id, onDeleted]);
+
+  function onDeleteClick() {
+    setShowMenu(false);
+    setShowDeleteModal(true);
+  }
 
   const openMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -123,144 +136,154 @@ export function IdeaCard({
     : translateStatus(idea.validationStatus || idea.status);
 
   return (
-    <Link
-      href={`/ideas/${idea.id}`}
-      className={`block rounded-xl border p-5 transition-all hover:border-slate-600 hover:bg-slate-900/70 ${statusColor}`}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <h3 className="font-semibold text-white leading-snug line-clamp-2">
-          {idea.title}
-        </h3>
+    <>
+      <Link
+        href={`/ideas/${idea.id}`}
+        className={`block rounded-xl border p-5 transition-all hover:border-slate-600 hover:bg-slate-900/70 ${statusColor}`}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <h3 className="font-semibold text-white leading-snug line-clamp-2">
+            {idea.title}
+          </h3>
 
-        {/* Status badge + menu */}
-        <div className="flex shrink-0 items-center gap-2">
-          {isArchived && (
-            <span className="inline-block rounded-full border px-2 py-0.5 text-xs font-medium text-amber-400 bg-amber-500/10 border-amber-500/30">
-              Archivada
-            </span>
-          )}
-          {idea.validationStatus === "RUNNING" && <Spinner />}
-          <span
-            className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium ${
-              idea.validationStatus === "DONE" && idea.verdict
-                ? verdictColor
-                : idea.validationStatus === "DONE"
-                  ? "text-slate-300 bg-slate-500/10 border-slate-500/30"
-                  : idea.validationStatus === "RUNNING"
-                    ? "text-amber-400 bg-amber-500/10 border-amber-500/30"
-                    : "text-slate-400 bg-slate-500/10 border-slate-500/30"
-            }`}
-          >
-            {badgeLabel}
-          </span>
-
-          {/* 3-dot menu */}
-          <div className="relative" ref={menuRef}>
-            <button
-              onClick={openMenu}
-              className="rounded-md p-1 leading-none transition-colors hover:bg-slate-800 text-slate-400 hover:text-slate-200"
-              title="Más opciones"
-              aria-label="Más opciones"
+          <div className="flex shrink-0 items-center gap-2">
+            {isArchived && (
+              <span className="inline-block rounded-full border px-2 py-0.5 text-xs font-medium text-amber-400 bg-amber-500/10 border-amber-500/30">
+                Archivada
+              </span>
+            )}
+            {idea.validationStatus === "RUNNING" && <Spinner />}
+            <span
+              className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium ${
+                idea.validationStatus === "DONE" && idea.verdict
+                  ? verdictColor
+                  : idea.validationStatus === "DONE"
+                    ? "text-slate-300 bg-slate-500/10 border-slate-500/30"
+                    : idea.validationStatus === "RUNNING"
+                      ? "text-amber-400 bg-amber-500/10 border-amber-500/30"
+                      : "text-slate-400 bg-slate-500/10 border-slate-500/30"
+              }`}
             >
-              <MoreHorizontal className="size-4" />
-            </button>
+              {badgeLabel}
+            </span>
 
-            {showMenu && (
-              <div className="absolute right-0 top-full mt-1 z-40 w-48 rounded-lg border border-slate-700 bg-slate-800 shadow-xl py-1.5">
-                {/* Favorite / Unfavorite */}
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    toggleFavorite();
-                    closeMenu();
-                  }}
-                  className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
-                >
-                  <Heart
-                    className={`size-4 ${isFavorite ? "text-red-400" : "text-slate-400"}`}
-                    fill={isFavorite ? "currentColor" : "none"}
-                  />
-                  {isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
-                </button>
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={openMenu}
+                className="rounded-md p-1 leading-none transition-colors hover:bg-slate-800 text-slate-400 hover:text-slate-200"
+                title="Más opciones"
+                aria-label="Más opciones"
+              >
+                <MoreHorizontal className="size-4" />
+              </button>
 
-                {/* Archive / Unarchive — hidden if favorited */}
-                {!isFavorite && (
-                  isArchived ? (
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        toggleArchive();
-                        closeMenu();
-                      }}
-                      className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
-                    >
-                      <Undo2 className="size-4 text-slate-400" />
-                      Desarchivar
-                    </button>
-                  ) : showArchive ? (
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        toggleArchive();
-                        closeMenu();
-                      }}
-                      className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
-                    >
-                      <Archive className="size-4 text-slate-400" />
-                      Archivar
-                    </button>
-                  ) : null
-                )}
-
-                {/* Delete */}
-                {showDelete && (
+              {showMenu && (
+                <div className="absolute right-0 top-full mt-1 z-40 w-48 rounded-lg border border-slate-700 bg-slate-800 shadow-xl py-1.5">
                   <button
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      handleDelete();
+                      toggleFavorite();
                       closeMenu();
                     }}
-                    className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-red-400 hover:bg-slate-700 transition-colors"
+                    className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
                   >
-                    <Trash2 className="size-4" />
-                    Eliminar
+                    <Heart
+                      className={`size-4 ${isFavorite ? "text-red-400" : "text-slate-400"}`}
+                      fill={isFavorite ? "currentColor" : "none"}
+                    />
+                    {isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
                   </button>
-                )}
-              </div>
-            )}
+
+                  {!isFavorite && (
+                    isArchived ? (
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          toggleArchive();
+                          closeMenu();
+                        }}
+                        className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
+                      >
+                        <Undo2 className="size-4 text-slate-400" />
+                        Desarchivar
+                      </button>
+                    ) : showArchive ? (
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          toggleArchive();
+                          closeMenu();
+                        }}
+                        className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
+                      >
+                        <Archive className="size-4 text-slate-400" />
+                        Archivar
+                      </button>
+                    ) : null
+                  )}
+
+                  {showDelete && (
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onDeleteClick();
+                        closeMenu();
+                      }}
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-red-400 hover:bg-slate-700 transition-colors"
+                    >
+                      <Trash2 className="size-4" />
+                      Eliminar
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Meta row */}
-      <div className="mt-3 flex items-center gap-4 text-xs text-slate-500">
-        <span>{dateStr}</span>
-        {isDone && idea.score !== null && (
-          <>
-            <span className="text-amber-400 font-semibold tabular-nums">
-              {idea.score.toFixed(1)}/10
-            </span>
-            {/* Score bar */}
-            <div className="h-1.5 flex-1 min-w-[40px] max-w-[80px] rounded-full bg-slate-800 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-amber-500 transition-all"
-                style={{ width: `${((idea.score ?? 0) / 10) * 100}%` }}
-              />
-            </div>
-          </>
-        )}
-        {idea.validationStatus === "RUNNING" && (
-          <span className="text-amber-400">Validando…</span>
-        )}
-        {idea.validationStatus === "DONE" && !idea.verdict && (
-          <span className="text-slate-400">Completado</span>
-        )}
-      </div>
-    </Link>
+        <div className="mt-3 flex items-center gap-4 text-xs text-slate-500">
+          <span className="inline-flex items-center gap-1.5">
+            <span>{dateStr}</span>
+            {isFavorite && <Heart className="size-3 text-red-400 shrink-0" fill="currentColor" />}
+            {isArchived && <Archive className="size-3 text-amber-400 shrink-0" fill="currentColor" />}
+          </span>
+          {isDone && idea.score !== null && (
+            <>
+              <span className="text-amber-400 font-semibold tabular-nums">
+                {idea.score.toFixed(1)}/10
+              </span>
+              <div className="h-1.5 flex-1 min-w-[40px] max-w-[80px] rounded-full bg-slate-800 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-amber-500 transition-all"
+                  style={{ width: `${((idea.score ?? 0) / 10) * 100}%` }}
+                />
+              </div>
+            </>
+          )}
+          {idea.validationStatus === "RUNNING" && (
+            <span className="text-amber-400">Validando…</span>
+          )}
+          {idea.validationStatus === "DONE" && !idea.verdict && (
+            <span className="text-slate-400">Completado</span>
+          )}
+        </div>
+      </Link>
+
+      <ConfirmModal
+        open={showDeleteModal}
+        title="Eliminar idea"
+        message="¿Seguro que quieres eliminar esta idea? Esta acción no se puede deshacer."
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={handleDelete}
+        onCancel={() => setShowDeleteModal(false)}
+      />
+    </>
   );
 }
 

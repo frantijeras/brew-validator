@@ -80,7 +80,7 @@ model Idea {
 model Job {
   id         String    @id @default(cuid())
   ideaId     String
-  idea       Idea      @relation(fields: [ideaId], references: [id])
+  idea       Idea      @relation(fields: [ideaId], references: [id], onDelete: Cascade)
   agentName  String
   status     String    @default("PENDING")
   input      String?
@@ -96,7 +96,7 @@ model Job {
 model Report {
   id        String   @id @default(cuid())
   ideaId    String
-  idea      Idea     @relation(fields: [ideaId], references: [id])
+  idea      Idea     @relation(fields: [ideaId], references: [id], onDelete: Cascade)
   agentName String
   title     String
   content   String
