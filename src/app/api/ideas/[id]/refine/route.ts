@@ -2,9 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 
-const refineSchema = z.object({
+const messageSchema = z.object({
   message: z.string().min(1, "El mensaje no puede estar vacío"),
+  mode: z.enum(["chat"]).optional(),
 });
+
+const quizSchema = z.object({
+  mode: z.literal("quiz"),
+  currentQuestion: z.number().int().min(0).max(6),
+  answers: z.array(
+    z.object({
+      question: z.string(),
+      answer: z.string(),
+    })
+  ),
+});
+
+const refineSchema = z.union([messageSchema, quizSchema]);
 
 const REFINER_AGENT = "brew-qa-refiner";
 
@@ -15,7 +29,7 @@ export async function POST(
   try {
     const { id: ideaId } = await params;
     const body = await req.json();
-    const { message } = refineSchema.parse(body);
+    const parsed = refineSchema.parse(body);
 
     // Find the idea
     const idea = await prisma.idea.findUnique({ where: { id: ideaId } });
@@ -23,88 +37,13 @@ export async function POST(
       return NextResponse.json({ error: "Idea no encontrada" }, { status: 404 });
     }
 
-    // Look for existing RUNNING or PENDING job for this idea + agent
-    const existingJob = await prisma.job.findFirst({
-      where: {
-        ideaId,
-        agentName: REFINER_AGENT,
-        status: { in: ["PENDING", "RUNNING"] },
-      },
-    });
-
-    let job = existingJob;
-    let conversationHistory: Array<{ role: string; content: string }> = [];
-
-    if (job) {
-      // Parse existing conversation history from job input
-      try {
-        const prevInput = job.input ? JSON.parse(job.input) : {};
-        conversationHistory = prevInput.conversationHistory || [];
-      } catch {
-        conversationHistory = [];
-      }
-
-      // Check if the agent already returned DONE
-      try {
-        if (job.output) {
-          const prevOutput = JSON.parse(job.output);
-          if (prevOutput.status === "DONE") {
-            return NextResponse.json({
-              status: "DONE",
-              message: prevOutput.summary || "Refinamiento completado",
-              summary: prevOutput.summary,
-              title: prevOutput.title,
-              description: prevOutput.description,
-              targetUser: prevOutput.targetUser,
-              monetization: prevOutput.monetization,
-              jobId: job.id,
-            });
-          }
-        }
-      } catch {
-        // output not valid JSON yet, continue
-      }
+    // ── Quiz mode ──
+    if (parsed.mode === "quiz") {
+      return handleQuizMode(idea, parsed);
     }
 
-    // Add user message to conversation
-    conversationHistory.push({ role: "user", content: message });
-
-    const jobInput = {
-      idea: {
-        title: idea.title,
-        description: idea.description,
-        targetUser: idea.targetUser,
-        monetization: idea.monetization,
-      },
-      conversationHistory,
-    };
-
-    if (!job) {
-      // Create new job
-      job = await prisma.job.create({
-        data: {
-          ideaId,
-          agentName: REFINER_AGENT,
-          status: "PENDING",
-          input: JSON.stringify(jobInput),
-        },
-      });
-    } else {
-      // Update existing job with new input
-      job = await prisma.job.update({
-        where: { id: job.id },
-        data: {
-          input: JSON.stringify(jobInput),
-          status: "PENDING", // Reset to PENDING so bridge picks it up
-        },
-      });
-    }
-
-    return NextResponse.json({
-      status: "RUNNING",
-      message: "Procesando tu respuesta...",
-      jobId: job.id,
-    });
+    // ── Chat mode (legacy) ──
+    return handleChatMode(idea, parsed);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -119,6 +58,122 @@ export async function POST(
       { status: 500 }
     );
   }
+}
+
+async function handleQuizMode(
+  idea: { id: string; title: string; description: string; targetUser: string; monetization: string },
+  input: z.infer<typeof quizSchema>
+) {
+  const jobInput = {
+    idea: {
+      title: idea.title,
+      description: idea.description,
+      targetUser: idea.targetUser,
+      monetization: idea.monetization,
+    },
+    currentQuestion: input.currentQuestion,
+    answers: input.answers,
+    mode: "quiz" as const,
+  };
+
+  // Create a new job for each quiz step (stateless)
+  const job = await prisma.job.create({
+    data: {
+      ideaId: idea.id,
+      agentName: REFINER_AGENT,
+      status: "PENDING",
+      input: JSON.stringify(jobInput),
+    },
+  });
+
+  return NextResponse.json({
+    status: "RUNNING",
+    jobId: job.id,
+  });
+}
+
+async function handleChatMode(
+  idea: { id: string; title: string; description: string; targetUser: string; monetization: string },
+  input: z.infer<typeof messageSchema>
+) {
+  // Look for existing RUNNING or PENDING job for this idea + agent
+  const existingJob = await prisma.job.findFirst({
+    where: {
+      ideaId: idea.id,
+      agentName: REFINER_AGENT,
+      status: { in: ["PENDING", "RUNNING"] },
+    },
+  });
+
+  let job = existingJob;
+  let conversationHistory: Array<{ role: string; content: string }> = [];
+
+  if (job) {
+    try {
+      const prevInput = job.input ? JSON.parse(job.input) : {};
+      conversationHistory = prevInput.conversationHistory || [];
+    } catch {
+      conversationHistory = [];
+    }
+
+    try {
+      if (job.output) {
+        const prevOutput = JSON.parse(job.output);
+        if (prevOutput.status === "DONE") {
+          return NextResponse.json({
+            status: "DONE",
+            message: prevOutput.summary || "Refinamiento completado",
+            summary: prevOutput.summary,
+            title: prevOutput.title,
+            description: prevOutput.description,
+            targetUser: prevOutput.targetUser,
+            monetization: prevOutput.monetization,
+            jobId: job.id,
+          });
+        }
+      }
+    } catch {
+      // output not valid JSON yet
+    }
+  }
+
+  conversationHistory.push({ role: "user", content: input.message });
+
+  const jobInput = {
+    idea: {
+      title: idea.title,
+      description: idea.description,
+      targetUser: idea.targetUser,
+      monetization: idea.monetization,
+    },
+    conversationHistory,
+    mode: "chat",
+  };
+
+  if (!job) {
+    job = await prisma.job.create({
+      data: {
+        ideaId: idea.id,
+        agentName: REFINER_AGENT,
+        status: "PENDING",
+        input: JSON.stringify(jobInput),
+      },
+    });
+  } else {
+    job = await prisma.job.update({
+      where: { id: job.id },
+      data: {
+        input: JSON.stringify(jobInput),
+        status: "PENDING",
+      },
+    });
+  }
+
+  return NextResponse.json({
+    status: "RUNNING",
+    message: "Procesando tu respuesta...",
+    jobId: job.id,
+  });
 }
 
 export async function GET(
@@ -139,7 +194,6 @@ export async function GET(
       return NextResponse.json({ error: "Job no encontrado" }, { status: 404 });
     }
 
-    // Parse output for RUNNING state — get the agent's message
     let outputData: Record<string, unknown> = {};
     try {
       if (job.output) {
@@ -158,6 +212,19 @@ export async function GET(
         description: outputData.description,
         targetUser: outputData.targetUser,
         monetization: outputData.monetization,
+        jobId: job.id,
+      });
+    }
+
+    // Quiz mode RUNNING
+    if (outputData.status === "RUNNING") {
+      return NextResponse.json({
+        status: "RUNNING",
+        question: outputData.question,
+        questionType: outputData.questionType || "text",
+        questionNumber: outputData.questionNumber,
+        totalQuestions: outputData.totalQuestions || 6,
+        message: outputData.message,
         jobId: job.id,
       });
     }

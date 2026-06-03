@@ -7,6 +7,7 @@ import { Heart, Archive, Trash2, Undo2, MoreHorizontal } from "lucide-react";
 import { ValidationProgress } from "@/components/validation-progress";
 import { ReportViewer } from "@/components/report-viewer";
 import { ConfirmModal } from "@/components/confirm-modal";
+import RefineQuizModal from "@/components/refine-quiz-modal";
 import { translateVerdict, translateStatus } from "@/lib/translations";
 
 interface IdeaData {
@@ -37,19 +38,6 @@ interface ReportData {
   createdAt: string;
 }
 
-interface RefineResult {
-  title: string;
-  description: string;
-  targetUser: string;
-  monetization: string;
-  summary: string;
-}
-
-interface RefineMessage {
-  role: "assistant" | "user";
-  content: string;
-}
-
 export default function IdeaDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -63,24 +51,15 @@ export default function IdeaDetailPage() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [favPending, setFavPending] = useState(false);
   const [archPending, setArchPending] = useState(false);
-  const [showReformulate, setShowReformulate] = useState(false);
   const [reformulating, setReformulating] = useState(false);
   const [reformulatePrompt, setReformulatePrompt] = useState("");
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showReformulate, setShowReformulate] = useState(false);
   const [showReformulateWarningModal, setShowReformulateWarningModal] = useState(false);
-  const [showRefineChat, setShowRefineChat] = useState(false);
-  const [refineMessages, setRefineMessages] = useState<RefineMessage[]>([]);
-  const [refineJobId, setRefineJobId] = useState<string | null>(null);
-  const [refineLoading, setRefineLoading] = useState(false);
-  const [refineDone, setRefineDone] = useState(false);
-  const [refineResult, setRefineResult] = useState<RefineResult | null>(null);
-  const [refineInput, setRefineInput] = useState("");
-  const [applyingRefine, setApplyingRefine] = useState(false);
+  const [showRefineQuiz, setShowRefineQuiz] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const refinePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const refineChatRef = useRef<HTMLDivElement>(null);
 
   // Close menu on click outside
   useEffect(() => {
@@ -180,12 +159,6 @@ export default function IdeaDetailPage() {
     setShowMenu(false);
   }
 
-  function confirmOpenReformulate() {
-    setShowReformulateWarningModal(false);
-    setShowReformulate(true);
-    setReformulatePrompt("");
-  }
-
   async function handleReformulate() {
     if (!reformulatePrompt.trim()) return;
     setReformulating(true);
@@ -203,176 +176,14 @@ export default function IdeaDetailPage() {
       }
       const updated = await res.json();
       setIdea(updated);
-      setShowReformulate(false);
       setReformulatePrompt("");
+      setShowReformulate(false);
     } catch (err) {
       setApiError(err instanceof Error ? err.message : "Error");
     } finally {
       setReformulating(false);
     }
   }
-
-  // ── Refine Chat ──
-
-  async function handleSendRefine() {
-    if (!refineInput.trim() || refineLoading || refineDone) return;
-    const message = refineInput.trim();
-    setRefineInput("");
-    setRefineMessages((prev) => [...prev, { role: "user", content: message }]);
-    setRefineLoading(true);
-
-    try {
-      const res = await fetch(`/api/ideas/${ideaId}/refine`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ message }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Error al enviar mensaje");
-      }
-      const data = await res.json();
-      setRefineJobId(data.jobId);
-      // Start polling
-      startRefinePolling(data.jobId);
-    } catch (err) {
-      setRefineMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "❌ " + (err instanceof Error ? err.message : "Error") },
-      ]);
-    } finally {
-      setRefineLoading(false);
-    }
-  }
-
-  function startRefinePolling(jobId: string) {
-    if (refinePollRef.current) clearInterval(refinePollRef.current);
-    refinePollRef.current = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/ideas/${ideaId}/refine?jobId=${jobId}`, {
-          credentials: "same-origin",
-        });
-        if (!res.ok) return;
-        const data = await res.json();
-
-        if (data.status === "RUNNING") {
-          setRefineMessages((prev) => {
-            // Avoid duplicates
-            const last = prev[prev.length - 1];
-            if (last && last.role === "assistant" && last.content === data.message) return prev;
-            return [...prev, { role: "assistant", content: data.message }];
-          });
-        }
-
-        if (data.status === "DONE") {
-          if (refinePollRef.current) clearInterval(refinePollRef.current);
-          setRefineDone(true);
-          setRefineResult({
-            title: data.title,
-            description: data.description,
-            targetUser: data.targetUser,
-            monetization: data.monetization,
-            summary: data.summary || data.message,
-          });
-          setRefineMessages((prev) => [
-            ...prev,
-            { role: "assistant", content: data.summary || data.message },
-          ]);
-        }
-
-        if (data.status === "FAILED") {
-          if (refinePollRef.current) clearInterval(refinePollRef.current);
-          setRefineMessages((prev) => [
-            ...prev,
-            { role: "assistant", content: "❌ " + data.message },
-          ]);
-          setRefineLoading(false);
-        }
-      } catch {
-        // Ignore polling errors
-      }
-    }, 2000);
-  }
-
-  async function handleApplyRefine() {
-    if (!refineResult || !idea) return;
-    setApplyingRefine(true);
-    try {
-      const res = await fetch(`/api/ideas/${ideaId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({
-          title: refineResult.title,
-          description: refineResult.description,
-          targetUser: refineResult.targetUser,
-          monetization: refineResult.monetization,
-        }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Error al aplicar cambios");
-      }
-      const updated = await res.json();
-      setIdea(updated);
-      // Create IdeaVersion with phase "pre-validation"
-      await fetch(`/api/ideas/${ideaId}/refine/apply`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({
-          title: refineResult.title,
-          description: refineResult.description,
-          targetUser: refineResult.targetUser,
-          monetization: refineResult.monetization,
-        }),
-      });
-      setShowRefineChat(false);
-      setRefineDone(false);
-      setRefineResult(null);
-      setRefineMessages([]);
-      setRefineJobId(null);
-    } catch (err) {
-      setApiError(err instanceof Error ? err.message : "Error al aplicar cambios");
-    } finally {
-      setApplyingRefine(false);
-    }
-  }
-
-  function handleRejectRefine() {
-    setShowRefineChat(false);
-    setRefineDone(false);
-    setRefineResult(null);
-    setRefineMessages([]);
-    setRefineJobId(null);
-    if (refinePollRef.current) clearInterval(refinePollRef.current);
-  }
-
-  function openRefineChat() {
-    setShowRefineChat(true);
-    setRefineMessages([
-      {
-        role: "assistant",
-        content: `Cuéntame más sobre tu idea "${idea?.title || ""}" para ayudarte a mejorarla. ¿Qué te preocupa más de su viabilidad?`,
-      },
-    ]);
-    setShowMenu(false);
-  }
-
-  // Auto-scroll refine chat
-  useEffect(() => {
-    if (refineChatRef.current) {
-      refineChatRef.current.scrollTop = refineChatRef.current.scrollHeight;
-    }
-  }, [refineMessages]);
-
-  // Cleanup refine polling on unmount
-  useEffect(() => {
-    return () => {
-      if (refinePollRef.current) clearInterval(refinePollRef.current);
-    };
-  }, []);
 
   async function handleDelete() {
     try {
@@ -562,7 +373,7 @@ export default function IdeaDetailPage() {
                         className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
                       >
                         <EditIcon />
-                        Reformular idea
+                        Reformular
                       </button>
                     )}
 
@@ -622,16 +433,16 @@ export default function IdeaDetailPage() {
                   className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-200 shadow transition-all hover:border-slate-600 hover:bg-slate-700 active:bg-slate-900"
                 >
                   <EditIcon />
-                  Reformular idea
+                  Reformular
                 </button>
               )}
               {idea.status === "DRAFT" && (
                 <button
-                  onClick={openRefineChat}
+                  onClick={() => setShowRefineQuiz(true)}
                   className="inline-flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm font-medium text-amber-400 shadow transition-all hover:border-amber-400 hover:bg-amber-500/20 active:bg-amber-500/30"
                 >
-                  <ChatIcon />
-                  Refinar idea 💬
+                  <SparklesIcon />
+                  Refinar idea
                 </button>
               )}
             </div>
@@ -646,47 +457,43 @@ export default function IdeaDetailPage() {
             {showReformulate && (
               <div className="mt-6 rounded-lg border border-slate-700 bg-slate-900 p-5">
                 <h3 className="text-base font-semibold text-white mb-4">
-                  <EditIcon /> Reformular idea
+                  Reformular idea
                 </h3>
                 <div className="space-y-4">
                   <div>
-                    <label
-                      htmlFor="reformulate-prompt"
-                      className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2"
-                    >
-                      Indicaciones para reformular
+                    <label className="block text-sm font-medium text-slate-400 mb-1.5">
+                      Que quieres cambiar?
                     </label>
                     <textarea
-                      id="reformulate-prompt"
                       value={reformulatePrompt}
                       onChange={(e) => setReformulatePrompt(e.target.value)}
-                      placeholder="Ej: enfócate en jóvenes, cambia el modelo de negocio a suscripción mensual, añade gamificación..."
-                      className="w-full rounded-lg border border-slate-700 bg-slate-800 p-3 text-sm text-slate-200 placeholder:text-slate-500 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/50 focus:outline-none resize-y"
+                      placeholder="Describe los cambios que quieres hacer a la idea..."
                       rows={3}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/50 focus:outline-none resize-none"
                     />
                   </div>
                   <div className="flex items-center gap-3">
                     <button
                       onClick={handleReformulate}
                       disabled={reformulating || !reformulatePrompt.trim()}
-                      className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {reformulating ? (
                         <>
                           <Spinner />
-                          Reformulando…
+                          Reformulando...
                         </>
                       ) : (
                         <>
                           <RefreshIcon />
-                          Aplicar reformulación
+                          Aplicar reformulacion
                         </>
                       )}
                     </button>
                     <button
                       onClick={() => {
-                        setShowReformulate(false);
                         setReformulatePrompt("");
+                        setShowReformulate(false);
                       }}
                       className="text-sm text-slate-400 hover:text-slate-200 transition-colors"
                     >
@@ -696,150 +503,26 @@ export default function IdeaDetailPage() {
                 </div>
               </div>
             )}
-
-            {/* Refine Chat */}
-            {showRefineChat && (
-              <div className="mt-6 rounded-lg border border-amber-500/20 bg-slate-900 overflow-hidden">
-                {/* Header */}
-                <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800">
-                  <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                    <ChatIcon />
-                    Refinar idea — Chat
-                  </h3>
-                  <button
-                    onClick={handleRejectRefine}
-                    className="text-slate-500 hover:text-slate-300 transition-colors"
-                    title="Cerrar chat"
-                  >
-                    <CloseIcon />
-                  </button>
-                </div>
-
-                {/* Messages */}
-                <div
-                  ref={refineChatRef}
-                  className="px-5 py-4 space-y-4 max-h-[400px] overflow-y-auto"
-                >
-                  {refineMessages.map((msg, i) => (
-                    <div
-                      key={i}
-                      className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                    >
-                      <div
-                        className={`max-w-[85%] rounded-lg px-4 py-3 text-sm leading-relaxed ${
-                          msg.role === "user"
-                            ? "bg-amber-500/10 text-amber-100 border border-amber-500/20"
-                            : "bg-slate-800 text-slate-300 border border-slate-700"
-                        }`}
-                      >
-                        {msg.content}
-                      </div>
-                    </div>
-                  ))}
-                  {refineLoading && (
-                    <div className="flex justify-start">
-                      <div className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-3">
-                        <Spinner />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Done state — show result + apply/reject */}
-                {refineDone && refineResult && (
-                  <div className="px-5 py-4 border-t border-slate-800 bg-slate-800/50">
-                    <h4 className="text-sm font-semibold text-white mb-3">
-                      ✨ Idea refinada
-                    </h4>
-                    <div className="grid gap-3 text-sm">
-                      <div>
-                        <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-                          Título
-                        </span>
-                        <p className="mt-0.5 text-white font-medium">{refineResult.title}</p>
-                      </div>
-                      <div>
-                        <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-                          Descripción
-                        </span>
-                        <p className="mt-0.5 text-slate-300">{refineResult.description}</p>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-                            Usuario objetivo
-                          </span>
-                          <p className="mt-0.5 text-slate-300">{refineResult.targetUser}</p>
-                        </div>
-                        <div>
-                          <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-                            Monetización
-                          </span>
-                          <p className="mt-0.5 text-slate-300">{refineResult.monetization}</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-4 flex items-center gap-3">
-                      <p className="text-sm text-slate-400 mr-2">¿Aplicar cambios?</p>
-                      <button
-                        onClick={handleApplyRefine}
-                        disabled={applyingRefine}
-                        className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {applyingRefine ? (
-                          <>
-                            <Spinner />
-                            Aplicando…
-                          </>
-                        ) : (
-                          <>
-                            <CheckIcon />
-                            Aplicar
-                          </>
-                        )}
-                      </button>
-                      <button
-                        onClick={handleRejectRefine}
-                        className="text-sm text-slate-400 hover:text-slate-200 transition-colors"
-                      >
-                        No, gracias
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Input (hidden when DONE) */}
-                {!refineDone && (
-                  <div className="px-5 py-3 border-t border-slate-800 flex items-center gap-3">
-                    <input
-                      type="text"
-                      value={refineInput}
-                      onChange={(e) => setRefineInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSendRefine();
-                        }
-                      }}
-                      placeholder="Escribe tu respuesta…"
-                      disabled={refineLoading}
-                      className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/50 focus:outline-none disabled:opacity-50"
-                    />
-                    <button
-                      onClick={handleSendRefine}
-                      disabled={refineLoading || !refineInput.trim()}
-                      className="shrink-0 rounded-lg bg-amber-500 p-2.5 text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Enviar"
-                    >
-                      <SendIcon />
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </div>
       </div>
+
+      {/* Refine Quiz Modal */}
+      <RefineQuizModal
+        open={showRefineQuiz}
+        idea={{
+          id: idea.id,
+          title: idea.title,
+          description: idea.description,
+          targetUser: idea.targetUser,
+          monetization: idea.monetization,
+        }}
+        onClose={() => setShowRefineQuiz(false)}
+        onApplied={() => {
+          setShowRefineQuiz(false);
+          fetchIdea();
+        }}
+      />
 
       {/* Idea original — always shown */}
       <div className="mb-8 rounded-xl border border-slate-800 bg-slate-900/50 p-6">
@@ -965,11 +648,15 @@ export default function IdeaDetailPage() {
 
       <ConfirmModal
         open={showReformulateWarningModal}
-        title="Reformular idea validada"
-        message="Al reformular una idea ya validada, se perderán los resultados anteriores. ¿Continuar?"
+        title="Reformular idea"
+        message="Al reformular una idea ya validada, se perderan los resultados anteriores. Continuar?"
         confirmText="Continuar"
         variant="default"
-        onConfirm={confirmOpenReformulate}
+        onConfirm={() => {
+          setShowReformulateWarningModal(false);
+          setShowReformulate(true);
+          setReformulatePrompt("");
+        }}
         onCancel={() => setShowReformulateWarningModal(false)}
       />
     </div>
@@ -1092,6 +779,14 @@ function AlertTriangleIcon() {
   );
 }
 
+function SparklesIcon() {
+  return (
+    <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
+    </svg>
+  );
+}
+
 function EditIcon() {
   return (
     <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1107,40 +802,6 @@ function RefreshIcon() {
       <polyline points="23 4 23 10 17 10" />
       <polyline points="1 20 1 14 7 14" />
       <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-    </svg>
-  );
-}
-
-function ChatIcon() {
-  return (
-    <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-    </svg>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="18" y1="6" x2="6" y2="18" />
-      <line x1="6" y1="6" x2="18" y2="18" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
-
-function SendIcon() {
-  return (
-    <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="22" y1="2" x2="11" y2="13" />
-      <polygon points="22 2 15 22 11 13 2 9 22 2" />
     </svg>
   );
 }
