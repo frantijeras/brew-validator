@@ -188,6 +188,7 @@ export async function POST(req: NextRequest) {
     const idea = await prisma.idea.create({
       data: {
         ...ideaData,
+        score: null,
         originalIdea: ideaData.description,
       },
     });
