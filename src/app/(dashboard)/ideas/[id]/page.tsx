@@ -47,6 +47,9 @@ export default function IdeaDetailPage() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [favPending, setFavPending] = useState(false);
   const [archPending, setArchPending] = useState(false);
+  const [showReformulate, setShowReformulate] = useState(false);
+  const [reformulating, setReformulating] = useState(false);
+  const [reformulatePrompt, setReformulatePrompt] = useState("");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchIdea = useCallback(async () => {
@@ -117,6 +120,32 @@ export default function IdeaDetailPage() {
       setApiError(err instanceof Error ? err.message : "Error");
     } finally {
       setValidating(false);
+    }
+  }
+
+  async function handleReformulate() {
+    if (!reformulatePrompt.trim()) return;
+    setReformulating(true);
+    setApiError("");
+    try {
+      const res = await fetch(`/api/ideas/${ideaId}/reformulate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ prompt: reformulatePrompt }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Error al reformular");
+      }
+      const updated = await res.json();
+      setIdea(updated);
+      setShowReformulate(false);
+      setReformulatePrompt("");
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : "Error");
+    } finally {
+      setReformulating(false);
     }
   }
 
@@ -272,32 +301,119 @@ export default function IdeaDetailPage() {
             </div>
           </div>
 
-          {/* Validate button */}
+          {/* Action buttons */}
           {idea.validationStatus !== "RUNNING" &&
             idea.validationStatus !== "DONE" && (
-              <button
-                onClick={handleValidate}
-                disabled={validating}
-                className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-              >
-                {validating ? (
-                  <>
-                    <Spinner />
-                    Iniciando…
-                  </>
-                ) : (
-                  <>
-                    <ZapIcon />
-                    Validar con IA
-                  </>
+              <div className="flex flex-col gap-2 shrink-0">
+                <button
+                  onClick={handleValidate}
+                  disabled={validating}
+                  className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {validating ? (
+                    <>
+                      <Spinner />
+                      Iniciando…
+                    </>
+                  ) : (
+                    <>
+                      <ZapIcon />
+                      Validar con IA
+                    </>
+                  )}
+                </button>
+                {idea.status === "DRAFT" && (
+                  <button
+                    onClick={() => setShowReformulate(!showReformulate)}
+                    className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-200 shadow transition-all hover:border-slate-600 hover:bg-slate-700 active:bg-slate-900"
+                  >
+                    <EditIcon />
+                    Reformular idea
+                  </button>
                 )}
-              </button>
+              </div>
             )}
         </div>
 
         {apiError && (
           <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
             {apiError}
+          </div>
+        )}
+
+        {/* Reformulate form */}
+        {showReformulate && idea.status === "DRAFT" && (
+          <div className="mt-6 rounded-lg border border-slate-700 bg-slate-900 p-5">
+            <h3 className="text-base font-semibold text-white mb-4">
+              <EditIcon /> Reformular idea
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label
+                  htmlFor="reformulate-desc"
+                  className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2"
+                >
+                  Descripción actual
+                </label>
+                <textarea
+                  id="reformulate-desc"
+                  defaultValue={idea.description}
+                  rows={3}
+                  readOnly
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-400 resize-none cursor-default"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="reformulate-prompt"
+                  className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2"
+                >
+                  Indicaciones para reformular
+                </label>
+                <input
+                  id="reformulate-prompt"
+                  type="text"
+                  placeholder="Ej: enfócate más en jóvenes, cambia el modelo de negocio a suscripción…"
+                  value={reformulatePrompt}
+                  onChange={(e) => setReformulatePrompt(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleReformulate();
+                    }
+                  }}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-amber-500/50 focus:outline-none focus:ring-1 focus:ring-amber-500/30"
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleReformulate}
+                  disabled={reformulating || !reformulatePrompt.trim()}
+                  className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {reformulating ? (
+                    <>
+                      <Spinner />
+                      Reformulando…
+                    </>
+                  ) : (
+                    <>
+                      <RefreshIcon />
+                      Aplicar reformulación
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowReformulate(false);
+                    setReformulatePrompt("");
+                  }}
+                  className="text-sm text-slate-400 hover:text-slate-200 transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -516,6 +632,25 @@ function AlertTriangleIcon() {
       <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
       <line x1="12" y1="9" x2="12" y2="13" />
       <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  );
+}
+
+function EditIcon() {
+  return (
+    <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
+  );
+}
+
+function RefreshIcon() {
+  return (
+    <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="23 4 23 10 17 10" />
+      <polyline points="1 20 1 14 7 14" />
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
     </svg>
   );
 }
