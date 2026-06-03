@@ -29,7 +29,7 @@ export function ConfirmModal({
       onClick={onCancel}
     >
       <div
-        className="w-full max-w-md rounded-xl bg-slate-900 border border-slate-700 p-6 shadow-2xl"
+        className="mx-4 w-full max-w-md rounded-xl bg-slate-900 border border-slate-700 p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-lg font-semibold text-slate-100">{title}</h3>
