@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { BUSINESS_MODELS } from "@/lib/business-models";
 
 type Mode = "random" | "custom" | null;
 
@@ -11,6 +12,7 @@ export default function NewIdeaPage() {
   const [mode, setMode] = useState<Mode>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [selectedModel, setSelectedModel] = useState<string>("");
 
   async function generateIdea(body: object) {
     setLoading(true);
@@ -127,8 +129,18 @@ export default function NewIdeaPage() {
             mercado actuales usando IA. Puedes validarla después.
           </p>
 
+          <div className="mt-6 text-left">
+            <p className="mb-2 text-xs font-medium text-slate-400">
+              Tipo de idea (opcional):
+            </p>
+            <BusinessModelChips
+              selected={selectedModel}
+              onChange={setSelectedModel}
+            />
+          </div>
+
           <button
-            onClick={() => generateIdea({ mode: "random" })}
+            onClick={() => generateIdea({ mode: "random", businessModel: selectedModel || undefined })}
             disabled={loading}
             className="mt-6 inline-flex items-center gap-2 rounded-lg bg-amber-500 px-6 py-3 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -168,7 +180,7 @@ function CustomForm({
 }: {
   loading: boolean;
   onBack: () => void;
-  onSubmit: (data: { mode: "custom"; rawIdea: string; sector: string; targetUser: string; hints: string }) => void;
+  onSubmit: (data: { mode: "custom"; rawIdea: string; sector: string; targetUser: string; hints: string; businessModel?: string }) => void;
 }) {
   const [rawIdea, setRawIdea] = useState("");
   const [sector, setSector] = useState("");
@@ -189,6 +201,8 @@ function CustomForm({
     return Object.keys(errs).length === 0;
   }
 
+  const [selectedModel, setSelectedModel] = useState<string>("");
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!validate()) return;
@@ -198,6 +212,7 @@ function CustomForm({
       sector: sector.trim(),
       targetUser: targetUser.trim(),
       hints: hints.trim(),
+      businessModel: selectedModel || undefined,
     });
   }
 
@@ -348,10 +363,20 @@ function CustomForm({
           </div>
         )}
 
+        <div className="mt-4">
+          <p className="mb-2 text-xs font-medium text-slate-400">
+            Tipo de idea (opcional):
+          </p>
+          <BusinessModelChips
+            selected={selectedModel}
+            onChange={setSelectedModel}
+          />
+        </div>
+
         <button
           type="submit"
           disabled={loading}
-          className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-6 py-2.5 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="mt-6 inline-flex items-center gap-2 rounded-lg bg-amber-500 px-6 py-2.5 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? (
             <>
@@ -367,6 +392,39 @@ function CustomForm({
         </button>
       </div>
     </form>
+  );
+}
+
+/* ── Business Model Chips ── */
+
+function BusinessModelChips({
+  selected,
+  onChange,
+}: {
+  selected: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {BUSINESS_MODELS.map((m) => {
+        const isActive = selected === m.value;
+        return (
+          <button
+            key={m.value}
+            type="button"
+            onClick={() => onChange(isActive ? "" : m.value)}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+              isActive
+                ? "bg-amber-500/15 border-amber-500/40 text-amber-400"
+                : "border-slate-700 bg-slate-900/60 text-slate-400 hover:border-slate-600 hover:text-slate-300"
+            }`}
+          >
+            <span>{m.icon}</span>
+            <span>{m.label}</span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

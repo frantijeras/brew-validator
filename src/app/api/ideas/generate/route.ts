@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 const generateIdeaSchema = z.discriminatedUnion("mode", [
   z.object({
     mode: z.literal("random"),
+    businessModel: z.string().optional(),
   }),
   z.object({
     mode: z.literal("custom"),
@@ -15,6 +16,7 @@ const generateIdeaSchema = z.discriminatedUnion("mode", [
     sector: z.string().optional(),
     targetUser: z.string().optional(),
     hints: z.string().optional(),
+    businessModel: z.string().optional(),
   }),
 ]);
 
@@ -28,12 +30,13 @@ export async function POST(req: NextRequest) {
     // Build job input
     const jobInput =
       data.mode === "random"
-        ? { rawIdea: "random" }
+        ? { rawIdea: "random", businessModel: data.businessModel?.trim() || undefined }
         : {
             rawIdea: data.rawIdea.trim(),
             sector: data.sector?.trim() || "",
             targetUser: data.targetUser?.trim() || "",
             hints: data.hints?.trim() || "",
+            businessModel: data.businessModel?.trim() || undefined,
           };
 
     const placeholderTitle =
@@ -46,6 +49,10 @@ export async function POST(req: NextRequest) {
       status: "GENERATING",
       validationStatus: "PENDING",
     };
+
+    if (data.businessModel) {
+      ideaData.businessModel = data.businessModel.trim();
+    }
 
     if (data.mode === "custom") {
       ideaData.description = data.rawIdea.trim();

@@ -67,6 +67,7 @@ model Idea {
   validationStatus String   @default("PENDING")
   verdict          String?
   score            Int?
+  businessModel    String? // SaaS, Marketplace, E-commerce, App móvil, Plataforma, Negocio local, Servicios, Contenido/Media, Hardware/IoT, API/Infra, Impacto social, Otro
   originalIdea     String?
   isArchived       Boolean  @default(false)
   isFavorite       Boolean  @default(false)

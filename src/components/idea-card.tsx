@@ -7,6 +7,8 @@ import { Heart, Archive, Trash2, Undo2, MoreHorizontal } from "lucide-react";
 import { translateVerdict, translateStatus } from "@/lib/translations";
 import { ConfirmModal } from "@/components/confirm-modal";
 
+import { BUSINESS_MODELS } from "@/lib/business-models";
+
 interface IdeaCardProps {
   idea: {
     id: string;
@@ -15,6 +17,7 @@ interface IdeaCardProps {
     validationStatus: string;
     verdict: string | null;
     score: number | null;
+    businessModel: string | null;
     isFavorite: boolean;
     isArchived: boolean;
     createdAt: Date;
@@ -150,9 +153,26 @@ export function IdeaCard({
         className={`block rounded-xl border p-5 transition-all hover:border-slate-600 hover:bg-slate-900/70 ${statusColor}`}
       >
         <div className="flex items-start justify-between gap-3">
-          <h3 className="font-semibold text-white leading-snug line-clamp-2">
-            {idea.title}
-          </h3>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="font-semibold text-white leading-snug line-clamp-2">
+                {idea.title}
+              </h3>
+              {idea.businessModel && (() => {
+                const model = BUSINESS_MODELS.find((m) => m.value === idea.businessModel);
+                return model ? (
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs text-slate-400 border-slate-700">
+                    <span>{model.icon}</span>
+                    <span>{model.label}</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs text-slate-400 border-slate-700">
+                    {idea.businessModel}
+                  </span>
+                );
+              })()}
+            </div>
+          </div>
 
           <div className="flex shrink-0 items-center gap-2">
             {isArchived && (
@@ -264,12 +284,6 @@ export function IdeaCard({
               <span className="text-amber-400 font-semibold tabular-nums">
                 {idea.score.toFixed(1)}/10
               </span>
-              <div className="h-1.5 flex-1 min-w-[40px] max-w-[80px] rounded-full bg-slate-800 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-amber-500 transition-all"
-                  style={{ width: `${((idea.score ?? 0) / 10) * 100}%` }}
-                />
-              </div>
             </>
           )}
           {isGenerating && (

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { List, Heart, Archive } from "lucide-react";
 import { prisma } from "@/lib/db";
+import { BUSINESS_MODELS } from "@/lib/business-models";
 import { IdeaCard } from "@/components/idea-card";
 
 export const dynamic = "force-dynamic";
@@ -8,20 +9,25 @@ export const dynamic = "force-dynamic";
 type Tab = "all" | "favorites" | "archived";
 
 interface Props {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; model?: string }>;
 }
 
 export default async function IdeasPage({ searchParams }: Props) {
-  const { tab: rawTab } = await searchParams;
+  const { tab: rawTab, model: rawModel } = await searchParams;
   const activeTab: Tab =
     rawTab === "favorites" ? "favorites" : rawTab === "archived" ? "archived" : "all";
+  const activeModel = rawModel || "";
 
-  const where =
+  const whereBase =
     activeTab === "favorites"
       ? { isFavorite: true }
       : activeTab === "archived"
         ? { isArchived: true }
         : { isArchived: false };
+
+  const where = activeModel
+    ? { ...whereBase, businessModel: activeModel }
+    : whereBase;
 
   const orderBy =
     activeTab === "all"
@@ -62,25 +68,42 @@ export default async function IdeasPage({ searchParams }: Props) {
       </div>
 
       {/* Tabs */}
-      <div className="mb-6 flex gap-1 rounded-xl border border-slate-800 bg-slate-900/50 p-1">
+      <div className="mb-4 flex gap-1 rounded-xl border border-slate-800 bg-slate-900/50 p-1">
         <TabLink
-          href="/ideas"
+          href={activeModel ? `/ideas?model=${activeModel}` : "/ideas"}
           active={activeTab === "all"}
           icon={<List className="size-4" />}
           label="Todas"
         />
         <TabLink
-          href="/ideas?tab=favorites"
+          href={activeModel ? `/ideas?tab=favorites&model=${activeModel}` : "/ideas?tab=favorites"}
           active={activeTab === "favorites"}
           icon={<Heart className="size-4" />}
           label="Favoritas"
         />
         <TabLink
-          href="/ideas?tab=archived"
+          href={activeModel ? `/ideas?tab=archived&model=${activeModel}` : "/ideas?tab=archived"}
           active={activeTab === "archived"}
           icon={<Archive className="size-4" />}
           label="Archivadas"
         />
+      </div>
+
+      {/* Model filter */}
+      <div className="mb-6 flex flex-wrap gap-1.5">
+        <ModelFilterChip
+          href={buildHref(activeTab, "")}
+          active={!activeModel}
+          label="Todos los modelos"
+        />
+        {BUSINESS_MODELS.map((m) => (
+          <ModelFilterChip
+            key={m.value}
+            href={buildHref(activeTab, m.value)}
+            active={activeModel === m.value}
+            label={`${m.icon} ${m.label}`}
+          />
+        ))}
       </div>
 
       {/* Ideas grid */}
@@ -175,8 +198,40 @@ interface IdeaCardData {
   validationStatus: string;
   verdict: string | null;
   score: number | null;
+  businessModel: string | null;
   isFavorite: boolean;
   isArchived: boolean;
   createdAt: Date;
   updatedAt: Date;
+}
+
+function buildHref(tab: Tab, model: string): string {
+  const params = new URLSearchParams();
+  if (tab !== "all") params.set("tab", tab);
+  if (model) params.set("model", model);
+  const qs = params.toString();
+  return qs ? `/ideas?${qs}` : "/ideas";
+}
+
+function ModelFilterChip({
+  href,
+  active,
+  label,
+}: {
+  href: string;
+  active: boolean;
+  label: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-all ${
+        active
+          ? "bg-amber-500/15 border-amber-500/40 text-amber-400"
+          : "border-slate-700 bg-slate-900/60 text-slate-400 hover:border-slate-600 hover:text-slate-300"
+      }`}
+    >
+      {label}
+    </Link>
+  );
 }
