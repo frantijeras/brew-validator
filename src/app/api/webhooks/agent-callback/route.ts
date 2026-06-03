@@ -87,8 +87,8 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Check if all 3 agents are done → update idea
-    const runningJobs = await prisma.job.findMany({
+    // Check if all 3 agents are done → update idea with final verdict
+    const pendingJobs = await prisma.job.count({
       where: {
         ideaId: job.ideaId,
         agentName: { in: ["skeptic", "advocate", "judge"] },
@@ -96,9 +96,16 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    if (runningJobs.length === 0) {
-      const judgeReport = await prisma.report.findFirst({
-        where: { ideaId: job.ideaId, agentName: "judge" },
+    if (pendingJobs === 0) {
+      // Re-read all reports fresh from DB
+      const allReports = await prisma.report.findMany({
+        where: { ideaId: job.ideaId },
+      });
+
+      const judgeReport = allReports.find(r => r.agentName === "judge");
+      const judgeJob = await prisma.job.findFirst({
+        where: { ideaId: job.ideaId, agentName: "judge", status: "COMPLETED" },
+        select: { output: true },
       });
 
       let updateData: Record<string, unknown> = {
@@ -112,18 +119,24 @@ export async function POST(req: NextRequest) {
         if (judgeReport.scorecard) {
           try {
             const sc = JSON.parse(judgeReport.scorecard);
-            if (sc.Total || sc.total) {
-              updateData.score = sc.Total || sc.total;
-            }
+            const score = sc.Total || sc.total || sc.puntuacion || null;
+            if (score) updateData.score = Math.round(score);
           } catch {
             // ignore
           }
         }
+      }
 
-        // Suggested name from judge
-        if (output.suggestedName && typeof output.suggestedName === "string") {
-          updateData.title = output.suggestedName;
-        }
+      // Try to get suggestedName from judge job output
+      if (judgeJob?.output) {
+        try {
+          const parsed = JSON.parse(
+            typeof judgeJob.output === "string"
+              ? judgeJob.output
+              : JSON.stringify(judgeJob.output)
+          );
+          if (parsed.suggestedName) updateData.title = parsed.suggestedName;
+        } catch {}
       }
 
       await prisma.idea.update({
