@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
 
     const where: Record<string, unknown> = {
       status: { in: ["PENDING", "RUNNING"] },
-      agentName: { in: ["skeptic", "advocate", "judge"] },
+      agentName: { in: ["skeptic", "advocate", "judge", "idea-generator"] },
     };
 
     if (ideaId) {
