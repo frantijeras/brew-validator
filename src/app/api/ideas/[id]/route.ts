@@ -71,3 +71,27 @@ export async function PATCH(
     );
   }
 }
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+
+    const idea = await prisma.idea.findUnique({ where: { id } });
+    if (!idea) {
+      return NextResponse.json({ error: "Idea no encontrada" }, { status: 404 });
+    }
+
+    await prisma.idea.delete({ where: { id } });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("[DELETE /api/ideas/:id]", error);
+    return NextResponse.json(
+      { error: "Error al eliminar la idea" },
+      { status: 500 }
+    );
+  }
+}

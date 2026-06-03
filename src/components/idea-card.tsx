@@ -138,7 +138,7 @@ export function IdeaCard({ idea }: IdeaCardProps) {
           title={isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
           aria-label={isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
         >
-          {isFavorite ? "❤️" : "🤍"}
+          {isFavorite ? "⭐" : <span className="text-slate-400">☆</span>}
         </button>
         <button
           onClick={toggleArchive}
@@ -146,7 +146,7 @@ export function IdeaCard({ idea }: IdeaCardProps) {
           title={isArchived ? "Desarchivar" : "Archivar"}
           aria-label={isArchived ? "Desarchivar" : "Archivar"}
         >
-          {isArchived ? "🗂️" : "📦"}
+          <span className="text-slate-400">{isArchived ? "📁" : "📂"}</span>
         </button>
       </div>
     </Link>

@@ -120,6 +120,27 @@ export default function IdeaDetailPage() {
     }
   }
 
+  async function handleDelete() {
+    const confirmed = confirm(
+      "¿Seguro que quieres eliminar esta idea? Esta acción no se puede deshacer."
+    );
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/api/ideas/${ideaId}`, {
+        method: "DELETE",
+        credentials: "same-origin",
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Error al eliminar");
+      }
+      router.push("/ideas");
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : "Error al eliminar");
+    }
+  }
+
   async function toggleFavorite() {
     if (!idea || favPending) return;
     setFavPending(true);
@@ -229,7 +250,7 @@ export default function IdeaDetailPage() {
                 title={idea.isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
                 aria-label={idea.isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
               >
-                {idea.isFavorite ? "❤️" : "🤍"}
+                {idea.isFavorite ? "⭐" : <span className="text-slate-400">☆</span>}
               </button>
               <button
                 onClick={toggleArchive}
@@ -238,7 +259,15 @@ export default function IdeaDetailPage() {
                 title={idea.isArchived ? "Desarchivar" : "Archivar"}
                 aria-label={idea.isArchived ? "Desarchivar" : "Archivar"}
               >
-                {idea.isArchived ? "🗂️" : "📦"}
+                <span className="text-slate-400">{idea.isArchived ? "📁" : "📂"}</span>
+              </button>
+              <button
+                onClick={handleDelete}
+                className="rounded-md p-1 text-lg leading-none text-red-400 transition-colors hover:bg-red-500/20"
+                title="Eliminar idea"
+                aria-label="Eliminar idea"
+              >
+                🗑️
               </button>
             </div>
           </div>

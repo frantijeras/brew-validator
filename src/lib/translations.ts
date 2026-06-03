@@ -1,9 +1,9 @@
 /** Mapeo de veredicto (DB) → etiqueta en español */
 export const VERDICT_LABELS: Record<string, string> = {
-  GO: "Avanza",
-  PIVOT: "Pivota",
-  KILL: "Cancela",
-  ITERATE: "Itera",
+  GO: "Adelante",
+  PIVOT: "Redirige",
+  KILL: "Detén",
+  ITERATE: "Revisa",
 };
 
 /** Mapeo de estado de validación (DB) → etiqueta en español */

@@ -28,7 +28,9 @@ export function ReportViewer({ report }: ReportViewerProps) {
         ? "Abogado del diablo"
         : report.agentName === "judge"
           ? "Juez"
-          : report.agentName;
+          : report.agentName === "idea-generator"
+            ? "Generador de ideas"
+            : report.agentName;
 
   const agentIcon =
     report.agentName === "skeptic"
@@ -37,7 +39,9 @@ export function ReportViewer({ report }: ReportViewerProps) {
         ? "scale"
         : report.agentName === "judge"
           ? "gavel"
-          : "file";
+          : report.agentName === "idea-generator"
+            ? "lightbulb"
+            : "file";
 
   const agentColor =
     report.agentName === "skeptic"
@@ -46,9 +50,14 @@ export function ReportViewer({ report }: ReportViewerProps) {
         ? "sky"
         : report.agentName === "judge"
           ? "violet"
-          : "slate";
+          : report.agentName === "idea-generator"
+            ? "yellow"
+            : "slate";
 
   const htmlContent = renderMarkdown(report.content);
+
+  // Detect JSON content from idea-generator
+  const ideaJson = parseIdeaJson(report.content);
 
   // Parse scorecard
   const scorecard = parseScorecard(report.scorecard);
@@ -164,15 +173,57 @@ export function ReportViewer({ report }: ReportViewerProps) {
             </div>
           )}
 
-          {/* Markdown content */}
-          <div
-            className="prose prose-invert prose-sm max-w-none
-              prose-headings:text-white prose-p:text-slate-300
-              prose-strong:text-slate-200 prose-li:text-slate-300
-              prose-a:text-amber-400 prose-code:text-amber-300
-              prose-pre:bg-slate-800 prose-pre:border prose-pre:border-slate-700"
-            dangerouslySetInnerHTML={{ __html: htmlContent }}
-          />
+          {/* Content - idea JSON or markdown */}
+          {ideaJson ? (
+            <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-5">
+              <h4 className="mb-3 flex items-center gap-2 text-lg font-semibold text-white">
+                💡 {ideaJson.title}
+              </h4>
+              <dl className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                    Descripción
+                  </dt>
+                  <dd className="mt-1 text-sm text-slate-300">
+                    {ideaJson.description}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                    Target
+                  </dt>
+                  <dd className="mt-1 text-sm text-slate-300">
+                    {ideaJson.targetUser}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                    Monetización
+                  </dt>
+                  <dd className="mt-1 text-sm text-slate-300">
+                    {ideaJson.monetization}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                    Puntuación
+                  </dt>
+                  <dd className="mt-1 text-sm font-bold text-amber-400">
+                    {ideaJson.score}/10
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          ) : (
+            <div
+              className="prose prose-invert prose-sm max-w-none
+                prose-headings:text-white prose-p:text-slate-300
+                prose-strong:text-slate-200 prose-li:text-slate-300
+                prose-a:text-amber-400 prose-code:text-amber-300
+                prose-pre:bg-slate-800 prose-pre:border prose-pre:border-slate-700"
+              dangerouslySetInnerHTML={{ __html: htmlContent }}
+            />
+          )}
         </div>
       )}
     </div>
@@ -180,6 +231,49 @@ export function ReportViewer({ report }: ReportViewerProps) {
 }
 
 /* ── Helpers ── */
+
+interface IdeaJson {
+  title: string;
+  description: string;
+  targetUser: string;
+  monetization: string;
+  score: number;
+}
+
+function parseIdeaJson(content: string): IdeaJson | null {
+  if (!content || !content.trim().startsWith("{")) return null;
+
+  try {
+    const parsed = JSON.parse(content);
+
+    // Handle {"ideas": [{...}]}
+    if (parsed.ideas && Array.isArray(parsed.ideas) && parsed.ideas.length > 0) {
+      const idea = parsed.ideas[0];
+      return {
+        title: idea.title ?? idea.name ?? "Sin título",
+        description: idea.description ?? "",
+        targetUser: idea.targetUser ?? idea.target ?? "",
+        monetization: idea.monetization ?? "",
+        score: typeof idea.score === "number" ? idea.score : 0,
+      };
+    }
+
+    // Handle direct idea object
+    if (parsed.title || parsed.description || parsed.targetUser || parsed.monetization) {
+      return {
+        title: parsed.title ?? parsed.name ?? "Sin título",
+        description: parsed.description ?? "",
+        targetUser: parsed.targetUser ?? parsed.target ?? "",
+        monetization: parsed.monetization ?? "",
+        score: typeof parsed.score === "number" ? parsed.score : 0,
+      };
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 function parseScorecard(
   scorecard: string | null
@@ -273,6 +367,14 @@ function AgentIcon({
           <path d="M8 8l6-6" />
           <path d="M9 7l8 8" />
           <path d="M21 11l-2-2" />
+        </svg>
+      );
+    case "lightbulb":
+      return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M9 18h6" />
+          <path d="M10 22h4" />
+          <path d="M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V17h8v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7z" />
         </svg>
       );
     default:
