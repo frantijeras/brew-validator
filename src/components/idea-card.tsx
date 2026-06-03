@@ -3,9 +3,10 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Heart, Archive, Trash2, Undo2, MoreHorizontal } from "lucide-react";
+import { Heart, Archive, Trash2, Undo2, MoreHorizontal, Pencil } from "lucide-react";
 import { getBadgeInfo } from "@/lib/translations";
 import { ConfirmModal } from "@/components/confirm-modal";
+import RenameModal from "@/components/rename-modal";
 
 import { BUSINESS_MODELS } from "@/lib/business-models";
 
@@ -39,6 +40,7 @@ export function IdeaCard({
   const [isArchived, setIsArchived] = useState(idea.isArchived);
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showRenameModal, setShowRenameModal] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -234,6 +236,23 @@ export function IdeaCard({
                     ) : null
                   )}
 
+                  {/* Renombrar */}
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      closeMenu();
+                      setShowRenameModal(true);
+                    }}
+                    className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
+                  >
+                    <Pencil className="size-4 text-slate-400" />
+                    Renombrar
+                  </button>
+
+                  {/* Separator */}
+                  <div className="my-1 border-t border-slate-700" />
+
                   {showDelete && (
                     <button
                       onClick={(e) => {
@@ -277,6 +296,17 @@ export function IdeaCard({
         variant="danger"
         onConfirm={handleDelete}
         onCancel={() => setShowDeleteModal(false)}
+      />
+
+      <RenameModal
+        open={showRenameModal}
+        ideaId={idea.id}
+        currentTitle={idea.title}
+        onClose={() => setShowRenameModal(false)}
+        onRenamed={() => {
+          setShowRenameModal(false);
+          router.refresh();
+        }}
       />
     </>
   );

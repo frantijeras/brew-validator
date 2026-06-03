@@ -384,22 +384,12 @@ export default function RefineQuizModal({
                 Elige cómo quieres pulir tu idea:
               </p>
 
-              <div className="rounded-lg border border-slate-800 bg-slate-800/50 p-4 mb-6">
-                <p className="text-sm font-medium text-white">{idea.title}</p>
-                <p className="mt-1 text-sm text-slate-400 line-clamp-2">
-                  {idea.description}
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                  {idea.targetUser && (
-                    <span className="rounded-full border border-slate-700 px-2.5 py-0.5 text-slate-400">
-                      {idea.targetUser}
-                    </span>
-                  )}
-                  <span className="rounded-full border border-slate-700 px-2.5 py-0.5 text-slate-400">
-                    {idea.monetization}
-                  </span>
-                </div>
-              </div>
+              <CompactIdeaCard
+                title={idea.title}
+                description={idea.description}
+                targetUser={idea.targetUser}
+                monetization={idea.monetization}
+              />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
@@ -676,6 +666,47 @@ export default function RefineQuizModal({
 }
 
 /* ── Sub-components ── */
+
+function CompactIdeaCard({
+  title,
+  description,
+  targetUser,
+  monetization,
+}: {
+  title: string;
+  description: string;
+  targetUser: string;
+  monetization: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-800/50 p-4 mb-6">
+      <p className="text-sm font-medium text-white">{title}</p>
+      <p className={`mt-1 text-sm text-slate-400 ${expanded ? "" : "line-clamp-2"}`}>
+        {expanded ? description : description}
+      </p>
+      {description.length > 120 && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="mt-1 text-xs text-amber-400 hover:text-amber-300 transition-colors"
+        >
+          {expanded ? "Mostrar menos" : "Ver más..."}
+        </button>
+      )}
+      <div className="mt-3 flex flex-wrap gap-2 text-xs">
+        {targetUser && (
+          <span className="rounded-full border border-slate-700 px-2.5 py-0.5 text-slate-400">
+            {targetUser}
+          </span>
+        )}
+        <span className="rounded-full border border-slate-700 px-2.5 py-0.5 text-slate-400">
+          {monetization}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 function ComparisonCard({
   label,

@@ -3,11 +3,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Heart, Archive, Trash2, Undo2, MoreHorizontal } from "lucide-react";
+import { Heart, Archive, Trash2, Undo2, MoreHorizontal, Pencil } from "lucide-react";
 import { ValidationProgress } from "@/components/validation-progress";
 import { ReportViewer } from "@/components/report-viewer";
 import { ConfirmModal } from "@/components/confirm-modal";
 import RefineQuizModal from "@/components/refine-quiz-modal";
+import RenameModal from "@/components/rename-modal";
 import { getBadgeInfo } from "@/lib/translations";
 
 interface IdeaData {
@@ -56,6 +57,7 @@ export default function IdeaDetailPage() {
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showRefineQuiz, setShowRefineQuiz] = useState(false);
+  const [showRenameModal, setShowRenameModal] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -333,6 +335,21 @@ export default function IdeaDetailPage() {
                     {/* Separator */}
                     <div className="my-1 border-t border-slate-700" />
 
+                    {/* Rename */}
+                    <button
+                      onClick={() => {
+                        setShowMenu(false);
+                        setShowRenameModal(true);
+                      }}
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
+                    >
+                      <Pencil className="size-4 text-slate-400" />
+                      Renombrar
+                    </button>
+
+                    {/* Separator */}
+                    <div className="my-1 border-t border-slate-700" />
+
                     {/* Delete */}
                     <button
                       onClick={() => {
@@ -520,17 +537,6 @@ export default function IdeaDetailPage() {
           </div>
         )}
 
-      {/* Delete button — bottom right, gray */}
-      <div className="mt-8 flex justify-end">
-        <button
-          onClick={() => setShowDeleteModal(true)}
-          className="flex items-center gap-2 text-sm text-slate-500 hover:text-red-400 transition-colors"
-        >
-          <Trash2 className="size-4" />
-          Eliminar idea
-        </button>
-      </div>
-
       {/* Confirm modals */}
       <ConfirmModal
         open={showDeleteModal}
@@ -540,6 +546,17 @@ export default function IdeaDetailPage() {
         variant="danger"
         onConfirm={handleDelete}
         onCancel={() => setShowDeleteModal(false)}
+      />
+
+      <RenameModal
+        open={showRenameModal}
+        ideaId={idea.id}
+        currentTitle={idea.title}
+        onClose={() => setShowRenameModal(false)}
+        onRenamed={() => {
+          setShowRenameModal(false);
+          fetchIdea();
+        }}
       />
 
     </div>

@@ -119,13 +119,15 @@ export function ReportViewer({ report }: ReportViewerProps) {
       {/* Content */}
       {open && (
         <div className="border-t border-slate-800 px-6 py-5">
-          {/* Tabla de puntuación */}
+          {/* Tabla resumen de puntuación */}
           {scorecard && scorecard.length > 0 && (
             <div className="mb-6">
               <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
                 Puntuación
               </h4>
-              <div className="overflow-hidden rounded-lg border border-slate-700">
+
+              {/* Summary table — all dimensions in rows */}
+              <div className="mb-4 overflow-hidden rounded-lg border border-slate-700">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-700 bg-slate-800/50">
@@ -175,6 +177,34 @@ export function ReportViewer({ report }: ReportViewerProps) {
                   </tbody>
                 </table>
               </div>
+
+              {/* Desglose — lista */}
+              {scorecard.length > 0 && (
+                <ul className="space-y-2">
+                  {scorecard.map((item) => {
+                    const isTotal =
+                      item.key.toLowerCase() === "total" ||
+                      item.key.toLowerCase() === "total score" ||
+                      item.key.toLowerCase() === "puntuación total";
+                    if (isTotal) return null;
+                    const explanation = extractDimensionExplanation(report.content, item.key);
+                    const scoreNum = typeof item.value === "number" ? item.value : parseFloat(String(item.value));
+                    const scoreLabel = !isNaN(scoreNum) ? `${scoreNum}/10` : String(item.value);
+                    return (
+                      <li key={item.key} className="text-sm text-slate-300 leading-relaxed">
+                        <strong className="text-slate-200">{item.key}:</strong>{" "}
+                        <span className="text-amber-400 font-semibold tabular-nums">{scoreLabel}</span>
+                        {explanation && (
+                          <>
+                            {" "}—{" "}
+                            <span className="text-slate-400">{explanation}</span>
+                          </>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
           )}
 
@@ -335,6 +365,32 @@ function formatScore(value: number | string): string {
     return Number.isInteger(value) ? String(value) : value.toFixed(1);
   }
   return String(value);
+}
+
+/**
+ * Try to extract a per-dimension explanation from the report markdown.
+ * Looks for lines like "**Problema:** …" or "- **Problema**: …"
+ */
+function extractDimensionExplanation(content: string, dimension: string): string {
+  const patterns = [
+    new RegExp(`\\*\\*${escapeRegex(dimension)}\\s*[:：]?\\*\\*\\s*(.+?)(?:\\n|$)`, "i"),
+    new RegExp(`^\\s*-\\s+\\*\\*${escapeRegex(dimension)}\\s*[:：]?\\*\\*\\s*(.+?)(?:\\n|$)`, "im"),
+    new RegExp(`${escapeRegex(dimension)}\\s*[:：]\\s*([0-9]+(?:\\.[0-9]+)?)\\/10\\s*[—-]?\\s*(.+?)(?:\\n|$)`, "i"),
+  ];
+
+  for (const pattern of patterns) {
+    const match = content.match(pattern);
+    if (match) {
+      const explanation = (match[1] || match[2] || "").trim();
+      if (explanation && explanation.length > 3) return explanation;
+    }
+  }
+
+  return "";
+}
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /* ── Icons ── */

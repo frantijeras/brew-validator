@@ -13,6 +13,7 @@ const callbackSchema = z.object({
 const VALIDATION_AGENTS = ["skeptic", "advocate", "judge"];
 const GENERATOR_AGENT = "idea-generator";
 const REFINER_AGENT = "brew-qa-refiner";
+const RENAMER_AGENT = "idea-renamer";
 
 export async function POST(req: NextRequest) {
   try {
@@ -27,6 +28,7 @@ export async function POST(req: NextRequest) {
     const isValidationAgent = VALIDATION_AGENTS.includes(job.agentName);
     const isGeneratorAgent = job.agentName === GENERATOR_AGENT;
     const isRefinerAgent = job.agentName === REFINER_AGENT;
+    const isRenamerAgent = job.agentName === RENAMER_AGENT;
 
     if (data.status === "FAILED") {
       await prisma.job.update({
@@ -158,6 +160,13 @@ export async function POST(req: NextRequest) {
       }
       // For RUNNING status, just store the output so the UI can read it via GET /api/ideas/:id/refine
 
+      return NextResponse.json({ success: true });
+    }
+
+    // ── Idea Renamer callback ──
+    if (isRenamerAgent) {
+      // Output is already stored in the job via the generic update above.
+      // The UI will poll GET /api/ideas/:id/rename-suggestions?jobId=... for suggestions.
       return NextResponse.json({ success: true });
     }
 
