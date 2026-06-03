@@ -3,9 +3,10 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Heart, Archive, Trash2, Undo2 } from "lucide-react";
+import { Heart, Archive, Trash2, Undo2, MoreHorizontal } from "lucide-react";
 import { ValidationProgress } from "@/components/validation-progress";
 import { ReportViewer } from "@/components/report-viewer";
+import { ConfirmModal } from "@/components/confirm-modal";
 import { translateVerdict, translateStatus } from "@/lib/translations";
 
 interface IdeaData {
@@ -52,7 +53,23 @@ export default function IdeaDetailPage() {
   const [showReformulate, setShowReformulate] = useState(false);
   const [reformulating, setReformulating] = useState(false);
   const [reformulatePrompt, setReformulatePrompt] = useState("");
+  const [showMenu, setShowMenu] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showReformulateWarningModal, setShowReformulateWarningModal] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu on click outside
+  useEffect(() => {
+    if (!showMenu) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showMenu]);
 
   const fetchIdea = useCallback(async () => {
     try {
@@ -130,14 +147,19 @@ export default function IdeaDetailPage() {
     }
   }
 
-  function handleOpenReformulate() {
+  function openReformulate() {
     if (isCompleted) {
-      const confirmed = confirm(
-        "Al reformular una idea ya validada, se perderán los resultados anteriores. ¿Continuar?"
-      );
-      if (!confirmed) return;
+      setShowReformulateWarningModal(true);
+    } else {
+      setShowReformulate(true);
+      setReformulatePrompt("");
     }
-    setShowReformulate(!showReformulate);
+    setShowMenu(false);
+  }
+
+  function confirmOpenReformulate() {
+    setShowReformulateWarningModal(false);
+    setShowReformulate(true);
     setReformulatePrompt("");
   }
 
@@ -168,11 +190,6 @@ export default function IdeaDetailPage() {
   }
 
   async function handleDelete() {
-    const confirmed = confirm(
-      "¿Seguro que quieres eliminar esta idea? Esta acción no se puede deshacer."
-    );
-    if (!confirmed) return;
-
     try {
       const res = await fetch(`/api/ideas/${ideaId}`, {
         method: "DELETE",
@@ -205,6 +222,7 @@ export default function IdeaDetailPage() {
     } finally {
       setFavPending(false);
     }
+    setShowMenu(false);
   }
 
   async function toggleArchive() {
@@ -224,6 +242,7 @@ export default function IdeaDetailPage() {
     } finally {
       setArchPending(false);
     }
+    setShowMenu(false);
   }
 
   // ── States ──
@@ -296,6 +315,89 @@ export default function IdeaDetailPage() {
                   {elapsedStr}
                 </span>
               )}
+
+              {/* 3-dot menu */}
+              <div className="relative ml-auto" ref={menuRef}>
+                <button
+                  onClick={() => setShowMenu((prev) => !prev)}
+                  className="rounded-md p-1.5 leading-none transition-colors hover:bg-slate-800 text-slate-400 hover:text-slate-200"
+                  title="Más opciones"
+                  aria-label="Más opciones"
+                >
+                  <MoreHorizontal className="size-5" />
+                </button>
+
+                {showMenu && (
+                  <div className="absolute right-0 top-full mt-1 z-40 w-56 rounded-lg border border-slate-700 bg-slate-800 shadow-xl py-1.5">
+                    {/* Favorite / Unfavorite — hidden if archived */}
+                    {!idea.isArchived && (
+                      <button
+                        onClick={toggleFavorite}
+                        disabled={favPending}
+                        className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors disabled:opacity-50"
+                      >
+                        <Heart
+                          className={`size-4 ${idea.isFavorite ? "text-red-400" : "text-slate-400"}`}
+                          fill={idea.isFavorite ? "currentColor" : "none"}
+                        />
+                        {idea.isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
+                      </button>
+                    )}
+
+                    {/* Archive / Unarchive — hidden if favorited */}
+                    {!idea.isFavorite && (
+                      idea.isArchived ? (
+                        <button
+                          onClick={toggleArchive}
+                          disabled={archPending}
+                          className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors disabled:opacity-50"
+                        >
+                          <Undo2 className="size-4 text-slate-400" />
+                          Desarchivar
+                        </button>
+                      ) : (
+                        <button
+                          onClick={toggleArchive}
+                          disabled={archPending}
+                          className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors disabled:opacity-50"
+                        >
+                          <Archive
+                            className={`size-4 ${idea.isArchived ? "text-amber-400" : "text-slate-400"}`}
+                            fill={idea.isArchived ? "currentColor" : "none"}
+                          />
+                          Archivar
+                        </button>
+                      )
+                    )}
+
+                    {/* Reformulate */}
+                    {(idea.status === "DRAFT" || isCompleted) && (
+                      <button
+                        onClick={openReformulate}
+                        className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
+                      >
+                        <EditIcon />
+                        Reformular idea
+                      </button>
+                    )}
+
+                    {/* Separator */}
+                    <div className="my-1 border-t border-slate-700" />
+
+                    {/* Delete */}
+                    <button
+                      onClick={() => {
+                        setShowMenu(false);
+                        setShowDeleteModal(true);
+                      }}
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-red-400 hover:bg-slate-700 transition-colors"
+                    >
+                      <Trash2 className="size-4" />
+                      Eliminar
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Score bar */}
@@ -331,69 +433,13 @@ export default function IdeaDetailPage() {
               )}
               {(idea.status === "DRAFT" || isCompleted) && (
                 <button
-                  onClick={handleOpenReformulate}
+                  onClick={openReformulate}
                   className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-200 shadow transition-all hover:border-slate-600 hover:bg-slate-700 active:bg-slate-900"
                 >
                   <EditIcon />
                   Reformular idea
                 </button>
               )}
-
-              {/* Favorite / Archive / Delete */}
-              <div className="flex items-center gap-1 ml-2">
-                <button
-                  onClick={toggleFavorite}
-                  disabled={favPending}
-                  className="rounded-md p-1.5 leading-none transition-colors hover:bg-slate-800 disabled:opacity-50"
-                  title={
-                    idea.isFavorite
-                      ? "Quitar de favoritos"
-                      : "Añadir a favoritos"
-                  }
-                  aria-label={
-                    idea.isFavorite
-                      ? "Quitar de favoritos"
-                      : "Añadir a favoritos"
-                  }
-                >
-                  {idea.isFavorite ? (
-                    <Heart className="size-4 text-red-400" fill="currentColor" />
-                  ) : (
-                    <Heart className="size-4 text-slate-400" />
-                  )}
-                </button>
-
-                {idea.isArchived ? (
-                  <button
-                    onClick={toggleArchive}
-                    disabled={archPending}
-                    className="rounded-md p-1.5 leading-none transition-colors hover:bg-slate-800 disabled:opacity-50"
-                    title="Desarchivar"
-                    aria-label="Desarchivar"
-                  >
-                    <Undo2 className="size-4 text-slate-400" />
-                  </button>
-                ) : (
-                  <button
-                    onClick={toggleArchive}
-                    disabled={archPending}
-                    className="rounded-md p-1.5 leading-none transition-colors hover:bg-slate-800 disabled:opacity-50"
-                    title="Archivar"
-                    aria-label="Archivar"
-                  >
-                    <Archive className="size-4 text-slate-400" />
-                  </button>
-                )}
-
-                <button
-                  onClick={handleDelete}
-                  className="rounded-md p-1.5 leading-none transition-colors hover:bg-red-500/20"
-                  title="Eliminar idea"
-                  aria-label="Eliminar idea"
-                >
-                  <Trash2 className="size-4 text-red-400" />
-                </button>
-              </div>
             </div>
 
             {apiError && (
@@ -402,7 +448,7 @@ export default function IdeaDetailPage() {
               </div>
             )}
 
-            {/* Reformulate form — simplified: only instructions input */}
+            {/* Reformulate form */}
             {showReformulate && (
               <div className="mt-6 rounded-lg border border-slate-700 bg-slate-900 p-5">
                 <h3 className="text-base font-semibold text-white mb-4">
@@ -416,19 +462,13 @@ export default function IdeaDetailPage() {
                     >
                       Indicaciones para reformular
                     </label>
-                    <input
+                    <textarea
                       id="reformulate-prompt"
-                      type="text"
-                      placeholder="Ej: enfócate en jóvenes, suscripción mensual…"
                       value={reformulatePrompt}
                       onChange={(e) => setReformulatePrompt(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          handleReformulate();
-                        }
-                      }}
-                      className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-amber-500/50 focus:outline-none focus:ring-1 focus:ring-amber-500/30"
+                      placeholder="Ej: enfócate en jóvenes, cambia el modelo de negocio a suscripción mensual, añade gamificación..."
+                      className="w-full rounded-lg border border-slate-700 bg-slate-800 p-3 text-sm text-slate-200 placeholder:text-slate-500 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/50 focus:outline-none resize-y"
+                      rows={3}
                     />
                   </div>
                   <div className="flex items-center gap-3">
@@ -565,6 +605,38 @@ export default function IdeaDetailPage() {
             </p>
           </div>
         )}
+
+      {/* Delete button — bottom right, gray */}
+      <div className="mt-8 flex justify-end">
+        <button
+          onClick={() => setShowDeleteModal(true)}
+          className="flex items-center gap-2 text-sm text-slate-500 hover:text-red-400 transition-colors"
+        >
+          <Trash2 className="size-4" />
+          Eliminar idea
+        </button>
+      </div>
+
+      {/* Confirm modals */}
+      <ConfirmModal
+        open={showDeleteModal}
+        title="Eliminar idea"
+        message="¿Seguro que quieres eliminar esta idea? Esta acción no se puede deshacer."
+        confirmText="Eliminar"
+        variant="danger"
+        onConfirm={handleDelete}
+        onCancel={() => setShowDeleteModal(false)}
+      />
+
+      <ConfirmModal
+        open={showReformulateWarningModal}
+        title="Reformular idea validada"
+        message="Al reformular una idea ya validada, se perderán los resultados anteriores. ¿Continuar?"
+        confirmText="Continuar"
+        variant="default"
+        onConfirm={confirmOpenReformulate}
+        onCancel={() => setShowReformulateWarningModal(false)}
+      />
     </div>
   );
 }

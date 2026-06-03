@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import Link from "next/link";
-import { Heart, Archive, Trash2, Undo2 } from "lucide-react";
+import { Heart, Archive, Trash2, Undo2, MoreHorizontal } from "lucide-react";
 import { translateVerdict, translateStatus } from "@/lib/translations";
 
 interface IdeaCardProps {
@@ -31,68 +31,70 @@ export function IdeaCard({
 }: IdeaCardProps) {
   const [isFavorite, setIsFavorite] = useState(idea.isFavorite);
   const [isArchived, setIsArchived] = useState(idea.isArchived);
+  const [showMenu, setShowMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  const toggleFavorite = useCallback(
-    async (e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const next = !isFavorite;
-      setIsFavorite(next);
-      try {
-        await fetch(`/api/ideas/${idea.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-          body: JSON.stringify({ isFavorite: next }),
-        });
-      } catch {
-        setIsFavorite(!next);
+  // Close menu on click outside
+  useEffect(() => {
+    if (!showMenu) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMenu(false);
       }
-    },
-    [idea.id, isFavorite]
-  );
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showMenu]);
 
-  const toggleArchive = useCallback(
-    async (e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const next = !isArchived;
-      setIsArchived(next);
-      try {
-        await fetch(`/api/ideas/${idea.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-          body: JSON.stringify({ isArchived: next }),
-        });
-      } catch {
-        setIsArchived(!next);
-      }
-    },
-    [idea.id, isArchived]
-  );
+  const toggleFavorite = useCallback(async () => {
+    const next = !isFavorite;
+    setIsFavorite(next);
+    try {
+      await fetch(`/api/ideas/${idea.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ isFavorite: next }),
+      });
+    } catch {
+      setIsFavorite(!next);
+    }
+  }, [idea.id, isFavorite]);
 
-  const handleDelete = useCallback(
-    async (e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const confirmed = confirm(
-        "¿Seguro que quieres eliminar esta idea? Esta acción no se puede deshacer."
-      );
-      if (!confirmed) return;
+  const toggleArchive = useCallback(async () => {
+    const next = !isArchived;
+    setIsArchived(next);
+    try {
+      await fetch(`/api/ideas/${idea.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ isArchived: next }),
+      });
+    } catch {
+      setIsArchived(!next);
+    }
+  }, [idea.id, isArchived]);
 
-      try {
-        await fetch(`/api/ideas/${idea.id}`, {
-          method: "DELETE",
-          credentials: "same-origin",
-        });
-        onDeleted?.();
-      } catch {
-        // ignore
-      }
-    },
-    [idea.id, onDeleted]
-  );
+  const handleDelete = useCallback(async () => {
+    try {
+      await fetch(`/api/ideas/${idea.id}`, {
+        method: "DELETE",
+        credentials: "same-origin",
+      });
+      onDeleted?.();
+    } catch {
+      // ignore
+    }
+  }, [idea.id, onDeleted]);
+
+  const openMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowMenu((prev) => !prev);
+  }, []);
+
+  const closeMenu = useCallback(() => setShowMenu(false), []);
 
   const isDone = idea.verdict !== null;
   const verdictColor = idea.verdict === "GO"
@@ -130,7 +132,7 @@ export function IdeaCard({
           {idea.title}
         </h3>
 
-        {/* Status badge */}
+        {/* Status badge + menu */}
         <div className="flex shrink-0 items-center gap-2">
           {isArchived && (
             <span className="inline-block rounded-full border px-2 py-0.5 text-xs font-medium text-amber-400 bg-amber-500/10 border-amber-500/30">
@@ -151,6 +153,86 @@ export function IdeaCard({
           >
             {badgeLabel}
           </span>
+
+          {/* 3-dot menu */}
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={openMenu}
+              className="rounded-md p-1 leading-none transition-colors hover:bg-slate-800 text-slate-400 hover:text-slate-200"
+              title="Más opciones"
+              aria-label="Más opciones"
+            >
+              <MoreHorizontal className="size-4" />
+            </button>
+
+            {showMenu && (
+              <div className="absolute right-0 top-full mt-1 z-40 w-48 rounded-lg border border-slate-700 bg-slate-800 shadow-xl py-1.5">
+                {/* Favorite / Unfavorite */}
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleFavorite();
+                    closeMenu();
+                  }}
+                  className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
+                >
+                  <Heart
+                    className={`size-4 ${isFavorite ? "text-red-400" : "text-slate-400"}`}
+                    fill={isFavorite ? "currentColor" : "none"}
+                  />
+                  {isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
+                </button>
+
+                {/* Archive / Unarchive — hidden if favorited */}
+                {!isFavorite && (
+                  isArchived ? (
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggleArchive();
+                        closeMenu();
+                      }}
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
+                    >
+                      <Undo2 className="size-4 text-slate-400" />
+                      Desarchivar
+                    </button>
+                  ) : showArchive ? (
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggleArchive();
+                        closeMenu();
+                      }}
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
+                    >
+                      <Archive className="size-4 text-slate-400" />
+                      Archivar
+                    </button>
+                  ) : null
+                )}
+
+                {/* Delete */}
+                {showDelete && (
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleDelete();
+                      closeMenu();
+                    }}
+                    className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-red-400 hover:bg-slate-700 transition-colors"
+                  >
+                    <Trash2 className="size-4" />
+                    Eliminar
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -176,56 +258,6 @@ export function IdeaCard({
         )}
         {idea.validationStatus === "DONE" && !idea.verdict && (
           <span className="text-slate-400">Completado</span>
-        )}
-      </div>
-
-      {/* Actions */}
-      <div className="mt-3 flex items-center gap-2">
-        {/* Favorite toggle */}
-        <button
-          onClick={toggleFavorite}
-          className="rounded-md p-1 leading-none transition-colors hover:bg-slate-800"
-          title={isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
-          aria-label={isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
-        >
-          {isFavorite ? (
-            <Heart className="size-4 text-red-400" fill="currentColor" />
-          ) : (
-            <Heart className="size-4 text-slate-400" />
-          )}
-        </button>
-
-        {/* Archive / Unarchive */}
-        {isArchived ? (
-          <button
-            onClick={toggleArchive}
-            className="rounded-md p-1 leading-none transition-colors hover:bg-slate-800"
-            title="Desarchivar"
-            aria-label="Desarchivar"
-          >
-            <Undo2 className="size-4 text-slate-400" />
-          </button>
-        ) : showArchive ? (
-          <button
-            onClick={toggleArchive}
-            className="rounded-md p-1 leading-none transition-colors hover:bg-slate-800"
-            title="Archivar"
-            aria-label="Archivar"
-          >
-            <Archive className="size-4 text-slate-400" />
-          </button>
-        ) : null}
-
-        {/* Delete */}
-        {showDelete && (
-          <button
-            onClick={handleDelete}
-            className="rounded-md p-1 leading-none transition-colors hover:bg-red-500/20"
-            title="Eliminar idea"
-            aria-label="Eliminar idea"
-          >
-            <Trash2 className="size-4 text-red-400" />
-          </button>
         )}
       </div>
     </Link>

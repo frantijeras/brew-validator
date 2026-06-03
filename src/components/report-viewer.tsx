@@ -21,6 +21,11 @@ interface ReportViewerProps {
 export function ReportViewer({ report }: ReportViewerProps) {
   const [open, setOpen] = useState(true);
 
+  // Omit idea-generator reports — the original idea is already shown above
+  if (report.agentName === "idea-generator" || report.agentName === "Generador de ideas") {
+    return null;
+  }
+
   const agentLabel =
     report.agentName === "skeptic"
       ? "Escéptico"
