@@ -19,19 +19,29 @@ const manualRawSchema = z.object({
   rawText: z.string().min(10, "El texto debe tener al menos 10 caracteres"),
 });
 
-// ── Schema: quiz mode ──
-const quizSchema = z.object({
+// ── Schema: quiz mode (fase 1 — sin answers) ──
+const quizStartSchema = z.object({
   mode: z.literal("quiz"),
-  currentQuestion: z.number().int().min(0).max(6),
-  answers: z.array(
-    z.object({
-      question: z.string(),
-      answer: z.string(),
-    })
-  ),
 });
 
-const refineSchema = z.union([manualFieldsSchema, manualRawSchema, quizSchema]);
+// ── Schema: quiz mode (fase 2 — con answers) ──
+const quizAnswersSchema = z.object({
+  mode: z.literal("quiz"),
+  answers: z.array(
+    z.object({
+      questionId: z.string(),
+      questionText: z.string(),
+      answer: z.string(),
+    })
+  ).min(1, "Debe incluir al menos una respuesta"),
+});
+
+const refineSchema = z.union([
+  manualFieldsSchema,
+  manualRawSchema,
+  quizStartSchema,
+  quizAnswersSchema,
+]);
 
 const REFINER_AGENT = "brew-qa-refiner";
 
@@ -51,7 +61,7 @@ export async function POST(
     }
 
     // ── Manual mode (structured fields) ──
-    if (parsed.mode === "manual" && "rawText" in parsed === false) {
+    if (parsed.mode === "manual" && !("rawText" in parsed)) {
       return handleManualMode(idea, parsed);
     }
 
@@ -60,8 +70,17 @@ export async function POST(
       return handleManualRawMode(idea, parsed);
     }
 
-    // ── Quiz mode ──
-    return handleQuizMode(idea, parsed);
+    // ── Quiz mode (fase 1 — sin answers → crear job) ──
+    if (parsed.mode === "quiz" && !("answers" in parsed)) {
+      return handleQuizPhase1(idea);
+    }
+
+    // ── Quiz mode (fase 2 — con answers → reabrir job) ──
+    if (parsed.mode === "quiz" && "answers" in parsed) {
+      return handleQuizPhase2(idea, parsed);
+    }
+
+    return NextResponse.json({ error: "Modo no soportado" }, { status: 400 });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -146,10 +165,9 @@ async function handleManualRawMode(
   return NextResponse.json({ success: true, idea: updated });
 }
 
-// ── Quiz mode ──
-async function handleQuizMode(
-  idea: { id: string; title: string; description: string; problem: string | null; valueProposition: string | null; targetUser: string; monetization: string },
-  input: z.infer<typeof quizSchema>
+// ── Quiz Phase 1: Create job to generate all questions ──
+async function handleQuizPhase1(
+  idea: { id: string; title: string; description: string; problem: string | null; valueProposition: string | null; targetUser: string; monetization: string }
 ) {
   const jobInput = {
     idea: {
@@ -160,12 +178,10 @@ async function handleQuizMode(
       targetUser: idea.targetUser,
       monetization: idea.monetization,
     },
-    currentQuestion: input.currentQuestion,
-    answers: input.answers,
     mode: "quiz" as const,
+    answers: [],
   };
 
-  // Create a new job for each quiz step (stateless)
   const job = await prisma.job.create({
     data: {
       ideaId: idea.id,
@@ -176,7 +192,41 @@ async function handleQuizMode(
   });
 
   return NextResponse.json({
-    status: "RUNNING",
+    status: "PENDING",
+    jobId: job.id,
+  });
+}
+
+// ── Quiz Phase 2: Submit answers, re-trigger job → DONE ──
+async function handleQuizPhase2(
+  idea: { id: string; title: string; description: string; problem: string | null; valueProposition: string | null; targetUser: string; monetization: string },
+  input: z.infer<typeof quizAnswersSchema>
+) {
+  const jobInput = {
+    idea: {
+      title: idea.title,
+      description: idea.description,
+      problem: idea.problem,
+      valueProposition: idea.valueProposition,
+      targetUser: idea.targetUser,
+      monetization: idea.monetization,
+    },
+    mode: "quiz" as const,
+    answers: input.answers,
+  };
+
+  // Create a new job for phase 2 (with answers)
+  const job = await prisma.job.create({
+    data: {
+      ideaId: idea.id,
+      agentName: REFINER_AGENT,
+      status: "PENDING",
+      input: JSON.stringify(jobInput),
+    },
+  });
+
+  return NextResponse.json({
+    status: "PENDING",
     jobId: job.id,
   });
 }
@@ -209,6 +259,16 @@ export async function GET(
       // output not valid JSON yet
     }
 
+    // ── QUESTIONS_READY: bridge generated all questions ──
+    if (outputData.status === "QUESTIONS_READY") {
+      return NextResponse.json({
+        status: "QUESTIONS_READY",
+        questions: outputData.questions || [],
+        jobId: job.id,
+      });
+    }
+
+    // ── DONE: refined idea ──
     if (outputData.status === "DONE") {
       return NextResponse.json({
         status: "DONE",
@@ -224,27 +284,16 @@ export async function GET(
       });
     }
 
-    // Quiz mode RUNNING
-    if (outputData.status === "RUNNING") {
-      return NextResponse.json({
-        status: "RUNNING",
-        question: outputData.question,
-        questionType: outputData.questionType || "text",
-        questionNumber: outputData.questionNumber,
-        totalQuestions: outputData.totalQuestions || 6,
-        message: outputData.message,
-        jobId: job.id,
-      });
-    }
-
+    // ── Still processing ──
     if (job.status === "RUNNING" || job.status === "PENDING") {
       return NextResponse.json({
-        status: "RUNNING",
-        message: outputData.message || "Procesando...",
+        status: job.status,
+        message: "Procesando...",
         jobId: job.id,
       });
     }
 
+    // ── Failed ──
     if (job.status === "FAILED") {
       return NextResponse.json({
         status: "FAILED",
@@ -255,7 +304,6 @@ export async function GET(
 
     return NextResponse.json({
       status: job.status,
-      message: "Esperando...",
       jobId: job.id,
     });
   } catch (error) {

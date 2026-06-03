@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Heart, Archive, Trash2, Undo2, MoreHorizontal } from "lucide-react";
-import { translateVerdict, translateStatus } from "@/lib/translations";
+import { getBadgeInfo } from "@/lib/translations";
 import { ConfirmModal } from "@/components/confirm-modal";
 
 import { BUSINESS_MODELS } from "@/lib/business-models";
@@ -117,19 +117,14 @@ export function IdeaCard({
 
   const closeMenu = useCallback(() => setShowMenu(false), []);
 
-  const isDone = idea.verdict !== null;
-  const verdictColor = idea.verdict === "GO"
-    ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"
-    : idea.verdict === "PIVOT"
-      ? "text-amber-400 bg-amber-500/10 border-amber-500/30"
-      : idea.verdict === "KILL"
-        ? "text-red-400 bg-red-500/10 border-red-500/30"
-        : null;
+  const badgeInfo = getBadgeInfo(idea.verdict, idea.validationStatus, idea.status);
+
+  const isDone = idea.verdict !== null || idea.validationStatus === "DONE";
 
   const statusColor =
-    idea.status === "VALIDATING"
+    idea.validationStatus === "RUNNING" || idea.status === "VALIDATING"
       ? "border-amber-500/40 bg-amber-500/5"
-      : idea.status === "COMPLETED" || idea.status === "DONE"
+      : idea.validationStatus === "COMPLETED" || idea.validationStatus === "DONE"
         ? "border-slate-700"
         : "border-slate-800";
 
@@ -138,13 +133,6 @@ export function IdeaCard({
     month: "short",
     year: "numeric",
   });
-
-  const isGenerating = idea.status === "GENERATING";
-  const badgeLabel = isGenerating
-    ? "Generando…"
-    : idea.verdict
-      ? translateVerdict(idea.verdict)
-      : translateStatus(idea.validationStatus || idea.status);
 
   return (
     <>
@@ -180,19 +168,12 @@ export function IdeaCard({
                 Archivada
               </span>
             )}
-            {(idea.validationStatus === "RUNNING" || isGenerating) && <Spinner />}
+            {/* Single badge: verdict if present, else status */}
+            {badgeInfo.showSpinner && <Spinner />}
             <span
-              className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium ${
-                idea.validationStatus === "DONE" && idea.verdict
-                  ? verdictColor
-                  : idea.validationStatus === "DONE"
-                    ? "text-slate-300 bg-slate-500/10 border-slate-500/30"
-                    : idea.validationStatus === "RUNNING" || isGenerating
-                      ? "text-amber-400 bg-amber-500/10 border-amber-500/30"
-                      : "text-slate-400 bg-slate-500/10 border-slate-500/30"
-              }`}
+              className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium ${badgeInfo.color}`}
             >
-              {badgeLabel}
+              {badgeInfo.label}
             </span>
 
             <div className="relative" ref={menuRef}>
@@ -280,20 +261,9 @@ export function IdeaCard({
             {isArchived && <Archive className="size-3 text-amber-400 shrink-0" fill="currentColor" />}
           </span>
           {isDone && idea.score !== null && (
-            <>
-              <span className="text-amber-400 font-semibold tabular-nums">
-                {idea.score.toFixed(1)}/10
-              </span>
-            </>
-          )}
-          {isGenerating && (
-            <span className="text-amber-400">Generando…</span>
-          )}
-          {!isGenerating && idea.validationStatus === "RUNNING" && (
-            <span className="text-amber-400">Validando…</span>
-          )}
-          {idea.validationStatus === "DONE" && !idea.verdict && (
-            <span className="text-slate-400">Completado</span>
+            <span className="text-amber-400 font-semibold tabular-nums">
+              {idea.score.toFixed(1)}/10
+            </span>
           )}
         </div>
       </Link>

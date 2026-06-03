@@ -8,7 +8,7 @@ import { ValidationProgress } from "@/components/validation-progress";
 import { ReportViewer } from "@/components/report-viewer";
 import { ConfirmModal } from "@/components/confirm-modal";
 import RefineQuizModal from "@/components/refine-quiz-modal";
-import { translateVerdict, translateStatus } from "@/lib/translations";
+import { getBadgeInfo } from "@/lib/translations";
 
 interface IdeaData {
   id: string;
@@ -227,7 +227,7 @@ export default function IdeaDetailPage() {
     );
   }
 
-  const verdictBadge = getVerdictBadge(idea.verdict);
+  const badgeInfo = getBadgeInfo(idea.verdict, idea.validationStatus, idea.status);
   const elapsedStr = formatElapsed(elapsedSeconds);
 
   const canValidate =
@@ -253,16 +253,18 @@ export default function IdeaDetailPage() {
               <h1 className="text-3xl font-bold tracking-tight text-white">
                 {idea.title}
               </h1>
-              <StatusBadge
-                status={idea.status}
-                validationStatus={idea.validationStatus}
-              />
+              {/* Single badge: verdict if present, else status */}
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${badgeInfo.color}`}
+              >
+                {badgeInfo.showSpinner && <Spinner />}
+                {badgeInfo.label}
+              </span>
               {idea.isArchived && (
                 <span className="inline-block rounded-full border px-2.5 py-0.5 text-xs font-medium text-amber-400 bg-amber-500/10 border-amber-500/30">
                   Archivada
                 </span>
               )}
-              {verdictBadge && verdictBadge}
               {idea.score !== null && (
                 <span className="text-sm font-semibold text-amber-400 tabular-nums">
                   {idea.score.toFixed(1)}/10
@@ -545,59 +547,6 @@ export default function IdeaDetailPage() {
 }
 
 /* ── Helpers ── */
-
-function getVerdictBadge(verdict: string | null) {
-  if (!verdict) return null;
-
-  const styles: Record<string, string> = {
-    GO: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30",
-    PIVOT: "text-amber-400 bg-amber-500/10 border-amber-500/30",
-    KILL: "text-red-400 bg-red-500/10 border-red-500/30",
-    ITERATE: "text-blue-400 bg-blue-500/10 border-blue-500/30",
-  };
-
-  return (
-    <span
-      className={`inline-block rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wider ${styles[verdict] || "text-slate-400 bg-slate-500/10 border-slate-500/30"}`}
-    >
-      {translateVerdict(verdict)}
-    </span>
-  );
-}
-
-function StatusBadge({
-  status,
-  validationStatus,
-}: {
-  status: string;
-  validationStatus: string;
-}) {
-  const label =
-    validationStatus === "RUNNING"
-      ? "En progreso"
-      : validationStatus === "DONE"
-        ? "Finalizado"
-        : validationStatus === "FAILED"
-          ? "Falló"
-          : translateStatus(status);
-
-  const color =
-    validationStatus === "RUNNING"
-      ? "text-amber-400 bg-amber-500/10 border-amber-500/30"
-      : validationStatus === "DONE"
-        ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"
-        : validationStatus === "FAILED"
-          ? "text-red-400 bg-red-500/10 border-red-500/30"
-          : "text-slate-400 bg-slate-500/10 border-slate-500/30";
-
-  return (
-    <span
-      className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-medium ${color}`}
-    >
-      {label}
-    </span>
-  );
-}
 
 function formatElapsed(seconds: number): string {
   if (seconds === 0) return "";

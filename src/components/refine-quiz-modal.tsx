@@ -1,28 +1,26 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   X,
-  ArrowRight,
   Check,
   RotateCcw,
-  Lightbulb,
-  Users,
-  Search,
-  Target,
-  TrendingUp,
-  AlertTriangle,
   Sparkles,
-  ChevronRight,
-  MessageSquare,
-  ThumbsUp,
-  ThumbsDown,
-  Edit3,
   Bot,
+  Edit3,
 } from "lucide-react";
 
-interface QuizAnswer {
-  question: string;
+// ── Types ──
+
+interface QuizQuestion {
+  id: string;
+  questionText: string;
+  options: string[];
+}
+
+interface UserAnswer {
+  questionId: string;
+  questionText: string;
   answer: string;
 }
 
@@ -34,13 +32,6 @@ interface RefineResult {
   targetUser: string;
   monetization: string;
   summary: string;
-}
-
-interface QuizQuestion {
-  question: string;
-  questionType: "yesno" | "text";
-  questionNumber: number;
-  totalQuestions: number;
 }
 
 interface IdeaInput {
@@ -60,9 +51,9 @@ interface RefineQuizModalProps {
   onApplied: () => void;
 }
 
-type Screen = "choice" | "manual" | "quiz" | "result" | "applied";
+type Screen = "choice" | "manual" | "quiz-loading" | "quiz-questions" | "quiz-analyzing" | "result" | "applied";
 
-const QUESTION_ICONS = [Users, Search, Target, TrendingUp, Lightbulb, AlertTriangle];
+// ── Component ──
 
 export default function RefineQuizModal({
   open,
@@ -71,43 +62,36 @@ export default function RefineQuizModal({
   onApplied,
 }: RefineQuizModalProps) {
   const [screen, setScreen] = useState<Screen>("choice");
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [answers, setAnswers] = useState<QuizAnswer[]>([]);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Quiz state
+  const [questions, setQuestions] = useState<QuizQuestion[]>([]);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [customInputs, setCustomInputs] = useState<Record<string, string>>({});
+  const [showCustom, setShowCustom] = useState<Record<string, boolean>>({});
   const [pollingJobId, setPollingJobId] = useState<string | null>(null);
-  const [quizQuestion, setQuizQuestion] = useState<QuizQuestion | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Result state
   const [refineResult, setRefineResult] = useState<RefineResult | null>(null);
   const [applying, setApplying] = useState(false);
 
-  // Manual mode state
+  // Manual mode
   const [manualText, setManualText] = useState("");
 
-  // Current answer state for the active question
-  const [ynAnswer, setYnAnswer] = useState<"yes" | "no" | null>(null);
-  const [customAnswer, setCustomAnswer] = useState("");
-  const [textAnswer, setTextAnswer] = useState("");
-  const [showCustom, setShowCustom] = useState(false);
-
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Reset state when modal opens
+  // ── Reset state when modal opens ──
   useEffect(() => {
     if (open) {
       setScreen("choice");
-      setCurrentQuestionIndex(0);
-      setAnswers([]);
-      setLoading(false);
       setError("");
+      setQuestions([]);
+      setAnswers({});
+      setCustomInputs({});
+      setShowCustom({});
       setPollingJobId(null);
-      setQuizQuestion(null);
       setRefineResult(null);
       setApplying(false);
       setManualText("");
-      setYnAnswer(null);
-      setCustomAnswer("");
-      setTextAnswer("");
-      setShowCustom(false);
     }
   }, [open]);
 
@@ -118,19 +102,9 @@ export default function RefineQuizModal({
     };
   }, []);
 
-  const resetQuestionState = useCallback(() => {
-    setYnAnswer(null);
-    setCustomAnswer("");
-    setTextAnswer("");
-    setShowCustom(false);
-    setError("");
-  }, []);
-
-  // ── Quiz flow ──
-
+  // ── Phase 1: Start quiz (get all questions) ──
   async function startQuiz() {
-    setScreen("quiz");
-    setLoading(true);
+    setScreen("quiz-loading");
     setError("");
 
     try {
@@ -138,11 +112,7 @@ export default function RefineQuizModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({
-          mode: "quiz",
-          currentQuestion: 0,
-          answers: [],
-        }),
+        body: JSON.stringify({ mode: "quiz" }),
       });
 
       if (!res.ok) {
@@ -152,14 +122,14 @@ export default function RefineQuizModal({
 
       const data = await res.json();
       setPollingJobId(data.jobId);
-      startPolling(data.jobId);
+      startQuestionsPolling(data.jobId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
-      setLoading(false);
+      setScreen("choice");
     }
   }
 
-  function startPolling(jobId: string) {
+  function startQuestionsPolling(jobId: string) {
     if (pollRef.current) clearInterval(pollRef.current);
     pollRef.current = setInterval(async () => {
       try {
@@ -170,16 +140,102 @@ export default function RefineQuizModal({
         if (!res.ok) return;
         const data = await res.json();
 
-        if (data.status === "RUNNING" && data.question) {
+        if (data.status === "QUESTIONS_READY" && data.questions?.length > 0) {
           if (pollRef.current) clearInterval(pollRef.current);
-          setQuizQuestion({
-            question: data.question,
-            questionType: data.questionType || "text",
-            questionNumber: data.questionNumber || 1,
-            totalQuestions: data.totalQuestions || 6,
-          });
-          setLoading(false);
+          // Initialize answers map
+          const initialAnswers: Record<string, string> = {};
+          const initialShowCustom: Record<string, boolean> = {};
+          const initialCustomInputs: Record<string, string> = {};
+          for (const q of data.questions) {
+            initialAnswers[q.id] = "";
+            initialShowCustom[q.id] = false;
+            initialCustomInputs[q.id] = "";
+          }
+          setQuestions(data.questions);
+          setAnswers(initialAnswers);
+          setShowCustom(initialShowCustom);
+          setCustomInputs(initialCustomInputs);
+          setScreen("quiz-questions");
         }
+
+        if (data.status === "FAILED") {
+          if (pollRef.current) clearInterval(pollRef.current);
+          setError(data.message || "Error generando preguntas");
+          setScreen("choice");
+        }
+      } catch {
+        // Ignore polling errors
+      }
+    }, 2000);
+  }
+
+  // ── Handle selecting an option (or custom answer) ──
+  function selectOption(questionId: string, option: string) {
+    setAnswers((prev) => ({ ...prev, [questionId]: option }));
+    setError("");
+  }
+
+  function toggleCustom(questionId: string) {
+    setShowCustom((prev) => ({ ...prev, [questionId]: !prev[questionId] }));
+  }
+
+  function setCustomAnswer(questionId: string, value: string) {
+    setCustomInputs((prev) => ({ ...prev, [questionId]: value }));
+    if (value.trim()) {
+      setAnswers((prev) => ({ ...prev, [questionId]: value.trim() }));
+    }
+  }
+
+  // ── Phase 2: Submit answers → get refined result ──
+  async function handleSubmitAnswers() {
+    // Validate all questions answered
+    const missing = questions.filter((q) => !answers[q.id]?.trim());
+    if (missing.length > 0) {
+      setError(`Responde todas las preguntas antes de continuar (${missing.length} pendientes)`);
+      return;
+    }
+
+    setScreen("quiz-analyzing");
+    setError("");
+
+    const userAnswers: UserAnswer[] = questions.map((q) => ({
+      questionId: q.id,
+      questionText: q.questionText,
+      answer: answers[q.id]?.trim() || "",
+    }));
+
+    try {
+      const res = await fetch(`/api/ideas/${idea.id}/refine`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ mode: "quiz", answers: userAnswers }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Error al enviar respuestas");
+      }
+
+      const data = await res.json();
+      setPollingJobId(data.jobId);
+      startResultPolling(data.jobId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error desconocido");
+      setScreen("quiz-questions");
+    }
+  }
+
+  function startResultPolling(jobId: string) {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(
+          `/api/ideas/${idea.id}/refine?jobId=${jobId}`,
+          { credentials: "same-origin" }
+        );
+        if (!res.ok) return;
+        const data = await res.json();
 
         if (data.status === "DONE") {
           if (pollRef.current) clearInterval(pollRef.current);
@@ -193,13 +249,12 @@ export default function RefineQuizModal({
             summary: data.summary || data.message || "",
           });
           setScreen("result");
-          setLoading(false);
         }
 
         if (data.status === "FAILED") {
           if (pollRef.current) clearInterval(pollRef.current);
           setError(data.message || "Error en el refinamiento");
-          setLoading(false);
+          setScreen("quiz-questions");
         }
       } catch {
         // Ignore polling errors
@@ -207,99 +262,7 @@ export default function RefineQuizModal({
     }, 2000);
   }
 
-  async function handleNextQuestion() {
-    const qType = quizQuestion?.questionType || "text";
-    const qText = quizQuestion?.question || "";
-
-    let answerText: string;
-    if (qType === "yesno") {
-      if (showCustom && customAnswer.trim()) {
-        answerText = `${ynAnswer === "yes" ? "Sí" : "No"} — ${customAnswer.trim()}`;
-      } else if (ynAnswer) {
-        answerText = ynAnswer === "yes" ? "Sí" : "No";
-      } else {
-        setError("Selecciona Sí o No antes de continuar");
-        return;
-      }
-    } else {
-      if (!textAnswer.trim()) {
-        setError("Escribe una respuesta antes de continuar");
-        return;
-      }
-      answerText = textAnswer.trim();
-    }
-
-    const newAnswers = [...answers, { question: qText, answer: answerText }];
-    setAnswers(newAnswers);
-    const nextIndex = currentQuestionIndex + 1;
-
-    if (nextIndex >= 6) {
-      // All questions answered — submit for final result
-      setCurrentQuestionIndex(nextIndex);
-      resetQuestionState();
-      setLoading(true);
-      setError("");
-
-      try {
-        const res = await fetch(`/api/ideas/${idea.id}/refine`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-          body: JSON.stringify({
-            mode: "quiz",
-            currentQuestion: 6,
-            answers: newAnswers,
-          }),
-        });
-
-        if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error || "Error al procesar el refinamiento");
-        }
-
-        const data = await res.json();
-        setPollingJobId(data.jobId);
-        startPolling(data.jobId);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Error desconocido");
-        setLoading(false);
-      }
-    } else {
-      // Submit next question
-      setCurrentQuestionIndex(nextIndex);
-      resetQuestionState();
-      setLoading(true);
-      setError("");
-
-      try {
-        const res = await fetch(`/api/ideas/${idea.id}/refine`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-          body: JSON.stringify({
-            mode: "quiz",
-            currentQuestion: nextIndex,
-            answers: newAnswers,
-          }),
-        });
-
-        if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error || "Error al procesar la pregunta");
-        }
-
-        const data = await res.json();
-        setPollingJobId(data.jobId);
-        startPolling(data.jobId);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Error desconocido");
-        setLoading(false);
-      }
-    }
-  }
-
   // ── Manual mode ──
-
   async function handleManualApply() {
     if (!manualText.trim()) return;
     setApplying(true);
@@ -310,10 +273,7 @@ export default function RefineQuizModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({
-          mode: "manual",
-          rawText: manualText.trim(),
-        }),
+        body: JSON.stringify({ mode: "manual", rawText: manualText.trim() }),
       });
 
       if (!res.ok) {
@@ -330,29 +290,13 @@ export default function RefineQuizModal({
     }
   }
 
-  // ── Quiz result apply ──
-
-  function handleRestart() {
-    setScreen("choice");
-    setCurrentQuestionIndex(0);
-    setAnswers([]);
-    setLoading(false);
-    setError("");
-    setPollingJobId(null);
-    setQuizQuestion(null);
-    setRefineResult(null);
-    setApplying(false);
-    setManualText("");
-    resetQuestionState();
-  }
-
+  // ── Apply refined result ──
   async function handleApplyResult() {
     if (!refineResult) return;
     setApplying(true);
     setError("");
 
     try {
-      // Update the idea
       const patchRes = await fetch(`/api/ideas/${idea.id}/refine`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -382,9 +326,21 @@ export default function RefineQuizModal({
     }
   }
 
+  function handleRestart() {
+    setScreen("choice");
+    setQuestions([]);
+    setAnswers({});
+    setCustomInputs({});
+    setShowCustom({});
+    setPollingJobId(null);
+    setRefineResult(null);
+    setError("");
+    setManualText("");
+  }
+
   if (!open) return null;
 
-  const isLastQuestion = currentQuestionIndex === 5;
+  // ── Render ──
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -428,7 +384,6 @@ export default function RefineQuizModal({
                 Elige cómo quieres pulir tu idea:
               </p>
 
-              {/* Current idea data */}
               <div className="rounded-lg border border-slate-800 bg-slate-800/50 p-4 mb-6">
                 <p className="text-sm font-medium text-white">{idea.title}</p>
                 <p className="mt-1 text-sm text-slate-400 line-clamp-2">
@@ -444,14 +399,8 @@ export default function RefineQuizModal({
                     {idea.monetization}
                   </span>
                 </div>
-                {idea.problem && (
-                  <p className="mt-3 text-xs text-slate-500">
-                    <span className="font-medium">Problema:</span> {idea.problem}
-                  </p>
-                )}
               </div>
 
-              {/* Two action buttons */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
                   onClick={() => setScreen("manual")}
@@ -536,148 +485,110 @@ export default function RefineQuizModal({
             </div>
           )}
 
-          {/* ── Quiz Screen ── */}
-          {screen === "quiz" && (
-            <div>
-              {/* Progress bar */}
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-                    Pregunta {quizQuestion ? quizQuestion.questionNumber : currentQuestionIndex + 1} de {quizQuestion?.totalQuestions || 6}
-                  </span>
-                  <span className="text-xs font-medium text-amber-400">
-                    {quizQuestion
-                      ? Math.round(
-                          (quizQuestion.questionNumber / quizQuestion.totalQuestions) * 100
-                        )
-                      : Math.round(((currentQuestionIndex + 1) / 6) * 100)}
-                    %
-                  </span>
-                </div>
-                <div className="h-1.5 w-full rounded-full bg-slate-800 overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-amber-500 transition-all duration-300"
-                    style={{
-                      width: `${
-                        quizQuestion
-                          ? (quizQuestion.questionNumber / quizQuestion.totalQuestions) * 100
-                          : ((currentQuestionIndex + 1) / 6) * 100
-                      }%`,
-                    }}
-                  />
-                </div>
-              </div>
+          {/* ── Quiz Loading Screen ── */}
+          {screen === "quiz-loading" && (
+            <div className="flex flex-col items-center justify-center py-12 gap-4">
+              <Spinner />
+              <p className="text-sm text-slate-400">
+                Generando preguntas personalizadas...
+              </p>
+              <p className="text-xs text-slate-500">
+                La IA está analizando tu idea y el mercado para crear preguntas relevantes
+              </p>
+            </div>
+          )}
 
-              {loading && !quizQuestion ? (
-                <div className="flex flex-col items-center justify-center py-12 gap-4">
-                  <Spinner />
-                  <p className="text-sm text-slate-400">Preparando pregunta...</p>
-                </div>
-              ) : quizQuestion ? (
-                <div>
-                  <div className="mb-6">
-                    <div className="flex items-start gap-3">
-                      <div className="shrink-0 mt-0.5 rounded-full bg-amber-500/10 p-2">
-                        <MessageSquare className="size-5 text-amber-400" />
-                      </div>
-                      <p className="text-base text-slate-200 leading-relaxed">
-                        {quizQuestion.question}
+          {/* ── Quiz Questions Screen (all questions in scroll) ── */}
+          {screen === "quiz-questions" && questions.length > 0 && (
+            <div>
+              <p className="text-sm text-slate-400 mb-2">
+                Responde todas las preguntas y pulsa Finalizar. La IA analizará tus respuestas para mejorar la idea.
+              </p>
+
+              <div className="space-y-6 max-h-[55vh] overflow-y-auto pr-1">
+                {questions.map((q, idx) => (
+                  <div
+                    key={q.id}
+                    className="rounded-lg border border-slate-800 bg-slate-800/30 p-4"
+                  >
+                    <div className="flex items-start gap-2 mb-3">
+                      <span className="shrink-0 rounded-full bg-amber-500/10 text-amber-400 text-xs font-semibold w-5 h-5 flex items-center justify-center mt-0.5">
+                        {idx + 1}
+                      </span>
+                      <p className="text-sm text-slate-200 leading-relaxed">
+                        {q.questionText}
                       </p>
                     </div>
-                  </div>
 
-                  {/* Yes/No question type */}
-                  {quizQuestion.questionType === "yesno" && (
-                    <div className="space-y-4">
-                      <div className="flex gap-3">
+                    {/* Option buttons */}
+                    <div className="space-y-2 mb-2">
+                      {q.options.map((opt, optIdx) => (
                         <button
-                          onClick={() => {
-                            setYnAnswer("yes");
-                            setError("");
-                          }}
-                          className={`flex-1 inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-medium transition-all ${
-                            ynAnswer === "yes"
-                              ? "border-emerald-500 bg-emerald-500/10 text-emerald-400"
-                              : "border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-600 hover:bg-slate-700"
+                          key={optIdx}
+                          onClick={() => selectOption(q.id, opt)}
+                          className={`w-full text-left rounded-lg border px-3 py-2.5 text-sm transition-all ${
+                            answers[q.id] === opt
+                              ? "border-amber-500/50 bg-amber-500/10 text-amber-300"
+                              : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600 hover:bg-slate-800 hover:text-slate-300"
                           }`}
                         >
-                          <ThumbsUp className="size-4" />
-                          Sí
+                          {opt}
                         </button>
+                      ))}
+                    </div>
+
+                    {/* Custom answer toggle */}
+                    {!showCustom[q.id] ? (
+                      <button
+                        onClick={() => toggleCustom(q.id)}
+                        className="text-xs text-amber-400 hover:text-amber-300 transition-colors"
+                      >
+                        Otra respuesta...
+                      </button>
+                    ) : (
+                      <div>
+                        <textarea
+                          value={customInputs[q.id]}
+                          onChange={(e) => setCustomAnswer(q.id, e.target.value)}
+                          placeholder="Escribe tu propia respuesta..."
+                          rows={2}
+                          className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/50 focus:outline-none resize-none"
+                        />
                         <button
-                          onClick={() => {
-                            setYnAnswer("no");
-                            setError("");
-                          }}
-                          className={`flex-1 inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-medium transition-all ${
-                            ynAnswer === "no"
-                              ? "border-red-500 bg-red-500/10 text-red-400"
-                              : "border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-600 hover:bg-slate-700"
-                          }`}
+                          onClick={() => toggleCustom(q.id)}
+                          className="mt-1 text-xs text-slate-500 hover:text-slate-400 transition-colors"
                         >
-                          <ThumbsDown className="size-4" />
-                          No
+                          Ocultar
                         </button>
                       </div>
-
-                      {!showCustom ? (
-                        <button
-                          onClick={() => setShowCustom(true)}
-                          className="text-sm text-amber-400 hover:text-amber-300 transition-colors"
-                        >
-                          Personalizar respuesta...
-                        </button>
-                      ) : (
-                        <div>
-                          <textarea
-                            value={customAnswer}
-                            onChange={(e) => setCustomAnswer(e.target.value)}
-                            placeholder="Explica tu respuesta con más detalle..."
-                            rows={3}
-                            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/50 focus:outline-none resize-none"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Text question type */}
-                  {quizQuestion.questionType === "text" && (
-                    <div>
-                      <textarea
-                        value={textAnswer}
-                        onChange={(e) => {
-                          setTextAnswer(e.target.value);
-                          setError("");
-                        }}
-                        placeholder="Escribe tu respuesta..."
-                        rows={4}
-                        className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/50 focus:outline-none resize-none"
-                      />
-                    </div>
-                  )}
-
-                  {/* Next/Finish button */}
-                  <div className="mt-6">
-                    <button
-                      onClick={handleNextQuestion}
-                      className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-3 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600"
-                    >
-                      {isLastQuestion ? (
-                        <>
-                          Finalizar
-                          <Check className="size-4" />
-                        </>
-                      ) : (
-                        <>
-                          Siguiente
-                          <ChevronRight className="size-4" />
-                        </>
-                      )}
-                    </button>
+                    )}
                   </div>
-                </div>
-              ) : null}
+                ))}
+              </div>
+
+              {/* Submit button */}
+              <div className="mt-6">
+                <button
+                  onClick={handleSubmitAnswers}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-3 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600"
+                >
+                  Finalizar
+                  <Check className="size-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Analyzing Screen ── */}
+          {screen === "quiz-analyzing" && (
+            <div className="flex flex-col items-center justify-center py-12 gap-4">
+              <Spinner />
+              <p className="text-sm text-slate-400">
+                Analizando respuestas...
+              </p>
+              <p className="text-xs text-slate-500">
+                La IA está refinando tu idea basándose en tus respuestas
+              </p>
             </div>
           )}
 
@@ -693,50 +604,22 @@ export default function RefineQuizModal({
 
               <p className="text-sm text-slate-400 mb-6">{refineResult.summary}</p>
 
-              {/* Before / After comparison cards */}
+              {/* Before / After comparison */}
               <div className="space-y-4 mb-6">
-                <ComparisonCard
-                  label="Título"
-                  before={idea.title}
-                  after={refineResult.title}
-                />
-                <ComparisonCard
-                  label="Descripción"
-                  before={idea.description}
-                  after={refineResult.description}
-                  multiline
-                />
+                <ComparisonCard label="Título" before={idea.title} after={refineResult.title} />
+                <ComparisonCard label="Descripción" before={idea.description} after={refineResult.description} multiline />
                 {refineResult.problem && (
-                  <ComparisonCard
-                    label="Problema"
-                    before={idea.problem || "—"}
-                    after={refineResult.problem}
-                    multiline
-                  />
+                  <ComparisonCard label="Problema" before={idea.problem || "—"} after={refineResult.problem} multiline />
                 )}
                 {refineResult.valueProposition && (
-                  <ComparisonCard
-                    label="Propuesta de valor"
-                    before={idea.valueProposition || "—"}
-                    after={refineResult.valueProposition}
-                    multiline
-                  />
+                  <ComparisonCard label="Propuesta de valor" before={idea.valueProposition || "—"} after={refineResult.valueProposition} multiline />
                 )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <ComparisonCard
-                    label="Usuario objetivo"
-                    before={idea.targetUser}
-                    after={refineResult.targetUser}
-                  />
-                  <ComparisonCard
-                    label="Monetización"
-                    before={idea.monetization}
-                    after={refineResult.monetization}
-                  />
+                  <ComparisonCard label="Usuario objetivo" before={idea.targetUser} after={refineResult.targetUser} />
+                  <ComparisonCard label="Monetización" before={idea.monetization} after={refineResult.monetization} />
                 </div>
               </div>
 
-              {/* Action buttons */}
               <div className="flex items-center gap-3">
                 <button
                   onClick={handleApplyResult}
@@ -817,9 +700,7 @@ function ComparisonCard({
           <span className="text-[10px] font-medium text-slate-600 uppercase tracking-wider">
             Antes
           </span>
-          <p
-            className={`mt-1 text-sm text-slate-400 ${multiline ? "" : "truncate"}`}
-          >
+          <p className={`mt-1 text-sm text-slate-400 ${multiline ? "" : "truncate"}`}>
             {before}
           </p>
         </div>
@@ -827,9 +708,7 @@ function ComparisonCard({
           <span className="text-[10px] font-medium text-amber-500/70 uppercase tracking-wider">
             Después
           </span>
-          <p
-            className={`mt-1 text-sm text-slate-200 ${multiline ? "" : "truncate"}`}
-          >
+          <p className={`mt-1 text-sm text-slate-200 ${multiline ? "" : "truncate"}`}>
             {after}
           </p>
         </div>
