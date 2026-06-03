@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
       data: {
         title: data.title,
         description: data.description,
+        originalIdea: data.description,
         targetUser: data.targetUser,
         monetization: data.monetization,
       },

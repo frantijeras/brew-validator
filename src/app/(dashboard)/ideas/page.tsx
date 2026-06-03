@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { List, Heart, Archive } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { IdeaCard } from "@/components/idea-card";
 
@@ -62,16 +63,23 @@ export default async function IdeasPage({ searchParams }: Props) {
 
       {/* Tabs */}
       <div className="mb-6 flex gap-1 rounded-xl border border-slate-800 bg-slate-900/50 p-1">
-        <TabLink href="/ideas" active={activeTab === "all"} label="📋 Todas" />
+        <TabLink
+          href="/ideas"
+          active={activeTab === "all"}
+          icon={<List className="size-4" />}
+          label="Todas"
+        />
         <TabLink
           href="/ideas?tab=favorites"
           active={activeTab === "favorites"}
-          label="⭐ Favoritas"
+          icon={<Heart className="size-4" />}
+          label="Favoritas"
         />
         <TabLink
           href="/ideas?tab=archived"
           active={activeTab === "archived"}
-          label="⚐ Archivadas"
+          icon={<Archive className="size-4" />}
+          label="Archivadas"
         />
       </div>
 
@@ -98,7 +106,12 @@ export default async function IdeasPage({ searchParams }: Props) {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {ideas.map((idea) => (
-            <IdeaCard key={idea.id} idea={idea as IdeaCardData} />
+            <IdeaCard
+              key={idea.id}
+              idea={idea as IdeaCardData}
+              showArchive={activeTab !== "favorites"}
+              showDelete
+            />
           ))}
         </div>
       )}
@@ -111,21 +124,24 @@ export default async function IdeasPage({ searchParams }: Props) {
 function TabLink({
   href,
   active,
+  icon,
   label,
 }: {
   href: string;
   active: boolean;
+  icon: React.ReactNode;
   label: string;
 }) {
   return (
     <Link
       href={href}
-      className={`flex-1 rounded-lg px-4 py-2 text-center text-sm font-medium transition-colors ${
+      className={`flex-1 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
         active
           ? "bg-slate-800 text-white shadow-sm"
           : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
       }`}
     >
+      {icon}
       {label}
     </Link>
   );

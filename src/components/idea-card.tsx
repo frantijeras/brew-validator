@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import Link from "next/link";
+import { Heart, Archive, Trash2, Undo2 } from "lucide-react";
 import { translateVerdict, translateStatus } from "@/lib/translations";
 
 interface IdeaCardProps {
@@ -17,45 +18,81 @@ interface IdeaCardProps {
     createdAt: Date;
     updatedAt: Date;
   };
+  showArchive?: boolean;
+  showDelete?: boolean;
+  onDeleted?: () => void;
 }
 
-export function IdeaCard({ idea }: IdeaCardProps) {
+export function IdeaCard({
+  idea,
+  showArchive = true,
+  showDelete = false,
+  onDeleted,
+}: IdeaCardProps) {
   const [isFavorite, setIsFavorite] = useState(idea.isFavorite);
   const [isArchived, setIsArchived] = useState(idea.isArchived);
 
-  const toggleFavorite = useCallback(async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const next = !isFavorite;
-    setIsFavorite(next);
-    try {
-      await fetch(`/api/ideas/${idea.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ isFavorite: next }),
-      });
-    } catch {
-      setIsFavorite(!next);
-    }
-  }, [idea.id, isFavorite]);
+  const toggleFavorite = useCallback(
+    async (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const next = !isFavorite;
+      setIsFavorite(next);
+      try {
+        await fetch(`/api/ideas/${idea.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ isFavorite: next }),
+        });
+      } catch {
+        setIsFavorite(!next);
+      }
+    },
+    [idea.id, isFavorite]
+  );
 
-  const toggleArchive = useCallback(async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const next = !isArchived;
-    setIsArchived(next);
-    try {
-      await fetch(`/api/ideas/${idea.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ isArchived: next }),
-      });
-    } catch {
-      setIsArchived(!next);
-    }
-  }, [idea.id, isArchived]);
+  const toggleArchive = useCallback(
+    async (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const next = !isArchived;
+      setIsArchived(next);
+      try {
+        await fetch(`/api/ideas/${idea.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ isArchived: next }),
+        });
+      } catch {
+        setIsArchived(!next);
+      }
+    },
+    [idea.id, isArchived]
+  );
+
+  const handleDelete = useCallback(
+    async (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const confirmed = confirm(
+        "¿Seguro que quieres eliminar esta idea? Esta acción no se puede deshacer."
+      );
+      if (!confirmed) return;
+
+      try {
+        await fetch(`/api/ideas/${idea.id}`, {
+          method: "DELETE",
+          credentials: "same-origin",
+        });
+        onDeleted?.();
+      } catch {
+        // ignore
+      }
+    },
+    [idea.id, onDeleted]
+  );
 
   const isDone = idea.verdict !== null;
   const verdictColor = idea.verdict === "GO"
@@ -95,9 +132,12 @@ export function IdeaCard({ idea }: IdeaCardProps) {
 
         {/* Status badge */}
         <div className="flex shrink-0 items-center gap-2">
-          {idea.validationStatus === "RUNNING" && (
-            <Spinner />
+          {isArchived && (
+            <span className="inline-block rounded-full border px-2 py-0.5 text-xs font-medium text-amber-400 bg-amber-500/10 border-amber-500/30">
+              Archivada
+            </span>
           )}
+          {idea.validationStatus === "RUNNING" && <Spinner />}
           <span
             className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium ${
               idea.validationStatus === "DONE" && idea.verdict
@@ -118,9 +158,18 @@ export function IdeaCard({ idea }: IdeaCardProps) {
       <div className="mt-3 flex items-center gap-4 text-xs text-slate-500">
         <span>{dateStr}</span>
         {isDone && idea.score !== null && (
-          <span className="text-amber-400 font-semibold tabular-nums">
-            {idea.score}/10
-          </span>
+          <>
+            <span className="text-amber-400 font-semibold tabular-nums">
+              {idea.score.toFixed(1)}/10
+            </span>
+            {/* Score bar */}
+            <div className="h-1.5 flex-1 min-w-[40px] max-w-[80px] rounded-full bg-slate-800 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-amber-500 transition-all"
+                style={{ width: `${((idea.score ?? 0) / 10) * 100}%` }}
+              />
+            </div>
+          </>
         )}
         {idea.validationStatus === "RUNNING" && (
           <span className="text-amber-400">Validando…</span>
@@ -130,24 +179,54 @@ export function IdeaCard({ idea }: IdeaCardProps) {
         )}
       </div>
 
-      {/* Favorite / Archive toggles */}
+      {/* Actions */}
       <div className="mt-3 flex items-center gap-2">
+        {/* Favorite toggle */}
         <button
           onClick={toggleFavorite}
-          className="rounded-md p-1 text-lg leading-none transition-colors hover:bg-slate-800"
+          className="rounded-md p-1 leading-none transition-colors hover:bg-slate-800"
           title={isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
           aria-label={isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
         >
-          {isFavorite ? "⭐" : <span className="text-slate-400">☆</span>}
+          {isFavorite ? (
+            <Heart className="size-4 text-red-400" fill="currentColor" />
+          ) : (
+            <Heart className="size-4 text-slate-400" />
+          )}
         </button>
-        <button
-          onClick={toggleArchive}
-          className="rounded-md p-1 text-lg leading-none transition-colors hover:bg-slate-800"
-          title={isArchived ? "Desarchivar" : "Archivar"}
-          aria-label={isArchived ? "Desarchivar" : "Archivar"}
-        >
-          {isArchived ? "⚑" : <span className="text-slate-400">⚐</span>}
-        </button>
+
+        {/* Archive / Unarchive */}
+        {isArchived ? (
+          <button
+            onClick={toggleArchive}
+            className="rounded-md p-1 leading-none transition-colors hover:bg-slate-800"
+            title="Desarchivar"
+            aria-label="Desarchivar"
+          >
+            <Undo2 className="size-4 text-slate-400" />
+          </button>
+        ) : showArchive ? (
+          <button
+            onClick={toggleArchive}
+            className="rounded-md p-1 leading-none transition-colors hover:bg-slate-800"
+            title="Archivar"
+            aria-label="Archivar"
+          >
+            <Archive className="size-4 text-slate-400" />
+          </button>
+        ) : null}
+
+        {/* Delete */}
+        {showDelete && (
+          <button
+            onClick={handleDelete}
+            className="rounded-md p-1 leading-none transition-colors hover:bg-red-500/20"
+            title="Eliminar idea"
+            aria-label="Eliminar idea"
+          >
+            <Trash2 className="size-4 text-red-400" />
+          </button>
+        )}
       </div>
     </Link>
   );

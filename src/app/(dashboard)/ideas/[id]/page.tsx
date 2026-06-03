@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { Heart, Archive, Trash2, Undo2 } from "lucide-react";
 import { ValidationProgress } from "@/components/validation-progress";
 import { ReportViewer } from "@/components/report-viewer";
 import { translateVerdict, translateStatus } from "@/lib/translations";
@@ -11,6 +12,7 @@ interface IdeaData {
   id: string;
   title: string;
   description: string;
+  originalIdea: string | null;
   targetUser: string;
   monetization: string;
   status: string;
@@ -103,6 +105,11 @@ export default function IdeaDetailPage() {
     setElapsedSeconds(0);
   }, [idea?.validationStatus]);
 
+  const isCompleted =
+    idea?.validationStatus === "DONE" ||
+    idea?.status === "COMPLETED" ||
+    idea?.status === "DONE";
+
   async function handleValidate() {
     setValidating(true);
     setApiError("");
@@ -121,6 +128,17 @@ export default function IdeaDetailPage() {
     } finally {
       setValidating(false);
     }
+  }
+
+  function handleOpenReformulate() {
+    if (isCompleted) {
+      const confirmed = confirm(
+        "Al reformular una idea ya validada, se perderán los resultados anteriores. ¿Continuar?"
+      );
+      if (!confirmed) return;
+    }
+    setShowReformulate(!showReformulate);
+    setReformulatePrompt("");
   }
 
   async function handleReformulate() {
@@ -235,6 +253,9 @@ export default function IdeaDetailPage() {
   const verdictBadge = getVerdictBadge(idea.verdict);
   const elapsedStr = formatElapsed(elapsedSeconds);
 
+  const canValidate =
+    idea.validationStatus !== "RUNNING" && idea.validationStatus !== "DONE";
+
   return (
     <div>
       {/* Back link */}
@@ -248,20 +269,26 @@ export default function IdeaDetailPage() {
 
       {/* Header */}
       <div className="mb-8">
+        {/* Title row */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
-            <h1 className="text-3xl font-bold tracking-tight text-white">
-              {idea.title}
-            </h1>
-            <div className="mt-2 flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-3xl font-bold tracking-tight text-white">
+                {idea.title}
+              </h1>
               <StatusBadge
                 status={idea.status}
                 validationStatus={idea.validationStatus}
               />
+              {idea.isArchived && (
+                <span className="inline-block rounded-full border px-2.5 py-0.5 text-xs font-medium text-amber-400 bg-amber-500/10 border-amber-500/30">
+                  Archivada
+                </span>
+              )}
               {verdictBadge && verdictBadge}
               {idea.score !== null && (
                 <span className="text-sm font-semibold text-amber-400 tabular-nums">
-                  {idea.score}/10
+                  {idea.score.toFixed(1)}/10
                 </span>
               )}
               {idea.validationStatus === "RUNNING" && (
@@ -270,41 +297,20 @@ export default function IdeaDetailPage() {
                 </span>
               )}
             </div>
-            {/* Favorite / Archive toggles */}
-            <div className="mt-3 flex items-center gap-2">
-              <button
-                onClick={toggleFavorite}
-                disabled={favPending}
-                className="rounded-md p-1 text-lg leading-none transition-colors hover:bg-slate-800 disabled:opacity-50"
-                title={idea.isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
-                aria-label={idea.isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
-              >
-                {idea.isFavorite ? "⭐" : <span className="text-slate-400">☆</span>}
-              </button>
-              <button
-                onClick={toggleArchive}
-                disabled={archPending}
-                className="rounded-md p-1 text-lg leading-none transition-colors hover:bg-slate-800 disabled:opacity-50"
-                title={idea.isArchived ? "Desarchivar" : "Archivar"}
-                aria-label={idea.isArchived ? "Desarchivar" : "Archivar"}
-              >
-                {idea.isArchived ? "⚑" : <span className="text-slate-400">⚐</span>}
-              </button>
-              <button
-                onClick={handleDelete}
-                className="rounded-md p-1 text-lg leading-none text-red-400 transition-colors hover:bg-red-500/20"
-                title="Eliminar idea"
-                aria-label="Eliminar idea"
-              >
-                🗑️
-              </button>
-            </div>
-          </div>
 
-          {/* Action buttons */}
-          {idea.validationStatus !== "RUNNING" &&
-            idea.validationStatus !== "DONE" && (
-              <div className="flex flex-col gap-2 shrink-0">
+            {/* Score bar */}
+            {idea.score !== null && (
+              <div className="mt-2 h-2 w-full max-w-[200px] rounded-full bg-slate-800 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-amber-500 transition-all"
+                  style={{ width: `${((idea.score ?? 0) / 10) * 100}%` }}
+                />
+              </div>
+            )}
+
+            {/* Action buttons: Validate + Reformulate — below title & badge */}
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              {canValidate && (
                 <button
                   onClick={handleValidate}
                   disabled={validating}
@@ -322,100 +328,180 @@ export default function IdeaDetailPage() {
                     </>
                   )}
                 </button>
-                {idea.status === "DRAFT" && (
-                  <button
-                    onClick={() => setShowReformulate(!showReformulate)}
-                    className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-200 shadow transition-all hover:border-slate-600 hover:bg-slate-700 active:bg-slate-900"
-                  >
-                    <EditIcon />
-                    Reformular idea
-                  </button>
-                )}
-              </div>
-            )}
-        </div>
-
-        {apiError && (
-          <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-            {apiError}
-          </div>
-        )}
-
-        {/* Reformulate form */}
-        {showReformulate && idea.status === "DRAFT" && (
-          <div className="mt-6 rounded-lg border border-slate-700 bg-slate-900 p-5">
-            <h3 className="text-base font-semibold text-white mb-4">
-              <EditIcon /> Reformular idea
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label
-                  htmlFor="reformulate-desc"
-                  className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2"
-                >
-                  Descripción actual
-                </label>
-                <textarea
-                  id="reformulate-desc"
-                  defaultValue={idea.description}
-                  rows={3}
-                  readOnly
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-400 resize-none cursor-default"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="reformulate-prompt"
-                  className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2"
-                >
-                  Indicaciones para reformular
-                </label>
-                <input
-                  id="reformulate-prompt"
-                  type="text"
-                  placeholder="Ej: enfócate más en jóvenes, cambia el modelo de negocio a suscripción…"
-                  value={reformulatePrompt}
-                  onChange={(e) => setReformulatePrompt(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleReformulate();
-                    }
-                  }}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-amber-500/50 focus:outline-none focus:ring-1 focus:ring-amber-500/30"
-                />
-              </div>
-              <div className="flex items-center gap-3">
+              )}
+              {(idea.status === "DRAFT" || isCompleted) && (
                 <button
-                  onClick={handleReformulate}
-                  disabled={reformulating || !reformulatePrompt.trim()}
-                  className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={handleOpenReformulate}
+                  className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-200 shadow transition-all hover:border-slate-600 hover:bg-slate-700 active:bg-slate-900"
                 >
-                  {reformulating ? (
-                    <>
-                      <Spinner />
-                      Reformulando…
-                    </>
+                  <EditIcon />
+                  Reformular idea
+                </button>
+              )}
+
+              {/* Favorite / Archive / Delete */}
+              <div className="flex items-center gap-1 ml-2">
+                <button
+                  onClick={toggleFavorite}
+                  disabled={favPending}
+                  className="rounded-md p-1.5 leading-none transition-colors hover:bg-slate-800 disabled:opacity-50"
+                  title={
+                    idea.isFavorite
+                      ? "Quitar de favoritos"
+                      : "Añadir a favoritos"
+                  }
+                  aria-label={
+                    idea.isFavorite
+                      ? "Quitar de favoritos"
+                      : "Añadir a favoritos"
+                  }
+                >
+                  {idea.isFavorite ? (
+                    <Heart className="size-4 text-red-400" fill="currentColor" />
                   ) : (
-                    <>
-                      <RefreshIcon />
-                      Aplicar reformulación
-                    </>
+                    <Heart className="size-4 text-slate-400" />
                   )}
                 </button>
+
+                {idea.isArchived ? (
+                  <button
+                    onClick={toggleArchive}
+                    disabled={archPending}
+                    className="rounded-md p-1.5 leading-none transition-colors hover:bg-slate-800 disabled:opacity-50"
+                    title="Desarchivar"
+                    aria-label="Desarchivar"
+                  >
+                    <Undo2 className="size-4 text-slate-400" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={toggleArchive}
+                    disabled={archPending}
+                    className="rounded-md p-1.5 leading-none transition-colors hover:bg-slate-800 disabled:opacity-50"
+                    title="Archivar"
+                    aria-label="Archivar"
+                  >
+                    <Archive className="size-4 text-slate-400" />
+                  </button>
+                )}
+
                 <button
-                  onClick={() => {
-                    setShowReformulate(false);
-                    setReformulatePrompt("");
-                  }}
-                  className="text-sm text-slate-400 hover:text-slate-200 transition-colors"
+                  onClick={handleDelete}
+                  className="rounded-md p-1.5 leading-none transition-colors hover:bg-red-500/20"
+                  title="Eliminar idea"
+                  aria-label="Eliminar idea"
                 >
-                  Cancelar
+                  <Trash2 className="size-4 text-red-400" />
                 </button>
               </div>
             </div>
+
+            {apiError && (
+              <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+                {apiError}
+              </div>
+            )}
+
+            {/* Reformulate form — simplified: only instructions input */}
+            {showReformulate && (
+              <div className="mt-6 rounded-lg border border-slate-700 bg-slate-900 p-5">
+                <h3 className="text-base font-semibold text-white mb-4">
+                  <EditIcon /> Reformular idea
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <label
+                      htmlFor="reformulate-prompt"
+                      className="block text-xs font-medium text-slate-400 uppercase tracking-wider mb-2"
+                    >
+                      Indicaciones para reformular
+                    </label>
+                    <input
+                      id="reformulate-prompt"
+                      type="text"
+                      placeholder="Ej: enfócate en jóvenes, suscripción mensual…"
+                      value={reformulatePrompt}
+                      onChange={(e) => setReformulatePrompt(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleReformulate();
+                        }
+                      }}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-amber-500/50 focus:outline-none focus:ring-1 focus:ring-amber-500/30"
+                    />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={handleReformulate}
+                      disabled={reformulating || !reformulatePrompt.trim()}
+                      className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {reformulating ? (
+                        <>
+                          <Spinner />
+                          Reformulando…
+                        </>
+                      ) : (
+                        <>
+                          <RefreshIcon />
+                          Aplicar reformulación
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowReformulate(false);
+                        setReformulatePrompt("");
+                      }}
+                      className="text-sm text-slate-400 hover:text-slate-200 transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
+      </div>
+
+      {/* Idea original — always shown */}
+      <div className="mb-8 rounded-xl border border-slate-800 bg-slate-900/50 p-6">
+        <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">
+          Idea original
+        </h2>
+        <p className="text-sm text-slate-300 leading-relaxed">
+          {idea.originalIdea || idea.description}
+        </p>
+        <dl className="mt-4 grid gap-4 sm:grid-cols-3">
+          <div>
+            <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+              Usuario objetivo
+            </dt>
+            <dd className="mt-1 text-sm text-slate-300">{idea.targetUser}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+              Monetización
+            </dt>
+            <dd className="mt-1 text-sm text-slate-300">{idea.monetization}</dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+              Creada
+            </dt>
+            <dd className="mt-1 text-sm text-slate-300">
+              {new Date(idea.createdAt).toLocaleDateString("es-ES", {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </dd>
+          </div>
+        </dl>
       </div>
 
       {/* Validation progress */}
@@ -466,54 +552,17 @@ export default function IdeaDetailPage() {
         </div>
       )}
 
-      {/* Idea details (for DRAFT or PENDING state) */}
+      {/* Idea details (for DRAFT or PENDING state, without validation) */}
       {idea.validationStatus !== "DONE" &&
         idea.validationStatus !== "RUNNING" &&
-        idea.validationStatus !== "FAILED" && (
+        idea.validationStatus !== "FAILED" && idea.description !== (idea.originalIdea || idea.description) && (
           <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
             <h2 className="text-lg font-semibold text-white mb-4">
-              Detalles de la idea
+              Descripción actual
             </h2>
-            <dl className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Descripción
-                </dt>
-                <dd className="mt-1 text-sm text-slate-300">
-                  {idea.description}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Usuario objetivo
-                </dt>
-                <dd className="mt-1 text-sm text-slate-300">
-                  {idea.targetUser}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Monetización
-                </dt>
-                <dd className="mt-1 text-sm text-slate-300">
-                  {idea.monetization}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Creada
-                </dt>
-                <dd className="mt-1 text-sm text-slate-300">
-                  {new Date(idea.createdAt).toLocaleDateString("es-ES", {
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </dd>
-              </div>
-            </dl>
+            <p className="text-sm text-slate-300 leading-relaxed">
+              {idea.description}
+            </p>
           </div>
         )}
     </div>

@@ -17,14 +17,23 @@ export async function POST(
       );
     }
 
-    const idea = await prisma.idea.findUnique({ where: { id } });
+    const idea = await prisma.idea.findUnique({
+      where: { id },
+      include: { reports: true },
+    });
+
     if (!idea) {
       return NextResponse.json({ error: "Idea no encontrada" }, { status: 404 });
     }
 
-    if (idea.status !== "DRAFT") {
+    const isCompleted =
+      idea.validationStatus === "DONE" ||
+      idea.status === "COMPLETED" ||
+      idea.status === "DONE";
+
+    if (!isCompleted && idea.status !== "DRAFT") {
       return NextResponse.json(
-        { error: "Solo se pueden reformular ideas en estado Borrador" },
+        { error: "Solo se pueden reformular ideas en estado Borrador o ya validadas" },
         { status: 409 }
       );
     }
@@ -39,15 +48,35 @@ export async function POST(
       prompt.trim()
     );
 
-    const updated = await prisma.idea.update({
-      where: { id },
-      data: {
-        title: reformulated.title,
-        description: reformulated.description,
-        targetUser: reformulated.targetUser,
-        monetization: reformulated.monetization,
-      },
-    });
+    // Build the update data
+    const updateData: Record<string, unknown> = {
+      title: reformulated.title,
+      description: reformulated.description,
+      targetUser: reformulated.targetUser,
+      monetization: reformulated.monetization,
+    };
+
+    // If the idea was already validated, reset validation state and delete reports/jobs
+    if (isCompleted) {
+      updateData.validationStatus = "PENDING";
+      updateData.status = "DRAFT";
+      updateData.verdict = null;
+      updateData.score = null;
+    }
+
+    const [updated] = await prisma.$transaction([
+      prisma.idea.update({
+        where: { id },
+        data: updateData,
+      }),
+      // Delete reports and jobs if resetting
+      ...(isCompleted
+        ? [
+            prisma.report.deleteMany({ where: { ideaId: id } }),
+            prisma.job.deleteMany({ where: { ideaId: id } }),
+          ]
+        : []),
+    ]);
 
     return NextResponse.json(updated);
   } catch (error) {
