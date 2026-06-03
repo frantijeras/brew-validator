@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { signOut, useSession } from "next-auth/react";
 import { NavItem } from "@/components/nav-item";
 
 export default function DashboardLayout({
@@ -12,6 +13,7 @@ export default function DashboardLayout({
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
+  const { data: session } = useSession();
 
   // Close mobile sidebar on route change
   useEffect(() => {
@@ -41,6 +43,10 @@ export default function DashboardLayout({
 
   const closeSidebar = useCallback(() => setMobileOpen(false), []);
 
+  const userInitials = session?.user?.name
+    ? session.user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
+    : session?.user?.email?.charAt(0).toUpperCase() ?? "?";
+
   return (
     <div className="flex min-h-screen">
       {/* ── Mobile overlay ── */}
@@ -62,7 +68,7 @@ export default function DashboardLayout({
         {/* Logo */}
         <Link
           href="/ideas"
-          className="flex items-center gap-3 px-6 py-5 border-b border-slate-800"
+          className="flex items-center gap-3 border-b border-slate-800 px-6 py-5"
           onClick={closeSidebar}
         >
           <BeerIcon />
@@ -75,9 +81,43 @@ export default function DashboardLayout({
           <NavItem href="/ideas/new" icon="plus" label="Nueva idea" />
         </nav>
 
-        {/* Footer */}
-        <div className="border-t border-slate-800 px-6 py-4">
-          <p className="text-xs text-slate-500">Brew Validator v0.1</p>
+        {/* User info + bottom nav */}
+        <div className="border-t border-slate-800 px-4 py-3 space-y-2">
+          <NavItem href="/settings" icon="settings" label="Ajustes" />
+
+          {session?.user && (
+            <div className="flex items-center gap-3 rounded-lg px-3 py-2">
+              {session.user.image ? (
+                <img
+                  src={session.user.image}
+                  alt=""
+                  className="size-7 rounded-full object-cover"
+                />
+              ) : (
+                <div className="flex size-7 items-center justify-center rounded-full bg-amber-500/20 text-xs font-bold text-amber-400">
+                  {userInitials}
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="truncate text-sm font-medium text-slate-200">
+                  {session.user.name ?? "Usuario"}
+                </p>
+                <p className="truncate text-xs text-slate-500">
+                  {session.user.email}
+                </p>
+              </div>
+              <button
+                onClick={() => signOut({ callbackUrl: "/login" })}
+                className="shrink-0 rounded-lg p-1.5 text-slate-500 hover:bg-slate-800 hover:text-slate-300 transition-colors"
+                aria-label="Cerrar sesión"
+                title="Cerrar sesión"
+              >
+                <LogoutIcon />
+              </button>
+            </div>
+          )}
+
+          <p className="px-3 text-xs text-slate-600">Brew Validator v0.1</p>
         </div>
       </aside>
 
@@ -160,6 +200,24 @@ function MenuIcon() {
       <line x1="4" y1="6" x2="20" y2="6" />
       <line x1="4" y1="12" x2="20" y2="12" />
       <line x1="4" y1="18" x2="20" y2="18" />
+    </svg>
+  );
+}
+
+function LogoutIcon() {
+  return (
+    <svg
+      className="size-4"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
     </svg>
   );
 }
