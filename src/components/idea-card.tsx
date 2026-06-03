@@ -87,6 +87,7 @@ export function IdeaCard({
         const data = await res.json();
         console.error("[DELETE idea]", data.error || "Error al eliminar");
         setShowDeleteModal(false);
+        return;
       }
       setShowDeleteModal(false);
       onDeleted?.();
