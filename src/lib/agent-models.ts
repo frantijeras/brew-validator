@@ -25,19 +25,36 @@ const JOB_AGENT_TO_SETTINGS_KEY: Record<string, string> = {
  * Returns the configured model for a settings-level agent id
  * (generator, skeptic, defender, judge, refiner).
  *
- * Reads from the Setting table using key `agent_model_{agentId}`,
- * falling back to AGENT_DEFAULTS.
+ * Resolution order:
+ * 1. Individual key `agent_model_{agentId}` (legacy / direct override)
+ * 2. Full config key `agent-models` (what the Settings UI saves as a JSON object)
+ * 3. AGENT_DEFAULTS hardcoded fallback
  */
 export async function getAgentModelForAgent(agentId: string): Promise<string> {
   const defaultModel = AGENT_DEFAULTS[agentId] || "opencode-zen-free/deepseek-v4-flash-free";
 
   try {
+    // 1. Try individual key first (agent_model_{agentId})
     const setting = await prisma.setting.findFirst({
       where: { key: `agent_model_${agentId}` },
     });
     if (setting) {
       const value = typeof setting.value === "string" ? setting.value : String(setting.value);
       if (value) return value;
+    }
+
+    // 2. Try the full config blob ("agent-models") saved by Settings UI
+    //    value is Prisma Json → already a JS object (not a string)
+    const fullConfig = await prisma.setting.findFirst({
+      where: { key: "agent-models" },
+    });
+    if (fullConfig?.value) {
+      const configObj = fullConfig.value as Record<string, unknown>;
+      // Direct JS object (Prisma Json type)
+      if (typeof configObj === "object" && !Array.isArray(configObj)) {
+        const model = (configObj as Record<string, unknown>)[agentId];
+        if (typeof model === "string" && model) return model;
+      }
     }
   } catch {
     // DB unreachable — use default

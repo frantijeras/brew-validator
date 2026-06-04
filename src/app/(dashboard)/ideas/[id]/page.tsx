@@ -654,7 +654,7 @@ export default function IdeaDetailPage() {
           <div className="flex items-center gap-2.5 min-w-0">
             <Info className="size-4 shrink-0 text-blue-400" />
             <span className="text-sm text-blue-300">
-              Estás puliendo esta idea. Si sales, podrás continuar al volver.
+              Estás puliendo esta idea. Si recargas o cambias de pantalla después podrás continuar donde lo dejaste.
             </span>
           </div>
           <button
@@ -662,7 +662,7 @@ export default function IdeaDetailPage() {
             disabled={cancellingPolish}
             className="shrink-0 rounded-md border border-blue-500/30 px-3 py-1.5 text-xs font-medium text-blue-400 hover:bg-blue-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {cancellingPolish ? "Cancelando…" : "Cancelar pulido"}
+            {cancellingPolish ? "Cancelando…" : "Cancelar"}
           </button>
         </div>
       )}

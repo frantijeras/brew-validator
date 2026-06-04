@@ -2,30 +2,15 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
-  X,
   Check,
+  HelpCircle,
+  PenLine,
   Sparkles,
   Bot,
   Edit3,
   Zap,
   XCircle,
 } from "lucide-react";
-
-// ── Derived processing states ──
-const PROCESSING_SCREENS: Screen[] = ["quiz-loading", "quiz-analyzing"];
-function isProcessing(
-  screen: Screen,
-  isManualPolling: boolean,
-  manualApplying: boolean,
-  applying: boolean
-): boolean {
-  return (
-    PROCESSING_SCREENS.includes(screen) ||
-    isManualPolling ||
-    manualApplying ||
-    applying
-  );
-}
 
 // ── Types ──
 
@@ -171,6 +156,10 @@ export default function RefineIdeaSection({
           startQuestionsPolling(saved.pollingJobId);
         } else if (saved.screen === "quiz-analyzing") {
           startResultPolling(saved.pollingJobId);
+        } else if (saved.activeTab === "manual") {
+          // Manual mode: resume result polling (spinner + job polling)
+          setIsManualPolling(true);
+          startManualResultPolling(saved.pollingJobId);
         }
       }
     } else {
@@ -617,46 +606,70 @@ export default function RefineIdeaSection({
   return (
     <div className="mb-8 rounded-xl border border-amber-500/20 bg-slate-900/70 shadow-lg">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800 bg-slate-900/80 rounded-t-xl">
+      <div className="px-5 py-3 border-b border-slate-800 bg-slate-900/80 rounded-t-xl">
         <div className="flex items-center gap-2.5">
           <Sparkles className="size-4 shrink-0 text-amber-400" />
           <h3 className="text-base font-semibold text-white">Pulir idea</h3>
         </div>
-        <button
-          onClick={handleCollapse}
-          disabled={isProcessing(screen, isManualPolling, manualApplying, applying)}
-          className="shrink-0 rounded-md p-1.5 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          aria-label="Cerrar sección"
-        >
-          <X className="size-4" />
-        </button>
       </div>
 
-      {/* Tabs — only visible at the very start, before any action */}
+      {/* Choice cards — only visible at the very start, before any action */}
       {screen === "choice" && !manualText && questions.length === 0 && (
-        <div className="flex border-b border-slate-800">
-          <button
-            onClick={() => setActiveTab("quiz")}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === "quiz"
-                ? "text-amber-400 border-amber-400 bg-amber-500/5"
-                : "text-slate-400 border-transparent hover:text-slate-200"
-            }`}
-          >
-            <Bot className="size-4" />
-            Responder preguntas
-          </button>
-          <button
-            onClick={() => setActiveTab("manual")}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === "manual"
-                ? "text-amber-400 border-amber-400 bg-amber-500/5"
-                : "text-slate-400 border-transparent hover:text-slate-200"
-            }`}
-          >
-            <Edit3 className="size-4" />
-            Redactar manualmente
-          </button>
+        <div className="px-5 pt-5 pb-4">
+          <p className="text-sm text-slate-400 mb-4 max-w-3xl mx-auto">
+            ¿Cómo quieres empezar a pulir?
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto">
+            {/* Quiz card */}
+            <button
+              onClick={startQuiz}
+              className="flex flex-col items-start gap-3 rounded-xl border border-slate-800 bg-slate-900/60 p-5 text-left transition-all hover:border-amber-500/30 hover:bg-slate-900/80"
+            >
+              <div className="flex size-10 items-center justify-center rounded-lg bg-amber-500/10">
+                <HelpCircle className="size-5 text-amber-400" />
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold text-white">
+                  Responder preguntas
+                </h4>
+                <p className="mt-1 text-xs text-slate-400 leading-relaxed">
+                  Te haremos preguntas para refinar tu idea paso a paso
+                </p>
+              </div>
+              <span className="mt-auto inline-flex items-center gap-1.5 text-xs font-medium text-amber-400">
+                Empezar
+                <svg className="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
+                </svg>
+              </span>
+            </button>
+
+            {/* Manual card */}
+            <button
+              onClick={() => setActiveTab("manual")}
+              className="flex flex-col items-start gap-3 rounded-xl border border-slate-800 bg-slate-900/60 p-5 text-left transition-all hover:border-amber-500/30 hover:bg-slate-900/80"
+            >
+              <div className="flex size-10 items-center justify-center rounded-lg bg-amber-500/10">
+                <PenLine className="size-5 text-amber-400" />
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold text-white">
+                  Redactar manualmente
+                </h4>
+                <p className="mt-1 text-xs text-slate-400 leading-relaxed">
+                  Escribe tú mismo la propuesta y la IA la estructurará
+                </p>
+              </div>
+              <span className="mt-auto inline-flex items-center gap-1.5 text-xs font-medium text-amber-400">
+                Escribir
+                <svg className="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
+                </svg>
+              </span>
+            </button>
+          </div>
         </div>
       )}
 
