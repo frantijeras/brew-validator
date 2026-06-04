@@ -466,24 +466,25 @@ export default function IdeaDetailPage() {
                       )
                     )}
 
-                    {/* Separator */}
-                    <div className="my-1 border-t border-slate-700" />
-
                     {/* Edit idea original — only when DRAFT */}
                     {idea.status === "DRAFT" && (
-                      <button
-                        onClick={() => {
-                          setShowMenu(false);
-                          enterEditMode();
-                        }}
-                        className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
-                      >
-                        <Pencil className="size-4 text-slate-400" />
-                        Editar idea original
-                      </button>
+                      <>
+                        {/* Separator */}
+                        <div className="my-1 border-t border-slate-700" />
+                        <button
+                          onClick={() => {
+                            setShowMenu(false);
+                            enterEditMode();
+                          }}
+                          className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
+                        >
+                          <Pencil className="size-4 text-slate-400" />
+                          Editar idea original
+                        </button>
+                      </>
                     )}
 
-                    {/* Separator */}
+                    {/* Separator before Delete */}
                     <div className="my-1 border-t border-slate-700" />
 
                     {/* Delete */}
