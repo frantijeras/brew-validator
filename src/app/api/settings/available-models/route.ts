@@ -34,21 +34,24 @@ const MODEL_LABELS: Record<string, string> = {
 
 // opencode-go models (not in available-models.json, always included)
 const OPENCODE_GO_MODELS: ModelOption[] = [
-  {
-    value: "opencode-go/deepseek-v4-flash",
-    label: "DS V4 Flash",
-    provider: "opencode-go",
-  },
-  {
-    value: "opencode-go/deepseek-v4-pro",
-    label: "DS V4 Pro",
-    provider: "opencode-go",
-  },
-  {
-    value: "opencode-go/kimi-k2.6",
-    label: "Kimi K2.6",
-    provider: "opencode-go",
-  },
+  { value: "opencode-go/claude-opus-4-8", label: "Claude Opus 4.8", provider: "opencode-go" },
+  { value: "opencode-go/claude-opus-4-7", label: "Claude Opus 4.7", provider: "opencode-go" },
+  { value: "opencode-go/claude-opus-4-6", label: "Claude Opus 4.6", provider: "opencode-go" },
+  { value: "opencode-go/claude-opus-4-5", label: "Claude Opus 4.5", provider: "opencode-go" },
+  { value: "opencode-go/claude-opus-4-1", label: "Claude Opus 4.1", provider: "opencode-go" },
+  { value: "opencode-go/claude-sonnet-4-6", label: "Claude Sonnet 4.6", provider: "opencode-go" },
+  { value: "opencode-go/claude-sonnet-4-5", label: "Claude Sonnet 4.5", provider: "opencode-go" },
+  { value: "opencode-go/claude-sonnet-4", label: "Claude Sonnet 4", provider: "opencode-go" },
+  { value: "opencode-go/claude-haiku-4-5", label: "Claude Haiku 4.5", provider: "opencode-go" },
+  { value: "opencode-go/gemini-3.5-flash", label: "Gemini 3.5 Flash", provider: "opencode-go" },
+  { value: "opencode-go/gpt-5.2", label: "GPT-5.2", provider: "opencode-go" },
+  { value: "opencode-go/gpt-5", label: "GPT-5", provider: "opencode-go" },
+  { value: "opencode-go/gpt-5-mini", label: "GPT-5 Mini", provider: "opencode-go" },
+  { value: "opencode-go/deepseek-v4-pro", label: "DS V4 Pro", provider: "opencode-go" },
+  { value: "opencode-go/deepseek-v4-flash", label: "DS V4 Flash", provider: "opencode-go" },
+  { value: "opencode-go/kimi-k2.6", label: "Kimi K2.6", provider: "opencode-go" },
+  { value: "opencode-go/qwen3.7-max", label: "Qwen 3.7 Max", provider: "opencode-go" },
+  { value: "opencode-go/qwen3.7-plus", label: "Qwen 3.7 Plus", provider: "opencode-go" },
 ];
 
 function humanizeModelId(id: string): string {
