@@ -44,8 +44,12 @@ export async function POST(
 
     const nextPhase = `v${versionCount + 1}`;
 
-    // Delete old reports before saving new version
-    await prisma.report.deleteMany({ where: { ideaId } });
+    // Reports are anchored to the OLD current version (V1) via
+    // ideaVersionId. The new version (V2) starts with no reports.
+    // We do NOT delete them here — they remain visible whenever the
+    // user navigates back to V1 from the version history.
+    // (Snapshot restore was the previous mechanism; with per-version
+    // Report links, the data is the source of truth.)
 
     // Build update payload, preserving existing values for optional fields
     const updateData: Record<string, unknown> = {
