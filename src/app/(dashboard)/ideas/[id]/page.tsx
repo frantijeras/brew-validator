@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Heart, Archive, Trash2, Undo2, MoreHorizontal, Pencil, FileDown } from "lucide-react";
+import { Heart, Archive, Trash2, Undo2, MoreHorizontal, Pencil, FileDown, RefreshCw } from "lucide-react";
 import { ValidationProgress } from "@/components/validation-progress";
 import { ReportViewer } from "@/components/report-viewer";
 import { ConfirmModal } from "@/components/confirm-modal";
@@ -12,6 +12,7 @@ import { VersionHistory } from "@/components/version-history";
 import RenameModal from "@/components/rename-modal";
 import { getBadgeInfo } from "@/lib/translations";
 import { BUSINESS_MODELS } from "@/lib/business-models";
+import { generatePdf } from "@/lib/pdf-export";
 
 interface IdeaData {
   id: string;
@@ -53,6 +54,7 @@ export default function IdeaDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [validating, setValidating] = useState(false);
+  const [revalidating, setRevalidating] = useState(false);
   const [apiError, setApiError] = useState("");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [favPending, setFavPending] = useState(false);
@@ -168,6 +170,40 @@ export default function IdeaDetailPage() {
     }
   }
 
+  async function handleExportPdf() {
+    try {
+      const res = await fetch(`/api/ideas/${ideaId}/export`, {
+        credentials: "same-origin",
+      });
+      if (!res.ok) throw new Error("Error al obtener datos para el PDF");
+      const data = await res.json();
+      const filename = `${data.title.replace(/[^a-zA-Z0-9áéíóúüñÁÉÍÓÚÜÑ]/g, "_").slice(0, 60)}-informe.pdf`;
+      generatePdf(filename, data);
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : "Error al exportar PDF");
+    }
+  }
+
+  async function handleRevalidate() {
+    setRevalidating(true);
+    setApiError("");
+    try {
+      const res = await fetch(`/api/ideas/${ideaId}/validate`, {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Error al revalidar");
+      }
+      await fetchIdea();
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : "Error");
+    } finally {
+      setRevalidating(false);
+    }
+  }
+
   async function toggleFavorite() {
     if (!idea || favPending) return;
     setFavPending(true);
@@ -258,35 +294,43 @@ export default function IdeaDetailPage() {
               <h1 className="text-3xl font-bold tracking-tight text-white">
                 {idea.title}
               </h1>
-              {/* Business model badge */}
-              {idea.businessModel && (() => {
-                const model = BUSINESS_MODELS.find((m) => m.value === idea.businessModel);
-                return model ? (
-                  <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs text-slate-400 border-slate-700">
-                    <span>{model.icon}</span>
-                    <span>{model.label}</span>
+
+              {/* Badges in order: business model | status (verdict) | score */}
+              <span className="inline-flex items-center gap-2">
+                {/* Business model badge */}
+                {idea.businessModel && (() => {
+                  const model = BUSINESS_MODELS.find((m) => m.value === idea.businessModel);
+                  return model ? (
+                    <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs text-slate-400 border-slate-700">
+                      <span>{model.icon}</span>
+                      <span>{model.label}</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs text-slate-400 border-slate-700">
+                      {idea.businessModel}
+                    </span>
+                  );
+                })()}
+
+                {/* Status/verdict badge */}
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${badgeInfo.color}`}
+                >
+                  {badgeInfo.showSpinner && <Spinner />}
+                  {badgeInfo.label}
+                </span>
+
+                {/* Score */}
+                {idea.score !== null && (
+                  <span className="text-sm font-semibold text-amber-400 tabular-nums">
+                    {idea.score.toFixed(1)}/10
                   </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs text-slate-400 border-slate-700">
-                    {idea.businessModel}
-                  </span>
-                );
-              })()}
-              {/* Single badge: verdict if present, else status */}
-              <span
-                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${badgeInfo.color}`}
-              >
-                {badgeInfo.showSpinner && <Spinner />}
-                {badgeInfo.label}
+                )}
               </span>
+
               {idea.isArchived && (
                 <span className="inline-block rounded-full border px-2.5 py-0.5 text-xs font-medium text-amber-400 bg-amber-500/10 border-amber-500/30">
                   Archivada
-                </span>
-              )}
-              {idea.score !== null && (
-                <span className="text-sm font-semibold text-amber-400 tabular-nums">
-                  {idea.score.toFixed(1)}/10
                 </span>
               )}
               {idea.validationStatus === "RUNNING" && (
@@ -383,17 +427,7 @@ export default function IdeaDetailPage() {
               </div>
             </div>
 
-            {/* Score bar */}
-            {idea.score !== null && (
-              <div className="mt-2 h-2 w-full max-w-[200px] rounded-full bg-slate-800 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-amber-500 transition-all"
-                  style={{ width: `${((idea.score ?? 0) / 10) * 100}%` }}
-                />
-              </div>
-            )}
-
-            {/* Action buttons: Validate + Reformulate + Export — below title & badge */}
+            {/* Action buttons: Validate + Reformulate + Export + Revalidate — below title & badge */}
             <div className="mt-4 flex flex-wrap items-center gap-3">
               {canValidate && (
                 <button
@@ -423,14 +457,32 @@ export default function IdeaDetailPage() {
                   Pulir idea
                 </button>
               )}
-              <a
-                href={`/api/ideas/${idea.id}/export`}
-                download
+              <button
+                onClick={handleExportPdf}
                 className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900/60 px-4 py-2.5 text-sm font-medium text-slate-300 shadow transition-all hover:border-slate-600 hover:text-slate-200 active:bg-slate-800"
               >
                 <FileDown className="size-4" />
                 Exportar informe
-              </a>
+              </button>
+              {(idea.status === "DONE" || idea.status === "COMPLETED" || idea.status === "KILLED" || idea.validationStatus === "DONE" || idea.validationStatus === "FAILED") && (
+                <button
+                  onClick={handleRevalidate}
+                  disabled={revalidating}
+                  className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900/60 px-4 py-2.5 text-sm font-medium text-slate-300 shadow transition-all hover:border-slate-600 hover:text-slate-200 active:bg-slate-800 disabled:opacity-50"
+                >
+                  {revalidating ? (
+                    <>
+                      <Spinner />
+                      Revalidando…
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="size-4" />
+                      Revalidar idea
+                    </>
+                  )}
+                </button>
+              )}
             </div>
 
             {apiError && (
@@ -514,14 +566,28 @@ export default function IdeaDetailPage() {
       )}
 
       {/* Reports */}
-      {idea.validationStatus === "DONE" && idea.reports.length > 0 && (
-        <div className="space-y-6">
-          <h2 className="text-xl font-semibold text-white">Reportes</h2>
-          {idea.reports.map((report) => (
-            <ReportViewer key={report.id} report={report} />
-          ))}
-        </div>
-      )}
+      {idea.validationStatus === "DONE" && idea.reports.length > 0 && (() => {
+        const reportDate = idea.reports[0]?.createdAt
+          ? new Date(idea.reports[0].createdAt).toLocaleDateString("es-ES", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+            })
+          : "—";
+        return (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-xl font-semibold text-white">Reportes</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Generados: {reportDate}
+              </p>
+            </div>
+            {idea.reports.map((report) => (
+              <ReportViewer key={report.id} report={report} />
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Version history */}
       <div className="mt-8">

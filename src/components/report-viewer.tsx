@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { renderMarkdown } from "./markdown-renderer";
-import { translateVerdict } from "@/lib/translations";
 
 interface ReportData {
   id: string;
@@ -30,7 +29,7 @@ export function ReportViewer({ report }: ReportViewerProps) {
     report.agentName === "skeptic"
       ? "Escéptico"
       : report.agentName === "advocate"
-        ? "Abogado del diablo"
+        ? "Defensor"
         : report.agentName === "judge"
           ? "Juez"
           : report.agentName === "idea-generator"
@@ -93,25 +92,6 @@ export function ReportViewer({ report }: ReportViewerProps) {
             </p>
           </div>
         </div>
-
-        {/* Agent verdict badge */}
-        {report.verdict && (
-          <span
-            className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${
-              report.verdict === "GO"
-                ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"
-                : report.verdict === "PIVOT"
-                  ? "text-amber-400 bg-amber-500/10 border-amber-500/30"
-                  : report.verdict === "KILL"
-                    ? "text-red-400 bg-red-500/10 border-red-500/30"
-                    : report.verdict === "ITERATE"
-                      ? "text-blue-400 bg-blue-500/10 border-blue-500/30"
-                      : "text-slate-400 bg-slate-500/10 border-slate-500/30"
-            }`}
-          >
-            {translateVerdict(report.verdict)}
-          </span>
-        )}
 
         <ChevronIcon open={open} />
       </button>

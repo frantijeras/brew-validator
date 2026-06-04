@@ -22,14 +22,20 @@ export async function POST(
       );
     }
 
-    // Update idea status
-    await prisma.idea.update({
-      where: { id },
-      data: {
-        status: "VALIDATING",
-        validationStatus: "RUNNING",
-      },
-    });
+    // Delete old reports and reset verdict/score
+    await prisma.$transaction([
+      prisma.report.deleteMany({ where: { ideaId: id } }),
+      prisma.job.deleteMany({ where: { ideaId: id } }),
+      prisma.idea.update({
+        where: { id },
+        data: {
+          status: "VALIDATING",
+          validationStatus: "RUNNING",
+          verdict: null,
+          score: null,
+        },
+      }),
+    ]);
 
     // Create 3 PENDING jobs
     const input = JSON.stringify({

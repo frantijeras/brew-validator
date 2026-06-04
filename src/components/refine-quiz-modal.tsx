@@ -53,6 +53,45 @@ interface RefineQuizModalProps {
 
 type Screen = "choice" | "manual" | "quiz-loading" | "quiz-questions" | "quiz-analyzing" | "result" | "applied";
 
+const QUIZ_STORAGE_KEY = "brew-refine-quiz";
+
+interface QuizStorageState {
+  screen: Screen;
+  ideaId: string;
+  questions: QuizQuestion[];
+  answers: Record<string, string>;
+  customInputs: Record<string, string>;
+  showCustom: Record<string, boolean>;
+  pollingJobId: string | null;
+  refineResult: RefineResult | null;
+}
+
+function loadQuizState(): QuizStorageState | null {
+  try {
+    const raw = sessionStorage.getItem(QUIZ_STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as QuizStorageState;
+  } catch {
+    return null;
+  }
+}
+
+function saveQuizState(state: QuizStorageState): void {
+  try {
+    sessionStorage.setItem(QUIZ_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+function clearQuizState(): void {
+  try {
+    sessionStorage.removeItem(QUIZ_STORAGE_KEY);
+  } catch {
+    // Ignore
+  }
+}
+
 // ── Component ──
 
 export default function RefineQuizModal({
@@ -61,6 +100,8 @@ export default function RefineQuizModal({
   onClose,
   onApplied,
 }: RefineQuizModalProps) {
+  // Try to restore from sessionStorage on first render
+  const [initialized, setInitialized] = useState(false);
   const [screen, setScreen] = useState<Screen>("choice");
   const [error, setError] = useState("");
 
@@ -79,9 +120,40 @@ export default function RefineQuizModal({
   // Manual mode
   const [manualText, setManualText] = useState("");
 
-  // ── Reset state when modal opens ──
+  // ── Restore or reset state when modal opens ──
   useEffect(() => {
-    if (open) {
+    if (!open) {
+      setInitialized(false);
+      return;
+    }
+
+    if (initialized) {
+      // Already restored once while open, don't reset
+      return;
+    }
+
+    const saved = loadQuizState();
+    if (saved && saved.ideaId === idea.id && saved.screen !== "choice" && saved.screen !== "applied") {
+      // Restore previous quiz state
+      setScreen(saved.screen);
+      setQuestions(saved.questions);
+      setAnswers(saved.answers);
+      setCustomInputs(saved.customInputs);
+      setShowCustom(saved.showCustom);
+      setPollingJobId(saved.pollingJobId);
+      setRefineResult(saved.refineResult);
+      setError("");
+
+      // Resume polling if in-progress
+      if (saved.pollingJobId) {
+        if (saved.screen === "quiz-loading") {
+          startQuestionsPolling(saved.pollingJobId);
+        } else if (saved.screen === "quiz-analyzing") {
+          startResultPolling(saved.pollingJobId);
+        }
+      }
+    } else {
+      // Fresh start
       setScreen("choice");
       setError("");
       setQuestions([]);
@@ -92,8 +164,30 @@ export default function RefineQuizModal({
       setRefineResult(null);
       setApplying(false);
       setManualText("");
+      clearQuizState();
     }
-  }, [open]);
+
+    setInitialized(true);
+  }, [open, idea.id]);
+
+  // Persist quiz state to sessionStorage
+  useEffect(() => {
+    if (!open || !initialized) return;
+    if (screen === "choice" || screen === "applied") {
+      clearQuizState();
+      return;
+    }
+    saveQuizState({
+      screen,
+      ideaId: idea.id,
+      questions,
+      answers,
+      customInputs,
+      showCustom,
+      pollingJobId,
+      refineResult,
+    });
+  }, [screen, questions, answers, customInputs, showCustom, pollingJobId, refineResult, open, initialized, idea.id]);
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -336,6 +430,12 @@ export default function RefineQuizModal({
     setRefineResult(null);
     setError("");
     setManualText("");
+    clearQuizState();
+  }
+
+  function handleClose() {
+    clearQuizState();
+    onClose();
   }
 
   if (!open) return null;
@@ -347,7 +447,7 @@ export default function RefineQuizModal({
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={handleClose}
       />
 
       {/* Modal */}
@@ -361,7 +461,7 @@ export default function RefineQuizModal({
             </h2>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="rounded-md p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
             aria-label="Cerrar"
           >
@@ -652,7 +752,7 @@ export default function RefineQuizModal({
                 La idea ha sido actualizada con la versión refinada.
               </p>
               <button
-                onClick={onClose}
+                onClick={handleClose}
                 className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-300 shadow transition-all hover:border-slate-600 hover:bg-slate-700"
               >
                 Cerrar

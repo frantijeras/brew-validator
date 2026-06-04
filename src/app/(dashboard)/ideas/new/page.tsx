@@ -183,10 +183,6 @@ function CustomForm({
   onSubmit: (data: { mode: "custom"; rawIdea: string; sector: string; targetUser: string; hints: string; businessModel?: string }) => void;
 }) {
   const [rawIdea, setRawIdea] = useState("");
-  const [sector, setSector] = useState("");
-  const [targetUser, setTargetUser] = useState("");
-  const [hints, setHints] = useState("");
-  const [showOptional, setShowOptional] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   function validate(): boolean {
@@ -209,15 +205,14 @@ function CustomForm({
     onSubmit({
       mode: "custom",
       rawIdea: rawIdea.trim(),
-      sector: sector.trim(),
-      targetUser: targetUser.trim(),
-      hints: hints.trim(),
+      sector: "",
+      targetUser: "",
+      hints: "",
       businessModel: selectedModel || undefined,
     });
   }
 
   const charCount = rawIdea.length;
-  const hasOptionalData = !!(sector.trim() || targetUser.trim() || hints.trim());
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -243,8 +238,19 @@ function CustomForm({
           </div>
         </div>
 
-        {/* Raw Idea — large textarea */}
+        {/* Modelo de negocio selector */}
         <div className="mb-4">
+          <p className="mb-2 text-xs font-medium text-slate-400">
+            Modelo de negocio:
+          </p>
+          <BusinessModelChips
+            selected={selectedModel}
+            onChange={setSelectedModel}
+          />
+        </div>
+
+        {/* Raw Idea — large textarea */}
+        <div>
           <label
             htmlFor="rawIdea"
             className="mb-1.5 block text-sm font-medium text-slate-300"
@@ -253,15 +259,15 @@ function CustomForm({
           </label>
           <textarea
             id="rawIdea"
-            placeholder="Ej: una app que ayude a restaurantes locales a gestionar reservas por WhatsApp, con recordatorios automáticos y confirmación de mesas..."
+            placeholder="Cuéntame tu idea... (sector, público objetivo, problema que resuelve, enfoque, monetización...)"
             value={rawIdea}
             onChange={(e) => {
               setRawIdea(e.target.value);
               if (formErrors.rawIdea) setFormErrors({});
             }}
-            rows={6}
+            rows={10}
             maxLength={2000}
-            className="w-full rounded-lg border bg-slate-900/70 px-4 py-3 text-sm text-white placeholder:text-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500/50 border-slate-700 focus:border-amber-500/50 resize-y min-h-[120px]"
+            className="w-full rounded-lg border bg-slate-900/70 px-4 py-3 text-sm text-white placeholder:text-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500/50 border-slate-700 focus:border-amber-500/50 resize-y min-h-[160px]"
           />
           <div className="mt-1 flex items-center justify-between">
             {formErrors.rawIdea ? (
@@ -281,96 +287,6 @@ function CustomForm({
               {charCount}/2000
             </span>
           </div>
-        </div>
-
-        {/* Optional fields toggle */}
-        <button
-          type="button"
-          onClick={() => setShowOptional(!showOptional)}
-          className={`mb-3 inline-flex items-center gap-1.5 text-sm transition-colors ${
-            showOptional || hasOptionalData
-              ? "text-amber-400 hover:text-amber-300"
-              : "text-slate-400 hover:text-slate-300"
-          }`}
-        >
-          <ChevronIcon expanded={showOptional || hasOptionalData} />
-          {showOptional || hasOptionalData
-            ? "Campos adicionales"
-            : "Añadir sector, público y enfoque"}
-          {hasOptionalData && !showOptional && (
-            <span className="ml-1 inline-flex size-1.5 rounded-full bg-amber-400" />
-          )}
-        </button>
-
-        {(showOptional || hasOptionalData) && (
-          <div className="grid gap-4 sm:grid-cols-3 mb-4">
-            {/* Sector */}
-            <div>
-              <label
-                htmlFor="sector"
-                className="mb-1.5 block text-sm font-medium text-slate-300"
-              >
-                Sector
-              </label>
-              <input
-                id="sector"
-                type="text"
-                placeholder="Ej: restauración, fintech"
-                value={sector}
-                onChange={(e) => setSector(e.target.value)}
-                maxLength={200}
-                className="w-full rounded-lg border bg-slate-900/70 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500/50 border-slate-700 focus:border-amber-500/50"
-              />
-            </div>
-
-            {/* Target user */}
-            <div>
-              <label
-                htmlFor="targetUser"
-                className="mb-1.5 block text-sm font-medium text-slate-300"
-              >
-                Público objetivo
-              </label>
-              <input
-                id="targetUser"
-                type="text"
-                placeholder="Ej: dueños de restaurantes"
-                value={targetUser}
-                onChange={(e) => setTargetUser(e.target.value)}
-                maxLength={200}
-                className="w-full rounded-lg border bg-slate-900/70 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500/50 border-slate-700 focus:border-amber-500/50"
-              />
-            </div>
-
-            {/* Hints */}
-            <div>
-              <label
-                htmlFor="hints"
-                className="mb-1.5 block text-sm font-medium text-slate-300"
-              >
-                Pistas o enfoque
-              </label>
-              <input
-                id="hints"
-                type="text"
-                placeholder="Ej: sostenibilidad, suscripción"
-                value={hints}
-                onChange={(e) => setHints(e.target.value)}
-                maxLength={300}
-                className="w-full rounded-lg border bg-slate-900/70 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500/50 border-slate-700 focus:border-amber-500/50"
-              />
-            </div>
-          </div>
-        )}
-
-        <div className="mt-4">
-          <p className="mb-2 text-xs font-medium text-slate-400">
-            Tipo de idea (opcional):
-          </p>
-          <BusinessModelChips
-            selected={selectedModel}
-            onChange={setSelectedModel}
-          />
         </div>
 
         <button
@@ -499,18 +415,4 @@ function SpinnerIcon() {
   );
 }
 
-function ChevronIcon({ expanded }: { expanded: boolean }) {
-  return (
-    <svg
-      className={`size-4 transition-transform ${expanded ? "rotate-90" : ""}`}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="9 18 15 12 9 6" />
-    </svg>
-  );
-}
+

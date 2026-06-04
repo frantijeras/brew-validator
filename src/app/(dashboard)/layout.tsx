@@ -78,7 +78,6 @@ export default function DashboardLayout({
         {/* Nav */}
         <nav className="flex-1 space-y-1 px-4 py-6">
           <NavItem href="/ideas" icon="lightbulb" label="Ideas" />
-          <NavItem href="/ideas/new" icon="plus" label="Nueva idea" />
         </nav>
 
         {/* User info + bottom nav */}

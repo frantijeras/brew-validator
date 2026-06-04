@@ -25,7 +25,7 @@ const STEPS: { agent: string; label: string; description: string; icon: StepIcon
   },
   {
     agent: "advocate",
-    label: "Abogado del diablo",
+    label: "Defensor",
     description: "Investiga oportunidades y ventajas competitivas",
     icon: "scale",
   },
