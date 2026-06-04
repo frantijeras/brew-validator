@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { NavItem } from "@/components/nav-item";
+import { BridgeStatusBanner } from "@/components/bridge-status-banner";
 
 export default function DashboardLayout({
   children,
@@ -137,7 +138,10 @@ export default function DashboardLayout({
 
       {/* ── Main content ── */}
       <main className="flex-1 pt-14 md:pt-0 md:pl-64 overflow-x-hidden">
-        <div className="mx-auto max-w-5xl p-4 md:p-8">{children}</div>
+        <div className="mx-auto max-w-5xl p-4 md:p-8">
+          <BridgeStatusBanner />
+          {children}
+        </div>
       </main>
     </div>
   );

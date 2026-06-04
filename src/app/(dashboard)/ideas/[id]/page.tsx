@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Heart, Archive, Trash2, Undo2, MoreHorizontal, Pencil, FileDown, Save, X, Info } from "lucide-react";
+import { Heart, Archive, Trash2, Undo2, MoreHorizontal, Pencil, FileDown, Save, X, Info, AlertCircle } from "lucide-react";
 import { ValidationProgress } from "@/components/validation-progress";
 import { ReportViewer } from "@/components/report-viewer";
 import { ConfirmModal } from "@/components/confirm-modal";
@@ -14,6 +14,7 @@ import { BUSINESS_MODELS } from "@/lib/business-models";
 import { BusinessModelIcon } from "@/components/business-model-icon";
 import { generatePdf } from "@/lib/pdf-export";
 import { TextExpander } from "@/components/text-expander";
+import { useBridgeStatus } from "@/hooks/use-bridge-status";
 
 interface IdeaData {
   id: string;
@@ -78,6 +79,10 @@ export default function IdeaDetailPage() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  // Bridge status — used to block AI actions when the bridge is down
+  const { status: bridgeStatus } = useBridgeStatus();
+  const bridgeDown = bridgeStatus !== null && !bridgeStatus.reachable;
+
   // Close menu on click outside
   useEffect(() => {
     if (!showMenu) return;
@@ -137,6 +142,12 @@ export default function IdeaDetailPage() {
   const isCompleted = idea?.status === "COMPLETED" || idea?.validationStatus === "DONE";
 
   async function handleValidate() {
+    if (bridgeDown) {
+      setApiError(
+        "El servicio de IA no está disponible. El servidor local puede estar apagado. Inténtalo más tarde."
+      );
+      return;
+    }
     setValidating(true);
     setApiError("");
     try {
@@ -286,13 +297,29 @@ export default function IdeaDetailPage() {
   // ── Polish start / cancel ──
 
   async function handleStartPolish() {
+    // The "Continuar pulido" button is shown both for fresh
+    // Pulir-idea (idea.status === "COMPLETED") and for resuming
+    // an in-progress polish (idea.status === "POLISHING"). The
+    // latter only needs to re-open the local card from
+    // localStorage, so it must work even when the bridge is down
+    // — the user can pick up where they left off without talking
+    // to the daemon. We only block when starting a new polish.
+    const resumingExisting = idea?.status === "POLISHING";
+    if (!resumingExisting && bridgeDown) {
+      setApiError(
+        "El servicio de IA no está disponible. El servidor local puede estar apagado. Inténtalo más tarde."
+      );
+      return;
+    }
     setStartingPolish(true);
     setApiError("");
     try {
-      await fetch(`/api/ideas/${ideaId}/refine/start`, {
-        method: "POST",
-        credentials: "same-origin",
-      });
+      if (!resumingExisting) {
+        await fetch(`/api/ideas/${ideaId}/refine/start`, {
+          method: "POST",
+          credentials: "same-origin",
+        });
+      }
       await fetchIdea();
       setShowRefineSection(true);
     } catch (err) {
@@ -595,6 +622,11 @@ export default function IdeaDetailPage() {
                 <button
                   onClick={handleValidate}
                   disabled={validating}
+                  title={
+                    bridgeDown
+                      ? "El servicio de IA no está disponible"
+                      : undefined
+                  }
                   className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {validating ? (
@@ -640,8 +672,9 @@ export default function IdeaDetailPage() {
             </div>
 
             {apiError && (
-              <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-                {apiError}
+              <div className="mt-4 flex items-start gap-2.5 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+                <AlertCircle className="size-4 shrink-0 mt-0.5" />
+                <span>{apiError}</span>
               </div>
             )}
           </div>
@@ -674,6 +707,25 @@ export default function IdeaDetailPage() {
             validationStatus={idea.validationStatus}
             reports={idea.reports}
           />
+        </div>
+      )}
+
+      {/* Stuck validation — bridge is down and the job is hanging */}
+      {idea.validationStatus === "RUNNING" && bridgeDown && (
+        <div className="mb-8 rounded-lg border border-red-500/30 bg-red-500/10 p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="size-5 shrink-0 text-red-400 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-semibold text-red-200">
+                Validación en pausa
+              </h3>
+              <p className="mt-1 text-sm text-red-200/80">
+                El servidor local de IA no responde, por lo que la validación
+                no puede avanzar. Tus datos están guardados. Cuando el
+                servicio vuelva, pulsa «Reintentar» para comprobar de nuevo.
+              </p>
+            </div>
+          </div>
         </div>
       )}
 

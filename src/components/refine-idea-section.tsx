@@ -11,6 +11,7 @@ import {
   Zap,
   XCircle,
 } from "lucide-react";
+import { useBridgeStatus } from "@/hooks/use-bridge-status";
 
 // ── Types ──
 
@@ -115,6 +116,15 @@ export default function RefineIdeaSection({
   const [currentStep, setCurrentStep] = useState(0);
   const [pollingJobId, setPollingJobId] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Guard against firing bridge jobs while the bridge is down.
+  // (Start-polish is already guarded upstream, but the wizard can
+  // outlive a single poll cycle, so we re-check before each POST.)
+  const { status: bridgeStatus, loading: bridgeLoading } = useBridgeStatus();
+  const bridgeDown =
+    !bridgeLoading && bridgeStatus !== null && !bridgeStatus.reachable;
+  const bridgeDownMessage =
+    "No se puede iniciar: el servicio de IA no está disponible. Inténtalo en unos minutos.";
 
   // Result state
   const [refineResult, setRefineResult] = useState<RefineResult | null>(null);
@@ -226,6 +236,11 @@ export default function RefineIdeaSection({
 
   // ── Phase 1: Start quiz (get all questions) ──
   async function startQuiz() {
+    if (bridgeDown) {
+      setError(bridgeDownMessage);
+      setScreen("choice");
+      return;
+    }
     setScreen("quiz-loading");
     setError("");
 
@@ -333,6 +348,10 @@ export default function RefineIdeaSection({
 
   // ── Phase 2: Submit answers → get refined result ──
   async function handleSubmitAnswers() {
+    if (bridgeDown) {
+      setError(bridgeDownMessage);
+      return;
+    }
     const missing = questions.filter((q) => !answers[q.id]?.trim());
     if (missing.length > 0) {
       setError(
@@ -414,6 +433,10 @@ export default function RefineIdeaSection({
   // ── Manual mode: start refinement with raw text ──
   async function handleManualSubmit() {
     if (!manualText.trim()) return;
+    if (bridgeDown) {
+      setError(bridgeDownMessage);
+      return;
+    }
     setManualApplying(true);
     setError("");
     setIsManualPolling(false);

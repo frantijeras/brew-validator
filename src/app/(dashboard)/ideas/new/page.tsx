@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Dices, Target, PencilLine } from "lucide-react";
+import { Dices, Target, PencilLine, AlertCircle } from "lucide-react";
 import { BusinessModelDropdown } from "@/components/business-model-dropdown";
+import { useBridgeStatus } from "@/hooks/use-bridge-status";
 
 type Mode = "random" | "custom" | null;
 
@@ -14,8 +15,16 @@ export default function NewIdeaPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [selectedModel, setSelectedModel] = useState<string>("");
+  const { status: bridgeStatus } = useBridgeStatus();
+  const bridgeDown = bridgeStatus !== null && !bridgeStatus.reachable;
 
   async function generateIdea(body: object) {
+    if (bridgeDown) {
+      setError(
+        "El servicio de IA no está disponible. El servidor local puede estar apagado. Inténtalo más tarde."
+      );
+      return;
+    }
     setLoading(true);
     setError("");
 
@@ -63,7 +72,10 @@ export default function NewIdeaPage() {
       {/* Error */}
       {error && (
         <div className="mb-6 rounded-xl border border-red-500/30 bg-red-500/5 p-4 text-center">
-          <p className="text-sm text-red-400">{error}</p>
+          <div className="flex items-center justify-center gap-2 text-sm text-red-400">
+            <AlertCircle className="size-4 shrink-0" />
+            <span>{error}</span>
+          </div>
           <button
             onClick={() => {
               setError("");
