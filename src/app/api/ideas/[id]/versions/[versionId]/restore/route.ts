@@ -32,7 +32,51 @@ export async function POST(
       );
     }
 
-    // Restore all idea fields from version snapshot
+    // Restore reports from version.reportsSnapshot if available
+    if (version.reportsSnapshot) {
+      const reports: Array<{
+        agentName: string;
+        title: string;
+        content: string;
+        verdict?: string;
+        scorecard?: string | object;
+        createdAt?: string;
+      }> = Array.isArray(version.reportsSnapshot)
+        ? (version.reportsSnapshot as unknown as Array<{
+            agentName: string;
+            title: string;
+            content: string;
+            verdict?: string;
+            scorecard?: string | object;
+            createdAt?: string;
+          }>)
+        : JSON.parse(version.reportsSnapshot as string);
+
+      // Delete existing reports for this idea
+      await prisma.report.deleteMany({ where: { ideaId: id } });
+
+      // Recreate reports from snapshot
+      for (const r of reports) {
+        await prisma.report.create({
+          data: {
+            ideaId: id,
+            agentName: r.agentName,
+            title: r.title,
+            content: r.content,
+            verdict: r.verdict ?? null,
+            scorecard:
+              typeof r.scorecard === "string"
+                ? r.scorecard
+                : r.scorecard
+                  ? JSON.stringify(r.scorecard)
+                  : null,
+            createdAt: r.createdAt ? new Date(r.createdAt) : new Date(),
+          },
+        });
+      }
+    }
+
+    // Update idea with restored fields
     const updated = await prisma.idea.update({
       where: { id },
       data: {
@@ -46,6 +90,26 @@ export async function POST(
         verdict: version.verdict,
         status: "COMPLETED",
         validationStatus: "DONE",
+      },
+    });
+
+    // Create new IdeaVersion reflecting the restored state
+    const versionCount = await prisma.ideaVersion.count({ where: { ideaId: id } });
+    const newPhase = `v${versionCount + 1}`;
+
+    await prisma.ideaVersion.create({
+      data: {
+        ideaId: id,
+        title: version.title,
+        description: version.description,
+        problem: version.problem,
+        valueProposition: version.valueProposition,
+        targetUser: version.targetUser,
+        monetization: version.monetization,
+        phase: newPhase,
+        score: version.score,
+        verdict: version.verdict,
+        reportsSnapshot: version.reportsSnapshot ?? undefined,
       },
     });
 

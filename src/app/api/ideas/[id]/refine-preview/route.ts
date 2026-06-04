@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { resolveModelForJobAgent } from "@/lib/agent-models";
 
 const previewSchema = z.object({
   mode: z.literal("manual"),
