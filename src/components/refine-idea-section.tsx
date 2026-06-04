@@ -65,40 +65,43 @@ interface RefineIdeaSectionProps {
 
 type Screen = "choice" | "quiz-loading" | "quiz-questions" | "quiz-analyzing" | "result" | "applied";
 
-const QUIZ_STORAGE_KEY = "brew-refine-quiz";
+function storageKey(ideaId: string): string {
+  return `brew-refine-${ideaId}`;
+}
 
-interface QuizStorageState {
+interface RefineStorageState {
   screen: Screen;
-  ideaId: string;
+  activeTab: "quiz" | "manual";
   questions: QuizQuestion[];
   answers: Record<string, string>;
   customInputs: Record<string, string>;
   showCustom: Record<string, boolean>;
   pollingJobId: string | null;
   refineResult: RefineResult | null;
+  manualText: string;
 }
 
-function loadQuizState(): QuizStorageState | null {
+function loadRefineState(ideaId: string): RefineStorageState | null {
   try {
-    const raw = sessionStorage.getItem(QUIZ_STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey(ideaId));
     if (!raw) return null;
-    return JSON.parse(raw) as QuizStorageState;
+    return JSON.parse(raw) as RefineStorageState;
   } catch {
     return null;
   }
 }
 
-function saveQuizState(state: QuizStorageState): void {
+function saveRefineState(ideaId: string, state: RefineStorageState): void {
   try {
-    sessionStorage.setItem(QUIZ_STORAGE_KEY, JSON.stringify(state));
+    localStorage.setItem(storageKey(ideaId), JSON.stringify(state));
   } catch {
     // Ignore storage errors
   }
 }
 
-function clearQuizState(): void {
+function clearRefineState(ideaId: string): void {
   try {
-    sessionStorage.removeItem(QUIZ_STORAGE_KEY);
+    localStorage.removeItem(storageKey(ideaId));
   } catch {
     // Ignore
   }
@@ -112,6 +115,8 @@ export default function RefineIdeaSection({
   onCollapse,
   onValidate,
 }: RefineIdeaSectionProps) {
+  const clearQuizState = () => { setQuestions([]); setAnswers({}); };
+
   const [initialized, setInitialized] = useState(false);
   const [activeTab, setActiveTab] = useState<"quiz" | "manual">("quiz");
   const [screen, setScreen] = useState<Screen>("choice");
@@ -139,21 +144,22 @@ export default function RefineIdeaSection({
   useEffect(() => {
     if (initialized) return;
 
-    const saved = loadQuizState();
+    const saved = loadRefineState(idea.id);
     if (
       saved &&
-      saved.ideaId === idea.id &&
       saved.screen !== "choice" &&
       saved.screen !== "applied"
     ) {
-      // Restore previous quiz state
+      // Restore previous state
       setScreen(saved.screen);
+      setActiveTab(saved.activeTab);
       setQuestions(saved.questions);
       setAnswers(saved.answers);
       setCustomInputs(saved.customInputs);
       setShowCustom(saved.showCustom);
       setPollingJobId(saved.pollingJobId);
       setRefineResult(saved.refineResult);
+      setManualText(saved.manualText || "");
       setCurrentStep(0);
       setError("");
 
@@ -179,37 +185,41 @@ export default function RefineIdeaSection({
       setApplying(false);
       setManualText("");
       setIsManualPolling(false);
-      clearQuizState();
+      setActiveTab("quiz");
+      clearRefineState(idea.id);
     }
 
     setInitialized(true);
   }, [idea.id]);
 
-  // Persist quiz state to sessionStorage
+  // Persist state to localStorage
   useEffect(() => {
     if (!initialized) return;
     if (screen === "choice" || screen === "applied") {
-      clearQuizState();
+      clearRefineState(idea.id);
       return;
     }
-    saveQuizState({
+    saveRefineState(idea.id, {
       screen,
-      ideaId: idea.id,
+      activeTab,
       questions,
       answers,
       customInputs,
       showCustom,
       pollingJobId,
       refineResult,
+      manualText,
     });
   }, [
     screen,
+    activeTab,
     questions,
     answers,
     customInputs,
     showCustom,
     pollingJobId,
     refineResult,
+    manualText,
     initialized,
     idea.id,
   ]);
@@ -391,7 +401,6 @@ export default function RefineIdeaSection({
               targetUser: data.targetUser || "",
               monetization: data.monetization || "",
               summary: data.summary || data.message || "",
-              suggestedBusinessModel: data.suggestedBusinessModel || undefined,
             });
             setScreen("result");
           }
@@ -468,7 +477,6 @@ export default function RefineIdeaSection({
               targetUser: data.targetUser || "",
               monetization: data.monetization || "",
               summary: data.summary || data.message || "",
-              suggestedBusinessModel: data.suggestedBusinessModel || undefined,
             });
             setScreen("result");
             setIsManualPolling(false);
@@ -501,7 +509,7 @@ export default function RefineIdeaSection({
     setManualText("");
     setIsManualPolling(false);
     setManualApplying(false);
-    clearQuizState();
+    clearRefineState(idea.id);
   }
 
   // ── Apply refined result ──
@@ -511,19 +519,17 @@ export default function RefineIdeaSection({
     setError("");
 
     try {
-      const res = await fetch(`/api/ideas/${idea.id}/refine`, {
+      const res = await fetch(`/api/ideas/${idea.id}/refine/apply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
         body: JSON.stringify({
-          mode: "manual",
           title: refineResult.title,
           description: refineResult.description,
           problem: refineResult.problem || "",
           valueProposition: refineResult.valueProposition || "",
           targetUser: refineResult.targetUser,
           monetization: refineResult.monetization,
-          suggestedBusinessModel: refineResult.suggestedBusinessModel || undefined,
         }),
       });
 
@@ -533,6 +539,7 @@ export default function RefineIdeaSection({
       }
 
       setScreen("applied");
+      clearRefineState(idea.id);
       onApplied();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al aplicar cambios");
@@ -554,7 +561,7 @@ export default function RefineIdeaSection({
     setManualText("");
     setIsManualPolling(false);
     setManualApplying(false);
-    clearQuizState();
+    clearRefineState(idea.id);
   }
 
   // Go back to editing mode (discard comparison, keep text and tab)
@@ -573,11 +580,12 @@ export default function RefineIdeaSection({
     // Preserve manualText so user can continue editing
     // Keep activeTab on "manual" since we came from manual mode
     setActiveTab("manual");
-    clearQuizState();
+    clearRefineState(idea.id);
   }
 
+  // Close the refine section WITHOUT canceling polishing — POLISHING state persists
   function handleCollapse() {
-    clearQuizState();
+    // Don't clear localStorage — state persists across sessions
     onCollapse();
   }
 
@@ -887,14 +895,6 @@ export default function RefineIdeaSection({
                 before={idea.monetization}
                 after={refineResult.monetization}
               />
-              {refineResult.suggestedBusinessModel && (
-                <ComparisonCard
-                  label="Sugerencia de tipo de negocio"
-                  before={idea.title}
-                  after={refineResult.suggestedBusinessModel}
-                  isSuggestion
-                />
-              )}
             </div>
 
             <div className="flex flex-wrap items-center gap-3">

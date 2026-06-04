@@ -18,6 +18,7 @@ export const STATUS_LABELS: Record<string, string> = {
   VALIDATING: "Validando",
   COMPLETED: "Completada",
   REFINING: "Puliendo",
+  POLISHING: "Puliendo",
   FAILED: "Error",
   // Legacy
   DONE: "completada",
@@ -48,6 +49,7 @@ export const STATUS_COLORS: Record<string, string> = {
   VALIDATING: "text-orange-400 bg-orange-500/10 border-orange-500/30",
   COMPLETED: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30",
   REFINING: "text-blue-400 bg-blue-500/10 border-blue-500/30",
+  POLISHING: "text-blue-400 bg-blue-500/10 border-blue-500/30",
   FAILED: "text-red-400 bg-red-500/10 border-red-500/30",
   // Legacy mappings
   DONE: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30",

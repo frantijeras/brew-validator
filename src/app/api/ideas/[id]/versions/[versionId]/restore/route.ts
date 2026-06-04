@@ -93,23 +93,15 @@ export async function POST(
       },
     });
 
-    // Duplicate the restored version with its original phase.
-    // createdAt defaults to now, making it the most recent (current = index 0).
-    // The original phase (e.g. v1) is preserved — no new version number is minted.
-    await prisma.ideaVersion.create({
-      data: {
-        ideaId: id,
-        title: version.title,
-        description: version.description,
-        problem: version.problem,
-        valueProposition: version.valueProposition,
-        targetUser: version.targetUser,
-        monetization: version.monetization,
-        phase: version.phase,
-        score: version.score,
-        verdict: version.verdict,
-        reportsSnapshot: version.reportsSnapshot ?? undefined,
-      },
+    // Delete the current latest version (the one being replaced)
+    if (latestVersion && latestVersion.id !== version.id) {
+      await prisma.ideaVersion.delete({ where: { id: latestVersion.id } });
+    }
+
+    // Update the restored version so its createdAt moves to now (becomes the latest)
+    await prisma.ideaVersion.update({
+      where: { id: version.id },
+      data: { createdAt: new Date() },
     });
 
     return NextResponse.json(updated);

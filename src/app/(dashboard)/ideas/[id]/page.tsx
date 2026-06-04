@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Heart, Archive, Trash2, Undo2, MoreHorizontal, Pencil, FileDown, Save, X } from "lucide-react";
+import { Heart, Archive, Trash2, Undo2, MoreHorizontal, Pencil, FileDown, Save, X, Info } from "lucide-react";
 import { ValidationProgress } from "@/components/validation-progress";
 import { ReportViewer } from "@/components/report-viewer";
 import { ConfirmModal } from "@/components/confirm-modal";
@@ -64,6 +64,8 @@ export default function IdeaDetailPage() {
   const [showRefineSection, setShowRefineSection] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [startingPolish, setStartingPolish] = useState(false);
+  const [cancellingPolish, setCancellingPolish] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editProblem, setEditProblem] = useState("");
@@ -278,18 +280,60 @@ export default function IdeaDetailPage() {
     }
   }
 
+  // ── Polish start / cancel ──
+
+  async function handleStartPolish() {
+    setStartingPolish(true);
+    setApiError("");
+    try {
+      await fetch(`/api/ideas/${ideaId}/refine/start`, {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      await fetchIdea();
+      setShowRefineSection(true);
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : "Error al iniciar el pulido");
+    } finally {
+      setStartingPolish(false);
+    }
+  }
+
+  async function handleCancelPolish() {
+    setCancellingPolish(true);
+    setApiError("");
+    try {
+      await fetch(`/api/ideas/${ideaId}/refine/cancel`, {
+        method: "PATCH",
+        credentials: "same-origin",
+      });
+      // Clear localStorage
+      localStorage.removeItem(`brew-refine-${ideaId}`);
+      setShowRefineSection(false);
+      await fetchIdea();
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : "Error al cancelar el pulido");
+    } finally {
+      setCancellingPolish(false);
+    }
+  }
+
   // ── States ──
 
-  // Auto-open refine section if there's a saved quiz session for this idea
+  // Auto-open refine section if idea is POLISHING or there's a saved session
   useEffect(() => {
     if (!idea) return;
+    // Auto-open if idea is in POLISHING state
+    if (idea.status === "POLISHING") {
+      setShowRefineSection(true);
+      return;
+    }
     try {
-      const raw = sessionStorage.getItem("brew-refine-quiz");
+      const raw = localStorage.getItem(`brew-refine-${idea.id}`);
       if (!raw) return;
       const saved = JSON.parse(raw);
       if (
         saved &&
-        saved.ideaId === idea.id &&
         saved.screen !== "choice"
       ) {
         setShowRefineSection(true);
@@ -299,15 +343,15 @@ export default function IdeaDetailPage() {
     }
   }, [idea]);
 
-  // Check if there's an active quiz (for REFINING badge)
+  // Check if there's an active refine session (for REFINING badge)
   const isRefining = (() => {
+    if (idea?.status === "POLISHING") return true;
     try {
-      const raw = sessionStorage.getItem("brew-refine-quiz");
+      const raw = localStorage.getItem(`brew-refine-${ideaId}`);
       if (!raw) return false;
       const saved = JSON.parse(raw);
       return (
         saved &&
-        saved.ideaId === ideaId &&
         saved.screen !== "choice"
       );
     } catch {
@@ -341,8 +385,11 @@ export default function IdeaDetailPage() {
     idea.validationStatus !== "RUNNING" && idea.validationStatus !== "DONE";
   const isDraft = idea.status === "DRAFT";
 
-  // Version badge: dynamic according to state (DRAFT vs COMPLETED)
+  // Version badge: dynamic according to state (POLISHING / DRAFT / COMPLETED)
   const versionBadge = (() => {
+    if (idea.status === "POLISHING") {
+      return { label: "Puliendo", color: "bg-blue-500/10 text-blue-400 border-blue-500/30" };
+    }
     if (!isCompleted) {
       // Estado DRAFT
       if (idea._versionCount && idea._versionCount > 0) {
@@ -355,11 +402,13 @@ export default function IdeaDetailPage() {
   })();
 
   // Explanatory text below the badge for DRAFT states
-  const versionSubtext = isCompleted
-    ? null
-    : idea._versionCount && idea._versionCount > 0
+  const versionSubtext = (() => {
+    if (idea.status === "POLISHING") return "Pulido en curso";
+    if (isCompleted) return null;
+    return idea._versionCount && idea._versionCount > 0
       ? `Validacion previa: V${idea._versionCount} · Pendiente de validar`
       : "Borrador inicial";
+  })();
 
   const formattedCreated = new Date(idea.createdAt).toLocaleDateString("es-ES", {
     day: "numeric",
@@ -562,14 +611,24 @@ export default function IdeaDetailPage() {
                   )}
                 </button>
               )}
-              {/* Pulir idea — solo aparece cuando la idea ya está validada */}
-              {!showRefineSection && idea.status === "COMPLETED" && (
+              {/* Pulir idea — solo aparece cuando la idea ya está validada y no está puliendo */}
+              {!showRefineSection && (idea.status === "COMPLETED" || idea.status === "POLISHING") && (
                 <button
-                  onClick={() => setShowRefineSection(true)}
-                  className="inline-flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm font-medium text-amber-400 shadow transition-all hover:border-amber-400 hover:bg-amber-500/20 active:bg-amber-500/30"
+                  onClick={handleStartPolish}
+                  disabled={startingPolish}
+                  className="inline-flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm font-medium text-amber-400 shadow transition-all hover:border-amber-400 hover:bg-amber-500/20 active:bg-amber-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <SparklesIcon />
-                  Pulir idea
+                  {startingPolish ? (
+                    <>
+                      <Spinner />
+                      Iniciando…
+                    </>
+                  ) : (
+                    <>
+                      <SparklesIcon />
+                      {idea.status === "POLISHING" ? "Continuar pulido" : "Pulir idea"}
+                    </>
+                  )}
                 </button>
               )}
               <button
@@ -589,6 +648,25 @@ export default function IdeaDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* POLISHING banner — appears when idea is being polished */}
+      {idea.status === "POLISHING" && (
+        <div className="mb-6 rounded-lg border border-blue-500/30 bg-blue-500/5 px-4 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Info className="size-4 shrink-0 text-blue-400" />
+            <span className="text-sm text-blue-300">
+              Estás puliendo esta idea. Si sales, podrás continuar al volver.
+            </span>
+          </div>
+          <button
+            onClick={handleCancelPolish}
+            disabled={cancellingPolish}
+            className="shrink-0 rounded-md border border-blue-500/30 px-3 py-1.5 text-xs font-medium text-blue-400 hover:bg-blue-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {cancellingPolish ? "Cancelando…" : "Cancelar pulido"}
+          </button>
+        </div>
+      )}
 
       {/* Validation progress — sticky at top while running, always visible on mobile */}
       {idea.validationStatus === "RUNNING" && (

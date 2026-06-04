@@ -5,15 +5,18 @@ import { prisma } from "@/lib/db";
 const applyRefineSchema = z.object({
   title: z.string().min(3),
   description: z.string().min(10),
+  problem: z.string().optional(),
+  valueProposition: z.string().optional(),
   targetUser: z.string().min(3),
   monetization: z.string().min(3),
+  suggestedBusinessModel: z.string().optional(),
 });
 
 /**
  * POST /api/ideas/:id/refine/apply
  *
- * Creates an IdeaVersion with phase "pre-validation" when the user
- * accepts the refined changes from the QA refiner chat.
+ * Applies refined changes: creates a new IdeaVersion with incremented phase,
+ * updates the idea fields, sets status to DRAFT, and clears the polish snapshot.
  */
 export async function POST(
   req: NextRequest,
@@ -24,23 +27,71 @@ export async function POST(
     const body = await req.json();
     const data = applyRefineSchema.parse(body);
 
-    const idea = await prisma.idea.findUnique({ where: { id: ideaId } });
+    const idea = await prisma.idea.findUnique({
+      where: { id: ideaId },
+      include: { _count: { select: { versions: true } } },
+    });
     if (!idea) {
       return NextResponse.json({ error: "Idea no encontrada" }, { status: 404 });
     }
 
-    const version = await prisma.ideaVersion.create({
-      data: {
+    // Count existing versions with v{n} phase format to determine next version number
+    const versionCount = await prisma.ideaVersion.count({
+      where: {
         ideaId,
-        title: data.title,
-        description: data.description,
-        targetUser: data.targetUser,
-        monetization: data.monetization,
-        phase: "pre-validation",
+        phase: { startsWith: "v" },
       },
     });
 
-    return NextResponse.json(version, { status: 201 });
+    const nextPhase = `v${versionCount + 1}`;
+
+    // Delete old reports before saving new version
+    await prisma.report.deleteMany({ where: { ideaId } });
+
+    // Build update payload, preserving existing values for optional fields
+    const updateData: Record<string, unknown> = {
+      title: data.title,
+      description: data.description,
+      targetUser: data.targetUser,
+      monetization: data.monetization,
+      problem: data.problem ?? null,
+      valueProposition: data.valueProposition ?? null,
+      status: "DRAFT",
+      validationStatus: "PENDING",
+      score: null,
+      verdict: null,
+    };
+
+    if (data.suggestedBusinessModel) {
+      updateData.businessModel = data.suggestedBusinessModel;
+    }
+
+    // Clear polishSnapshot from metadata
+    const existingMeta = (idea.metadata as Record<string, unknown>) || {};
+    const { polishSnapshot: _removed, ...restMeta } = existingMeta;
+    updateData.metadata = restMeta;
+
+    // Create version and update idea in a transaction
+    const [version, updated] = await prisma.$transaction([
+      prisma.ideaVersion.create({
+        data: {
+          ideaId,
+          title: data.title,
+          description: data.description,
+          problem: data.problem ?? null,
+          valueProposition: data.valueProposition ?? null,
+          targetUser: data.targetUser,
+          monetization: data.monetization,
+          phase: nextPhase,
+        },
+      }),
+      prisma.idea.update({
+        where: { id: ideaId },
+        data: updateData,
+      }),
+    ]);
+
+    return NextResponse.json({ version, idea: updated }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(

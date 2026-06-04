@@ -12,7 +12,6 @@ const manualFieldsSchema = z.object({
   valueProposition: z.string().optional(),
   targetUser: z.string().min(3).optional(),
   monetization: z.string().min(3).optional(),
-  suggestedBusinessModel: z.string().optional(),
 });
 
 // ── Schema: manual mode with raw text ──
@@ -115,8 +114,7 @@ async function handleManualMode(
   if (input.valueProposition !== undefined) updateData.valueProposition = input.valueProposition;
   if (input.targetUser) updateData.targetUser = input.targetUser;
   if (input.monetization) updateData.monetization = input.monetization;
-  if (input.suggestedBusinessModel) updateData.businessModel = input.suggestedBusinessModel;
-
+  // businessModel is NOT touched by refine (preserved as user chose it)
   // If no fields to update, return gracefully (not an error)
   if (Object.keys(updateData).length === 0) {
     return NextResponse.json({ success: true, idea });
@@ -312,7 +310,6 @@ export async function GET(
         valueProposition: outputData.valueProposition,
         targetUser: outputData.targetUser,
         monetization: outputData.monetization,
-        suggestedBusinessModel: outputData.suggestedBusinessModel || undefined,
         jobId: job.id,
       });
     }
