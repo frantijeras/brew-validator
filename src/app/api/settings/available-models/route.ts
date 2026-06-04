@@ -1,4 +1,3 @@
-import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
@@ -83,42 +82,33 @@ function readAvailableModels(): ModelOption[] | null {
   }
 }
 
-// GET /api/settings/available-models
+// Full fallback when available-models.json is not present (e.g. Vercel production)
+const FULL_FALLBACK: ModelOption[] = [
+  // opencode-zen-free
+  { value: "opencode-zen-free/big-pickle", label: "Big Pickle", provider: "opencode-zen-free" },
+  { value: "opencode-zen-free/deepseek-v4-flash-free", label: "DS V4 Flash Free", provider: "opencode-zen-free" },
+  { value: "opencode-zen-free/mimo-v2.5-free", label: "MiMo V2.5 Free", provider: "opencode-zen-free" },
+  { value: "opencode-zen-free/minimax-m3-free", label: "MiniMax M3 Free", provider: "opencode-zen-free" },
+  { value: "opencode-zen-free/nemotron-3-super-free", label: "Nemotron 3 Free", provider: "opencode-zen-free" },
+  { value: "opencode-zen-free/qwen3.6-plus-free", label: "Qwen3.6 Plus Free", provider: "opencode-zen-free" },
+  // opencode-go
+  ...OPENCODE_GO_MODELS,
+];
+
+// GET /api/settings/available-models — public, no auth required
+// Returns the full list of available AI models for the settings selector.
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
-
   const zenModels = readAvailableModels();
-  const opencodeModels = OPENCODE_GO_MODELS;
 
-  // Merge: zen-free models from file + always-available opencode-go models
-  const allModels: ModelOption[] = [
-    ...(zenModels ?? []),
-    ...opencodeModels,
-  ];
-
-  if (allModels.length > 0) {
-    // Sort by provider then label
+  // File exists locally: use real models from available-models.json + opencode-go
+  if (zenModels && zenModels.length > 0) {
+    const allModels: ModelOption[] = [...zenModels, ...OPENCODE_GO_MODELS];
     allModels.sort((a, b) =>
       a.provider.localeCompare(b.provider) || a.label.localeCompare(b.label)
     );
     return NextResponse.json(allModels);
   }
 
-  // Full fallback with ALL models
-  return NextResponse.json([
-    // opencode-zen-free
-    { value: "opencode-zen-free/big-pickle", label: "Big Pickle", provider: "opencode-zen-free" },
-    { value: "opencode-zen-free/deepseek-v4-flash-free", label: "DS V4 Flash Free", provider: "opencode-zen-free" },
-    { value: "opencode-zen-free/mimo-v2.5-free", label: "MiMo V2.5 Free", provider: "opencode-zen-free" },
-    { value: "opencode-zen-free/minimax-m3-free", label: "MiniMax M3 Free", provider: "opencode-zen-free" },
-    { value: "opencode-zen-free/nemotron-3-super-free", label: "Nemotron 3 Free", provider: "opencode-zen-free" },
-    { value: "opencode-zen-free/qwen3.6-plus-free", label: "Qwen3.6 Plus Free", provider: "opencode-zen-free" },
-    // opencode-go
-    { value: "opencode-go/deepseek-v4-flash", label: "DS V4 Flash", provider: "opencode-go" },
-    { value: "opencode-go/deepseek-v4-pro", label: "DS V4 Pro", provider: "opencode-go" },
-    { value: "opencode-go/kimi-k2.6", label: "Kimi K2.6", provider: "opencode-go" },
-  ]);
+  // No file available (production/Vercel): return full hardcoded fallback
+  return NextResponse.json(FULL_FALLBACK);
 }
