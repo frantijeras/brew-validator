@@ -544,29 +544,15 @@ export default function IdeaDetailPage() {
                   )}
                 </button>
               )}
-              {/* Pulir idea — enabled when COMPLETED or DRAFT */}
-              {!showRefineSection && (
-                <div className="relative inline-flex group">
-                  <button
-                    onClick={() => (idea.status === "COMPLETED" || idea.status === "DRAFT") && setShowRefineSection(true)}
-                    disabled={idea.status !== "COMPLETED" && idea.status !== "DRAFT"}
-                    className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium shadow transition-all ${
-                      idea.status === "COMPLETED" || idea.status === "DRAFT"
-                        ? "border-amber-500/40 bg-amber-500/10 text-amber-400 hover:border-amber-400 hover:bg-amber-500/20 active:bg-amber-500/30"
-                        : "border-slate-700 bg-slate-900/20 text-slate-600 cursor-not-allowed"
-                    }`}
-                  >
-                    <SparklesIcon />
-                    Pulir idea
-                  </button>
-                  {idea.status !== "COMPLETED" && idea.status !== "DRAFT" && (
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50">
-                      <div className="rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-xs text-slate-300 shadow-xl whitespace-nowrap">
-                        Valida la idea primero para poder pulirla
-                      </div>
-                    </div>
-                  )}
-                </div>
+              {/* Pulir idea — solo aparece cuando la idea ya está validada */}
+              {!showRefineSection && idea.status === "COMPLETED" && (
+                <button
+                  onClick={() => setShowRefineSection(true)}
+                  className="inline-flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm font-medium text-amber-400 shadow transition-all hover:border-amber-400 hover:bg-amber-500/20 active:bg-amber-500/30"
+                >
+                  <SparklesIcon />
+                  Pulir idea
+                </button>
               )}
               <button
                 onClick={handleExportPdf}
