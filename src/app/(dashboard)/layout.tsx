@@ -149,27 +149,23 @@ function CauldronIcon() {
   return (
     <svg
       className="size-7 text-amber-400"
-      viewBox="0 0 24 24"
+      viewBox="0 0 32 32"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.5"
+      strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
     >
       {/* Handle */}
-      <path d="M7 3 C5 -3, 19 -3, 17 3" />
-      {/* Body */}
-      <path d="M4 6 L5.5 17 C6.5 19.5, 17.5 19.5, 18.5 17 L20 6" />
+      <path d="M9 6 C9 -2, 23 -2, 23 6" strokeWidth="2.5" />
       {/* Rim */}
-      <path d="M3.5 6 C3.5 8, 20.5 8, 20.5 6" strokeWidth="2.2" />
-      {/* Three legs */}
-      <line x1="7.5" y1="18" x2="7" y2="22" />
-      <line x1="12" y1="18.5" x2="12" y2="22" />
-      <line x1="16.5" y1="18" x2="17" y2="22" />
+      <ellipse cx="16" cy="7" rx="10" ry="3" strokeWidth="2.5" />
+      {/* Bowl */}
+      <path d="M6 7 C6 7, 4 28, 10 27 C14 26.5, 18 26.5, 22 27 C28 28, 26 7, 26 7" />
       {/* Bubbles */}
-      <circle cx="9" cy="11" r="1" />
-      <circle cx="13" cy="12.5" r="0.8" />
-      <circle cx="11" cy="14" r="0.7" />
+      <circle cx="12" cy="15" r="2" />
+      <circle cx="18" cy="19" r="1.5" />
+      <circle cx="14" cy="22" r="1" />
     </svg>
   );
 }
@@ -178,27 +174,23 @@ function CauldronSmallIcon() {
   return (
     <svg
       className="size-5 text-amber-400"
-      viewBox="0 0 24 24"
+      viewBox="0 0 32 32"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.5"
+      strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
     >
       {/* Handle */}
-      <path d="M7 3 C5 -3, 19 -3, 17 3" />
-      {/* Body */}
-      <path d="M4 6 L5.5 17 C6.5 19.5, 17.5 19.5, 18.5 17 L20 6" />
+      <path d="M9 6 C9 -2, 23 -2, 23 6" strokeWidth="2.5" />
       {/* Rim */}
-      <path d="M3.5 6 C3.5 8, 20.5 8, 20.5 6" strokeWidth="2.2" />
-      {/* Three legs */}
-      <line x1="7.5" y1="18" x2="7" y2="22" />
-      <line x1="12" y1="18.5" x2="12" y2="22" />
-      <line x1="16.5" y1="18" x2="17" y2="22" />
+      <ellipse cx="16" cy="7" rx="10" ry="3" strokeWidth="2.5" />
+      {/* Bowl */}
+      <path d="M6 7 C6 7, 4 28, 10 27 C14 26.5, 18 26.5, 22 27 C28 28, 26 7, 26 7" />
       {/* Bubbles */}
-      <circle cx="9" cy="11" r="1" />
-      <circle cx="13" cy="12.5" r="0.8" />
-      <circle cx="11" cy="14" r="0.7" />
+      <circle cx="12" cy="15" r="2" />
+      <circle cx="18" cy="19" r="1.5" />
+      <circle cx="14" cy="22" r="1" />
     </svg>
   );
 }
