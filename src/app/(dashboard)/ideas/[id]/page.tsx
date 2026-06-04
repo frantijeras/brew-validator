@@ -768,10 +768,8 @@ export default function IdeaDetailPage() {
         </dl>
       </div>
 
-      {/* Validation progress */}
-      {(idea.validationStatus === "RUNNING" ||
-        idea.validationStatus === "DONE" ||
-        idea.validationStatus === "FAILED") && (
+      {/* Validation progress — only while running, disappears when done */}
+      {idea.validationStatus === "RUNNING" && (
         <div className="mb-8">
           <ValidationProgress
             validationStatus={idea.validationStatus}
