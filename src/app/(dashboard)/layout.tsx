@@ -71,7 +71,7 @@ export default function DashboardLayout({
           className="flex items-center gap-3 border-b border-slate-800 px-6 py-5"
           onClick={closeSidebar}
         >
-          <CauldronIcon />
+          <BeerIcon />
           <span className="text-xl font-bold tracking-tight text-white">BrewIA</span>
         </Link>
 
@@ -130,7 +130,7 @@ export default function DashboardLayout({
           <MenuIcon />
         </button>
         <Link href="/ideas" className="flex items-center gap-2">
-          <CauldronSmallIcon />
+          <BeerSmallIcon />
           <span className="text-lg font-bold tracking-tight text-white">BrewIA</span>
         </Link>
       </div>
@@ -145,52 +145,52 @@ export default function DashboardLayout({
 
 /* ── Icons ── */
 
-function CauldronIcon() {
+function BeerIcon() {
   return (
     <svg
       className="size-7 text-amber-400"
-      viewBox="0 0 32 32"
+      viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
     >
+      {/* Glass body */}
+      <path d="M5.5 4.5 L18 4.5 L15.5 19.5 L8 19.5 L5.5 4.5" />
       {/* Handle */}
-      <path d="M9 6 C9 -2, 23 -2, 23 6" strokeWidth="2.5" />
-      {/* Rim */}
-      <ellipse cx="16" cy="7" rx="10" ry="3" strokeWidth="2.5" />
-      {/* Bowl */}
-      <path d="M6 7 C6 7, 4 28, 10 27 C14 26.5, 18 26.5, 22 27 C28 28, 26 7, 26 7" />
+      <path d="M18 7.5 C20.5 7.5 21.5 8.5 21.5 10 L21.5 10.5 C21.5 12 20.5 13 18 13" />
+      {/* Foam */}
+      <path d="M5 5 C9 2 14.5 2 18.5 5" strokeWidth="2.5" />
       {/* Bubbles */}
-      <circle cx="12" cy="15" r="2" />
-      <circle cx="18" cy="19" r="1.5" />
-      <circle cx="14" cy="22" r="1" />
+      <circle cx="9.5" cy="8.5" r="0.8" fill="currentColor" stroke="none" />
+      <circle cx="13" cy="10.5" r="0.7" fill="currentColor" stroke="none" />
+      <circle cx="10" cy="13" r="0.6" fill="currentColor" stroke="none" />
     </svg>
   );
 }
 
-function CauldronSmallIcon() {
+function BeerSmallIcon() {
   return (
     <svg
       className="size-5 text-amber-400"
-      viewBox="0 0 32 32"
+      viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
     >
+      {/* Glass body */}
+      <path d="M5.5 4.5 L18 4.5 L15.5 19.5 L8 19.5 L5.5 4.5" />
       {/* Handle */}
-      <path d="M9 6 C9 -2, 23 -2, 23 6" strokeWidth="2.5" />
-      {/* Rim */}
-      <ellipse cx="16" cy="7" rx="10" ry="3" strokeWidth="2.5" />
-      {/* Bowl */}
-      <path d="M6 7 C6 7, 4 28, 10 27 C14 26.5, 18 26.5, 22 27 C28 28, 26 7, 26 7" />
+      <path d="M18 7.5 C20.5 7.5 21.5 8.5 21.5 10 L21.5 10.5 C21.5 12 20.5 13 18 13" />
+      {/* Foam */}
+      <path d="M5 5 C9 2 14.5 2 18.5 5" strokeWidth="2.5" />
       {/* Bubbles */}
-      <circle cx="12" cy="15" r="2" />
-      <circle cx="18" cy="19" r="1.5" />
-      <circle cx="14" cy="22" r="1" />
+      <circle cx="9.5" cy="8.5" r="0.8" fill="currentColor" stroke="none" />
+      <circle cx="13" cy="10.5" r="0.7" fill="currentColor" stroke="none" />
+      <circle cx="10" cy="13" r="0.6" fill="currentColor" stroke="none" />
     </svg>
   );
 }

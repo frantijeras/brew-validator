@@ -21,15 +21,16 @@ export default async function LoginPage() {
             strokeLinecap="round"
             strokeLinejoin="round"
           >
-            <path d="M7 3 C5 -3, 19 -3, 17 3" />
-            <path d="M4 6 L5.5 17 C6.5 19.5, 17.5 19.5, 18.5 17 L20 6" />
-            <path d="M3.5 6 C3.5 8, 20.5 8, 20.5 6" strokeWidth="2.2" />
-            <line x1="7.5" y1="18" x2="7" y2="22" />
-            <line x1="12" y1="18.5" x2="12" y2="22" />
-            <line x1="16.5" y1="18" x2="17" y2="22" />
-            <circle cx="9" cy="11" r="1" />
-            <circle cx="13" cy="12.5" r="0.8" />
-            <circle cx="11" cy="14" r="0.7" />
+            {/* Glass body */}
+            <path d="M5.5 4.5 L18 4.5 L15.5 19.5 L8 19.5 L5.5 4.5" />
+            {/* Handle */}
+            <path d="M18 7.5 C20.5 7.5 21.5 8.5 21.5 10 L21.5 10.5 C21.5 12 20.5 13 18 13" />
+            {/* Foam */}
+            <path d="M5 5 C9 2 14.5 2 18.5 5" strokeWidth="2.5" />
+            {/* Bubbles */}
+            <circle cx="9.5" cy="8.5" r="0.8" fill="currentColor" stroke="none" />
+            <circle cx="13" cy="10.5" r="0.7" fill="currentColor" stroke="none" />
+            <circle cx="10" cy="13" r="0.6" fill="currentColor" stroke="none" />
           </svg>
           <h1 className="text-3xl font-bold tracking-tight text-white">BrewIA</h1>
         </div>
