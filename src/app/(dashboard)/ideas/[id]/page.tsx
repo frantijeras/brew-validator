@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Heart, Archive, Trash2, Undo2, MoreHorizontal, Pencil, FileDown, Save, X, Info, AlertCircle } from "lucide-react";
+import { Heart, Archive, Trash2, Undo2, MoreHorizontal, Pencil, FileDown, Save, X, Info, AlertCircle, History } from "lucide-react";
 import { ValidationProgress } from "@/components/validation-progress";
 import { ReportViewer } from "@/components/report-viewer";
 import { ConfirmModal } from "@/components/confirm-modal";
@@ -34,6 +34,11 @@ interface IdeaData {
   isArchived: boolean;
   currentVersionId: string | null;
   currentVersionPhase: string | null;
+  /**
+   * Echoed by GET /api/ideas/:id?versionId=… — the version currently
+   * rendered. Null when no versionId was passed (= live/current).
+   */
+  activeVersionId: string | null;
   createdAt: string;
   updatedAt: string;
   reports: ReportData[];
@@ -76,6 +81,9 @@ export default function IdeaDetailPage() {
   const [editValueProposition, setEditValueProposition] = useState("");
   const [editTargetUser, setEditTargetUser] = useState("");
   const [editMonetization, setEditMonetization] = useState("");
+  // When set, the page is rendering a historical version of the idea
+  // (not the current one). Cleared when the user goes back to "actual".
+  const [viewingVersionId, setViewingVersionId] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -97,7 +105,12 @@ export default function IdeaDetailPage() {
 
   const fetchIdea = useCallback(async () => {
     try {
-      const res = await fetch(`/api/ideas/${ideaId}`, {
+      // If the user is viewing a historical version, scope the GET to it
+      // so the page renders that version's text/fields/reports.
+      const query = viewingVersionId
+        ? `?versionId=${encodeURIComponent(viewingVersionId)}`
+        : "";
+      const res = await fetch(`/api/ideas/${ideaId}${query}`, {
         credentials: "same-origin",
       });
       if (!res.ok) {
@@ -115,12 +128,22 @@ export default function IdeaDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [ideaId, router]);
+  }, [ideaId, router, viewingVersionId]);
 
   // Initial load
   useEffect(() => {
     fetchIdea();
   }, [fetchIdea]);
+
+  // Refetch whenever the user navigates to a different version in the
+  // history panel. fetchIdea already depends on viewingVersionId, so this
+  // is just a safety net in case the callback runs after the page mount.
+  useEffect(() => {
+    if (viewingVersionId !== null) {
+      fetchIdea();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewingVersionId]);
 
   // Polling when validating or when idea generation is in progress
   const shouldPoll =
@@ -681,6 +704,27 @@ export default function IdeaDetailPage() {
         </div>
       </div>
 
+      {/* HISTORICAL VERSION banner — shown when viewing a non-current version */}
+      {viewingVersionId && idea.activeVersionId && viewingVersionId === idea.activeVersionId && viewingVersionId !== idea.currentVersionId && (
+        <div className="mb-6 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <History className="size-4 shrink-0 text-amber-400" />
+            <span className="text-sm text-amber-200">
+              Estás viendo una versión histórica. Los reportes y datos que ves pertenecen a esta versión, no a la actual.
+            </span>
+          </div>
+          <button
+            onClick={() => {
+              setViewingVersionId(null);
+              fetchIdea();
+            }}
+            className="shrink-0 rounded-md border border-amber-500/30 px-3 py-1.5 text-xs font-medium text-amber-400 hover:bg-amber-500/10 transition-colors"
+          >
+            Volver a versión actual
+          </button>
+        </div>
+      )}
+
       {/* POLISHING banner — appears when idea is being polished */}
       {idea.status === "POLISHING" && (
         <div className="mb-6 rounded-lg border border-blue-500/30 bg-blue-500/5 px-4 py-3 flex items-center justify-between gap-3">
@@ -951,7 +995,14 @@ export default function IdeaDetailPage() {
 
       {/* Version history */}
       <div className="mt-8">
-        <VersionHistory ideaId={idea.id} currentVersionId={idea.currentVersionId} />
+        <VersionHistory
+          ideaId={idea.id}
+          currentVersionId={idea.currentVersionId}
+          activeVersionId={idea.activeVersionId}
+          onVersionChange={(versionId) => {
+            setViewingVersionId(versionId);
+          }}
+        />
       </div>
 
       {/* Failed state */}

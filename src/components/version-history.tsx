@@ -34,9 +34,27 @@ interface VersionData {
 interface VersionHistoryProps {
   ideaId: string;
   currentVersionId: string | null;
+  /**
+   * Notified when the user clicks a version row to "navigate" to it.
+   * The parent should refetch the idea with ?versionId=<id> so the
+   * detail page renders that version's text fields and reports.
+   * Receives null when the user goes back to the live (current) version.
+   */
+  onVersionChange?: (versionId: string | null) => void;
+  /**
+   * The version the parent is currently rendering (driven by the page's
+   * ?versionId=…). Used to highlight the active row. Falls back to
+   * currentVersionId when not provided.
+   */
+  activeVersionId?: string | null;
 }
 
-export function VersionHistory({ ideaId, currentVersionId: initialCurrentVersionId }: VersionHistoryProps) {
+export function VersionHistory({
+  ideaId,
+  currentVersionId: initialCurrentVersionId,
+  onVersionChange,
+  activeVersionId: activeVersionIdProp,
+}: VersionHistoryProps) {
   const router = useRouter();
   const [versions, setVersions] = useState<VersionData[]>([]);
   const [currentVersionId, setCurrentVersionId] = useState<string | null>(initialCurrentVersionId);
@@ -191,6 +209,18 @@ export function VersionHistory({ ideaId, currentVersionId: initialCurrentVersion
   }
 
   const isActual = (v: VersionData) => v.id === currentVersionId;
+  const isActive = (v: VersionData) =>
+    (activeVersionIdProp ?? currentVersionId) === v.id;
+
+  function handleVersionClick(v: VersionData) {
+    if (v.id === currentVersionId) {
+      // Already at the current version — clicking it is a no-op
+      // (the "Actual" badge row has no action buttons).
+      return;
+    }
+    setCurrentVersionId(v.id);
+    onVersionChange?.(v.id);
+  }
 
   // Don't render section at all if no versions
   if (loading) {
@@ -212,10 +242,33 @@ export function VersionHistory({ ideaId, currentVersionId: initialCurrentVersion
       </h2>
 
       <div className="space-y-3">
-        {versions.map((v) => (
+        {versions.map((v) => {
+          const clickable = v.id !== currentVersionId;
+          return (
           <div
             key={v.id}
-            className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-0 rounded-lg border border-slate-800 bg-slate-900/80 p-4 transition-colors hover:border-slate-700"
+            role={clickable ? "button" : undefined}
+            tabIndex={clickable ? 0 : undefined}
+            onClick={clickable ? () => handleVersionClick(v) : undefined}
+            onKeyDown={
+              clickable
+                ? (e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleVersionClick(v);
+                    }
+                  }
+                : undefined
+            }
+            className={`flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-0 rounded-lg border border-slate-800 bg-slate-900/80 p-4 transition-colors ${
+              clickable
+                ? "cursor-pointer hover:border-slate-600 hover:bg-slate-800/60"
+                : ""
+            } ${
+              isActive(v) && v.id !== currentVersionId
+                ? "ring-1 ring-amber-500/50 border-amber-500/50"
+                : ""
+            }`}
           >
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
@@ -230,6 +283,15 @@ export function VersionHistory({ ideaId, currentVersionId: initialCurrentVersion
                 {isActual(v) && (
                   <span className="inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-xs text-emerald-400 bg-emerald-500/10 border-emerald-500/30">
                     Actual
+                  </span>
+                )}
+                {isActive(v) && v.id !== currentVersionId && (
+                  <span
+                    className="inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs text-amber-400 bg-amber-500/10 border-amber-500/30"
+                    title="Estás viendo esta versión"
+                  >
+                    <Eye className="size-3" />
+                    Viendo
                   </span>
                 )}
                 {v.score !== null && (
@@ -250,7 +312,10 @@ export function VersionHistory({ ideaId, currentVersionId: initialCurrentVersion
             </div>
             {/* Action buttons — hidden for current version */}
             {!isActual(v) && (
-              <div className="flex items-center gap-1.5 shrink-0 pt-2 md:pt-0 border-t border-slate-800 md:border-t-0 md:ml-4">
+              <div
+                className="flex items-center gap-1.5 shrink-0 pt-2 md:pt-0 border-t border-slate-800 md:border-t-0 md:ml-4"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <button
                   onClick={() => setSelectedVersion(v)}
                   className="inline-flex items-center justify-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
@@ -280,7 +345,8 @@ export function VersionHistory({ ideaId, currentVersionId: initialCurrentVersion
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Version detail modal */}
