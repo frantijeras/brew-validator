@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
 
     const jobInput =
       data.mode === "random"
-        ? { rawIdea: "random", businessModel: resolvedBusinessModel }
+        ? { rawIdea: "random", businessModel: resolvedBusinessModel, problem: "Por determinar", valueProposition: "Por determinar" }
         : {
             rawIdea: data.rawIdea.trim(),
             sector: data.sector?.trim() || "",

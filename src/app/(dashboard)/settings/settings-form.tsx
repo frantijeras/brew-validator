@@ -260,7 +260,7 @@ function PasswordSection() {
 
 /* ── AI Model Section ── */
 
-const MODEL_OPTIONS = [
+const MODEL_FALLBACK = [
   { value: "opencode-go/deepseek-v4-flash", label: "DeepSeek V4 Flash" },
   { value: "opencode-go/deepseek-v4-pro", label: "DeepSeek V4 Pro" },
   { value: "opencode-go/minimax-m3-free", label: "MiniMax M3 Free" },
@@ -270,6 +270,8 @@ const MODEL_OPTIONS = [
   { value: "opencode-go/nemotron-3-super-free", label: "Nemotron 3 Super Free" },
   { value: "opencode-go/big-pickle", label: "Big Pickle" },
 ] as const;
+
+type ModelOption = { value: string; label: string };
 
 const DEFAULT_AGENT_MODELS: Record<string, string> = {
   "generator": "opencode-go/deepseek-v4-flash",
@@ -330,9 +332,27 @@ function saveModelConfig(config: Record<string, string>) {
 function AIModelSection() {
   const [config, setConfig] = useState<Record<string, string>>(DEFAULT_AGENT_MODELS);
   const [saved, setSaved] = useState(false);
+  const [modelOptions, setModelOptions] = useState<ModelOption[]>([...MODEL_FALLBACK]);
 
   useEffect(() => {
     setConfig(loadModelConfig());
+  }, []);
+
+  // Fetch available models from API, fallback to hardcoded list
+  useEffect(() => {
+    fetch("/api/settings/available-models")
+      .then((res) => {
+        if (!res.ok) throw new Error("Not ok");
+        return res.json();
+      })
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setModelOptions(data as ModelOption[]);
+        }
+      })
+      .catch(() => {
+        // Keep fallback models
+      });
   }, []);
 
   function handleChange(agentId: string, model: string) {
@@ -372,7 +392,7 @@ function AIModelSection() {
               onChange={(e) => handleChange(agent.id, e.target.value)}
               className="shrink-0 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
             >
-              {MODEL_OPTIONS.map((m) => (
+              {modelOptions.map((m) => (
                 <option key={m.value} value={m.value}>
                   {m.label}
                 </option>
