@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { History, RotateCcw, X, Eye, FileDown } from "lucide-react";
+import { getScoreColor } from "@/lib/translations";
 import { generatePdf } from "@/lib/pdf-export";
 
 interface ReportSnapshot {
@@ -53,7 +54,8 @@ export function VersionHistory({ ideaId }: VersionHistoryProps) {
       });
       if (!res.ok) throw new Error("Error al cargar versiones");
       const data = await res.json();
-      setVersions(data);
+      // Filter out V0 (placeholder versions, only show real ones)
+      setVersions((data as VersionData[]).filter((v: VersionData) => v.phase !== "v0"));
       setError("");
     } catch (err) {
       setError(
@@ -223,8 +225,8 @@ export function VersionHistory({ ideaId }: VersionHistoryProps) {
                   </span>
                 )}
                 {v.score !== null && (
-                  <span className="text-xs font-semibold text-amber-400 tabular-nums">
-                    {v.score.toFixed(1)}/10
+                  <span className={`text-xs font-semibold tabular-nums ${getScoreColor(v.score)}`}>
+                    {v.score.toFixed(1)}
                   </span>
                 )}
               </div>

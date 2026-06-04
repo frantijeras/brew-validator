@@ -363,8 +363,9 @@ export default function IdeaDetailPage() {
   const canValidate =
     idea.validationStatus !== "RUNNING" && idea.validationStatus !== "DONE";
 
-  // Determine version badge from DB
-  const versionLabel = `V${idea._versionCount || (isCompleted ? 1 : 0)}`;
+  // Determine version badge: V0 if no real version, otherwise V1, V2...
+  // Real versions are only created after validation (_versionCount includes V0)
+  const versionLabel = isCompleted ? `V${idea._versionCount || 1}` : "V0";
   const versionColor = isCompleted
     ? "text-blue-400 bg-blue-500/10 border-blue-500/30"
     : "text-slate-400 bg-slate-500/10 border-slate-500/30";
