@@ -3,27 +3,21 @@ import { prisma } from "@/lib/db";
 
 export async function GET() {
   try {
-    // Query raw to see what's in the DB
-    const result: any = await prisma.$queryRaw`
-      SELECT column_name, data_type, udt_name 
-      FROM information_schema.columns 
-      WHERE table_name = 'Idea' AND column_name IN ('status', 'validationStatus')
+    // Get all values of the enum IdeaStatus
+    const enumValues: any = await prisma.$queryRaw`
+      SELECT enumlabel 
+      FROM pg_enum 
+      WHERE enumtypid = (
+        SELECT oid FROM pg_type WHERE typname = 'IdeaStatus'
+      )
+      ORDER BY enumsortorder
     `;
     
-    // Try to read a single row with raw SQL
-    const rawIdea: any = await prisma.$queryRaw`SELECT id, status FROM "Idea" LIMIT 1`;
-    
-    return NextResponse.json({ 
-      ok: true, 
-      columns: result,
-      sampleRow: rawIdea
-    });
+    return NextResponse.json({ ok: true, enumValues });
   } catch (error: any) {
     return NextResponse.json({ 
       ok: false, 
-      error: error.message,
-      code: error.code,
-      meta: error.meta
+      error: error.message
     }, { status: 500 });
   }
 }
