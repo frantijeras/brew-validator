@@ -3,14 +3,14 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Heart, Archive, Trash2, Undo2, MoreHorizontal, Pencil, FileDown, RefreshCw } from "lucide-react";
+import { Heart, Archive, Trash2, Undo2, MoreHorizontal, Pencil, FileDown, RefreshCw, Save, X } from "lucide-react";
 import { ValidationProgress } from "@/components/validation-progress";
 import { ReportViewer } from "@/components/report-viewer";
 import { ConfirmModal } from "@/components/confirm-modal";
 import RefineQuizModal from "@/components/refine-quiz-modal";
 import { VersionHistory } from "@/components/version-history";
 import RenameModal from "@/components/rename-modal";
-import { getBadgeInfo } from "@/lib/translations";
+import { getBadgeInfo, getScoreColor } from "@/lib/translations";
 import { BUSINESS_MODELS } from "@/lib/business-models";
 import { generatePdf } from "@/lib/pdf-export";
 import { TextExpander } from "@/components/text-expander";
@@ -57,13 +57,20 @@ export default function IdeaDetailPage() {
   const [validating, setValidating] = useState(false);
   const [revalidating, setRevalidating] = useState(false);
   const [apiError, setApiError] = useState("");
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [favPending, setFavPending] = useState(false);
   const [archPending, setArchPending] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showRefineQuiz, setShowRefineQuiz] = useState(false);
   const [showRenameModal, setShowRenameModal] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editProblem, setEditProblem] = useState("");
+  const [editValueProposition, setEditValueProposition] = useState("");
+  const [editTargetUser, setEditTargetUser] = useState("");
+  const [editMonetization, setEditMonetization] = useState("");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -123,21 +130,7 @@ export default function IdeaDetailPage() {
     };
   }, [shouldPoll, fetchIdea]);
 
-  // Elapsed timer
-  useEffect(() => {
-    if (shouldPoll) {
-      const interval = setInterval(() => {
-        setElapsedSeconds((prev) => prev + 1);
-      }, 1000);
-      return () => clearInterval(interval);
-    }
-    setElapsedSeconds(0);
-  }, [shouldPoll]);
-
-  const isCompleted =
-    idea?.validationStatus === "DONE" ||
-    idea?.status === "COMPLETED" ||
-    idea?.status === "DONE";
+  const isCompleted = idea?.status === "COMPLETED" || idea?.validationStatus === "DONE";
 
   async function handleValidate() {
     setValidating(true);
@@ -249,6 +242,63 @@ export default function IdeaDetailPage() {
     setShowMenu(false);
   }
 
+  function enterEditMode() {
+    if (!idea) return;
+    setEditTitle(idea.title);
+    setEditDescription(idea.description);
+    setEditProblem(idea.problem || "");
+    setEditValueProposition(idea.valueProposition || "");
+    setEditTargetUser(idea.targetUser);
+    setEditMonetization(idea.monetization);
+    setIsEditing(true);
+    setApiError("");
+  }
+
+  function cancelEdit() {
+    setIsEditing(false);
+    setApiError("");
+  }
+
+  async function handleSaveEdit() {
+    if (!idea) return;
+    if (editTitle.trim().length < 3) {
+      setApiError("El título debe tener al menos 3 caracteres");
+      return;
+    }
+    if (editDescription.trim().length < 10) {
+      setApiError("La descripción debe tener al menos 10 caracteres");
+      return;
+    }
+    setSaving(true);
+    setApiError("");
+    try {
+      const res = await fetch(`/api/ideas/${ideaId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          title: editTitle.trim(),
+          description: editDescription.trim(),
+          problem: editProblem.trim() || null,
+          valueProposition: editValueProposition.trim() || null,
+          targetUser: editTargetUser.trim(),
+          monetization: editMonetization.trim(),
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Error al guardar");
+      }
+      const updated = await res.json();
+      setIdea(updated);
+      setIsEditing(false);
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : "Error al guardar");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   // ── States ──
 
   // Auto-open quiz modal if there's a saved quiz session for this idea
@@ -289,10 +339,30 @@ export default function IdeaDetailPage() {
   }
 
   const badgeInfo = getBadgeInfo(idea.verdict, idea.validationStatus, idea.status);
-  const elapsedStr = formatElapsed(elapsedSeconds);
 
   const canValidate =
     idea.validationStatus !== "RUNNING" && idea.validationStatus !== "DONE";
+
+  // Determine version badge
+  const versionLabel = isCompleted ? "V1" : "V0";
+  const versionColor = isCompleted
+    ? "text-blue-400 bg-blue-500/10 border-blue-500/30"
+    : "text-slate-400 bg-slate-500/10 border-slate-500/30";
+
+  const formattedCreated = new Date(idea.createdAt).toLocaleDateString("es-ES", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const formattedUpdated = new Date(idea.updatedAt).toLocaleDateString("es-ES", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   return (
     <div>
@@ -315,47 +385,20 @@ export default function IdeaDetailPage() {
                 {idea.title}
               </h1>
 
-              {/* Badges in order: business model | status (verdict) | score */}
-              <span className="inline-flex items-center gap-2">
-                {/* Business model badge */}
-                {idea.businessModel && (() => {
-                  const model = BUSINESS_MODELS.find((m) => m.value === idea.businessModel);
-                  return model ? (
-                    <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs text-slate-400 border-slate-700">
-                      <span>{model.icon}</span>
-                      <span>{model.label}</span>
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs text-slate-400 border-slate-700">
-                      {idea.businessModel}
-                    </span>
-                  );
-                })()}
-
-                {/* Status/verdict badge */}
-                <span
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${badgeInfo.color}`}
+              {!isEditing && (
+                <button
+                  onClick={enterEditMode}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 hover:border-slate-600 hover:bg-slate-800 transition-colors"
+                  title="Editar idea"
                 >
-                  {badgeInfo.showSpinner && <Spinner />}
-                  {badgeInfo.label}
-                </span>
-
-                {/* Score */}
-                {idea.score !== null && (
-                  <span className="text-sm font-semibold text-amber-400 tabular-nums">
-                    {idea.score.toFixed(1)}/10
-                  </span>
-                )}
-              </span>
+                  <Pencil className="size-3.5" />
+                  Editar
+                </button>
+              )}
 
               {idea.isArchived && (
                 <span className="inline-block rounded-full border px-2.5 py-0.5 text-xs font-medium text-amber-400 bg-amber-500/10 border-amber-500/30">
                   Archivada
-                </span>
-              )}
-              {shouldPoll && (
-                <span className="text-sm text-amber-400 tabular-nums">
-                  {elapsedStr}
                 </span>
               )}
 
@@ -447,7 +490,47 @@ export default function IdeaDetailPage() {
               </div>
             </div>
 
-            {/* Action buttons: Validate + Reformulate + Export + Revalidate — below title & badge */}
+            {/* Badges: Version | Business type | Status | Score */}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {/* 1. Version badge */}
+              <span
+                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${versionColor}`}
+              >
+                {versionLabel}
+              </span>
+
+              {/* 2. Business type badge */}
+              {idea.businessModel && (() => {
+                const model = BUSINESS_MODELS.find((m) => m.value === idea.businessModel);
+                return model ? (
+                  <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs text-slate-400 border-slate-700">
+                    <span>{model.icon}</span>
+                    <span>{model.label}</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs text-slate-400 border-slate-700">
+                    {idea.businessModel}
+                  </span>
+                );
+              })()}
+
+              {/* 3. Status badge */}
+              {badgeInfo.showSpinner && <Spinner />}
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium ${badgeInfo.color}`}
+              >
+                {badgeInfo.label}
+              </span>
+
+              {/* 4. Score */}
+              {idea.score !== null && (
+                <span className={`text-sm font-semibold tabular-nums ${getScoreColor(idea.score)}`}>
+                  {idea.score}/10
+                </span>
+              )}
+            </div>
+
+            {/* Action buttons: Validate + Reformulate + Export + Revalidate */}
             <div className="mt-4 flex flex-wrap items-center gap-3">
               {canValidate && (
                 <button
@@ -468,15 +551,28 @@ export default function IdeaDetailPage() {
                   )}
                 </button>
               )}
-              {idea.status === "DRAFT" && (
+              {/* Pulir idea — only enabled when COMPLETED */}
+              <div className="relative inline-flex group">
                 <button
-                  onClick={() => setShowRefineQuiz(true)}
-                  className="inline-flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm font-medium text-amber-400 shadow transition-all hover:border-amber-400 hover:bg-amber-500/20 active:bg-amber-500/30"
+                  onClick={() => idea.status === "COMPLETED" && setShowRefineQuiz(true)}
+                  disabled={idea.status !== "COMPLETED"}
+                  className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium shadow transition-all ${
+                    idea.status === "COMPLETED"
+                      ? "border-amber-500/40 bg-amber-500/10 text-amber-400 hover:border-amber-400 hover:bg-amber-500/20 active:bg-amber-500/30"
+                      : "border-slate-700 bg-slate-900/20 text-slate-600 cursor-not-allowed"
+                  }`}
                 >
                   <SparklesIcon />
                   Pulir idea
                 </button>
-              )}
+                {idea.status !== "COMPLETED" && (
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50">
+                    <div className="rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-xs text-slate-300 shadow-xl whitespace-nowrap">
+                      Valida la idea primero para poder pulirla
+                    </div>
+                  </div>
+                )}
+              </div>
               <button
                 onClick={handleExportPdf}
                 className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900/60 px-4 py-2.5 text-sm font-medium text-slate-300 shadow transition-all hover:border-slate-600 hover:text-slate-200 active:bg-slate-800"
@@ -510,7 +606,6 @@ export default function IdeaDetailPage() {
                 {apiError}
               </div>
             )}
-
           </div>
         </div>
       </div>
@@ -534,74 +629,176 @@ export default function IdeaDetailPage() {
         }}
       />
 
-      {/* Idea original — always shown */}
+      {/* Idea original / Edit mode */}
       <div className="mb-8 rounded-xl border border-slate-800 bg-slate-900/50 p-6">
-        <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">
-          Idea original
-        </h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">
+            {isEditing ? "Editando idea" : "Idea original"}
+          </h2>
+          {isEditing && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={cancelEdit}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+              >
+                <X className="size-3.5" />
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={saving}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-slate-950 shadow transition-colors hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50"
+              >
+                {saving ? (
+                  <>
+                    <Spinner />
+                    Guardando…
+                  </>
+                ) : (
+                  <>
+                    <Save className="size-3.5" />
+                    Guardar
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Title — editable in edit mode */}
+        {isEditing ? (
+          <div className="mb-4">
+            <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">
+              Título
+            </label>
+            <input
+              type="text"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30"
+              placeholder="Título de la idea"
+            />
+          </div>
+        ) : null}
+
+        {/* Description */}
         <div className="mb-4">
           <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">
             Descripción
           </dt>
-          <TextExpander text={idea.originalIdea || idea.description} />
+          {isEditing ? (
+            <textarea
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              rows={4}
+              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30 resize-y"
+              placeholder="Describe la idea"
+            />
+          ) : (
+            <TextExpander text={idea.originalIdea || idea.description} />
+          )}
         </div>
 
         <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Row 1: Created (full width on mobile, 1 col on desktop) */}
-          <div className="md:col-span-2">
+          {/* Row: Creada | Actualizada */}
+          <div>
             <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
               Creada
             </dt>
             <dd className="mt-1 text-sm text-slate-300">
-              {new Date(idea.createdAt).toLocaleDateString("es-ES", {
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              {formattedCreated}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+              Actualizada
+            </dt>
+            <dd className="mt-1 text-sm text-slate-300">
+              {formattedUpdated}
             </dd>
           </div>
 
-          {/* Row 2: Usuario objetivo | Monetización */}
+          {/* Row: Usuario objetivo | Monetización */}
           <div>
             <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
               Usuario objetivo
             </dt>
-            <dd className="mt-1">
-              <TextExpander text={idea.targetUser} />
-            </dd>
+            {isEditing ? (
+              <textarea
+                value={editTargetUser}
+                onChange={(e) => setEditTargetUser(e.target.value)}
+                rows={2}
+                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30 resize-y"
+              />
+            ) : (
+              <dd className="mt-1">
+                <TextExpander text={idea.targetUser} />
+              </dd>
+            )}
           </div>
           <div>
             <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
               Monetización
             </dt>
-            <dd className="mt-1">
-              <TextExpander text={idea.monetization} />
-            </dd>
+            {isEditing ? (
+              <textarea
+                value={editMonetization}
+                onChange={(e) => setEditMonetization(e.target.value)}
+                rows={2}
+                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30 resize-y"
+              />
+            ) : (
+              <dd className="mt-1">
+                <TextExpander text={idea.monetization} />
+              </dd>
+            )}
           </div>
 
-          {/* Row 3: Problema | Propuesta de valor */}
-          {idea.problem && (
-            <div>
-              <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-                Problema que resuelve
-              </dt>
+          {/* Row: Problema | Propuesta de valor */}
+          <div>
+            <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+              Problema que resuelve
+            </dt>
+            {isEditing ? (
+              <textarea
+                value={editProblem}
+                onChange={(e) => setEditProblem(e.target.value)}
+                rows={3}
+                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30 resize-y"
+                placeholder="Describe el problema"
+              />
+            ) : (
               <dd className="mt-1">
-                <TextExpander text={idea.problem} />
+                {idea.problem ? (
+                  <TextExpander text={idea.problem} />
+                ) : (
+                  <span className="text-sm text-slate-600">—</span>
+                )}
               </dd>
-            </div>
-          )}
-          {idea.valueProposition && (
-            <div>
-              <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-                Propuesta de valor
-              </dt>
+            )}
+          </div>
+          <div>
+            <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+              Propuesta de valor
+            </dt>
+            {isEditing ? (
+              <textarea
+                value={editValueProposition}
+                onChange={(e) => setEditValueProposition(e.target.value)}
+                rows={3}
+                className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30 resize-y"
+                placeholder="Describe la propuesta de valor"
+              />
+            ) : (
               <dd className="mt-1">
-                <TextExpander text={idea.valueProposition} />
+                {idea.valueProposition ? (
+                  <TextExpander text={idea.valueProposition} />
+                ) : (
+                  <span className="text-sm text-slate-600">—</span>
+                )}
               </dd>
-            </div>
-          )}
+            )}
+          </div>
         </dl>
       </div>
 
@@ -613,7 +810,6 @@ export default function IdeaDetailPage() {
           <ValidationProgress
             validationStatus={idea.validationStatus}
             reports={idea.reports}
-            elapsedSeconds={elapsedSeconds}
           />
         </div>
       )}
@@ -672,18 +868,6 @@ export default function IdeaDetailPage() {
         </div>
       )}
 
-      {/* Idea details (for DRAFT or PENDING state, without validation) */}
-      {idea.validationStatus !== "DONE" &&
-        idea.validationStatus !== "RUNNING" &&
-        idea.validationStatus !== "FAILED" && idea.description !== (idea.originalIdea || idea.description) && (
-          <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
-            <h2 className="text-lg font-semibold text-white mb-4">
-              Descripción actual
-            </h2>
-            <TextExpander text={idea.description} />
-          </div>
-        )}
-
       {/* Confirm modals */}
       <ConfirmModal
         open={showDeleteModal}
@@ -705,19 +889,8 @@ export default function IdeaDetailPage() {
           fetchIdea();
         }}
       />
-
     </div>
   );
-}
-
-/* ── Helpers ── */
-
-function formatElapsed(seconds: number): string {
-  if (seconds === 0) return "";
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  if (mins > 0) return `${mins}m ${secs}s`;
-  return `${secs}s`;
 }
 
 /* ── Icons ── */
@@ -780,5 +953,3 @@ function SparklesIcon() {
     </svg>
   );
 }
-
-

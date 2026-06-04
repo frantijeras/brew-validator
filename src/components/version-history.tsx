@@ -80,12 +80,24 @@ export function VersionHistory({ ideaId }: VersionHistoryProps) {
   }
 
   const phaseLabel: Record<string, string> = {
+    "v0": "V0 (borrador)",
+    "v1": "V1",
+    "v2": "V2",
+    "v3": "V3",
+    "v4": "V4",
+    "v5": "V5",
     "initial": "Inicial",
     "pre-validation": "Pre-validación",
     "post-validation": "Post-validación",
   };
 
   const phaseColor: Record<string, string> = {
+    "v0": "text-slate-400 bg-slate-500/10 border-slate-500/30",
+    "v1": "text-blue-400 bg-blue-500/10 border-blue-500/30",
+    "v2": "text-blue-400 bg-blue-500/10 border-blue-500/30",
+    "v3": "text-blue-400 bg-blue-500/10 border-blue-500/30",
+    "v4": "text-blue-400 bg-blue-500/10 border-blue-500/30",
+    "v5": "text-blue-400 bg-blue-500/10 border-blue-500/30",
     "initial": "text-blue-400 bg-blue-500/10 border-blue-500/30",
     "pre-validation": "text-amber-400 bg-amber-500/10 border-amber-500/30",
     "post-validation": "text-emerald-400 bg-emerald-500/10 border-emerald-500/30",

@@ -5,6 +5,8 @@ import { prisma } from "@/lib/db";
 const updateIdeaSchema = z.object({
   title: z.string().min(3).optional(),
   description: z.string().min(10).optional(),
+  problem: z.string().optional().nullable(),
+  valueProposition: z.string().optional().nullable(),
   targetUser: z.string().min(3).optional(),
   monetization: z.string().min(3).optional(),
   status: z.string().optional(),

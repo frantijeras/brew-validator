@@ -11,18 +11,23 @@ export const VERDICT_LABELS: Record<string, string> = {
   Revisa: "Revisa",
 };
 
-/** Mapeo de estado de validación (DB) → etiqueta en español */
-export const VALIDATION_STATUS_LABELS: Record<string, string> = {
+/** Mapeo de estado (DB) → etiqueta en español */
+export const STATUS_LABELS: Record<string, string> = {
+  GENERATING: "Generando",
   DRAFT: "Borrador",
+  VALIDATING: "Validando",
+  COMPLETED: "Completado",
+  REFINING: "Refinando",
+  FAILED: "Falló",
+  // Legacy
+  DONE: "Finalizado",
   PENDING: "Pendiente",
   RUNNING: "En progreso",
-  COMPLETED: "Completado",
-  FAILED: "Falló",
-  VALIDATING: "Validando",
-  DONE: "Finalizado",
-  GENERATING: "Generando",
   KILLED: "Cancelado",
 };
+
+/** @deprecated usar STATUS_LABELS */
+export const VALIDATION_STATUS_LABELS = STATUS_LABELS;
 
 /** Verdict → Tailwind color classes */
 export const VERDICT_COLORS: Record<string, string> = {
@@ -38,14 +43,16 @@ export const VERDICT_COLORS: Record<string, string> = {
 
 /** Status → Tailwind color classes */
 export const STATUS_COLORS: Record<string, string> = {
-  DRAFT: "text-slate-400 bg-slate-500/10 border-slate-500/30",
-  COMPLETED: "text-slate-400 bg-slate-500/10 border-slate-500/30",
-  DONE: "text-slate-400 bg-slate-500/10 border-slate-500/30",
-  PENDING: "text-slate-400 bg-slate-500/10 border-slate-500/30",
-  VALIDATING: "text-amber-400 bg-amber-500/10 border-amber-500/30",
-  RUNNING: "text-amber-400 bg-amber-500/10 border-amber-500/30",
-  GENERATING: "text-amber-400 bg-amber-500/10 border-amber-500/30",
+  GENERATING: "text-yellow-400 bg-yellow-500/10 border-yellow-500/30",
+  DRAFT: "text-slate-300 bg-slate-500/10 border-slate-500/30",
+  VALIDATING: "text-orange-400 bg-orange-500/10 border-orange-500/30",
+  COMPLETED: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30",
+  REFINING: "text-blue-400 bg-blue-500/10 border-blue-500/30",
   FAILED: "text-red-400 bg-red-500/10 border-red-500/30",
+  // Legacy mappings
+  DONE: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30",
+  PENDING: "text-slate-400 bg-slate-500/10 border-slate-500/30",
+  RUNNING: "text-amber-400 bg-amber-500/10 border-amber-500/30",
   KILLED: "text-red-400 bg-red-500/10 border-red-500/30",
 };
 
@@ -55,10 +62,10 @@ export function translateVerdict(verdict: string | null): string {
   return VERDICT_LABELS[verdict] ?? verdict;
 }
 
-/** Traduce un estado (DRAFT, PENDING, RUNNING, …) al español */
+/** Traduce un estado al español */
 export function translateStatus(status: string | null): string {
   if (!status) return "";
-  return VALIDATION_STATUS_LABELS[status] ?? status;
+  return STATUS_LABELS[status] ?? status;
 }
 
 /** Obtiene el color de badge para un veredicto */
@@ -67,7 +74,7 @@ export function getVerdictColor(verdict: string | null): string {
   return VERDICT_COLORS[verdict] ?? "text-slate-400 bg-slate-500/10 border-slate-500/30";
 }
 
-/** Obtiene el color y label para el badge único (veredicto > estado) */
+/** Obtiene el color y label para un status badge */
 export function getBadgeInfo(
   verdict: string | null,
   validationStatus: string,
@@ -81,15 +88,22 @@ export function getBadgeInfo(
     };
   }
 
-  const effectiveStatus = validationStatus || status;
+  const displayStatus = status || validationStatus;
   const showSpinner =
-    effectiveStatus === "RUNNING" ||
-    effectiveStatus === "VALIDATING" ||
-    effectiveStatus === "GENERATING";
+    displayStatus === "VALIDATING" ||
+    displayStatus === "RUNNING" ||
+    displayStatus === "GENERATING";
 
   return {
-    label: translateStatus(effectiveStatus),
-    color: STATUS_COLORS[effectiveStatus] ?? STATUS_COLORS["DRAFT"],
+    label: translateStatus(displayStatus),
+    color: STATUS_COLORS[displayStatus] ?? STATUS_COLORS["DRAFT"],
     showSpinner,
   };
+}
+
+/** Get score color class based on 0-10 scale */
+export function getScoreColor(score: number): string {
+  if (score <= 3) return "text-red-400";
+  if (score <= 6) return "text-orange-400";
+  return "text-emerald-400";
 }

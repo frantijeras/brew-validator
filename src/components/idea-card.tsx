@@ -130,10 +130,12 @@ export function IdeaCard({
         ? "border-slate-700"
         : "border-slate-800";
 
-  const dateStr = new Date(idea.createdAt).toLocaleDateString("es-ES", {
-    day: "numeric",
-    month: "short",
+  const dateStr = new Date(idea.updatedAt).toLocaleDateString("es-ES", {
+    day: "2-digit",
+    month: "2-digit",
     year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 
   return (
@@ -275,7 +277,7 @@ export function IdeaCard({
 
         <div className="mt-3 flex items-center gap-4 text-xs text-slate-500">
           <span className="inline-flex items-center gap-1.5">
-            <span>{dateStr}</span>
+            <span>Última actualización: {dateStr}</span>
             {isFavorite && <Heart className="size-3 text-red-400 shrink-0" fill="currentColor" />}
             {isArchived && <Archive className="size-3 text-amber-400 shrink-0" fill="currentColor" />}
           </span>

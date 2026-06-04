@@ -5,7 +5,7 @@ interface ReportRef {
 interface ValidationProgressProps {
   validationStatus: string;
   reports: ReportRef[];
-  elapsedSeconds: number;
+  elapsedSeconds?: number;
 }
 
 interface StepState {
@@ -65,12 +65,12 @@ export function ValidationProgress({
           {isRunning && (
             <span className="flex items-center gap-2 text-sm text-amber-400">
               <SpinnerIcon />
-              {completedCount}/3 completados · {formatElapsed(elapsedSeconds)}
+              {completedCount}/3 completados{elapsedSeconds !== undefined ? ` · ${formatElapsed(elapsedSeconds)}` : ""}
             </span>
           )}
           {isDone && (
             <span className="text-sm text-emerald-400 font-medium">
-              Completado · {formatElapsed(elapsedSeconds)}
+              Completado{elapsedSeconds !== undefined ? ` · ${formatElapsed(elapsedSeconds)}` : ""}
             </span>
           )}
           {isFailed && (

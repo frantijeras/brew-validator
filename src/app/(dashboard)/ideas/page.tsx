@@ -31,8 +31,8 @@ export default async function IdeasPage({ searchParams }: Props) {
 
   const orderBy =
     activeTab === "all"
-      ? [{ isFavorite: "desc" as const }, { createdAt: "desc" as const }]
-      : [{ createdAt: "desc" as const }];
+      ? [{ isFavorite: "desc" as const }, { updatedAt: "desc" as const }]
+      : [{ updatedAt: "desc" as const }];
 
   const ideas = await prisma.idea.findMany({
     where,
