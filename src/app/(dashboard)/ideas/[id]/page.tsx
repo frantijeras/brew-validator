@@ -444,6 +444,14 @@ export default function IdeaDetailPage() {
   const canValidate =
     idea.validationStatus !== "RUNNING" && idea.validationStatus !== "DONE";
   const isDraft = idea.status === "DRAFT";
+  // When the user is browsing a historical version the action buttons
+  // are disabled — they would otherwise mutate the LIVE idea (the
+  // backend doesn't know how to operate on a past version). The user
+  // has to go back to the current version first.
+  const isViewingHistorical =
+    viewingVersionId !== null &&
+    idea.activeVersionId !== null &&
+    viewingVersionId !== idea.currentVersionId;
 
   // Version badge: dynamic according to state (DRAFT / COMPLETED)
   // POLISHING state uses the status badge (already shows "Puliendo")
@@ -644,11 +652,13 @@ export default function IdeaDetailPage() {
               {canValidate && (
                 <button
                   onClick={handleValidate}
-                  disabled={validating}
+                  disabled={validating || isViewingHistorical}
                   title={
-                    bridgeDown
-                      ? "El servicio de IA no está disponible"
-                      : undefined
+                    isViewingHistorical
+                      ? "Vuelve a la versión actual para validar"
+                      : bridgeDown
+                        ? "El servicio de IA no está disponible"
+                        : undefined
                   }
                   className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -669,7 +679,12 @@ export default function IdeaDetailPage() {
               {!showRefineSection && (idea.status === "COMPLETED" || idea.status === "POLISHING") && (
                 <button
                   onClick={handleStartPolish}
-                  disabled={startingPolish}
+                  disabled={startingPolish || isViewingHistorical}
+                  title={
+                    isViewingHistorical
+                      ? "Vuelve a la versión actual para pulir"
+                      : undefined
+                  }
                   className="inline-flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm font-medium text-amber-400 shadow transition-all hover:border-amber-400 hover:bg-amber-500/20 active:bg-amber-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {startingPolish ? (
@@ -687,7 +702,13 @@ export default function IdeaDetailPage() {
               )}
               <button
                 onClick={handleExportPdf}
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900/60 px-4 py-2.5 text-sm font-medium text-slate-300 shadow transition-all hover:border-slate-600 hover:text-slate-200 active:bg-slate-800"
+                disabled={isViewingHistorical}
+                title={
+                  isViewingHistorical
+                    ? "Vuelve a la versión actual para exportar"
+                    : undefined
+                }
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900/60 px-4 py-2.5 text-sm font-medium text-slate-300 shadow transition-all hover:border-slate-600 hover:text-slate-200 active:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <FileDown className="size-4" />
                 Exportar informe

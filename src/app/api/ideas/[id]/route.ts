@@ -86,6 +86,10 @@ export async function GET(
         );
         // Map IdeaVersion snapshot back to the idea-shaped response so
         // the page renders the version's text/fields verbatim.
+        // Status is inferred: a version with a score/verdict was
+        // validated (COMPLETED/DONE); otherwise it's a DRAFT produced
+        // by the refiner.
+        const wasValidated = version.score !== null || version.verdict !== null;
         overrideFields = {
           title: version.title,
           description: version.description,
@@ -95,6 +99,8 @@ export async function GET(
           monetization: version.monetization,
           score: version.score,
           verdict: version.verdict,
+          status: wasValidated ? "COMPLETED" : "DRAFT",
+          validationStatus: wasValidated ? "DONE" : "PENDING",
         };
       }
     }
