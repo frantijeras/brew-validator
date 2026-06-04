@@ -13,16 +13,26 @@ import { prisma } from "@/lib/db";
  * Body:
  *   { timestamp: number, uptime: number, lastJobAt: number | null }
  *
- * Persists a single row in the Setting table under a global
- * (userId = "bridge") namespace. There is only one heartbeat at any
- * time, so we use a synthetic userId to bypass the @@unique([key, userId])
- * constraint without requiring a real user.
+ * Persists a single row in the Setting table. Because the schema requires
+ * a real `userId` (FK to User), we use the first admin user (or the
+ * earliest-registered user as a fallback) as a stable "system" namespace.
+ * Reads in /api/bridge/status use the same key to findFirst it.
  */
 
-// Synthetic userId used as a namespace for global (non-user) settings.
-// The @@unique([key, userId]) constraint still applies, but a fixed
-// synthetic userId guarantees a single row per key.
-const BRIDGE_USER_ID = "bridge";
+const HEARTBEAT_KEY = "bridge_heartbeat";
+
+async function resolveSystemUserId(): Promise<string | null> {
+  const admin = await prisma.user.findFirst({
+    where: { isAdmin: true },
+    select: { id: true },
+  });
+  if (admin) return admin.id;
+  const any = await prisma.user.findFirst({
+    select: { id: true },
+    orderBy: { createdAt: "asc" },
+  });
+  return any?.id ?? null;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -47,6 +57,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const userId = await resolveSystemUserId();
+    if (!userId) {
+      // No users yet — silently accept so the bridge flow isn't broken
+      return NextResponse.json({ ok: true, stored: false });
+    }
+
     const value = {
       timestamp,                          // bridge-reported time.time()
       uptime: typeof uptime === "number" && Number.isFinite(uptime) ? uptime : null,
@@ -58,8 +74,8 @@ export async function POST(req: NextRequest) {
     };
 
     await prisma.setting.upsert({
-      where: { key_userId: { key: "bridge_heartbeat", userId: BRIDGE_USER_ID } },
-      create: { key: "bridge_heartbeat", userId: BRIDGE_USER_ID, value },
+      where: { key_userId: { key: HEARTBEAT_KEY, userId } },
+      create: { key: HEARTBEAT_KEY, userId, value },
       update: { value },
     });
 

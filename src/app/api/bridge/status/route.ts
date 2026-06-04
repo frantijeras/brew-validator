@@ -27,7 +27,7 @@ import { prisma } from "@/lib/db";
  * silently leaving the user wondering why jobs hang.
  */
 
-const BRIDGE_USER_ID = "bridge";
+const HEARTBEAT_KEY = "bridge_heartbeat";
 const STALE_AFTER_SECONDS = 60;
 
 type HeartbeatValue = {
@@ -39,8 +39,10 @@ type HeartbeatValue = {
 
 export async function GET() {
   try {
-    const setting = await prisma.setting.findUnique({
-      where: { key_userId: { key: "bridge_heartbeat", userId: BRIDGE_USER_ID } },
+    // The heartbeat is owned by the first admin / first user. We just
+    // need the row, so findFirst is enough.
+    const setting = await prisma.setting.findFirst({
+      where: { key: HEARTBEAT_KEY },
     });
 
     if (!setting) {
