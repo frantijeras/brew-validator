@@ -93,10 +93,9 @@ export async function POST(
       },
     });
 
-    // Create new IdeaVersion reflecting the restored state
-    const versionCount = await prisma.ideaVersion.count({ where: { ideaId: id } });
-    const newPhase = `v${versionCount + 1}`;
-
+    // Duplicate the restored version with its original phase.
+    // createdAt defaults to now, making it the most recent (current = index 0).
+    // The original phase (e.g. v1) is preserved — no new version number is minted.
     await prisma.ideaVersion.create({
       data: {
         ideaId: id,
@@ -106,7 +105,7 @@ export async function POST(
         valueProposition: version.valueProposition,
         targetUser: version.targetUser,
         monetization: version.monetization,
-        phase: newPhase,
+        phase: version.phase,
         score: version.score,
         verdict: version.verdict,
         reportsSnapshot: version.reportsSnapshot ?? undefined,
