@@ -3,13 +3,15 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Heart, Archive, Trash2, Undo2, MoreHorizontal, Pencil } from "lucide-react";
+import { Heart, Archive, Trash2, Undo2, MoreHorizontal, Pencil, FileDown } from "lucide-react";
 import { ValidationProgress } from "@/components/validation-progress";
 import { ReportViewer } from "@/components/report-viewer";
 import { ConfirmModal } from "@/components/confirm-modal";
 import RefineQuizModal from "@/components/refine-quiz-modal";
+import { VersionHistory } from "@/components/version-history";
 import RenameModal from "@/components/rename-modal";
 import { getBadgeInfo } from "@/lib/translations";
+import { BUSINESS_MODELS } from "@/lib/business-models";
 
 interface IdeaData {
   id: string;
@@ -24,6 +26,7 @@ interface IdeaData {
   validationStatus: string;
   verdict: string | null;
   score: number | null;
+  businessModel: string | null;
   isFavorite: boolean;
   isArchived: boolean;
   createdAt: string;
@@ -255,6 +258,20 @@ export default function IdeaDetailPage() {
               <h1 className="text-3xl font-bold tracking-tight text-white">
                 {idea.title}
               </h1>
+              {/* Business model badge */}
+              {idea.businessModel && (() => {
+                const model = BUSINESS_MODELS.find((m) => m.value === idea.businessModel);
+                return model ? (
+                  <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs text-slate-400 border-slate-700">
+                    <span>{model.icon}</span>
+                    <span>{model.label}</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs text-slate-400 border-slate-700">
+                    {idea.businessModel}
+                  </span>
+                );
+              })()}
               {/* Single badge: verdict if present, else status */}
               <span
                 className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${badgeInfo.color}`}
@@ -376,7 +393,7 @@ export default function IdeaDetailPage() {
               </div>
             )}
 
-            {/* Action buttons: Validate + Reformulate — below title & badge */}
+            {/* Action buttons: Validate + Reformulate + Export — below title & badge */}
             <div className="mt-4 flex flex-wrap items-center gap-3">
               {canValidate && (
                 <button
@@ -406,6 +423,14 @@ export default function IdeaDetailPage() {
                   Pulir idea
                 </button>
               )}
+              <a
+                href={`/api/ideas/${idea.id}/export`}
+                download
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900/60 px-4 py-2.5 text-sm font-medium text-slate-300 shadow transition-all hover:border-slate-600 hover:text-slate-200 active:bg-slate-800"
+              >
+                <FileDown className="size-4" />
+                Exportar informe
+              </a>
             </div>
 
             {apiError && (
@@ -497,6 +522,11 @@ export default function IdeaDetailPage() {
           ))}
         </div>
       )}
+
+      {/* Version history */}
+      <div className="mt-8">
+        <VersionHistory ideaId={idea.id} />
+      </div>
 
       {/* Failed state */}
       {idea.validationStatus === "FAILED" && (
