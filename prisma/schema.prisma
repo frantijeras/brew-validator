@@ -7,6 +7,16 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum IdeaStatus {
+  DRAFT
+  GENERATING
+  VALIDATING
+  REFINING
+  COMPLETED
+  POLISHING
+  FAILED
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String?
@@ -66,7 +76,7 @@ model Idea {
   valueProposition  String?
   targetUser       String
   monetization     String
-  status           String   @default("DRAFT")
+  status           IdeaStatus   @default(DRAFT)
   validationStatus String   @default("PENDING")
   verdict          String?
   score            Float?
