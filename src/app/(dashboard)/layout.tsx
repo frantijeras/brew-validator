@@ -156,8 +156,8 @@ function CauldronStarsIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <path d="M7 14 L25 14 L23 26 L9 26 Z" />
-      <ellipse cx="16" cy="14" rx="9" ry="2" />
+      <circle cx="16" cy="20" r="8" />
+      <ellipse cx="16" cy="13" rx="8" ry="2" />
       <path d="M10 6 L10 10 M8 8 L12 8" />
       <path d="M22 6 L22 10 M20 8 L24 8" />
       <path d="M16 3 L16 6 M14 4.5 L18 4.5" />
@@ -176,8 +176,8 @@ function CauldronStarsSmallIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <path d="M7 14 L25 14 L23 26 L9 26 Z" />
-      <ellipse cx="16" cy="14" rx="9" ry="2" />
+      <circle cx="16" cy="20" r="8" />
+      <ellipse cx="16" cy="13" rx="8" ry="2" />
       <path d="M10 6 L10 10 M8 8 L12 8" />
       <path d="M22 6 L22 10 M20 8 L24 8" />
       <path d="M16 3 L16 6 M14 4.5 L18 4.5" />
