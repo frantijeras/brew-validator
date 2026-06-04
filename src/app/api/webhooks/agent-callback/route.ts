@@ -98,28 +98,9 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        // Create V0 with real AI data (only if no versions exist yet)
-        const existingVersions = await prisma.ideaVersion.count({
-          where: { ideaId: job.ideaId },
-        });
-        if (existingVersions === 0) {
-          await prisma.ideaVersion.create({
-            data: {
-              ideaId: job.ideaId,
-              title,
-              description,
-              problem: problem || null,
-              valueProposition: valueProposition || null,
-              targetUser: targetUser || "Por determinar",
-              monetization: monetization || "Por determinar",
-              phase: "v0",
-              score: null,
-              verdict: null,
-            },
-          });
-        }
+        // NO V0 creation — V0 is virtual.
+        // First real version (V1) is created only after first successful validation.
       } else {
-        // Output missing required fields
         await prisma.idea.update({
           where: { id: job.ideaId },
           data: {
@@ -137,7 +118,8 @@ export async function POST(req: NextRequest) {
       const agentStatus = (output.status as string) || "";
 
       if (agentStatus === "DONE") {
-        // Update the idea with refined data (NOT the title)
+        // Update idea in-place ONLY — do NOT create IdeaVersion.
+        // Versions are exclusively created after full validation runs.
         const newDescription = (output.description as string) || "";
         const newProblem = (output.problem as string) || "";
         const newValueProposition = (output.valueProposition as string) || "";
@@ -145,34 +127,6 @@ export async function POST(req: NextRequest) {
         const newMonetization = (output.monetization as string) || "";
 
         if (newDescription) {
-          // Save previous version before updating
-          const currentIdea = await prisma.idea.findUnique({
-            where: { id: job.ideaId },
-            select: { title: true, description: true, problem: true, valueProposition: true, targetUser: true, monetization: true, score: true, verdict: true },
-          });
-          if (currentIdea) {
-            const existingVersions = await prisma.ideaVersion.count({
-              where: { ideaId: job.ideaId },
-            });
-            // existingVersions includes V0, so the next version number = existingVersions
-            const versionPhase = `v${existingVersions}`;
-
-            await prisma.ideaVersion.create({
-              data: {
-                ideaId: job.ideaId,
-                title: currentIdea.title,
-                description: currentIdea.description,
-                problem: currentIdea.problem,
-                valueProposition: currentIdea.valueProposition,
-                targetUser: currentIdea.targetUser,
-                monetization: currentIdea.monetization,
-                phase: versionPhase,
-                score: currentIdea.score,
-                verdict: currentIdea.verdict,
-              },
-            });
-          }
-
           const updateData: Record<string, unknown> = {
             description: newDescription,
             targetUser: newTargetUser || "Por determinar",
@@ -187,15 +141,12 @@ export async function POST(req: NextRequest) {
           });
         }
       }
-      // For RUNNING status, just store the output so the UI can read it via GET /api/ideas/:id/refine
 
       return NextResponse.json({ success: true });
     }
 
     // ── Idea Renamer callback ──
     if (isRenamerAgent) {
-      // Output is already stored in the job via the generic update above.
-      // The UI will poll GET /api/ideas/:id/rename-suggestions?jobId=... for suggestions.
       return NextResponse.json({ success: true });
     }
 
@@ -232,7 +183,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Check if all 3 agents are done → update idea with final verdict
+    // ── VERSION CREATION: ONLY when all 3 agents are DONE ──
     const pendingJobs = await prisma.job.count({
       where: {
         ideaId: job.ideaId,
@@ -242,12 +193,12 @@ export async function POST(req: NextRequest) {
     });
 
     if (pendingJobs === 0) {
-      // Re-read all reports fresh from DB
+      // All 3 validation agents completed
       const allReports = await prisma.report.findMany({
         where: { ideaId: job.ideaId },
       });
 
-      // Get current idea state to snapshot BEFORE updating
+      // Get current idea state for snapshot
       const currentIdea = await prisma.idea.findUnique({
         where: { id: job.ideaId },
         select: {
@@ -256,55 +207,14 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Determine version number
-      const existingVersions = await prisma.ideaVersion.count({
-        where: { ideaId: job.ideaId },
-      });
-
-      if (currentIdea) {
-        // If the idea already had a score (revalidation), save current state as a version first
-        // If score is null (first validation), skip saving snapshot and just create V1 with new data
-        if (currentIdea.score !== null) {
-          // existingVersions includes V0, so the next version number = existingVersions (not +1)
-          const versionPhase = `v${existingVersions}`;
-
-          const reportsForSnapshot = allReports.map((r) => ({
-            agentName: r.agentName,
-            title: r.title,
-            content: r.content,
-            verdict: r.verdict,
-            scorecard: r.scorecard,
-            createdAt: r.createdAt,
-          }));
-
-          await prisma.ideaVersion.create({
-            data: {
-              ideaId: job.ideaId,
-              title: currentIdea.title,
-              description: currentIdea.description,
-              problem: currentIdea.problem,
-              valueProposition: currentIdea.valueProposition,
-              targetUser: currentIdea.targetUser,
-              monetization: currentIdea.monetization,
-              phase: versionPhase,
-              score: currentIdea.score,
-              verdict: currentIdea.verdict,
-              reportsSnapshot: reportsForSnapshot.length > 0 ? reportsForSnapshot : undefined,
-            },
-          });
-        } else {
-          // First validation: save snapshot as v1 with the NEW data (after we compute it below)
-          // We'll create the version below after computing score/verdict
-        }
-      }
-
+      // Compute judge verdict and score from reports
       const judgeReport = allReports.find(r => r.agentName === "judge");
       const judgeJob = await prisma.job.findFirst({
         where: { ideaId: job.ideaId, agentName: "judge", status: "COMPLETED" },
         select: { output: true },
       });
 
-      let updateData: Record<string, unknown> = {
+      const updateData: Record<string, unknown> = {
         validationStatus: "DONE",
         status: "COMPLETED",
       };
@@ -316,7 +226,6 @@ export async function POST(req: NextRequest) {
           try {
             const sc = JSON.parse(judgeReport.scorecard);
             let score: number | null = sc.Total || sc.total || sc.puntuacion || null;
-            // If no explicit total, compute average of all numeric values
             if (score === null) {
               const numericValues = Object.values(sc as Record<string, unknown>)
                 .map(Number)
@@ -327,7 +236,7 @@ export async function POST(req: NextRequest) {
             }
             if (score !== null) updateData.score = parseFloat(Number(score).toFixed(1));
           } catch {
-            // ignore
+            // ignore parse error
           }
         }
       }
@@ -341,16 +250,28 @@ export async function POST(req: NextRequest) {
               : JSON.stringify(judgeJob.output)
           );
           if (parsed.suggestedName) updateData.title = parsed.suggestedName;
-        } catch {}
+        } catch {
+          // ignore
+        }
       }
 
+      // Update the idea
       await prisma.idea.update({
         where: { id: job.ideaId },
         data: updateData,
       });
 
-      // For first validation (no previous score), create V1 with new data
-      if (currentIdea && currentIdea.score === null) {
+      // ── Create version snapshot ──
+      // Count existing versions (excluding V0, which we no longer create)
+      const existingVersionsCount = await prisma.ideaVersion.count({
+        where: { ideaId: job.ideaId },
+      });
+
+      // Version number = existing count + 1 (V1 for first, V2 for second, etc.)
+      const versionPhase = `v${existingVersionsCount + 1}`;
+
+      if (currentIdea) {
+        // Re-read the idea to get updated score/verdict
         const updatedIdea = await prisma.idea.findUnique({
           where: { id: job.ideaId },
           select: {
@@ -358,6 +279,7 @@ export async function POST(req: NextRequest) {
             targetUser: true, monetization: true, score: true, verdict: true,
           },
         });
+
         if (updatedIdea) {
           const reportsForSnapshot = allReports.map((r) => ({
             agentName: r.agentName,
@@ -377,7 +299,7 @@ export async function POST(req: NextRequest) {
               valueProposition: updatedIdea.valueProposition,
               targetUser: updatedIdea.targetUser,
               monetization: updatedIdea.monetization,
-              phase: "v1",
+              phase: versionPhase,
               score: updatedIdea.score,
               verdict: updatedIdea.verdict,
               reportsSnapshot: reportsForSnapshot.length > 0 ? reportsForSnapshot : undefined,

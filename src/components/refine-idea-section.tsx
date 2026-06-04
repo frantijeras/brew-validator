@@ -11,6 +11,22 @@ import {
   Zap,
 } from "lucide-react";
 
+// ── Derived processing states ──
+const PROCESSING_SCREENS: Screen[] = ["quiz-loading", "quiz-analyzing"];
+function isProcessing(
+  screen: Screen,
+  isManualPolling: boolean,
+  manualApplying: boolean,
+  applying: boolean
+): boolean {
+  return (
+    PROCESSING_SCREENS.includes(screen) ||
+    isManualPolling ||
+    manualApplying ||
+    applying
+  );
+}
+
 // ── Types ──
 
 interface QuizQuestion {
@@ -550,38 +566,34 @@ export default function RefineIdeaSection({
         </div>
         <button
           onClick={handleCollapse}
-          className="rounded-md p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+          disabled={isProcessing(screen, isManualPolling, manualApplying, applying)}
+          className="rounded-md p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           aria-label="Cerrar sección"
         >
           <X className="size-4" />
         </button>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs — mutually exclusive: only the active tab button is visible */}
       {screen === "choice" && (
         <div className="flex border-b border-slate-800">
-          <button
-            onClick={() => setActiveTab("quiz")}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
-              activeTab === "quiz"
-                ? "text-amber-400 border-b-2 border-amber-400 bg-amber-500/5"
-                : "text-slate-400 hover:text-slate-300 hover:bg-slate-800/50"
-            }`}
-          >
-            <Bot className="size-4" />
-            Responder preguntas
-          </button>
-          <button
-            onClick={() => setActiveTab("manual")}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
-              activeTab === "manual"
-                ? "text-amber-400 border-b-2 border-amber-400 bg-amber-500/5"
-                : "text-slate-400 hover:text-slate-300 hover:bg-slate-800/50"
-            }`}
-          >
-            <Edit3 className="size-4" />
-            Redactar manualmente
-          </button>
+          {activeTab === "quiz" ? (
+            <button
+              onClick={() => setActiveTab("manual")}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-amber-400 border-b-2 border-amber-400 bg-amber-500/5 transition-colors"
+            >
+              <Bot className="size-4" />
+              Responder preguntas
+            </button>
+          ) : (
+            <button
+              onClick={() => setActiveTab("quiz")}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-amber-400 border-b-2 border-amber-400 bg-amber-500/5 transition-colors"
+            >
+              <Edit3 className="size-4" />
+              Redactar manualmente
+            </button>
+          )}
         </div>
       )}
 

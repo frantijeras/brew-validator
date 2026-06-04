@@ -8,32 +8,26 @@ interface ValidationProgressProps {
   elapsedSeconds?: number;
 }
 
-interface StepState {
-  label: string;
-  description: string;
-  icon: StepIcon;
-}
-
-type StepIcon = "search" | "scale" | "gavel";
+type StepIcon = "shield-alert" | "shield-check" | "scale";
 
 const STEPS: { agent: string; label: string; description: string; icon: StepIcon }[] = [
   {
     agent: "skeptic",
     label: "Escéptico",
     description: "Busca objeciones y riesgos del modelo de negocio",
-    icon: "search",
+    icon: "shield-alert",
   },
   {
     agent: "advocate",
     label: "Defensor",
     description: "Investiga oportunidades y ventajas competitivas",
-    icon: "scale",
+    icon: "shield-check",
   },
   {
     agent: "judge",
     label: "Juez",
     description: "Sopesa argumentos y emite veredicto final",
-    icon: "gavel",
+    icon: "scale",
   },
 ];
 
@@ -181,11 +175,19 @@ export function ValidationProgress({
 
 function StepIconRenderer({ icon }: { icon: StepIcon }) {
   switch (icon) {
-    case "search":
+    case "shield-alert":
       return (
         <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="11" cy="11" r="8" />
-          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+      );
+    case "shield-check":
+      return (
+        <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          <polyline points="9 12 11 14 15 10" />
         </svg>
       );
     case "scale":
@@ -194,16 +196,6 @@ function StepIconRenderer({ icon }: { icon: StepIcon }) {
           <line x1="3" y1="6" x2="21" y2="6" />
           <path d="M3 12h18" />
           <line x1="3" y1="18" x2="21" y2="18" />
-        </svg>
-      );
-    case "gavel":
-      return (
-        <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M14 13l-7.5 7.5c-.83.83-2.17.83-3 0 0 0 0 0 0 0a2.12 2.12 0 0 1 0-3L11 10" />
-          <path d="M16 16l6-6" />
-          <path d="M8 8l6-6" />
-          <path d="M9 7l8 8" />
-          <path d="M21 11l-2-2" />
         </svg>
       );
   }

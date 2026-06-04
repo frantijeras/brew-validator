@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ShieldAlert, ShieldCheck, Scale, FileText, Lightbulb } from "lucide-react";
 import { renderMarkdown } from "./markdown-renderer";
 
 interface ReportData {
@@ -38,22 +39,22 @@ export function ReportViewer({ report }: ReportViewerProps) {
 
   const agentIcon =
     report.agentName === "skeptic"
-      ? "search"
+      ? "shield-alert"
       : report.agentName === "advocate"
-        ? "scale"
+        ? "shield-check"
         : report.agentName === "judge"
-          ? "gavel"
+          ? "scale"
           : report.agentName === "idea-generator"
             ? "lightbulb"
             : "file";
 
   const agentColor =
     report.agentName === "skeptic"
-      ? "amber"
+      ? "red"
       : report.agentName === "advocate"
-        ? "sky"
+        ? "emerald"
         : report.agentName === "judge"
-          ? "violet"
+          ? "amber"
           : report.agentName === "idea-generator"
             ? "yellow"
             : "slate";
@@ -378,46 +379,16 @@ function AgentIcon({
   const className = `size-4 text-${color}-400`;
 
   switch (icon) {
-    case "search":
-      return (
-        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="11" cy="11" r="8" />
-          <line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
-      );
+    case "shield-alert":
+      return <ShieldAlert className={className} />;
+    case "shield-check":
+      return <ShieldCheck className={className} />;
     case "scale":
-      return (
-        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="3" y1="6" x2="21" y2="6" />
-          <path d="M3 12h18" />
-          <line x1="3" y1="18" x2="21" y2="18" />
-        </svg>
-      );
-    case "gavel":
-      return (
-        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M14 13l-7.5 7.5c-.83.83-2.17.83-3 0 0 0 0 0 0 0a2.12 2.12 0 0 1 0-3L11 10" />
-          <path d="M16 16l6-6" />
-          <path d="M8 8l6-6" />
-          <path d="M9 7l8 8" />
-          <path d="M21 11l-2-2" />
-        </svg>
-      );
+      return <Scale className={className} />;
     case "lightbulb":
-      return (
-        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M9 18h6" />
-          <path d="M10 22h4" />
-          <path d="M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V17h8v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7z" />
-        </svg>
-      );
+      return <Lightbulb className={className} />;
     default:
-      return (
-        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-          <polyline points="14 2 14 8 20 8" />
-        </svg>
-      );
+      return <FileText className={className} />;
   }
 }
 

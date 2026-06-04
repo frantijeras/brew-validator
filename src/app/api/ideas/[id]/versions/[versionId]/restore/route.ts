@@ -32,13 +32,20 @@ export async function POST(
       );
     }
 
+    // Restore all idea fields from version snapshot
     const updated = await prisma.idea.update({
       where: { id },
       data: {
         title: version.title,
         description: version.description,
+        problem: version.problem,
+        valueProposition: version.valueProposition,
         targetUser: version.targetUser,
         monetization: version.monetization,
+        score: version.score,
+        verdict: version.verdict,
+        status: "COMPLETED",
+        validationStatus: "DONE",
       },
     });
 

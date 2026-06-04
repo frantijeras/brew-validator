@@ -86,6 +86,8 @@ export function VersionHistory({ ideaId }: VersionHistoryProps) {
         throw new Error(data.error || "Error al restaurar");
       }
       setSelectedVersion(null);
+      // Refresh versions list and trigger parent page refresh
+      await fetchVersions();
       router.refresh();
     } catch (err) {
       setError(
