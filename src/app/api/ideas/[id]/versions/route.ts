@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { backfillCurrentVersion } from "@/lib/backfill-current-version";
+
+let backfillRan = false;
 
 export async function GET(
   _req: NextRequest,
@@ -8,7 +11,10 @@ export async function GET(
   try {
     const { id } = await params;
 
-    const idea = await prisma.idea.findUnique({ where: { id } });
+    const idea = await prisma.idea.findUnique({
+      where: { id },
+      select: { id: true, currentVersionId: true },
+    });
     if (!idea) {
       return NextResponse.json(
         { error: "Idea no encontrada" },
@@ -16,12 +22,23 @@ export async function GET(
       );
     }
 
+    // Run backfill once on first request
+    if (!backfillRan) {
+      backfillRan = true;
+      backfillCurrentVersion().catch((err) =>
+        console.error("[backfillCurrentVersion] error:", err)
+      );
+    }
+
     const versions = await prisma.ideaVersion.findMany({
       where: { ideaId: id },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: "asc" },
     });
 
-    return NextResponse.json(versions);
+    return NextResponse.json({
+      currentVersionId: idea.currentVersionId,
+      versions,
+    });
   } catch (error) {
     console.error("[GET /api/ideas/:id/versions]", error);
     return NextResponse.json(

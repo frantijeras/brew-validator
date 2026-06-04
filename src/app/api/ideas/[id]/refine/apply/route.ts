@@ -71,9 +71,9 @@ export async function POST(
     const { polishSnapshot: _removed, ...restMeta } = existingMeta;
     updateData.metadata = restMeta;
 
-    // Create version and update idea in a transaction
-    const [version, updated] = await prisma.$transaction([
-      prisma.ideaVersion.create({
+    // Create version and update idea in a transaction, setting currentVersionId
+    const [version, updated] = await prisma.$transaction(async (tx) => {
+      const newVersion = await tx.ideaVersion.create({
         data: {
           ideaId,
           title: data.title,
@@ -84,12 +84,16 @@ export async function POST(
           monetization: data.monetization,
           phase: nextPhase,
         },
-      }),
-      prisma.idea.update({
+      });
+      const updatedIdea = await tx.idea.update({
         where: { id: ideaId },
-        data: updateData,
-      }),
-    ]);
+        data: {
+          ...updateData,
+          currentVersionId: newVersion.id,
+        },
+      });
+      return [newVersion, updatedIdea];
+    });
 
     return NextResponse.json({ version, idea: updated }, { status: 201 });
   } catch (error) {

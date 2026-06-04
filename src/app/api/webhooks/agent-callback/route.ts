@@ -290,7 +290,7 @@ export async function POST(req: NextRequest) {
             createdAt: r.createdAt,
           }));
 
-          await prisma.ideaVersion.create({
+          const newVersion = await prisma.ideaVersion.create({
             data: {
               ideaId: job.ideaId,
               title: updatedIdea.title,
@@ -304,6 +304,12 @@ export async function POST(req: NextRequest) {
               verdict: updatedIdea.verdict,
               reportsSnapshot: reportsForSnapshot.length > 0 ? reportsForSnapshot : undefined,
             },
+          });
+
+          // Set currentVersionId on the Idea
+          await prisma.idea.update({
+            where: { id: job.ideaId },
+            data: { currentVersionId: newVersion.id },
           });
         }
       }

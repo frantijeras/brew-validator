@@ -33,11 +33,13 @@ interface VersionData {
 
 interface VersionHistoryProps {
   ideaId: string;
+  currentVersionId: string | null;
 }
 
-export function VersionHistory({ ideaId }: VersionHistoryProps) {
+export function VersionHistory({ ideaId, currentVersionId: initialCurrentVersionId }: VersionHistoryProps) {
   const router = useRouter();
   const [versions, setVersions] = useState<VersionData[]>([]);
+  const [currentVersionId, setCurrentVersionId] = useState<string | null>(initialCurrentVersionId);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedVersion, setSelectedVersion] = useState<VersionData | null>(
@@ -54,8 +56,8 @@ export function VersionHistory({ ideaId }: VersionHistoryProps) {
       });
       if (!res.ok) throw new Error("Error al cargar versiones");
       const data = await res.json();
-      // Filter out V0 (placeholder versions, only show real ones)
-      setVersions((data as VersionData[]).filter((v: VersionData) => v.phase !== "v0"));
+      setVersions(data.versions || []);
+      setCurrentVersionId(data.currentVersionId);
       setError("");
     } catch (err) {
       setError(
@@ -91,7 +93,7 @@ export function VersionHistory({ ideaId }: VersionHistoryProps) {
       router.refresh();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Error al restaurar la versión"
+        err instanceof Error ? err.message : "Error al restaurar la version"
       );
     } finally {
       setRestoring(false);
@@ -182,13 +184,13 @@ export function VersionHistory({ ideaId }: VersionHistoryProps) {
     }
     const map: Record<string, string> = {
       "initial": "Inicial",
-      "pre-validation": "Pre-validación",
-      "post-validation": "Post-validación",
+      "pre-validation": "Pre-validacion",
+      "post-validation": "Post-validacion",
     };
     return map[phase] ?? phase;
   }
 
-  const isActual = (index: number) => index === 0;
+  const isActual = (v: VersionData) => v.id === currentVersionId;
 
   // Don't render section at all if no versions
   if (loading) {
@@ -210,7 +212,7 @@ export function VersionHistory({ ideaId }: VersionHistoryProps) {
       </h2>
 
       <div className="space-y-3">
-        {versions.map((v, idx) => (
+        {versions.map((v) => (
           <div
             key={v.id}
             className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-0 rounded-lg border border-slate-800 bg-slate-900/80 p-4 transition-colors hover:border-slate-700"
@@ -225,7 +227,7 @@ export function VersionHistory({ ideaId }: VersionHistoryProps) {
                 >
                   {getPhaseDisplay(v.phase)}
                 </span>
-                {isActual(idx) && (
+                {isActual(v) && (
                   <span className="inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-xs text-emerald-400 bg-emerald-500/10 border-emerald-500/30">
                     Actual
                   </span>
@@ -247,7 +249,7 @@ export function VersionHistory({ ideaId }: VersionHistoryProps) {
               </p>
             </div>
             {/* Action buttons — hidden for current version */}
-            {!isActual(idx) && (
+            {!isActual(v) && (
               <div className="flex items-center gap-1.5 shrink-0 pt-2 md:pt-0 border-t border-slate-800 md:border-t-0 md:ml-4">
                 <button
                   onClick={() => setSelectedVersion(v)}
@@ -270,7 +272,7 @@ export function VersionHistory({ ideaId }: VersionHistoryProps) {
                   onClick={() => handleRestore(v.id)}
                   disabled={restoring}
                   className="inline-flex items-center justify-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Restaurar esta versión"
+                  title="Restaurar esta version"
                 >
                   <RotateCcw className="size-3.5" />
                   <span className="hidden md:inline">{restoreId === v.id ? "…" : "Restaurar"}</span>
@@ -295,7 +297,7 @@ export function VersionHistory({ ideaId }: VersionHistoryProps) {
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-800 bg-slate-900 px-6 py-4 rounded-t-xl">
               <div className="flex items-center gap-3">
                 <h3 className="text-lg font-semibold text-white">
-                  Detalle de versión
+                  Detalle de version
                 </h3>
                 <span
                   className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs ${getPhaseStyle(selectedVersion.phase)}`}
@@ -321,7 +323,7 @@ export function VersionHistory({ ideaId }: VersionHistoryProps) {
             <div className="px-6 py-4 space-y-4">
               <div>
                 <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Título
+                  Titulo
                 </dt>
                 <dd className="mt-1 text-sm text-white">
                   {selectedVersion.title}
@@ -354,7 +356,7 @@ export function VersionHistory({ ideaId }: VersionHistoryProps) {
               </div>
               <div>
                 <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Descripción
+                  Descripcion
                 </dt>
                 <dd className="mt-1 text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
                   {selectedVersion.description}
@@ -386,7 +388,7 @@ export function VersionHistory({ ideaId }: VersionHistoryProps) {
               </div>
               <div>
                 <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Monetización
+                  Monetizacion
                 </dt>
                 <dd className="mt-1 text-sm text-slate-300">
                   {selectedVersion.monetization}
@@ -444,12 +446,12 @@ export function VersionHistory({ ideaId }: VersionHistoryProps) {
               </button>
               <button
                 onClick={() => handleRestore(selectedVersion.id)}
-                disabled={restoring || versions[0]?.id === selectedVersion.id}
+                disabled={restoring || selectedVersion.id === currentVersionId}
                 className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 shadow transition-colors hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                title={versions[0]?.id === selectedVersion.id ? "Ya es la versión activa" : "Restaurar esta versión"}
+                title={selectedVersion.id === currentVersionId ? "Ya es la version activa" : "Restaurar esta version"}
               >
                 <RotateCcw className="size-4" />
-                {restoring ? "Restaurando…" : "Restaurar versión"}
+                {restoring ? "Restaurando…" : "Restaurar version"}
               </button>
             </div>
           </div>

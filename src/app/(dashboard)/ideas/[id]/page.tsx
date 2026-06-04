@@ -31,6 +31,8 @@ interface IdeaData {
   businessModel: string | null;
   isFavorite: boolean;
   isArchived: boolean;
+  currentVersionId: string | null;
+  currentVersionPhase: string | null;
   createdAt: string;
   updatedAt: string;
   reports: ReportData[];
@@ -392,22 +394,18 @@ export default function IdeaDetailPage() {
     }
     if (!isCompleted) {
       // Estado DRAFT
-      if (idea._versionCount && idea._versionCount > 0) {
-        return { label: `Borrador (V${idea._versionCount} previa)`, color: "bg-slate-700/30 text-slate-400 border-slate-700" };
-      }
       return { label: "Borrador", color: "bg-slate-700/30 text-slate-400 border-slate-700" };
     }
     // Estado COMPLETED
-    return { label: `V${idea._versionCount || 1}`, color: "bg-amber-500/10 text-amber-400 border-amber-500/30" };
+    const phase = idea.currentVersionPhase;
+    return { label: phase ? phase.toUpperCase() : "V?", color: "bg-amber-500/10 text-amber-400 border-amber-500/30" };
   })();
 
   // Explanatory text below the badge for DRAFT states
   const versionSubtext = (() => {
     if (idea.status === "POLISHING") return "Pulido en curso";
     if (isCompleted) return null;
-    return idea._versionCount && idea._versionCount > 0
-      ? `Validacion previa: V${idea._versionCount} · Pendiente de validar`
-      : "Borrador inicial";
+    return null;
   })();
 
   const formattedCreated = new Date(idea.createdAt).toLocaleDateString("es-ES", {
@@ -900,7 +898,7 @@ export default function IdeaDetailPage() {
 
       {/* Version history */}
       <div className="mt-8">
-        <VersionHistory ideaId={idea.id} />
+        <VersionHistory ideaId={idea.id} currentVersionId={idea.currentVersionId} />
       </div>
 
       {/* Failed state */}

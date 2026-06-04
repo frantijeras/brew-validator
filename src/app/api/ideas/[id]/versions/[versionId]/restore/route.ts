@@ -14,20 +14,22 @@ export async function POST(
 
     if (!version || version.ideaId !== id) {
       return NextResponse.json(
-        { error: "Versión no encontrada" },
+        { error: "Version no encontrada" },
         { status: 404 }
       );
     }
 
-    // Determine current (latest) version
-    const latestVersion = await prisma.ideaVersion.findFirst({
-      where: { ideaId: id },
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (latestVersion && version.id === latestVersion.id) {
+    const idea = await prisma.idea.findUnique({ where: { id } });
+    if (!idea) {
       return NextResponse.json(
-        { error: "Esta versión ya está activa" },
+        { error: "Idea no encontrada" },
+        { status: 404 }
+      );
+    }
+
+    if (idea.currentVersionId === version.id) {
+      return NextResponse.json(
+        { error: "Esta version ya esta activa" },
         { status: 400 }
       );
     }
@@ -76,7 +78,7 @@ export async function POST(
       }
     }
 
-    // Update idea with restored fields
+    // Update idea data from version snapshot + set currentVersionId
     const updated = await prisma.idea.update({
       where: { id },
       data: {
@@ -90,25 +92,15 @@ export async function POST(
         verdict: version.verdict,
         status: "COMPLETED",
         validationStatus: "DONE",
+        currentVersionId: version.id,
       },
-    });
-
-    // Delete the current latest version (the one being replaced)
-    if (latestVersion && latestVersion.id !== version.id) {
-      await prisma.ideaVersion.delete({ where: { id: latestVersion.id } });
-    }
-
-    // Update the restored version so its createdAt moves to now (becomes the latest)
-    await prisma.ideaVersion.update({
-      where: { id: version.id },
-      data: { createdAt: new Date() },
     });
 
     return NextResponse.json(updated);
   } catch (error) {
     console.error("[POST /api/ideas/:id/versions/:versionId/restore]", error);
     return NextResponse.json(
-      { error: "Error al restaurar la versión" },
+      { error: "Error al restaurar la version" },
       { status: 500 }
     );
   }

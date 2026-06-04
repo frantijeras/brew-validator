@@ -27,6 +27,9 @@ export async function GET(
         reports: {
           orderBy: { createdAt: "asc" },
         },
+        currentVersion: {
+          select: { phase: true },
+        },
         _count: {
           select: { versions: true },
         },
@@ -37,9 +40,13 @@ export async function GET(
       return NextResponse.json({ error: "Idea no encontrada" }, { status: 404 });
     }
 
-    // Flatten _count into response
-    const { _count, ...ideaData } = idea;
-    return NextResponse.json({ ...ideaData, _versionCount: _count.versions });
+    // Flatten _count and currentVersion into response
+    const { _count, currentVersion, ...ideaData } = idea;
+    return NextResponse.json({
+      ...ideaData,
+      _versionCount: _count.versions,
+      currentVersionPhase: currentVersion?.phase ?? null,
+    });
   } catch (error) {
     console.error("[GET /api/ideas/:id]", error);
     return NextResponse.json(

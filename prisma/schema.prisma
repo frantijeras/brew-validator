@@ -85,12 +85,14 @@ model Idea {
   metadata         Json?
   isArchived       Boolean  @default(false)
   isFavorite       Boolean  @default(false)
+  currentVersionId String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  jobs     Job[]
-  reports  Report[]
-  versions IdeaVersion[]
+  currentVersion IdeaVersion? @relation("CurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  jobs           Job[]
+  reports        Report[]
+  versions       IdeaVersion[]
 }
 
 model Job {
@@ -137,6 +139,8 @@ model IdeaVersion {
   verdict          String?
   reportsSnapshot  Json?
   createdAt        DateTime @default(now())
+
+  currentOf Idea[] @relation("CurrentVersion")
 }
 
 model Setting {
