@@ -131,7 +131,7 @@ export default function NewIdeaPage() {
 
           <div className="mt-6 text-left">
             <p className="mb-2 text-xs font-medium text-slate-400">
-              Tipo de idea (opcional):
+              Tipo de idea:
             </p>
             <BusinessModelChips
               selected={selectedModel}
@@ -406,6 +406,18 @@ function BusinessModelChips({
 }) {
   return (
     <div className="flex flex-wrap gap-2">
+      <button
+        type="button"
+        onClick={() => onChange("")}
+        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+          selected === ""
+            ? "bg-amber-500/15 border-amber-500/40 text-amber-400"
+            : "border-slate-700 bg-slate-900/60 text-slate-400 hover:border-slate-600 hover:text-slate-300"
+        }`}
+      >
+        <span>🎲</span>
+        <span>Cualquiera</span>
+      </button>
       {BUSINESS_MODELS.map((m) => {
         const isActive = selected === m.value;
         return (

@@ -47,10 +47,23 @@ export default async function IdeasPage({ searchParams }: Props) {
         : "Todas";
 
   const hasGenerating = ideas.some((i) => i.status === "GENERATING");
+  const hasValidating = ideas.some((i) => i.validationStatus === "RUNNING");
+
+  // Check for any active jobs related to displayed ideas
+  const ideaIds = ideas.map((i) => i.id);
+  const activeJobCount = ideaIds.length > 0
+    ? await prisma.job.count({
+        where: {
+          ideaId: { in: ideaIds },
+          status: { in: ["PENDING", "RUNNING"] },
+        },
+      })
+    : 0;
+  const hasActiveJobs = activeJobCount > 0;
 
   return (
     <div>
-      <IdeasAutoRefresh hasGenerating={hasGenerating} />
+      <IdeasAutoRefresh hasGenerating={hasGenerating} hasValidating={hasValidating} hasActiveJobs={hasActiveJobs} />
 
       {/* Header */}
       <div className="flex items-center justify-between mb-6">

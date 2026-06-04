@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { BUSINESS_MODELS } from "@/lib/business-models";
 
 const generateIdeaSchema = z.discriminatedUnion("mode", [
   z.object({
@@ -28,9 +29,18 @@ export async function POST(req: NextRequest) {
     const data = generateIdeaSchema.parse(body);
 
     // Build job input
+    // For random mode: if no business model specified, pick one randomly
+    const resolvedBusinessModel =
+      data.mode === "random" && !data.businessModel?.trim()
+        ? (() => {
+            const models = BUSINESS_MODELS.map((m) => m.value);
+            return models[Math.floor(Math.random() * models.length)];
+          })()
+        : data.businessModel?.trim() || undefined;
+
     const jobInput =
       data.mode === "random"
-        ? { rawIdea: "random", businessModel: data.businessModel?.trim() || undefined }
+        ? { rawIdea: "random", businessModel: resolvedBusinessModel }
         : {
             rawIdea: data.rawIdea.trim(),
             sector: data.sector?.trim() || "",
@@ -52,8 +62,8 @@ export async function POST(req: NextRequest) {
       validationStatus: "PENDING",
     };
 
-    if (data.businessModel) {
-      ideaData.businessModel = data.businessModel.trim();
+    if (resolvedBusinessModel) {
+      ideaData.businessModel = resolvedBusinessModel;
     }
 
     if (data.mode === "custom") {

@@ -107,23 +107,22 @@ export function ValidationProgress({
           const isCompleted = completedAgents.has(step.agent);
           const isCurrentStep =
             isRunning && !isCompleted && index === completedCount;
-          const isPending = !isCompleted && !isCurrentStep;
 
           let statusIcon: React.ReactNode;
-          let borderColor: string;
+          let borderLeftColor: string;
 
           if (isCompleted) {
             statusIcon = <CheckIcon />;
-            borderColor = "border-emerald-500/50";
+            borderLeftColor = "border-l-emerald-500/50";
           } else if (isCurrentStep) {
             statusIcon = <SpinnerIcon />;
-            borderColor = "border-amber-500/50";
+            borderLeftColor = "border-l-amber-500/50";
           } else if (isFailed && index === completedCount) {
             statusIcon = <XIcon />;
-            borderColor = "border-red-500/50";
+            borderLeftColor = "border-l-red-500/50";
           } else {
             statusIcon = <ClockIcon />;
-            borderColor = "border-slate-700";
+            borderLeftColor = "border-l-slate-700";
           }
 
           return (
@@ -131,8 +130,7 @@ export function ValidationProgress({
               key={step.agent}
               className={`flex items-start gap-4 p-3 rounded-lg border-l-2 transition-colors ${
                 index < STEPS.length - 1 ? "border-b border-slate-800/50" : ""
-              } ${borderColor}`}
-              style={{ borderLeftColor: "currentColor" }}
+              } ${borderLeftColor}`}
             >
               {/* Step icon */}
               <div

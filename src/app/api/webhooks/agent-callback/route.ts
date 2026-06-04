@@ -235,8 +235,17 @@ export async function POST(req: NextRequest) {
         if (judgeReport.scorecard) {
           try {
             const sc = JSON.parse(judgeReport.scorecard);
-            const score = sc.Total || sc.total || sc.puntuacion || null;
-            if (score) updateData.score = Math.round(score);
+            let score: number | null = sc.Total || sc.total || sc.puntuacion || null;
+            // If no explicit total, compute average of all numeric values
+            if (score === null) {
+              const numericValues = Object.values(sc as Record<string, unknown>)
+                .map(Number)
+                .filter((v) => !isNaN(v) && v >= 0 && v <= 10);
+              if (numericValues.length > 0) {
+                score = numericValues.reduce((sum, v) => sum + v, 0) / numericValues.length;
+              }
+            }
+            if (score !== null) updateData.score = Math.round(score);
           } catch {
             // ignore
           }

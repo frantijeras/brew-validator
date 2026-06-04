@@ -10,7 +10,6 @@ export const BUSINESS_MODELS = [
   { value: "Hardware/IoT", label: "Hardware/IoT", icon: "🔧", description: "Producto físico con conectividad" },
   { value: "API/Infra", label: "API/Infra", icon: "⚙️", description: "Vender acceso a datos, APIs, servicios backend" },
   { value: "Impacto social", label: "Impacto social", icon: "🌱", description: "ONG, economía circular, propósito social" },
-  { value: "Otro", label: "Otro", icon: "🤷", description: "Lo que no encaje en las anteriores" },
 ] as const;
 
 export type BusinessModel = (typeof BUSINESS_MODELS)[number]["value"];
