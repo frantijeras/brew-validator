@@ -7,7 +7,7 @@ import { Heart, Archive, Trash2, Undo2, MoreHorizontal, Pencil, FileDown, Refres
 import { ValidationProgress } from "@/components/validation-progress";
 import { ReportViewer } from "@/components/report-viewer";
 import { ConfirmModal } from "@/components/confirm-modal";
-import RefineQuizModal from "@/components/refine-quiz-modal";
+import RefineIdeaSection from "@/components/refine-idea-section";
 import { VersionHistory } from "@/components/version-history";
 import RenameModal from "@/components/rename-modal";
 import { getBadgeInfo, getScoreColor } from "@/lib/translations";
@@ -61,7 +61,7 @@ export default function IdeaDetailPage() {
   const [archPending, setArchPending] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showRefineQuiz, setShowRefineQuiz] = useState(false);
+  const [showRefineSection, setShowRefineSection] = useState(false);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -301,20 +301,42 @@ export default function IdeaDetailPage() {
 
   // ── States ──
 
-  // Auto-open quiz modal if there's a saved quiz session for this idea
+  // Auto-open refine section if there's a saved quiz session for this idea
   useEffect(() => {
     if (!idea) return;
     try {
       const raw = sessionStorage.getItem("brew-refine-quiz");
       if (!raw) return;
       const saved = JSON.parse(raw);
-      if (saved && saved.ideaId === idea.id && saved.screen !== "choice" && saved.screen !== "applied") {
-        setShowRefineQuiz(true);
+      if (
+        saved &&
+        saved.ideaId === idea.id &&
+        saved.screen !== "choice" &&
+        saved.screen !== "applied-revalidate"
+      ) {
+        setShowRefineSection(true);
       }
     } catch {
       // Ignore parse errors
     }
   }, [idea]);
+
+  // Check if there's an active quiz (for REFINING badge)
+  const isRefining = (() => {
+    try {
+      const raw = sessionStorage.getItem("brew-refine-quiz");
+      if (!raw) return false;
+      const saved = JSON.parse(raw);
+      return (
+        saved &&
+        saved.ideaId === ideaId &&
+        saved.screen !== "choice" &&
+        saved.screen !== "applied-revalidate"
+      );
+    } catch {
+      return false;
+    }
+  })();
 
   if (loading) {
     return (
@@ -522,6 +544,14 @@ export default function IdeaDetailPage() {
                 {badgeInfo.label}
               </span>
 
+              {/* 3b. REFINING badge (visible when quiz is active inline) */}
+              {isRefining && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium text-blue-400 bg-blue-500/10 border-blue-500/30">
+                  <span className="size-1.5 rounded-full bg-blue-400 animate-pulse" />
+                  REFINING
+                </span>
+              )}
+
               {/* 4. Score */}
               {idea.score !== null && (
                 <span className={`text-sm font-semibold tabular-nums ${getScoreColor(idea.score)}`}>
@@ -552,27 +582,29 @@ export default function IdeaDetailPage() {
                 </button>
               )}
               {/* Pulir idea — only enabled when COMPLETED */}
-              <div className="relative inline-flex group">
-                <button
-                  onClick={() => idea.status === "COMPLETED" && setShowRefineQuiz(true)}
-                  disabled={idea.status !== "COMPLETED"}
-                  className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium shadow transition-all ${
-                    idea.status === "COMPLETED"
-                      ? "border-amber-500/40 bg-amber-500/10 text-amber-400 hover:border-amber-400 hover:bg-amber-500/20 active:bg-amber-500/30"
-                      : "border-slate-700 bg-slate-900/20 text-slate-600 cursor-not-allowed"
-                  }`}
-                >
-                  <SparklesIcon />
-                  Pulir idea
-                </button>
-                {idea.status !== "COMPLETED" && (
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50">
-                    <div className="rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-xs text-slate-300 shadow-xl whitespace-nowrap">
-                      Valida la idea primero para poder pulirla
+              {!showRefineSection && (
+                <div className="relative inline-flex group">
+                  <button
+                    onClick={() => idea.status === "COMPLETED" && setShowRefineSection(true)}
+                    disabled={idea.status !== "COMPLETED"}
+                    className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium shadow transition-all ${
+                      idea.status === "COMPLETED"
+                        ? "border-amber-500/40 bg-amber-500/10 text-amber-400 hover:border-amber-400 hover:bg-amber-500/20 active:bg-amber-500/30"
+                        : "border-slate-700 bg-slate-900/20 text-slate-600 cursor-not-allowed"
+                    }`}
+                  >
+                    <SparklesIcon />
+                    Pulir idea
+                  </button>
+                  {idea.status !== "COMPLETED" && (
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50">
+                      <div className="rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-xs text-slate-300 shadow-xl whitespace-nowrap">
+                        Valida la idea primero para poder pulirla
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
               <button
                 onClick={handleExportPdf}
                 className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900/60 px-4 py-2.5 text-sm font-medium text-slate-300 shadow transition-all hover:border-slate-600 hover:text-slate-200 active:bg-slate-800"
@@ -610,24 +642,24 @@ export default function IdeaDetailPage() {
         </div>
       </div>
 
-      {/* Refine Quiz Modal */}
-      <RefineQuizModal
-        open={showRefineQuiz}
-        idea={{
-          id: idea.id,
-          title: idea.title,
-          description: idea.description,
-          problem: idea.problem,
-          valueProposition: idea.valueProposition,
-          targetUser: idea.targetUser,
-          monetization: idea.monetization,
-        }}
-        onClose={() => setShowRefineQuiz(false)}
-        onApplied={() => {
-          setShowRefineQuiz(false);
-          fetchIdea();
-        }}
-      />
+      {/* Inline Refine Section */}
+      {showRefineSection && (
+        <RefineIdeaSection
+          idea={{
+            id: idea.id,
+            title: idea.title,
+            description: idea.description,
+            problem: idea.problem,
+            valueProposition: idea.valueProposition,
+            targetUser: idea.targetUser,
+            monetization: idea.monetization,
+          }}
+          onCollapse={() => setShowRefineSection(false)}
+          onApplied={() => {
+            fetchIdea();
+          }}
+        />
+      )}
 
       {/* Idea original / Edit mode */}
       <div className="mb-8 rounded-xl border border-slate-800 bg-slate-900/50 p-6">

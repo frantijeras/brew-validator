@@ -111,9 +111,9 @@ async function handleManualMode(
   if (input.targetUser) updateData.targetUser = input.targetUser;
   if (input.monetization) updateData.monetization = input.monetization;
 
-  // Only update if there are actual changes
+  // If no fields to update, return gracefully (not an error)
   if (Object.keys(updateData).length === 0) {
-    return NextResponse.json({ error: "No hay campos para actualizar" }, { status: 400 });
+    return NextResponse.json({ success: true, idea });
   }
 
   // Save previous version
@@ -137,32 +137,38 @@ async function handleManualMode(
   return NextResponse.json({ success: true, idea: updated });
 }
 
-// ── Manual mode (raw text): update description + save IdeaVersion ──
+// ── Manual mode (raw text): create job for agent refinement ──
 async function handleManualRawMode(
   idea: { id: string; title: string; description: string; problem: string | null; valueProposition: string | null; targetUser: string; monetization: string },
   input: z.infer<typeof manualRawSchema>
 ) {
-  // Save previous version
-  await prisma.ideaVersion.create({
-    data: {
-      ideaId: idea.id,
+  const jobInput = {
+    idea: {
       title: idea.title,
       description: idea.description,
+      problem: idea.problem,
+      valueProposition: idea.valueProposition,
       targetUser: idea.targetUser,
       monetization: idea.monetization,
-      phase: "pre-validation",
     },
-  });
+    mode: "manual" as const,
+    rawText: input.rawText.trim(),
+  };
 
-  // Update the idea with the raw text as new description
-  const updated = await prisma.idea.update({
-    where: { id: idea.id },
+  // Create a job so the agent processes the raw text and generates refined fields
+  const job = await prisma.job.create({
     data: {
-      description: input.rawText.trim(),
+      ideaId: idea.id,
+      agentName: REFINER_AGENT,
+      status: "PENDING",
+      input: JSON.stringify(jobInput),
     },
   });
 
-  return NextResponse.json({ success: true, idea: updated });
+  return NextResponse.json({
+    status: "PENDING",
+    jobId: job.id,
+  });
 }
 
 // ── Quiz Phase 1: Create job to generate all questions ──
