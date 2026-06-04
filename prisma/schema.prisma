@@ -19,6 +19,7 @@ model User {
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
   accounts      Account[]
+  settings      Setting[]
 }
 
 model Session {
@@ -125,4 +126,14 @@ model IdeaVersion {
   verdict          String?
   reportsSnapshot  Json?
   createdAt        DateTime @default(now())
+}
+
+model Setting {
+  id     String @id @default(cuid())
+  key    String
+  value  Json
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([key, userId])
 }

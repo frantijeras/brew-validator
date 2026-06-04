@@ -7,6 +7,8 @@ import { revalidatePath } from "next/cache";
 import fs from "fs";
 import path from "path";
 
+const BRIDGE_URL = process.env.BRIDGE_API_URL ?? "http://127.0.0.1:9090";
+
 export async function updateProfile(formData: FormData) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -87,17 +89,53 @@ export async function saveAgentModels(config: Record<string, string>) {
     return { error: "No autorizado" };
   }
 
+  const userId = session.user.id;
+
   try {
-    const configPath = path.resolve(
-      process.env.HOME || "/root",
-      ".openclaw/workspace/skills/bridge-daemon/agent-models.json"
-    );
-    const dir = path.dirname(configPath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+    // 1. Try to forward to the local bridge daemon (fastest path)
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3000);
+
+      const res = await fetch(`${BRIDGE_URL}/api/update-models`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(config),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+
+      if (res.ok) {
+        return { success: true, savedTo: "bridge" };
+      }
+    } catch {
+      // Bridge not reachable — fall through to file + DB
     }
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf-8");
-    return { success: true };
+
+    // 2. Try writing to the local file
+    try {
+      const configPath = path.resolve(
+        process.env.HOME || "/root",
+        ".openclaw/workspace/skills/bridge-daemon/agent-models.json"
+      );
+      const dir = path.dirname(configPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf-8");
+    } catch {
+      // File write may fail in serverless — that's expected
+    }
+
+    // 3. Always persist to DB as reliable fallback
+    await prisma.setting.upsert({
+      where: { key_userId: { key: "agent-models", userId } },
+      create: { key: "agent-models", value: config, userId },
+      update: { value: config },
+    });
+
+    return { success: true, savedTo: "db" };
   } catch (err) {
     console.error("[saveAgentModels]", err);
     return { error: "Error al guardar la configuración de modelos" };

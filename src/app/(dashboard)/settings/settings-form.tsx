@@ -263,25 +263,27 @@ function PasswordSection() {
 const MODEL_FALLBACK: ModelOption[] = [
   // opencode-zen-free
   { value: "opencode-zen-free/big-pickle", label: "Big Pickle", provider: "opencode-zen-free" },
-  { value: "opencode-zen-free/deepseek-v4-flash-free", label: "DS V4 Flash Free", provider: "opencode-zen-free" },
-  { value: "opencode-zen-free/mimo-v2.5-free", label: "MiMo V2.5 Free", provider: "opencode-zen-free" },
-  { value: "opencode-zen-free/minimax-m3-free", label: "MiniMax M3 Free", provider: "opencode-zen-free" },
-  { value: "opencode-zen-free/nemotron-3-super-free", label: "Nemotron 3 Free", provider: "opencode-zen-free" },
-  { value: "opencode-zen-free/qwen3.6-plus-free", label: "Qwen3.6 Plus Free", provider: "opencode-zen-free" },
-  // opencode-go
-  { value: "opencode-go/deepseek-v4-flash", label: "DS V4 Flash", provider: "opencode-go" },
-  { value: "opencode-go/deepseek-v4-pro", label: "DS V4 Pro", provider: "opencode-go" },
-  { value: "opencode-go/kimi-k2.6", label: "Kimi K2.6", provider: "opencode-go" },
+  { value: "opencode-zen-free/deepseek-v4-flash-free", label: "DeepSeek V4 Flash (free)", provider: "opencode-zen-free" },
+  { value: "opencode-zen-free/mimo-v2.5-free", label: "MiMo V2.5 (free)", provider: "opencode-zen-free" },
+  { value: "opencode-zen-free/minimax-m3-free", label: "MiniMax M3 (free)", provider: "opencode-zen-free" },
+  { value: "opencode-zen-free/nemotron-3-super-free", label: "Nemotron 3 Super (free)", provider: "opencode-zen-free" },
+  { value: "opencode-zen-free/qwen3.6-plus-free", label: "Qwen 3.6 Plus (free)", provider: "opencode-zen-free" },
+  // opencode-zen
+  { value: "opencode-zen/deepseek-v4-flash", label: "DeepSeek V4 Flash", provider: "opencode-zen" },
+  { value: "opencode-zen/deepseek-v4-pro", label: "DeepSeek V4 Pro", provider: "opencode-zen" },
+  { value: "opencode-zen/kimi-k2.6", label: "Kimi K2.6", provider: "opencode-zen" },
+  { value: "opencode-zen/claude-sonnet-4", label: "Claude Sonnet 4", provider: "opencode-zen" },
+  { value: "opencode-zen/claude-haiku-4-5", label: "Claude Haiku 4.5", provider: "opencode-zen" },
 ];
 
 type ModelOption = { value: string; label: string; provider: string };
 
 const DEFAULT_AGENT_MODELS: Record<string, string> = {
-  "generator": "opencode-go/deepseek-v4-flash",
-  "skeptic": "opencode-go/deepseek-v4-flash",
-  "defender": "opencode-go/deepseek-v4-flash",
-  "judge": "opencode-go/deepseek-v4-pro",
-  "refiner": "opencode-go/deepseek-v4-flash",
+  "generator": "opencode-zen-free/deepseek-v4-flash-free",
+  "skeptic": "opencode-zen-free/deepseek-v4-flash-free",
+  "defender": "opencode-zen-free/deepseek-v4-flash-free",
+  "judge": "opencode-zen-free/minimax-m3-free",
+  "refiner": "opencode-zen-free/deepseek-v4-flash-free",
 };
 
 const AGENT_INFO: { id: string; name: string; description: string }[] = [
@@ -398,8 +400,8 @@ function AIModelSection() {
               {(() => {
                 const providers = [...new Set(modelOptions.map((m) => m.provider))];
                 const providerLabels: Record<string, string> = {
-                  "opencode-zen-free": "opencode-zen-free",
-                  "opencode-go": "opencode-go",
+                  "opencode-zen-free": "OpenClaw Zen (free)",
+                  "opencode-zen": "OpenClaw Zen",
                 };
                 return providers.map((provider) => (
                   <optgroup key={provider} label={providerLabels[provider] ?? provider}>
