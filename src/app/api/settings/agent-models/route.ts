@@ -31,12 +31,10 @@ async function readConfigFromFile(): Promise<Record<string, string> | null> {
   }
 }
 
-async function readConfigFromDB(
-  userId: string
-): Promise<Record<string, string> | null> {
+async function readConfigFromDB(): Promise<Record<string, string> | null> {
   try {
-    const setting = await prisma.setting.findUnique({
-      where: { key_userId: { key: "agent-models", userId } },
+    const setting = await prisma.setting.findFirst({
+      where: { key: "agent-models" },
     });
     if (!setting) return null;
     return setting.value as Record<string, string>;
@@ -87,23 +85,23 @@ async function forwardToBridge(
 }
 
 // GET /api/settings/agent-models
+// Public endpoint — the bridge daemon polls this without auth
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
+  // 3-level fallback: file → DB → defaults
 
-  // Prefer file (live, synced by bridge), then DB, then defaults
+  // 1. agent-models.json local (synced by bridge)
   const fileConfig = await readConfigFromFile();
   if (fileConfig) {
     return NextResponse.json(fileConfig);
   }
 
-  const dbConfig = await readConfigFromDB(session.user.id);
+  // 2. DB (tabla Setting) — any user's config
+  const dbConfig = await readConfigFromDB();
   if (dbConfig) {
     return NextResponse.json(dbConfig);
   }
 
+  // 3. Defaults
   return NextResponse.json(DEFAULT_MODELS);
 }
 
