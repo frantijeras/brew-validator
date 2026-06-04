@@ -260,18 +260,21 @@ function PasswordSection() {
 
 /* ── AI Model Section ── */
 
-const MODEL_FALLBACK = [
-  { value: "opencode-go/deepseek-v4-flash", label: "DeepSeek V4 Flash" },
-  { value: "opencode-go/deepseek-v4-pro", label: "DeepSeek V4 Pro" },
-  { value: "opencode-go/minimax-m3-free", label: "MiniMax M3 Free" },
-  { value: "opencode-go/kimi-k2.6", label: "Kimi K2.6" },
-  { value: "opencode-go/mimo-v2.5-free", label: "Mimo V2.5 Free" },
-  { value: "opencode-go/qwen3.6-plus-free", label: "Qwen 3.6 Plus Free" },
-  { value: "opencode-go/nemotron-3-super-free", label: "Nemotron 3 Super Free" },
-  { value: "opencode-go/big-pickle", label: "Big Pickle" },
-] as const;
+const MODEL_FALLBACK: ModelOption[] = [
+  // opencode-zen-free
+  { value: "opencode-zen-free/big-pickle", label: "Big Pickle", provider: "opencode-zen-free" },
+  { value: "opencode-zen-free/deepseek-v4-flash-free", label: "DS V4 Flash Free", provider: "opencode-zen-free" },
+  { value: "opencode-zen-free/mimo-v2.5-free", label: "MiMo V2.5 Free", provider: "opencode-zen-free" },
+  { value: "opencode-zen-free/minimax-m3-free", label: "MiniMax M3 Free", provider: "opencode-zen-free" },
+  { value: "opencode-zen-free/nemotron-3-super-free", label: "Nemotron 3 Free", provider: "opencode-zen-free" },
+  { value: "opencode-zen-free/qwen3.6-plus-free", label: "Qwen3.6 Plus Free", provider: "opencode-zen-free" },
+  // opencode-go
+  { value: "opencode-go/deepseek-v4-flash", label: "DS V4 Flash", provider: "opencode-go" },
+  { value: "opencode-go/deepseek-v4-pro", label: "DS V4 Pro", provider: "opencode-go" },
+  { value: "opencode-go/kimi-k2.6", label: "Kimi K2.6", provider: "opencode-go" },
+];
 
-type ModelOption = { value: string; label: string };
+type ModelOption = { value: string; label: string; provider: string };
 
 const DEFAULT_AGENT_MODELS: Record<string, string> = {
   "generator": "opencode-go/deepseek-v4-flash",
@@ -392,11 +395,24 @@ function AIModelSection() {
               onChange={(e) => handleChange(agent.id, e.target.value)}
               className="shrink-0 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
             >
-              {modelOptions.map((m) => (
-                <option key={m.value} value={m.value}>
-                  {m.label}
-                </option>
-              ))}
+              {(() => {
+                const providers = [...new Set(modelOptions.map((m) => m.provider))];
+                const providerLabels: Record<string, string> = {
+                  "opencode-zen-free": "opencode-zen-free",
+                  "opencode-go": "opencode-go",
+                };
+                return providers.map((provider) => (
+                  <optgroup key={provider} label={providerLabels[provider] ?? provider}>
+                    {modelOptions
+                      .filter((m) => m.provider === provider)
+                      .map((m) => (
+                        <option key={m.value} value={m.value}>
+                          {m.label}
+                        </option>
+                      ))}
+                  </optgroup>
+                ));
+              })()}
             </select>
           </div>
         ))}

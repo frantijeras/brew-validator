@@ -81,15 +81,6 @@ export function ReportViewer({ report }: ReportViewerProps) {
           </div>
           <div>
             <h3 className="font-semibold text-white">{agentLabel}</h3>
-            <p className="text-xs text-slate-500">
-              {report.title} ·{" "}
-              {new Date(report.createdAt).toLocaleDateString("es-ES", {
-                day: "numeric",
-                month: "short",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </p>
           </div>
         </div>
 
@@ -169,7 +160,7 @@ export function ReportViewer({ report }: ReportViewerProps) {
                     if (isTotal) return null;
                     const explanation = extractDimensionExplanation(report.content, item.key);
                     const scoreNum = typeof item.value === "number" ? item.value : parseFloat(String(item.value));
-                    const scoreLabel = !isNaN(scoreNum) ? `${scoreNum}/10` : String(item.value);
+                    const scoreLabel = !isNaN(scoreNum) ? `${scoreNum.toFixed(1)}/10` : String(item.value);
                     return (
                       <li key={item.key} className="text-sm text-slate-300 leading-relaxed">
                         <strong className="text-slate-200">{item.key}:</strong>{" "}
@@ -224,7 +215,7 @@ export function ReportViewer({ report }: ReportViewerProps) {
                     Puntuación
                   </dt>
                   <dd className="mt-1 text-sm font-bold text-amber-400">
-                    {ideaJson.score}/10
+                    {ideaJson.score.toFixed(1)}/10
                   </dd>
                 </div>
               </dl>
@@ -342,8 +333,10 @@ function parseScorecard(
 
 function formatScore(value: number | string): string {
   if (typeof value === "number") {
-    return Number.isInteger(value) ? String(value) : value.toFixed(1);
+    return value.toFixed(1);
   }
+  const num = parseFloat(String(value));
+  if (!isNaN(num)) return num.toFixed(1);
   return String(value);
 }
 
