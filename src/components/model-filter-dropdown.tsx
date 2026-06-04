@@ -2,8 +2,9 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronDown, Filter } from "lucide-react";
+import { ChevronDown, Filter, Shuffle } from "lucide-react";
 import { BUSINESS_MODELS } from "@/lib/business-models";
+import { BusinessModelIcon } from "@/components/business-model-icon";
 
 interface ModelFilterDropdownProps {
   activeModel: string;
@@ -27,9 +28,9 @@ export function ModelFilterDropdown({ activeModel, activeTab }: ModelFilterDropd
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
 
-  const selectedLabel = activeModel
-    ? BUSINESS_MODELS.find((m) => m.value === activeModel)?.icon + " " + BUSINESS_MODELS.find((m) => m.value === activeModel)?.label
-    : "Todos los modelos";
+  const activeModelData = activeModel
+    ? BUSINESS_MODELS.find((m) => m.value === activeModel)
+    : null;
 
   function selectModel(model: string) {
     setOpen(false);
@@ -52,7 +53,14 @@ export function ModelFilterDropdown({ activeModel, activeTab }: ModelFilterDropd
       >
         <Filter className="size-3.5 text-slate-500" />
         <span className="text-slate-400">Tipo:</span>
-        <span>{selectedLabel}</span>
+        {activeModelData ? (
+          <>
+            <BusinessModelIcon model={activeModelData.value} className="size-3.5" />
+            <span>{activeModelData.label}</span>
+          </>
+        ) : (
+          <span>Todos los modelos</span>
+        )}
         <ChevronDown className={`size-3.5 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
@@ -66,7 +74,7 @@ export function ModelFilterDropdown({ activeModel, activeTab }: ModelFilterDropd
                 : "text-slate-300 hover:bg-slate-800"
             }`}
           >
-            <span className="text-base">🎲</span>
+            <Shuffle className="size-4" />
             <span>Todos los modelos</span>
           </button>
           <div className="my-1 border-t border-slate-800" />
@@ -80,7 +88,7 @@ export function ModelFilterDropdown({ activeModel, activeTab }: ModelFilterDropd
                   : "text-slate-300 hover:bg-slate-800"
               }`}
             >
-              <span className="text-base shrink-0 mt-0.5">{m.icon}</span>
+              <BusinessModelIcon model={m.value} className="size-4 shrink-0 mt-0.5" />
               <div className="min-w-0">
                 <span className="text-sm font-medium">{m.label}</span>
                 <p className="text-xs text-slate-500 mt-0.5">{m.description}</p>

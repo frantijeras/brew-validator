@@ -11,6 +11,7 @@ import RefineIdeaSection from "@/components/refine-idea-section";
 import { VersionHistory } from "@/components/version-history";
 import { getScoreColor, STATUS_LABELS, STATUS_COLORS } from "@/lib/translations";
 import { BUSINESS_MODELS } from "@/lib/business-models";
+import { BusinessModelIcon } from "@/components/business-model-icon";
 import { generatePdf } from "@/lib/pdf-export";
 import { TextExpander } from "@/components/text-expander";
 
@@ -477,7 +478,7 @@ export default function IdeaDetailPage() {
                         className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
                       >
                         <Pencil className="size-4 text-slate-400" />
-                        ✏️ Editar idea original
+                        Editar idea original
                       </button>
                     )}
 
@@ -514,7 +515,7 @@ export default function IdeaDetailPage() {
                 const model = BUSINESS_MODELS.find((m) => m.value === idea.businessModel);
                 return model ? (
                   <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs text-slate-400 border-slate-700">
-                    <span>{model.icon}</span>
+                    <BusinessModelIcon model={model.value} className="size-3.5" />
                     <span>{model.label}</span>
                   </span>
                 ) : (

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Dices, Target, Shuffle } from "lucide-react";
+import { BusinessModelIcon } from "@/components/business-model-icon";
 import { BUSINESS_MODELS } from "@/lib/business-models";
 
 type Mode = "random" | "custom" | null;
@@ -96,8 +98,8 @@ export default function NewIdeaPage() {
             <option value="" disabled>
               Selecciona un modo...
             </option>
-            <option value="random">🎲 Idea aleatoria</option>
-            <option value="custom">✍️ Idea personalizada</option>
+            <option value="random">Idea aleatoria</option>
+            <option value="custom">Idea personalizada</option>
           </select>
         </div>
       )}
@@ -113,7 +115,9 @@ export default function NewIdeaPage() {
             Elegir otro modo
           </button>
 
-          <div className="mb-4 text-5xl">🎲</div>
+          <div className="mb-4 flex justify-center">
+            <Dices className="size-12 text-amber-400" />
+          </div>
           <h2 className="text-xl font-semibold text-white">
             Idea aleatoria
           </h2>
@@ -220,7 +224,7 @@ function CustomForm({
 
       <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-6">
         <div className="mb-4 flex items-center gap-3">
-          <span className="text-2xl">🎯</span>
+          <Target className="size-6 text-amber-400 shrink-0" />
           <div>
             <h2 className="text-lg font-semibold text-white">
               Idea personalizada
@@ -326,7 +330,7 @@ function BusinessModelSelector({
         }`}
       >
         <div className="flex items-center gap-3">
-          <span className="text-xl">🎲</span>
+          <Shuffle className="size-5 text-amber-400 shrink-0" />
           <div>
             <p className={`text-sm font-medium ${selected === "" ? "text-amber-400" : "text-slate-200"}`}>
               Cualquiera
@@ -354,7 +358,7 @@ function BusinessModelSelector({
               }`}
             >
               <div className="flex items-start gap-3">
-                <span className="text-xl shrink-0 mt-0.5">{m.icon}</span>
+                <BusinessModelIcon model={m.value} className="size-5 shrink-0 mt-0.5 text-slate-400" />
                 <div className="min-w-0">
                   <p className={`text-sm font-medium ${isActive ? "text-amber-400" : "text-slate-200"}`}>
                     {m.label}

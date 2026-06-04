@@ -50,7 +50,7 @@ export async function GET(
       valueProposition: idea.valueProposition || "No especificada",
       targetUser: idea.targetUser,
       monetization: idea.monetization,
-      businessModel: modelInfo ? `${modelInfo.icon} ${modelInfo.label}` : "No especificado",
+      businessModel: modelInfo ? modelInfo.label : "No especificado",
       score: idea.score,
       verdict: idea.verdict,
       status: idea.status,

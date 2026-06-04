@@ -192,7 +192,7 @@ export function ReportViewer({ report }: ReportViewerProps) {
           {ideaJson ? (
             <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-5">
               <h4 className="mb-3 flex items-center gap-2 text-lg font-semibold text-white">
-                💡 {ideaJson.title}
+                {ideaJson.title}
               </h4>
               <dl className="grid gap-3 sm:grid-cols-2">
                 <div>
