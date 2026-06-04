@@ -69,27 +69,27 @@ model VerificationToken {
 }
 
 model Idea {
-  id               String   @id @default(cuid())
+  id               String     @id @default(cuid())
   title            String
   description      String
   problem          String?
-  valueProposition  String?
+  valueProposition String?
   targetUser       String
   monetization     String
-  status           IdeaStatus   @default(DRAFT)
-  validationStatus String   @default("PENDING")
+  status           IdeaStatus @default(DRAFT)
+  validationStatus String     @default("PENDING")
   verdict          String?
   score            Float?
   businessModel    String? // SaaS, Marketplace, E-commerce, App móvil, Plataforma, Negocio local, Servicios, Contenido/Media, Hardware/IoT, API/Infra, Impacto social, Otro
   originalIdea     String?
   metadata         Json?
-  isArchived       Boolean  @default(false)
-  isFavorite       Boolean  @default(false)
+  isArchived       Boolean    @default(false)
+  isFavorite       Boolean    @default(false)
   currentVersionId String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 
-  currentVersion IdeaVersion? @relation("CurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  currentVersion IdeaVersion?  @relation("CurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
   jobs           Job[]
   reports        Report[]
   versions       IdeaVersion[]
@@ -112,16 +112,18 @@ model Job {
 }
 
 model Report {
-  id        String   @id @default(cuid())
-  ideaId    String
-  idea      Idea     @relation(fields: [ideaId], references: [id], onDelete: Cascade)
-  agentName String
-  title     String
-  content   String
-  verdict   String?
-  scorecard String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String       @id @default(cuid())
+  ideaId        String
+  idea          Idea         @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  ideaVersionId String?
+  ideaVersion   IdeaVersion? @relation(fields: [ideaVersionId], references: [id], onDelete: SetNull)
+  agentName     String
+  title         String
+  content       String
+  verdict       String?
+  scorecard     String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 }
 
 model IdeaVersion {
@@ -140,7 +142,8 @@ model IdeaVersion {
   reportsSnapshot  Json?
   createdAt        DateTime @default(now())
 
-  currentOf Idea[] @relation("CurrentVersion")
+  currentOf Idea[]   @relation("CurrentVersion")
+  reports   Report[]
 }
 
 model Setting {
