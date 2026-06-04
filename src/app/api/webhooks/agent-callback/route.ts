@@ -141,6 +141,15 @@ export async function POST(req: NextRequest) {
     const verdict = (output.verdict as string) || "";
     const scorecard = (output.scorecard as string) || "";
 
+    // Look up the idea's currentVersionId so the report is anchored to
+    // the version under validation. If the idea has no current version
+    // yet (brand-new idea, first validation), ideaVersionId is left null
+    // and gets set when the IdeaVersion is created below.
+    const ideaForReport = await prisma.idea.findUnique({
+      where: { id: job.ideaId },
+      select: { currentVersionId: true },
+    });
+
     const existingReport = await prisma.report.findFirst({
       where: { ideaId: job.ideaId, agentName: job.agentName },
     });
@@ -152,6 +161,10 @@ export async function POST(req: NextRequest) {
           content: reportContent,
           ...(verdict ? { verdict } : {}),
           ...(scorecard ? { scorecard } : {}),
+          // Backfill version link on legacy reports (null → current)
+          ...(existingReport.ideaVersionId === null && ideaForReport?.currentVersionId
+            ? { ideaVersionId: ideaForReport.currentVersionId }
+            : {}),
         },
       });
     } else {
@@ -163,6 +176,9 @@ export async function POST(req: NextRequest) {
           content: reportContent,
           ...(verdict ? { verdict } : {}),
           ...(scorecard ? { scorecard } : {}),
+          ...(ideaForReport?.currentVersionId
+            ? { ideaVersionId: ideaForReport.currentVersionId }
+            : {}),
         },
       });
     }
@@ -289,6 +305,16 @@ export async function POST(req: NextRequest) {
               reportsSnapshot: reportsForSnapshot.length > 0 ? reportsForSnapshot : undefined,
             },
           });
+
+          // If the idea didn't have a current version yet (first validation
+          // of a brand-new idea), the reports created above carry no
+          // ideaVersionId — attach them to the freshly created version now.
+          if (!ideaForReport?.currentVersionId) {
+            await prisma.report.updateMany({
+              where: { ideaId: job.ideaId, ideaVersionId: null },
+              data: { ideaVersionId: newVersion.id },
+            });
+          }
 
           // Set currentVersionId on the Idea
           await prisma.idea.update({
