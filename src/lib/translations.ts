@@ -13,12 +13,12 @@ export const VERDICT_LABELS: Record<string, string> = {
 
 /** Mapeo de estado (DB) → etiqueta en español */
 export const STATUS_LABELS: Record<string, string> = {
-  GENERATING: "generando",
-  DRAFT: "borrador",
-  VALIDATING: "validando",
-  COMPLETED: "completada",
-  REFINING: "puliendo",
-  FAILED: "error",
+  GENERATING: "Generando",
+  DRAFT: "Borrador",
+  VALIDATING: "Validando",
+  COMPLETED: "Completada",
+  REFINING: "Puliendo",
+  FAILED: "Error",
   // Legacy
   DONE: "completada",
   PENDING: "pendiente",

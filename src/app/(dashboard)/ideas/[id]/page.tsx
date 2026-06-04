@@ -9,7 +9,6 @@ import { ReportViewer } from "@/components/report-viewer";
 import { ConfirmModal } from "@/components/confirm-modal";
 import RefineIdeaSection from "@/components/refine-idea-section";
 import { VersionHistory } from "@/components/version-history";
-import RenameModal from "@/components/rename-modal";
 import { getBadgeInfo, getScoreColor } from "@/lib/translations";
 import { BUSINESS_MODELS } from "@/lib/business-models";
 import { generatePdf } from "@/lib/pdf-export";
@@ -34,6 +33,7 @@ interface IdeaData {
   createdAt: string;
   updatedAt: string;
   reports: ReportData[];
+  _versionCount?: number;
 }
 
 interface ReportData {
@@ -62,7 +62,6 @@ export default function IdeaDetailPage() {
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showRefineSection, setShowRefineSection] = useState(false);
-  const [showRenameModal, setShowRenameModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editTitle, setEditTitle] = useState("");
@@ -365,8 +364,8 @@ export default function IdeaDetailPage() {
   const canValidate =
     idea.validationStatus !== "RUNNING" && idea.validationStatus !== "DONE";
 
-  // Determine version badge
-  const versionLabel = isCompleted ? "V1" : "V0";
+  // Determine version badge from DB
+  const versionLabel = `V${idea._versionCount || (isCompleted ? 1 : 0)}`;
   const versionColor = isCompleted
     ? "text-blue-400 bg-blue-500/10 border-blue-500/30"
     : "text-slate-400 bg-slate-500/10 border-slate-500/30";
@@ -470,7 +469,7 @@ export default function IdeaDetailPage() {
                     {/* Separator */}
                     <div className="my-1 border-t border-slate-700" />
 
-                    {/* Edit idea — only when DRAFT */}
+                    {/* Edit idea original — only when DRAFT */}
                     {idea.status === "DRAFT" && (
                       <button
                         onClick={() => {
@@ -480,21 +479,9 @@ export default function IdeaDetailPage() {
                         className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
                       >
                         <Pencil className="size-4 text-slate-400" />
-                        Editar idea
+                        ✏️ Editar idea original
                       </button>
                     )}
-
-                    {/* Edit name */}
-                    <button
-                      onClick={() => {
-                        setShowMenu(false);
-                        setShowRenameModal(true);
-                      }}
-                      className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
-                    >
-                      <Pencil className="size-4 text-slate-400" />
-                      Editar nombre
-                    </button>
 
                     {/* Separator */}
                     <div className="my-1 border-t border-slate-700" />
@@ -558,7 +545,7 @@ export default function IdeaDetailPage() {
               {/* 4. Score */}
               {idea.score !== null && (
                 <span className={`text-sm font-semibold tabular-nums ${getScoreColor(idea.score)}`}>
-                  {idea.score.toFixed(1)} / 10
+                  {idea.score.toFixed(1)}
                 </span>
               )}
             </div>
@@ -915,17 +902,6 @@ export default function IdeaDetailPage() {
         variant="danger"
         onConfirm={handleDelete}
         onCancel={() => setShowDeleteModal(false)}
-      />
-
-      <RenameModal
-        open={showRenameModal}
-        ideaId={idea.id}
-        currentTitle={idea.title}
-        onClose={() => setShowRenameModal(false)}
-        onRenamed={() => {
-          setShowRenameModal(false);
-          fetchIdea();
-        }}
       />
     </div>
   );

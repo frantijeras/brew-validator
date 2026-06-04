@@ -75,37 +75,30 @@ export default function NewIdeaPage() {
         </div>
       )}
 
-      {/* ── Step 1: Choose mode ── */}
+      {/* ── Step 1: Choose mode (dropdown) ── */}
       {mode === null && !error && (
-        <div className="grid gap-5 sm:grid-cols-2">
-          <button
-            onClick={() => setMode("random")}
-            className="group rounded-xl border border-slate-800 bg-slate-900/60 p-6 text-left transition-all hover:border-amber-500/40 hover:bg-slate-900/90"
+        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-6">
+          <label
+            htmlFor="mode-select"
+            className="mb-3 block text-sm font-medium text-slate-300"
           >
-            <div className="mb-3 text-3xl">🎲</div>
-            <h3 className="text-lg font-semibold text-white group-hover:text-amber-400 transition-colors">
-              Idea aleatoria
-            </h3>
-            <p className="mt-2 text-sm leading-relaxed text-slate-400">
-              Genera <strong className="text-slate-300">1 idea</strong> de
-              negocio basada en tendencias de mercado actuales.
-            </p>
-          </button>
-
-          <button
-            onClick={() => setMode("custom")}
-            className="group rounded-xl border border-slate-800 bg-slate-900/60 p-6 text-left transition-all hover:border-amber-500/40 hover:bg-slate-900/90"
+            ¿Cómo quieres generar tu idea?
+          </label>
+          <select
+            id="mode-select"
+            value=""
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val === "random" || val === "custom") setMode(val);
+            }}
+            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-sm font-medium text-white transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 appearance-none cursor-pointer bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2394a3b8%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25rem] bg-[right_0.75rem_center] bg-no-repeat pr-10"
           >
-            <div className="mb-3 text-3xl">🎯</div>
-            <h3 className="text-lg font-semibold text-white group-hover:text-amber-400 transition-colors">
-              Idea personalizada
-            </h3>
-            <p className="mt-2 text-sm leading-relaxed text-slate-400">
-              Describe tu idea en bruto y la IA la{" "}
-              <strong className="text-slate-300">reformula</strong> con
-              estructura profesional.
-            </p>
-          </button>
+            <option value="" disabled>
+              Selecciona un modo...
+            </option>
+            <option value="random">🎲 Idea aleatoria</option>
+            <option value="custom">✍️ Idea personalizada</option>
+          </select>
         </div>
       )}
 

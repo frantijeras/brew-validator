@@ -10,7 +10,6 @@ import {
   Edit3,
   RefreshCw,
 } from "lucide-react";
-import { TextExpander } from "@/components/text-expander";
 
 // ── Types ──
 
@@ -28,6 +27,7 @@ interface RefineResult {
   targetUser: string;
   monetization: string;
   summary: string;
+  suggestedBusinessModel?: string;
 }
 
 interface IdeaInput {
@@ -351,6 +351,7 @@ export default function RefineIdeaSection({
               targetUser: data.targetUser || "",
               monetization: data.monetization || "",
               summary: data.summary || data.message || "",
+              suggestedBusinessModel: data.suggestedBusinessModel || undefined,
             });
             setScreen("result");
           }
@@ -428,6 +429,7 @@ export default function RefineIdeaSection({
               targetUser: data.targetUser || "",
               monetization: data.monetization || "",
               summary: data.summary || data.message || "",
+              suggestedBusinessModel: data.suggestedBusinessModel || undefined,
             });
             setScreen("result");
             setIsManualPolling(false);
@@ -465,6 +467,7 @@ export default function RefineIdeaSection({
           valueProposition: refineResult.valueProposition || "",
           targetUser: refineResult.targetUser,
           monetization: refineResult.monetization,
+          suggestedBusinessModel: refineResult.suggestedBusinessModel || undefined,
         }),
       });
 
@@ -766,47 +769,41 @@ export default function RefineIdeaSection({
               <p className="text-sm text-slate-400 mb-6">{refineResult.summary}</p>
             )}
 
-            {/* Side-by-side comparison */}
+            {/* Side-by-side comparison — full text, no title row */}
             <div className="space-y-4 mb-6">
-              <ComparisonCard
-                label="Título"
-                before={idea.title}
-                after={refineResult.title}
-              />
               <ComparisonCard
                 label="Descripción"
                 before={idea.description}
                 after={refineResult.description}
-                multiline
               />
-              {refineResult.problem && (
+              <ComparisonCard
+                label="Problema que resuelve"
+                before={idea.problem || "—"}
+                after={refineResult.problem}
+              />
+              <ComparisonCard
+                label="Propuesta de valor"
+                before={idea.valueProposition || "—"}
+                after={refineResult.valueProposition}
+              />
+              <ComparisonCard
+                label="Usuario objetivo"
+                before={idea.targetUser}
+                after={refineResult.targetUser}
+              />
+              <ComparisonCard
+                label="Monetización"
+                before={idea.monetization}
+                after={refineResult.monetization}
+              />
+              {refineResult.suggestedBusinessModel && (
                 <ComparisonCard
-                  label="Problema"
-                  before={idea.problem || "—"}
-                  after={refineResult.problem}
-                  multiline
+                  label="Sugerencia de tipo de negocio"
+                  before={idea.title}
+                  after={refineResult.suggestedBusinessModel}
+                  isSuggestion
                 />
               )}
-              {refineResult.valueProposition && (
-                <ComparisonCard
-                  label="Propuesta de valor"
-                  before={idea.valueProposition || "—"}
-                  after={refineResult.valueProposition}
-                  multiline
-                />
-              )}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <ComparisonCard
-                  label="Usuario objetivo"
-                  before={idea.targetUser}
-                  after={refineResult.targetUser}
-                />
-                <ComparisonCard
-                  label="Monetización"
-                  before={idea.monetization}
-                  after={refineResult.monetization}
-                />
-              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
@@ -896,12 +893,12 @@ function ComparisonCard({
   label,
   before,
   after,
-  multiline,
+  isSuggestion,
 }: {
   label: string;
   before: string;
   after: string;
-  multiline?: boolean;
+  isSuggestion?: boolean;
 }) {
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-800/30 overflow-hidden">
@@ -912,36 +909,22 @@ function ComparisonCard({
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-slate-800">
         {/* Before */}
-        <div className="p-3">
+        <div className="p-4">
           <span className="text-[10px] font-medium text-slate-600 uppercase tracking-wider">
-            Antes
+            {isSuggestion ? "Actual" : "Antes"}
           </span>
-          <div className="mt-1">
-            {multiline ? (
-              <TextExpander
-                text={before}
-                className="text-sm text-slate-400 leading-relaxed"
-              />
-            ) : (
-              <p className="text-sm text-slate-400 truncate">{before || "—"}</p>
-            )}
-          </div>
+          <p className="mt-1 text-sm text-slate-400 leading-relaxed whitespace-pre-wrap">
+            {before || "—"}
+          </p>
         </div>
         {/* After */}
-        <div className="p-3 bg-amber-500/[0.03]">
+        <div className="p-4 bg-amber-500/[0.03]">
           <span className="text-[10px] font-medium text-amber-500/70 uppercase tracking-wider">
-            Después
+            {isSuggestion ? "Sugerido" : "Después"}
           </span>
-          <div className="mt-1">
-            {multiline ? (
-              <TextExpander
-                text={after}
-                className="text-sm text-slate-200 leading-relaxed"
-              />
-            ) : (
-              <p className="text-sm text-slate-200 truncate">{after || "—"}</p>
-            )}
-          </div>
+          <p className="mt-1 text-sm text-slate-200 leading-relaxed whitespace-pre-wrap">
+            {after || "—"}
+          </p>
         </div>
       </div>
     </div>

@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { Heart, Archive, Trash2, Undo2, MoreHorizontal, Pencil } from "lucide-react";
 import { getScoreColor } from "@/lib/translations";
 import { ConfirmModal } from "@/components/confirm-modal";
-import RenameModal from "@/components/rename-modal";
 
 import { BUSINESS_MODELS } from "@/lib/business-models";
 
@@ -40,7 +39,7 @@ export function IdeaCard({
   const [isArchived, setIsArchived] = useState(idea.isArchived);
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showRenameModal, setShowRenameModal] = useState(false);
+
   const menuRef = useRef<HTMLDivElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const [menuUpward, setMenuUpward] = useState(false);
@@ -180,7 +179,7 @@ export function IdeaCard({
             )}
             {/* Score badge: numeric with color, no X/10 */}
             {idea.score !== null && (
-              <span className={`inline-block rounded-full border px-2 py-0.5 text-xs font-bold tabular-nums ${getScoreColor(idea.score)}`}>
+              <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-bold tabular-nums ${getScoreColor(idea.score)}`}>
                 {idea.score.toFixed(1)}
               </span>
             )}
@@ -249,19 +248,21 @@ export function IdeaCard({
                     ) : null
                   )}
 
-                  {/* Edit name */}
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      closeMenu();
-                      setShowRenameModal(true);
-                    }}
-                    className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
-                  >
-                    <Pencil className="size-4 text-slate-400" />
-                    Editar nombre
-                  </button>
+                  {/* Edit idea original — only when DRAFT */}
+                  {idea.status === "DRAFT" && (
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        closeMenu();
+                        router.push(`/ideas/${idea.id}`);
+                      }}
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
+                    >
+                      <Pencil className="size-4 text-slate-400" />
+                      ✏️ Editar idea original
+                    </button>
+                  )}
 
                   {/* Separator */}
                   <div className="my-1 border-t border-slate-700" />
@@ -294,7 +295,7 @@ export function IdeaCard({
           </span>
           {/* Subtle status text */}
           <span className="text-slate-500">
-            {idea.status === "GENERATING" ? "generando" : idea.status === "DRAFT" ? "borrador" : idea.status === "VALIDATING" ? "validando" : idea.status === "COMPLETED" ? "completada" : idea.status === "REFINING" ? "puliendo" : idea.status === "FAILED" ? "error" : ""}
+            {idea.status === "GENERATING" ? "Generando" : idea.status === "DRAFT" ? "Borrador" : idea.status === "VALIDATING" ? "Validando" : idea.status === "COMPLETED" ? "Completada" : idea.status === "REFINING" ? "Puliendo" : idea.status === "FAILED" ? "Error" : ""}
           </span>
         </div>
       </Link>
@@ -310,16 +311,7 @@ export function IdeaCard({
         onCancel={() => setShowDeleteModal(false)}
       />
 
-      <RenameModal
-        open={showRenameModal}
-        ideaId={idea.id}
-        currentTitle={idea.title}
-        onClose={() => setShowRenameModal(false)}
-        onRenamed={() => {
-          setShowRenameModal(false);
-          router.refresh();
-        }}
-      />
+
     </>
   );
 }
