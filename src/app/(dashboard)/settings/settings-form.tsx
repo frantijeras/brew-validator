@@ -268,12 +268,13 @@ const MODEL_FALLBACK: ModelOption[] = [
   { value: "opencode-zen-free/minimax-m3-free", label: "MiniMax M3 (free)", provider: "opencode-zen-free" },
   { value: "opencode-zen-free/nemotron-3-super-free", label: "Nemotron 3 Super (free)", provider: "opencode-zen-free" },
   { value: "opencode-zen-free/qwen3.6-plus-free", label: "Qwen 3.6 Plus (free)", provider: "opencode-zen-free" },
-  // opencode-zen
-  { value: "opencode-zen/deepseek-v4-flash", label: "DeepSeek V4 Flash", provider: "opencode-zen" },
-  { value: "opencode-zen/deepseek-v4-pro", label: "DeepSeek V4 Pro", provider: "opencode-zen" },
-  { value: "opencode-zen/kimi-k2.6", label: "Kimi K2.6", provider: "opencode-zen" },
-  { value: "opencode-zen/claude-sonnet-4", label: "Claude Sonnet 4", provider: "opencode-zen" },
-  { value: "opencode-zen/claude-haiku-4-5", label: "Claude Haiku 4.5", provider: "opencode-zen" },
+  // opencode-go
+  { value: "opencode-go/deepseek-v4-flash", label: "DeepSeek V4 Flash", provider: "opencode-go" },
+  { value: "opencode-go/deepseek-v4-pro", label: "DeepSeek V4 Pro", provider: "opencode-go" },
+  { value: "opencode-go/kimi-k2.6", label: "Kimi K2.6", provider: "opencode-go" },
+  { value: "opencode-go/glm-5.1", label: "GLM 5.1", provider: "opencode-go" },
+  { value: "opencode-go/minimax-m3", label: "MiniMax M3", provider: "opencode-go" },
+  { value: "opencode-go/qwen3.7-max", label: "Qwen 3.7 Max", provider: "opencode-go" },
 ];
 
 type ModelOption = { value: string; label: string; provider: string };
@@ -400,8 +401,8 @@ function AIModelSection() {
               {(() => {
                 const providers = [...new Set(modelOptions.map((m) => m.provider))];
                 const providerLabels: Record<string, string> = {
-                  "opencode-zen-free": "OpenClaw Zen (free)",
-                  "opencode-zen": "OpenClaw Zen",
+                  "opencode-zen-free": "OpenCode Zen Free",
+                  "opencode-go": "OpenCode Go",
                 };
                 return providers.map((provider) => (
                   <optgroup key={provider} label={providerLabels[provider] ?? provider}>

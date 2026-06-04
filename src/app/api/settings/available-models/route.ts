@@ -2,12 +2,19 @@ import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 
-// ── Full OpenClaw Zen model catalog ──────────────────────────────
+// ── OpenClaw Zen free + OpenCode Go model catalog ─────────────────
 
 interface ModelOption {
   value: string;
   label: string;
   provider: string;
+}
+
+interface RawModel {
+  id: string;
+  object?: string;
+  created?: number;
+  owned_by?: string;
 }
 
 // Labels for models where the auto-generated label from the ID is suboptimal
@@ -17,39 +24,29 @@ const MODEL_LABELS: Record<string, string> = {
   "deepseek-v4-flash": "DeepSeek V4 Flash",
   "deepseek-v4-pro": "DeepSeek V4 Pro",
   "mimo-v2.5-free": "MiMo V2.5 (free)",
+  "mimo-v2.5": "MiMo V2.5",
+  "mimo-v2.5-pro": "MiMo V2.5 Pro",
+  "mimo-v2-pro": "MiMo V2 Pro",
+  "mimo-v2-omni": "MiMo V2 Omni",
   "minimax-m3-free": "MiniMax M3 (free)",
+  "minimax-m3": "MiniMax M3",
+  "minimax-m2.5": "MiniMax M2.5",
+  "minimax-m2.7": "MiniMax M2.7",
   "nemotron-3-super-free": "Nemotron 3 Super (free)",
   "qwen3.6-plus-free": "Qwen 3.6 Plus (free)",
+  "qwen3.6-plus": "Qwen 3.6 Plus",
+  "qwen3.5-plus": "Qwen 3.5 Plus",
   "qwen3.7-plus": "Qwen 3.7 Plus",
   "qwen3.7-max": "Qwen 3.7 Max",
   "kimi-k2.6": "Kimi K2.6",
-  "claude-opus-4-8": "Claude Opus 4.8",
-  "claude-opus-4-7": "Claude Opus 4.7",
-  "claude-opus-4-6": "Claude Opus 4.6",
-  "claude-opus-4-5": "Claude Opus 4.5",
-  "claude-opus-4-1": "Claude Opus 4.1",
-  "claude-sonnet-4-6": "Claude Sonnet 4.6",
-  "claude-sonnet-4-5": "Claude Sonnet 4.5",
-  "claude-sonnet-4": "Claude Sonnet 4",
-  "claude-haiku-4-5": "Claude Haiku 4.5",
-  "gemini-3.5-flash": "Gemini 3.5 Flash",
-  "gemini-3.1-pro": "Gemini 3.1 Pro",
-  "gemini-3-flash": "Gemini 3 Flash",
-  "gpt-5.5": "GPT-5.5",
-  "gpt-5.5-pro": "GPT-5.5 Pro",
-  "gpt-5.4": "GPT-5.4",
-  "gpt-5.4-pro": "GPT-5.4 Pro",
-  "gpt-5.4-mini": "GPT-5.4 Mini",
-  "gpt-5.4-nano": "GPT-5.4 Nano",
-  "gpt-5.2": "GPT-5.2",
-  "gpt-5": "GPT-5",
-  "gpt-5-mini": "GPT-5 Mini",
+  "kimi-k2.5": "Kimi K2.5",
+  "glm-5.1": "GLM 5.1",
+  "glm-5": "GLM 5",
+  "hy3-preview": "HY3 Preview",
 };
 
-// ── All known OpenClaw Zen models (46 total) ─────────────────────
-
-const ALL_MODELS: ModelOption[] = [
-  // ── opencode-zen-free (6) ──
+// ── opencode-zen-free models (6) ────────────────────────────────
+const ZEN_FREE_MODELS: ModelOption[] = [
   {
     value: "opencode-zen-free/big-pickle",
     label: "Big Pickle",
@@ -80,148 +77,28 @@ const ALL_MODELS: ModelOption[] = [
     label: "Qwen 3.6 Plus (free)",
     provider: "opencode-zen-free",
   },
+];
 
-  // ── opencode-zen — Claude (9) ──
-  {
-    value: "opencode-zen/claude-opus-4-8",
-    label: "Claude Opus 4.8",
-    provider: "opencode-zen",
-  },
-  {
-    value: "opencode-zen/claude-opus-4-7",
-    label: "Claude Opus 4.7",
-    provider: "opencode-zen",
-  },
-  {
-    value: "opencode-zen/claude-opus-4-6",
-    label: "Claude Opus 4.6",
-    provider: "opencode-zen",
-  },
-  {
-    value: "opencode-zen/claude-opus-4-5",
-    label: "Claude Opus 4.5",
-    provider: "opencode-zen",
-  },
-  {
-    value: "opencode-zen/claude-opus-4-1",
-    label: "Claude Opus 4.1",
-    provider: "opencode-zen",
-  },
-  {
-    value: "opencode-zen/claude-sonnet-4-6",
-    label: "Claude Sonnet 4.6",
-    provider: "opencode-zen",
-  },
-  {
-    value: "opencode-zen/claude-sonnet-4-5",
-    label: "Claude Sonnet 4.5",
-    provider: "opencode-zen",
-  },
-  {
-    value: "opencode-zen/claude-sonnet-4",
-    label: "Claude Sonnet 4",
-    provider: "opencode-zen",
-  },
-  {
-    value: "opencode-zen/claude-haiku-4-5",
-    label: "Claude Haiku 4.5",
-    provider: "opencode-zen",
-  },
-
-  // ── opencode-zen — Gemini (3) ──
-  {
-    value: "opencode-zen/gemini-3.5-flash",
-    label: "Gemini 3.5 Flash",
-    provider: "opencode-zen",
-  },
-  {
-    value: "opencode-zen/gemini-3.1-pro",
-    label: "Gemini 3.1 Pro",
-    provider: "opencode-zen",
-  },
-  {
-    value: "opencode-zen/gemini-3-flash",
-    label: "Gemini 3 Flash",
-    provider: "opencode-zen",
-  },
-
-  // ── opencode-zen — GPT (9) ──
-  {
-    value: "opencode-zen/gpt-5.5",
-    label: "GPT-5.5",
-    provider: "opencode-zen",
-  },
-  {
-    value: "opencode-zen/gpt-5.5-pro",
-    label: "GPT-5.5 Pro",
-    provider: "opencode-zen",
-  },
-  {
-    value: "opencode-zen/gpt-5.4",
-    label: "GPT-5.4",
-    provider: "opencode-zen",
-  },
-  {
-    value: "opencode-zen/gpt-5.4-pro",
-    label: "GPT-5.4 Pro",
-    provider: "opencode-zen",
-  },
-  {
-    value: "opencode-zen/gpt-5.4-mini",
-    label: "GPT-5.4 Mini",
-    provider: "opencode-zen",
-  },
-  {
-    value: "opencode-zen/gpt-5.4-nano",
-    label: "GPT-5.4 Nano",
-    provider: "opencode-zen",
-  },
-  {
-    value: "opencode-zen/gpt-5.2",
-    label: "GPT-5.2",
-    provider: "opencode-zen",
-  },
-  {
-    value: "opencode-zen/gpt-5",
-    label: "GPT-5",
-    provider: "opencode-zen",
-  },
-  {
-    value: "opencode-zen/gpt-5-mini",
-    label: "GPT-5 Mini",
-    provider: "opencode-zen",
-  },
-
-  // ── opencode-zen — DeepSeek (2) ──
-  {
-    value: "opencode-zen/deepseek-v4-pro",
-    label: "DeepSeek V4 Pro",
-    provider: "opencode-zen",
-  },
-  {
-    value: "opencode-zen/deepseek-v4-flash",
-    label: "DeepSeek V4 Flash",
-    provider: "opencode-zen",
-  },
-
-  // ── opencode-zen — Kimi (1) ──
-  {
-    value: "opencode-zen/kimi-k2.6",
-    label: "Kimi K2.6",
-    provider: "opencode-zen",
-  },
-
-  // ── opencode-zen — Qwen (2) ──
-  {
-    value: "opencode-zen/qwen3.7-max",
-    label: "Qwen 3.7 Max",
-    provider: "opencode-zen",
-  },
-  {
-    value: "opencode-zen/qwen3.7-plus",
-    label: "Qwen 3.7 Plus",
-    provider: "opencode-zen",
-  },
+// ── opencode-go fallback models (18) — in case the live endpoint is unreachable
+const GO_MODELS_FALLBACK: ModelOption[] = [
+  { value: "opencode-go/deepseek-v4-flash", label: "DeepSeek V4 Flash", provider: "opencode-go" },
+  { value: "opencode-go/deepseek-v4-pro", label: "DeepSeek V4 Pro", provider: "opencode-go" },
+  { value: "opencode-go/qwen3.5-plus", label: "Qwen 3.5 Plus", provider: "opencode-go" },
+  { value: "opencode-go/qwen3.6-plus", label: "Qwen 3.6 Plus", provider: "opencode-go" },
+  { value: "opencode-go/qwen3.7-plus", label: "Qwen 3.7 Plus", provider: "opencode-go" },
+  { value: "opencode-go/qwen3.7-max", label: "Qwen 3.7 Max", provider: "opencode-go" },
+  { value: "opencode-go/kimi-k2.5", label: "Kimi K2.5", provider: "opencode-go" },
+  { value: "opencode-go/kimi-k2.6", label: "Kimi K2.6", provider: "opencode-go" },
+  { value: "opencode-go/glm-5", label: "GLM 5", provider: "opencode-go" },
+  { value: "opencode-go/glm-5.1", label: "GLM 5.1", provider: "opencode-go" },
+  { value: "opencode-go/minimax-m2.5", label: "MiniMax M2.5", provider: "opencode-go" },
+  { value: "opencode-go/minimax-m2.7", label: "MiniMax M2.7", provider: "opencode-go" },
+  { value: "opencode-go/minimax-m3", label: "MiniMax M3", provider: "opencode-go" },
+  { value: "opencode-go/mimo-v2.5", label: "MiMo V2.5", provider: "opencode-go" },
+  { value: "opencode-go/mimo-v2.5-pro", label: "MiMo V2.5 Pro", provider: "opencode-go" },
+  { value: "opencode-go/mimo-v2-pro", label: "MiMo V2 Pro", provider: "opencode-go" },
+  { value: "opencode-go/mimo-v2-omni", label: "MiMo V2 Omni", provider: "opencode-go" },
+  { value: "opencode-go/hy3-preview", label: "HY3 Preview", provider: "opencode-go" },
 ];
 
 // Path to the bridge's available-models.json (legacy, for local runs)
@@ -229,13 +106,6 @@ const AVAILABLE_MODELS_PATH = path.resolve(
   process.env.HOME || "/root",
   ".openclaw/credentials/available-models.json"
 );
-
-interface RawModel {
-  id: string;
-  object?: string;
-  created?: number;
-  owned_by?: string;
-}
 
 function humanizeModelId(id: string): string {
   return (
@@ -269,38 +139,77 @@ function readAvailableModels(): ModelOption[] | null {
   }
 }
 
+async function fetchGoModels(): Promise<ModelOption[] | null> {
+  try {
+    const apiKey = process.env.OPENCODE_API_KEY;
+    if (!apiKey) return null;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    const res = await fetch("https://opencode.ai/zen/go/v1/models", {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    if (!data?.data || !Array.isArray(data.data)) return null;
+
+    return data.data
+      .filter((m: RawModel) => m.id)
+      .map((m: RawModel) => ({
+        value: `opencode-go/${m.id}`,
+        label: humanizeModelId(m.id),
+        provider: "opencode-go",
+      }));
+  } catch {
+    return null;
+  }
+}
+
 // GET /api/settings/available-models — public, no auth required
-// Returns the full list of available AI models for the settings selector.
+// Returns the list of available AI models (zen-free + opencode-go).
 export async function GET() {
   const zenModels = readAvailableModels();
 
-  // File exists locally: merge file models with hardcoded list (deduped by value)
-  if (zenModels && zenModels.length > 0) {
-    const seen = new Set<string>();
-    const merged: ModelOption[] = [];
+  // Fetch opencode-go models from live endpoint, fall back to hardcoded list
+  const goModels = (await fetchGoModels()) ?? GO_MODELS_FALLBACK;
 
-    // File models first (live from system)
+  const seen = new Set<string>();
+  const merged: ModelOption[] = [];
+
+  // File models first (live from system — zen-free)
+  if (zenModels && zenModels.length > 0) {
     for (const m of zenModels) {
       if (!seen.has(m.value)) {
         seen.add(m.value);
         merged.push(m);
       }
     }
-
-    // Then hardcoded list (adds opencode-zen paid models not in the file)
-    for (const m of ALL_MODELS) {
+  } else {
+    // No file available: use hardcoded zen-free list
+    for (const m of ZEN_FREE_MODELS) {
       if (!seen.has(m.value)) {
         seen.add(m.value);
         merged.push(m);
       }
     }
-
-    merged.sort((a, b) =>
-      a.provider.localeCompare(b.provider) || a.label.localeCompare(b.label)
-    );
-    return NextResponse.json(merged);
   }
 
-  // No file available (production/Vercel): return full hardcoded catalog
-  return NextResponse.json(ALL_MODELS);
+  // Add opencode-go models
+  for (const m of goModels) {
+    if (!seen.has(m.value)) {
+      seen.add(m.value);
+      merged.push(m);
+    }
+  }
+
+  merged.sort((a, b) =>
+    a.provider.localeCompare(b.provider) || a.label.localeCompare(b.label)
+  );
+
+  return NextResponse.json(merged);
 }

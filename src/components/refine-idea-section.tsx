@@ -122,6 +122,7 @@ export default function RefineIdeaSection({
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [customInputs, setCustomInputs] = useState<Record<string, string>>({});
   const [showCustom, setShowCustom] = useState<Record<string, boolean>>({});
+  const [currentStep, setCurrentStep] = useState(0);
   const [pollingJobId, setPollingJobId] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -153,6 +154,7 @@ export default function RefineIdeaSection({
       setShowCustom(saved.showCustom);
       setPollingJobId(saved.pollingJobId);
       setRefineResult(saved.refineResult);
+      setCurrentStep(0);
       setError("");
 
       // Resume polling if in-progress
@@ -171,6 +173,7 @@ export default function RefineIdeaSection({
       setAnswers({});
       setCustomInputs({});
       setShowCustom({});
+      setCurrentStep(0);
       setPollingJobId(null);
       setRefineResult(null);
       setApplying(false);
@@ -301,6 +304,27 @@ export default function RefineIdeaSection({
     setCustomInputs((prev) => ({ ...prev, [questionId]: value }));
     if (value.trim()) {
       setAnswers((prev) => ({ ...prev, [questionId]: value.trim() }));
+    }
+  }
+
+  // ── Wizard navigation ──
+  function handleNext() {
+    const q = questions[currentStep];
+    if (!q) return;
+    if (!answers[q.id]?.trim()) {
+      setError("Responde la pregunta antes de continuar");
+      return;
+    }
+    setError("");
+    if (currentStep < questions.length - 1) {
+      setCurrentStep((prev) => prev + 1);
+    }
+  }
+
+  function handlePrev() {
+    setError("");
+    if (currentStep > 0) {
+      setCurrentStep((prev) => prev - 1);
     }
   }
 
@@ -470,6 +494,7 @@ export default function RefineIdeaSection({
     setAnswers({});
     setCustomInputs({});
     setShowCustom({});
+    setCurrentStep(0);
     setPollingJobId(null);
     setRefineResult(null);
     setError("");
@@ -522,6 +547,7 @@ export default function RefineIdeaSection({
     setAnswers({});
     setCustomInputs({});
     setShowCustom({});
+    setCurrentStep(0);
     setPollingJobId(null);
     setRefineResult(null);
     setError("");
@@ -538,6 +564,7 @@ export default function RefineIdeaSection({
     setAnswers({});
     setCustomInputs({});
     setShowCustom({});
+    setCurrentStep(0);
     setPollingJobId(null);
     setRefineResult(null);
     setError("");
@@ -678,35 +705,54 @@ export default function RefineIdeaSection({
         )}
 
         {/* ═══════════════════════════════════════════
-            SCREEN: quiz-questions
+            SCREEN: quiz-questions (wizard)
             ═══════════════════════════════════════════ */}
         {screen === "quiz-questions" && questions.length > 0 && (
           <div>
-            <p className="text-sm text-slate-400 mb-2">
-              Responde todas las preguntas. La IA analizará tus respuestas para mejorar la idea.
-            </p>
+            {/* Progress bar */}
+            <div className="mb-6">
+              <div className="flex items-center gap-1 mb-2">
+                {questions.map((_, idx) => (
+                  <div
+                    key={idx}
+                    className={`flex-1 h-1.5 rounded-full transition-colors ${
+                      idx <= currentStep
+                        ? "bg-amber-500"
+                        : "bg-slate-700"
+                    }`}
+                  />
+                ))}
+              </div>
+              <p className="text-xs text-slate-500 text-center">
+                Pregunta {currentStep + 1} de {questions.length}
+              </p>
+            </div>
 
-            <div className="space-y-5 max-h-[50vh] overflow-y-auto pr-1">
-              {questions.map((q, idx) => (
-                <div
-                  key={q.id}
-                  className="rounded-lg border border-slate-800 bg-slate-800/30 p-4"
-                >
-                  <div className="flex items-start gap-2 mb-3">
-                    <span className="shrink-0 rounded-full bg-amber-500/10 text-amber-400 text-xs font-semibold w-5 h-5 flex items-center justify-center mt-0.5">
-                      {idx + 1}
+            {/* Question card */}
+            {(() => {
+              const q = questions[currentStep];
+              if (!q) return null;
+
+              return (
+                <div className="rounded-xl border border-slate-800 bg-slate-800/40 p-5">
+                  <div className="flex items-start gap-3 mb-4">
+                    <span className="shrink-0 rounded-full bg-amber-500/15 text-amber-400 text-sm font-semibold w-7 h-7 flex items-center justify-center mt-0.5">
+                      {currentStep + 1}
                     </span>
-                    <p className="text-sm text-slate-200 leading-relaxed">
+                    <p className="text-base text-slate-100 leading-relaxed pt-0.5">
                       {q.questionText}
                     </p>
                   </div>
 
                   {/* Option buttons */}
-                  <div className="space-y-2 mb-2">
+                  <div className="space-y-2 mb-3">
                     {q.options.map((opt, optIdx) => (
                       <button
                         key={optIdx}
-                        onClick={() => selectOption(q.id, opt)}
+                        onClick={() => {
+                          selectOption(q.id, opt);
+                          setError("");
+                        }}
                         className={`w-full text-left rounded-lg border px-3 py-2.5 text-sm transition-all ${
                           answers[q.id] === opt
                             ? "border-amber-500/50 bg-amber-500/10 text-amber-300"
@@ -732,7 +778,7 @@ export default function RefineIdeaSection({
                         value={customInputs[q.id]}
                         onChange={(e) => setCustomAnswer(q.id, e.target.value)}
                         placeholder="Escribe tu propia respuesta..."
-                        rows={2}
+                        rows={3}
                         className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/50 focus:outline-none resize-none"
                       />
                       <button
@@ -744,18 +790,38 @@ export default function RefineIdeaSection({
                     </div>
                   )}
                 </div>
-              ))}
-            </div>
+              );
+            })()}
 
-            {/* Submit button */}
-            <div className="mt-6">
-              <button
-                onClick={handleSubmitAnswers}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-3 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600"
-              >
-                Finalizar respuestas
-                <Check className="size-4" />
-              </button>
+            {/* Navigation buttons */}
+            <div className="mt-6 flex items-center justify-between">
+              {currentStep > 0 ? (
+                <button
+                  onClick={handlePrev}
+                  className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-300 transition-all hover:border-slate-600 hover:bg-slate-700"
+                >
+                  Anterior
+                </button>
+              ) : (
+                <div />
+              )}
+
+              {currentStep < questions.length - 1 ? (
+                <button
+                  onClick={handleNext}
+                  className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600"
+                >
+                  Siguiente
+                </button>
+              ) : (
+                <button
+                  onClick={handleSubmitAnswers}
+                  className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600"
+                >
+                  Finalizar
+                  <Check className="size-4" />
+                </button>
+              )}
             </div>
           </div>
         )}
