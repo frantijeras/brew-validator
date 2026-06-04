@@ -73,7 +73,7 @@ export default function DashboardLayout({
           onClick={closeSidebar}
         >
           <CauldronStarsIcon />
-          <span className="text-xl font-bold tracking-tight text-white">BrewIA</span>
+          <span className="text-xl font-bold tracking-tight text-white">BrewIdea</span>
         </Link>
 
         {/* Nav */}
@@ -117,7 +117,7 @@ export default function DashboardLayout({
             </div>
           )}
 
-          <p className="px-3 text-xs text-slate-600">BrewIA Validator v0.1</p>
+          <p className="px-3 text-xs text-slate-600">BrewIdea Validator v0.1</p>
         </div>
       </aside>
 
@@ -132,7 +132,7 @@ export default function DashboardLayout({
         </button>
         <Link href="/ideas" className="flex items-center gap-2">
           <CauldronStarsSmallIcon />
-          <span className="text-lg font-bold tracking-tight text-white">BrewIA</span>
+          <span className="text-lg font-bold tracking-tight text-white">BrewIdea</span>
         </Link>
       </div>
 

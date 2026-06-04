@@ -27,7 +27,7 @@ export default async function LoginPage() {
             <path d="M22 6 L22 10 M20 8 L24 8" />
             <path d="M16 3 L16 6 M14 4.5 L18 4.5" />
           </svg>
-          <h1 className="text-3xl font-bold tracking-tight text-white">BrewIA</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-white">BrewIdea</h1>
         </div>
 
         {/* Login form */}

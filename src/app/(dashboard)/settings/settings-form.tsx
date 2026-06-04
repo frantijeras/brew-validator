@@ -464,7 +464,7 @@ function UsersSection({ users }: { users: ListedUser[] }) {
     <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
       <h2 className="text-lg font-semibold text-white">Usuarios</h2>
       <p className="mt-1 text-sm text-slate-400">
-        Gestiona quién tiene acceso a BrewIA
+        Gestiona quién tiene acceso a BrewIdea
       </p>
 
       {/* User list */}

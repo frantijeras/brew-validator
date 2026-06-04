@@ -3,7 +3,7 @@ import { Providers } from "@/components/providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "BrewIA — Validador de ideas",
+  title: "BrewIdea — Validador de ideas",
   description: "Valida tus ideas de negocio con agentes IA",
 };
 
