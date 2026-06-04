@@ -97,6 +97,27 @@ export async function POST(req: NextRequest) {
             validationStatus: "PENDING",
           },
         });
+
+        // Create V0 with real AI data (only if no versions exist yet)
+        const existingVersions = await prisma.ideaVersion.count({
+          where: { ideaId: job.ideaId },
+        });
+        if (existingVersions === 0) {
+          await prisma.ideaVersion.create({
+            data: {
+              ideaId: job.ideaId,
+              title,
+              description,
+              problem: problem || null,
+              valueProposition: valueProposition || null,
+              targetUser: targetUser || "Por determinar",
+              monetization: monetization || "Por determinar",
+              phase: "v0",
+              score: null,
+              verdict: null,
+            },
+          });
+        }
       } else {
         // Output missing required fields
         await prisma.idea.update({
@@ -238,34 +259,41 @@ export async function POST(req: NextRequest) {
       const existingVersions = await prisma.ideaVersion.count({
         where: { ideaId: job.ideaId },
       });
-      const versionPhase = `v${existingVersions + 1}`;
 
-      // Save snapshot of current state as IdeaVersion BEFORE updating
       if (currentIdea) {
-        const reportsForSnapshot = allReports.map((r) => ({
-          agentName: r.agentName,
-          title: r.title,
-          content: r.content,
-          verdict: r.verdict,
-          scorecard: r.scorecard,
-          createdAt: r.createdAt,
-        }));
+        // If the idea already had a score (revalidation), save current state as a version first
+        // If score is null (first validation), skip saving snapshot and just create V1 with new data
+        if (currentIdea.score !== null) {
+          const versionPhase = `v${existingVersions + 1}`;
 
-        await prisma.ideaVersion.create({
-          data: {
-            ideaId: job.ideaId,
-            title: currentIdea.title,
-            description: currentIdea.description,
-            problem: currentIdea.problem,
-            valueProposition: currentIdea.valueProposition,
-            targetUser: currentIdea.targetUser,
-            monetization: currentIdea.monetization,
-            phase: versionPhase,
-            score: currentIdea.score,
-            verdict: currentIdea.verdict,
-            reportsSnapshot: reportsForSnapshot.length > 0 ? reportsForSnapshot : undefined,
-          },
-        });
+          const reportsForSnapshot = allReports.map((r) => ({
+            agentName: r.agentName,
+            title: r.title,
+            content: r.content,
+            verdict: r.verdict,
+            scorecard: r.scorecard,
+            createdAt: r.createdAt,
+          }));
+
+          await prisma.ideaVersion.create({
+            data: {
+              ideaId: job.ideaId,
+              title: currentIdea.title,
+              description: currentIdea.description,
+              problem: currentIdea.problem,
+              valueProposition: currentIdea.valueProposition,
+              targetUser: currentIdea.targetUser,
+              monetization: currentIdea.monetization,
+              phase: versionPhase,
+              score: currentIdea.score,
+              verdict: currentIdea.verdict,
+              reportsSnapshot: reportsForSnapshot.length > 0 ? reportsForSnapshot : undefined,
+            },
+          });
+        } else {
+          // First validation: save snapshot as v1 with the NEW data (after we compute it below)
+          // We'll create the version below after computing score/verdict
+        }
       }
 
       const judgeReport = allReports.find(r => r.agentName === "judge");
@@ -295,7 +323,7 @@ export async function POST(req: NextRequest) {
                 score = numericValues.reduce((sum, v) => sum + v, 0) / numericValues.length;
               }
             }
-            if (score !== null) updateData.score = Math.round(score);
+            if (score !== null) updateData.score = Math.round(score * 10) / 10;
           } catch {
             // ignore
           }
@@ -318,6 +346,43 @@ export async function POST(req: NextRequest) {
         where: { id: job.ideaId },
         data: updateData,
       });
+
+      // For first validation (no previous score), create V1 with new data
+      if (currentIdea && currentIdea.score === null) {
+        const updatedIdea = await prisma.idea.findUnique({
+          where: { id: job.ideaId },
+          select: {
+            title: true, description: true, problem: true, valueProposition: true,
+            targetUser: true, monetization: true, score: true, verdict: true,
+          },
+        });
+        if (updatedIdea) {
+          const reportsForSnapshot = allReports.map((r) => ({
+            agentName: r.agentName,
+            title: r.title,
+            content: r.content,
+            verdict: r.verdict,
+            scorecard: r.scorecard,
+            createdAt: r.createdAt,
+          }));
+
+          await prisma.ideaVersion.create({
+            data: {
+              ideaId: job.ideaId,
+              title: updatedIdea.title,
+              description: updatedIdea.description,
+              problem: updatedIdea.problem,
+              valueProposition: updatedIdea.valueProposition,
+              targetUser: updatedIdea.targetUser,
+              monetization: updatedIdea.monetization,
+              phase: "v1",
+              score: updatedIdea.score,
+              verdict: updatedIdea.verdict,
+              reportsSnapshot: reportsForSnapshot.length > 0 ? reportsForSnapshot : undefined,
+            },
+          });
+        }
+      }
     }
 
     return NextResponse.json({ success: true });

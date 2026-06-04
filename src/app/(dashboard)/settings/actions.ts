@@ -4,6 +4,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
+import fs from "fs";
+import path from "path";
 
 export async function updateProfile(formData: FormData) {
   const session = await auth();
@@ -77,6 +79,29 @@ export async function changePassword(formData: FormData) {
 
   revalidatePath("/settings");
   return { success: "Contraseña cambiada correctamente" };
+}
+
+export async function saveAgentModels(config: Record<string, string>) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { error: "No autorizado" };
+  }
+
+  try {
+    const configPath = path.resolve(
+      process.env.HOME || "/root",
+      ".openclaw/workspace/skills/bridge-daemon/agent-models.json"
+    );
+    const dir = path.dirname(configPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf-8");
+    return { success: true };
+  } catch (err) {
+    console.error("[saveAgentModels]", err);
+    return { error: "Error al guardar la configuración de modelos" };
+  }
 }
 
 export async function addUser(formData: FormData) {

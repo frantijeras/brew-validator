@@ -22,7 +22,8 @@ export async function POST(
       );
     }
 
-    // Delete old reports and reset verdict/score
+    // Delete old reports and jobs but keep score/verdict so
+    // the webhook can tell if this is a first validation or revalidation
     await prisma.$transaction([
       prisma.report.deleteMany({ where: { ideaId: id } }),
       prisma.job.deleteMany({ where: { ideaId: id } }),
@@ -31,8 +32,6 @@ export async function POST(
         data: {
           status: "VALIDATING",
           validationStatus: "RUNNING",
-          verdict: null,
-          score: null,
         },
       }),
     ]);

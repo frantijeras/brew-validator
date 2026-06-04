@@ -224,7 +224,7 @@ export function VersionHistory({ ideaId }: VersionHistoryProps) {
                 )}
                 {v.score !== null && (
                   <span className="text-xs font-semibold text-amber-400 tabular-nums">
-                    {v.score}/10
+                    {v.score.toFixed(1)}/10
                   </span>
                 )}
               </div>
@@ -258,9 +258,9 @@ export function VersionHistory({ ideaId }: VersionHistoryProps) {
               </button>
               <button
                 onClick={() => handleRestore(v.id)}
-                disabled={restoring}
+                disabled={restoring || isActual(idx)}
                 className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Restaurar esta versión"
+                title={isActual(idx) ? "Ya es la versión activa" : "Restaurar esta versión"}
               >
                 <RotateCcw className="size-3.5" />
                 {restoreId === v.id ? "Restaurando…" : "Restaurar"}
@@ -293,7 +293,7 @@ export function VersionHistory({ ideaId }: VersionHistoryProps) {
                 </span>
                 {selectedVersion.score !== null && (
                   <span className="text-sm font-semibold text-amber-400">
-                    {selectedVersion.score}/10
+                    {selectedVersion.score.toFixed(1)}/10
                   </span>
                 )}
               </div>
@@ -433,8 +433,9 @@ export function VersionHistory({ ideaId }: VersionHistoryProps) {
               </button>
               <button
                 onClick={() => handleRestore(selectedVersion.id)}
-                disabled={restoring}
+                disabled={restoring || versions[0]?.id === selectedVersion.id}
                 className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 shadow transition-colors hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                title={versions[0]?.id === selectedVersion.id ? "Ya es la versión activa" : "Restaurar esta versión"}
               >
                 <RotateCcw className="size-4" />
                 {restoring ? "Restaurando…" : "Restaurar versión"}

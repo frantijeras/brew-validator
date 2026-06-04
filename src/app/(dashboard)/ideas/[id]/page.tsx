@@ -551,14 +551,14 @@ export default function IdeaDetailPage() {
               {isRefining && (
                 <span className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium text-blue-400 bg-blue-500/10 border-blue-500/30">
                   <span className="size-1.5 rounded-full bg-blue-400 animate-pulse" />
-                  REFINING
+                  puliendo
                 </span>
               )}
 
               {/* 4. Score */}
               {idea.score !== null && (
                 <span className={`text-sm font-semibold tabular-nums ${getScoreColor(idea.score)}`}>
-                  {idea.score}/10
+                  {idea.score.toFixed(1)} / 10
                 </span>
               )}
             </div>

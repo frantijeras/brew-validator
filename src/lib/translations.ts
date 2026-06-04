@@ -1,29 +1,29 @@
 /** Mapeo de veredicto (DB) → etiqueta en español */
 export const VERDICT_LABELS: Record<string, string> = {
   GO: "Adelante",
-  PIVOT: "Redirige",
-  KILL: "Detén",
+  PIVOT: "Pulir idea",
+  KILL: "No viable",
   ITERATE: "Revisa",
   // Spanish equivalents (from agents)
   Adelante: "Adelante",
-  Redirige: "Redirige",
-  "Detén": "Detén",
+  "Pulir idea": "Pulir idea",
+  "No viable": "No viable",
   Revisa: "Revisa",
 };
 
 /** Mapeo de estado (DB) → etiqueta en español */
 export const STATUS_LABELS: Record<string, string> = {
-  GENERATING: "Generando",
-  DRAFT: "Borrador",
-  VALIDATING: "Validando",
-  COMPLETED: "Completado",
-  REFINING: "Refinando",
-  FAILED: "Falló",
+  GENERATING: "generando",
+  DRAFT: "borrador",
+  VALIDATING: "validando",
+  COMPLETED: "completada",
+  REFINING: "puliendo",
+  FAILED: "error",
   // Legacy
-  DONE: "Finalizado",
-  PENDING: "Pendiente",
-  RUNNING: "En progreso",
-  KILLED: "Cancelado",
+  DONE: "completada",
+  PENDING: "pendiente",
+  RUNNING: "en progreso",
+  KILLED: "cancelada",
 };
 
 /** @deprecated usar STATUS_LABELS */
@@ -33,9 +33,9 @@ export const VALIDATION_STATUS_LABELS = STATUS_LABELS;
 export const VERDICT_COLORS: Record<string, string> = {
   Adelante: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30",
   GO: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30",
-  Redirige: "text-amber-400 bg-amber-500/10 border-amber-500/30",
+  "Pulir idea": "text-amber-400 bg-amber-500/10 border-amber-500/30",
   PIVOT: "text-amber-400 bg-amber-500/10 border-amber-500/30",
-  "Detén": "text-red-400 bg-red-500/10 border-red-500/30",
+  "No viable": "text-red-400 bg-red-500/10 border-red-500/30",
   KILL: "text-red-400 bg-red-500/10 border-red-500/30",
   Revisa: "text-blue-400 bg-blue-500/10 border-blue-500/30",
   ITERATE: "text-blue-400 bg-blue-500/10 border-blue-500/30",

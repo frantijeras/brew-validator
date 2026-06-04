@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { updateProfile, changePassword, addUser } from "./actions";
+import { updateProfile, changePassword, addUser, saveAgentModels } from "./actions";
 
 interface UserData {
   id: string;
@@ -342,6 +342,8 @@ function AIModelSection() {
 
   function handleSave() {
     saveModelConfig(config);
+    // Also persist to server for bridge daemon
+    saveAgentModels(config).catch((err) => console.error("Failed to persist agent models:", err));
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   }

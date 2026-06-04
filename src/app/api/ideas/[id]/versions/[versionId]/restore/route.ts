@@ -19,6 +19,19 @@ export async function POST(
       );
     }
 
+    // Determine current (latest) version
+    const latestVersion = await prisma.ideaVersion.findFirst({
+      where: { ideaId: id },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (latestVersion && version.id === latestVersion.id) {
+      return NextResponse.json(
+        { error: "Esta versión ya está activa" },
+        { status: 400 }
+      );
+    }
+
     const updated = await prisma.idea.update({
       where: { id },
       data: {
