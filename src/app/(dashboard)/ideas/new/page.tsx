@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Dices, Target } from "lucide-react";
+import { Dices, Target, PencilLine } from "lucide-react";
 import { BusinessModelDropdown } from "@/components/business-model-dropdown";
 
 type Mode = "random" | "custom" | null;
@@ -76,30 +76,47 @@ export default function NewIdeaPage() {
         </div>
       )}
 
-      {/* ── Step 1: Choose mode (dropdown) ── */}
+      {/* ── Step 1: Choose mode (2 cards) ── */}
       {mode === null && !error && (
-        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-6">
-          <label
-            htmlFor="mode-select"
-            className="mb-3 block text-sm font-medium text-slate-300"
-          >
+        <div>
+          <h2 className="mb-2 text-base font-medium text-slate-300">
             ¿Cómo quieres generar tu idea?
-          </label>
-          <select
-            id="mode-select"
-            value=""
-            onChange={(e) => {
-              const val = e.target.value;
-              if (val === "random" || val === "custom") setMode(val);
-            }}
-            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-sm font-medium text-white transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 appearance-none cursor-pointer bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2394a3b8%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25rem] bg-[right_0.75rem_center] bg-no-repeat pr-10"
-          >
-            <option value="" disabled>
-              Selecciona un modo...
-            </option>
-            <option value="random">Idea aleatoria</option>
-            <option value="custom">Idea personalizada</option>
-          </select>
+          </h2>
+          <p className="mb-6 text-sm text-slate-500">
+            Elige el modo de generación. Luego podrás ajustar el tipo de negocio.
+          </p>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => setMode("random")}
+              className="group flex flex-col items-start gap-3 rounded-xl border border-slate-800 bg-slate-900/60 p-6 text-left transition-all hover:border-amber-500/50 hover:bg-slate-900"
+            >
+              <div className="rounded-lg bg-amber-500/10 p-2.5 text-amber-400 group-hover:bg-amber-500/20">
+                <Dices className="size-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-white">Idea aleatoria</h3>
+                <p className="mt-1 text-sm text-slate-400">
+                  La IA genera una idea a partir de tendencias de mercado actuales.
+                </p>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("custom")}
+              className="group flex flex-col items-start gap-3 rounded-xl border border-slate-800 bg-slate-900/60 p-6 text-left transition-all hover:border-amber-500/50 hover:bg-slate-900"
+            >
+              <div className="rounded-lg bg-amber-500/10 p-2.5 text-amber-400 group-hover:bg-amber-500/20">
+                <PencilLine className="size-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-white">Idea personalizada</h3>
+                <p className="mt-1 text-sm text-slate-400">
+                  Tú escribes la idea y la IA la estructura y mejora.
+                </p>
+              </div>
+            </button>
+          </div>
         </div>
       )}
 
