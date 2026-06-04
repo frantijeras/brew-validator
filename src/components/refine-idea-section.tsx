@@ -145,11 +145,13 @@ export default function RefineIdeaSection({
     if (initialized) return;
 
     const saved = loadRefineState(idea.id);
-    if (
+    // Restore any in-progress or meaningful state.
+    // "choice" with manualText means user was editing manually.
+    const hasSavedState =
       saved &&
-      saved.screen !== "choice" &&
-      saved.screen !== "applied"
-    ) {
+      (saved.screen !== "applied" &&
+        (saved.screen !== "choice" || !!saved.manualText?.trim()));
+    if (hasSavedState) {
       // Restore previous state
       setScreen(saved.screen);
       setActiveTab(saved.activeTab);
@@ -195,7 +197,9 @@ export default function RefineIdeaSection({
   // Persist state to localStorage
   useEffect(() => {
     if (!initialized) return;
-    if (screen === "choice" || screen === "applied") {
+    // Only clear when truly finished (applied screen).
+    // Keep state on "choice" screen to preserve manualText.
+    if (screen === "applied") {
       clearRefineState(idea.id);
       return;
     }
@@ -611,17 +615,17 @@ export default function RefineIdeaSection({
   // ── Render ──
 
   return (
-    <div className="mb-8 rounded-xl border border-amber-500/20 bg-slate-900/70 shadow-lg overflow-hidden">
+    <div className="mb-8 rounded-xl border border-amber-500/20 bg-slate-900/70 shadow-lg">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800 bg-slate-900/80">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800 bg-slate-900/80 rounded-t-xl">
         <div className="flex items-center gap-2.5">
-          <Sparkles className="size-4 text-amber-400" />
+          <Sparkles className="size-4 shrink-0 text-amber-400" />
           <h3 className="text-base font-semibold text-white">Pulir idea</h3>
         </div>
         <button
           onClick={handleCollapse}
           disabled={isProcessing(screen, isManualPolling, manualApplying, applying)}
-          className="rounded-md p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          className="shrink-0 rounded-md p-1.5 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           aria-label="Cerrar sección"
         >
           <X className="size-4" />
