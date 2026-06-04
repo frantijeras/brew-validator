@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { resolveModelForJobAgent } from "@/lib/agent-models";
 
 const AGENTS = ["skeptic", "advocate", "judge"];
 
@@ -36,25 +37,26 @@ export async function POST(
       }),
     ]);
 
-    // Create 3 PENDING jobs
-    const input = JSON.stringify({
+    // Create 3 PENDING jobs — each with its configured model from Settings
+    const baseInput = {
       title: idea.title,
       description: idea.description,
       targetUser: idea.targetUser,
       monetization: idea.monetization,
-    });
+    };
 
     const jobs = await Promise.all(
-      AGENTS.map((agentName) =>
-        prisma.job.create({
+      AGENTS.map(async (agentName) => {
+        const bridgeModel = await resolveModelForJobAgent(agentName);
+        return prisma.job.create({
           data: {
             ideaId: id,
             agentName,
             status: "PENDING",
-            input,
+            input: JSON.stringify({ ...baseInput, _bridgeModel: bridgeModel }),
           },
-        })
-      )
+        });
+      })
     );
 
     return NextResponse.json({

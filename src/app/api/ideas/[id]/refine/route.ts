@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { resolveModelForJobAgent } from "@/lib/agent-models";
 
 // ── Schema: manual mode with structured fields ──
 const manualFieldsSchema = z.object({
@@ -171,13 +172,16 @@ async function handleManualRawMode(
     rawText: input.rawText.trim(),
   };
 
+  // Resolve the model configured in Settings for the refiner agent
+  const bridgeModel = await resolveModelForJobAgent(REFINER_AGENT);
+
   // Create a job so the agent processes the raw text and generates refined fields
   const job = await prisma.job.create({
     data: {
       ideaId: idea.id,
       agentName: REFINER_AGENT,
       status: "PENDING",
-      input: JSON.stringify(jobInput),
+      input: JSON.stringify({ ...jobInput, _bridgeModel: bridgeModel }),
     },
   });
 
@@ -204,12 +208,15 @@ async function handleQuizPhase1(
     answers: [],
   };
 
+  // Resolve the model configured in Settings for the refiner agent
+  const bridgeModel = await resolveModelForJobAgent(REFINER_AGENT);
+
   const job = await prisma.job.create({
     data: {
       ideaId: idea.id,
       agentName: REFINER_AGENT,
       status: "PENDING",
-      input: JSON.stringify(jobInput),
+      input: JSON.stringify({ ...jobInput, _bridgeModel: bridgeModel }),
     },
   });
 
@@ -237,13 +244,16 @@ async function handleQuizPhase2(
     answers: input.answers,
   };
 
+  // Resolve the model configured in Settings for the refiner agent
+  const bridgeModel = await resolveModelForJobAgent(REFINER_AGENT);
+
   // Create a new job for phase 2 (with answers)
   const job = await prisma.job.create({
     data: {
       ideaId: idea.id,
       agentName: REFINER_AGENT,
       status: "PENDING",
-      input: JSON.stringify(jobInput),
+      input: JSON.stringify({ ...jobInput, _bridgeModel: bridgeModel }),
     },
   });
 

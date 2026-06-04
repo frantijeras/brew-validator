@@ -601,8 +601,8 @@ export default function RefineIdeaSection({
         </button>
       </div>
 
-      {/* Tabs — both visible, the active one highlighted */}
-      {screen === "choice" && (
+      {/* Tabs — only visible at the very start, before any action */}
+      {screen === "choice" && !manualText && questions.length === 0 && (
         <div className="flex border-b border-slate-800">
           <button
             onClick={() => setActiveTab("quiz")}

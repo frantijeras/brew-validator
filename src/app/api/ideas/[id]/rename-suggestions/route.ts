@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { resolveModelForJobAgent } from "@/lib/agent-models";
 
 const RENAMER_AGENT = "idea-renamer";
 
@@ -14,6 +15,9 @@ export async function POST(
     if (!idea) {
       return NextResponse.json({ error: "Idea no encontrada" }, { status: 404 });
     }
+
+    // Resolve the model configured in Settings for the renamer agent
+    const bridgeModel = await resolveModelForJobAgent(RENAMER_AGENT);
 
     // Create a PENDING job for the bridge daemon
     const jobInput = {
@@ -30,7 +34,7 @@ export async function POST(
         ideaId: idea.id,
         agentName: RENAMER_AGENT,
         status: "PENDING",
-        input: JSON.stringify(jobInput),
+        input: JSON.stringify({ ...jobInput, _bridgeModel: bridgeModel }),
       },
     });
 

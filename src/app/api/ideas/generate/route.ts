@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { BUSINESS_MODELS } from "@/lib/business-models";
+import { resolveModelForJobAgent } from "@/lib/agent-models";
 
 const generateIdeaSchema = z.discriminatedUnion("mode", [
   z.object({
@@ -85,13 +86,17 @@ export async function POST(req: NextRequest) {
       data: ideaData as Parameters<typeof prisma.idea.create>[0]["data"],
     });
 
+    // Resolve the model configured in Settings for this agent
+    const agentName = "idea-generator";
+    const bridgeModel = await resolveModelForJobAgent(agentName);
+
     // Create PENDING job for the idea-generator agent
     const job = await prisma.job.create({
       data: {
         ideaId: idea.id,
-        agentName: "idea-generator",
+        agentName,
         status: "PENDING",
-        input: JSON.stringify(jobInput),
+        input: JSON.stringify({ ...jobInput, _bridgeModel: bridgeModel }),
       },
     });
 
