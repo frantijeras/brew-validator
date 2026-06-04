@@ -13,6 +13,7 @@ import RenameModal from "@/components/rename-modal";
 import { getBadgeInfo } from "@/lib/translations";
 import { BUSINESS_MODELS } from "@/lib/business-models";
 import { generatePdf } from "@/lib/pdf-export";
+import { TextExpander } from "@/components/text-expander";
 
 interface IdeaData {
   id: string;
@@ -105,9 +106,13 @@ export default function IdeaDetailPage() {
     fetchIdea();
   }, [fetchIdea]);
 
-  // Polling when validating
+  // Polling when validating or when idea generation is in progress
+  const shouldPoll =
+    idea?.validationStatus === "RUNNING" ||
+    (idea?.status === "DRAFT" && idea?.validationStatus === "PENDING");
+
   useEffect(() => {
-    if (idea?.validationStatus === "RUNNING") {
+    if (shouldPoll) {
       pollRef.current = setInterval(fetchIdea, 3000);
       return () => {
         if (pollRef.current) clearInterval(pollRef.current);
@@ -116,18 +121,18 @@ export default function IdeaDetailPage() {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [idea?.validationStatus, fetchIdea]);
+  }, [shouldPoll, fetchIdea]);
 
   // Elapsed timer
   useEffect(() => {
-    if (idea?.validationStatus === "RUNNING") {
+    if (shouldPoll) {
       const interval = setInterval(() => {
         setElapsedSeconds((prev) => prev + 1);
       }, 1000);
       return () => clearInterval(interval);
     }
     setElapsedSeconds(0);
-  }, [idea?.validationStatus]);
+  }, [shouldPoll]);
 
   const isCompleted =
     idea?.validationStatus === "DONE" ||
@@ -246,6 +251,21 @@ export default function IdeaDetailPage() {
 
   // ── States ──
 
+  // Auto-open quiz modal if there's a saved quiz session for this idea
+  useEffect(() => {
+    if (!idea) return;
+    try {
+      const raw = sessionStorage.getItem("brew-refine-quiz");
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (saved && saved.ideaId === idea.id && saved.screen !== "choice" && saved.screen !== "applied") {
+        setShowRefineQuiz(true);
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }, [idea]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -333,7 +353,7 @@ export default function IdeaDetailPage() {
                   Archivada
                 </span>
               )}
-              {idea.validationStatus === "RUNNING" && (
+              {shouldPoll && (
                 <span className="text-sm text-amber-400 tabular-nums">
                   {elapsedStr}
                 </span>
@@ -396,7 +416,7 @@ export default function IdeaDetailPage() {
                     {/* Separator */}
                     <div className="my-1 border-t border-slate-700" />
 
-                    {/* Rename */}
+                    {/* Edit name */}
                     <button
                       onClick={() => {
                         setShowMenu(false);
@@ -405,7 +425,7 @@ export default function IdeaDetailPage() {
                       className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
                     >
                       <Pencil className="size-4 text-slate-400" />
-                      Renombrar
+                      Editar nombre
                     </button>
 
                     {/* Separator */}
@@ -519,23 +539,16 @@ export default function IdeaDetailPage() {
         <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">
           Idea original
         </h2>
-        <p className="text-sm text-slate-300 leading-relaxed">
-          {idea.originalIdea || idea.description}
-        </p>
-        <dl className="mt-4 grid gap-4 sm:grid-cols-3">
-          <div>
-            <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-              Usuario objetivo
-            </dt>
-            <dd className="mt-1 text-sm text-slate-300">{idea.targetUser}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-              Monetización
-            </dt>
-            <dd className="mt-1 text-sm text-slate-300">{idea.monetization}</dd>
-          </div>
-          <div>
+        <div className="mb-4">
+          <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">
+            Descripción
+          </dt>
+          <TextExpander text={idea.originalIdea || idea.description} />
+        </div>
+
+        <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Row 1: Created (full width on mobile, 1 col on desktop) */}
+          <div className="md:col-span-2">
             <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
               Creada
             </dt>
@@ -549,12 +562,34 @@ export default function IdeaDetailPage() {
               })}
             </dd>
           </div>
+
+          {/* Row 2: Usuario objetivo | Monetización */}
+          <div>
+            <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+              Usuario objetivo
+            </dt>
+            <dd className="mt-1">
+              <TextExpander text={idea.targetUser} />
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+              Monetización
+            </dt>
+            <dd className="mt-1">
+              <TextExpander text={idea.monetization} />
+            </dd>
+          </div>
+
+          {/* Row 3: Problema | Propuesta de valor */}
           {idea.problem && (
             <div>
               <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
                 Problema que resuelve
               </dt>
-              <dd className="mt-1 text-sm text-slate-300">{idea.problem}</dd>
+              <dd className="mt-1">
+                <TextExpander text={idea.problem} />
+              </dd>
             </div>
           )}
           {idea.valueProposition && (
@@ -562,7 +597,9 @@ export default function IdeaDetailPage() {
               <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
                 Propuesta de valor
               </dt>
-              <dd className="mt-1 text-sm text-slate-300">{idea.valueProposition}</dd>
+              <dd className="mt-1">
+                <TextExpander text={idea.valueProposition} />
+              </dd>
             </div>
           )}
         </dl>
@@ -643,9 +680,7 @@ export default function IdeaDetailPage() {
             <h2 className="text-lg font-semibold text-white mb-4">
               Descripción actual
             </h2>
-            <p className="text-sm text-slate-300 leading-relaxed">
-              {idea.description}
-            </p>
+            <TextExpander text={idea.description} />
           </div>
         )}
 

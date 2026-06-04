@@ -236,7 +236,7 @@ export function IdeaCard({
                     ) : null
                   )}
 
-                  {/* Renombrar */}
+                  {/* Edit name */}
                   <button
                     onClick={(e) => {
                       e.preventDefault();
@@ -247,7 +247,7 @@ export function IdeaCard({
                     className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
                   >
                     <Pencil className="size-4 text-slate-400" />
-                    Renombrar
+                    Editar nombre
                   </button>
 
                   {/* Separator */}

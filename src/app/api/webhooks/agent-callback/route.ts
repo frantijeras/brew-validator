@@ -116,19 +116,18 @@ export async function POST(req: NextRequest) {
       const agentStatus = (output.status as string) || "";
 
       if (agentStatus === "DONE") {
-        // Update the idea with refined data
-        const newTitle = (output.title as string) || "";
+        // Update the idea with refined data (NOT the title)
         const newDescription = (output.description as string) || "";
         const newProblem = (output.problem as string) || "";
         const newValueProposition = (output.valueProposition as string) || "";
         const newTargetUser = (output.targetUser as string) || "";
         const newMonetization = (output.monetization as string) || "";
 
-        if (newTitle && newDescription) {
+        if (newDescription) {
           // Save previous version before updating
           const currentIdea = await prisma.idea.findUnique({
             where: { id: job.ideaId },
-            select: { title: true, description: true, targetUser: true, monetization: true },
+            select: { title: true, description: true, problem: true, valueProposition: true, targetUser: true, monetization: true },
           });
           if (currentIdea) {
             await prisma.ideaVersion.create({
@@ -144,7 +143,6 @@ export async function POST(req: NextRequest) {
           }
 
           const updateData: Record<string, unknown> = {
-            title: newTitle,
             description: newDescription,
             targetUser: newTargetUser || "Por determinar",
             monetization: newMonetization || "Por determinar",

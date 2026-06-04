@@ -9,6 +9,7 @@ import {
   Bot,
   Edit3,
 } from "lucide-react";
+import { TextExpander } from "@/components/text-expander";
 
 // ── Types ──
 
@@ -831,17 +832,25 @@ function ComparisonCard({
           <span className="text-[10px] font-medium text-slate-600 uppercase tracking-wider">
             Antes
           </span>
-          <p className={`mt-1 text-sm text-slate-400 ${multiline ? "" : "truncate"}`}>
-            {before}
-          </p>
+          <div className="mt-1">
+            {multiline ? (
+              <TextExpander text={before} className="text-sm text-slate-400 leading-relaxed" />
+            ) : (
+              <p className="text-sm text-slate-400 truncate">{before || "—"}</p>
+            )}
+          </div>
         </div>
         <div className="p-3 bg-amber-500/[0.03]">
           <span className="text-[10px] font-medium text-amber-500/70 uppercase tracking-wider">
             Después
           </span>
-          <p className={`mt-1 text-sm text-slate-200 ${multiline ? "" : "truncate"}`}>
-            {after}
-          </p>
+          <div className="mt-1">
+            {multiline ? (
+              <TextExpander text={after} className="text-sm text-slate-200 leading-relaxed" />
+            ) : (
+              <p className="text-sm text-slate-200 truncate">{after || "—"}</p>
+            )}
+          </div>
         </div>
       </div>
     </div>

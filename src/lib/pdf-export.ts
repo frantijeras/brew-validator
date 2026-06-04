@@ -40,6 +40,13 @@ const MARGIN = 20;
 const PAGE_W = 210; // A4 mm
 const CONTENT_W = PAGE_W - MARGIN * 2;
 
+// Regex to match emojis and other problematic Unicode
+const EMOJI_REGEX = /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{200D}]/gu;
+
+function stripEmojis(text: string): string {
+  return text.replace(EMOJI_REGEX, "").replace(/\s+/g, " ").trim();
+}
+
 function agentLabel(name: string): string {
   switch (name) {
     case "skeptic":
@@ -56,14 +63,16 @@ function agentLabel(name: string): string {
 }
 
 function stripMarkdown(text: string): string {
-  return text
-    .replace(/#{1,6}\s+/g, "")
-    .replace(/\*{1,3}(.+?)\*{1,3}/g, "$1")
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .replace(/`([^`]+)`/g, "$1")
-    .replace(/^[-*+]\s+/gm, "• ")
-    .replace(/^>\s+/gm, "  ")
-    .trim();
+  return stripEmojis(
+    text
+      .replace(/#{1,6}\s+/g, "")
+      .replace(/\*{1,3}(.+?)\*{1,3}/g, "$1")
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/^[-*+]\s+/gm, "• ")
+      .replace(/^>\s+/gm, "  ")
+      .trim()
+  );
 }
 
 /* ── Main generator ── */
@@ -92,8 +101,9 @@ export function generatePdf(filename: string, data: ExportData): void {
   doc.setFontSize(20);
   doc.setTextColor(0, 0, 0);
 
-  // Wrap title
-  const titleLines = doc.splitTextToSize(data.title, CONTENT_W);
+  // Wrap title (clean emojis first)
+  const cleanTitle = stripEmojis(data.title);
+  const titleLines = doc.splitTextToSize(cleanTitle, CONTENT_W);
   checkSpace(6 + titleLines.length * 8);
   doc.text(titleLines, MARGIN, y);
   y += titleLines.length * 8 + 4;
@@ -102,8 +112,8 @@ export function generatePdf(filename: string, data: ExportData): void {
   doc.setFontSize(9);
   doc.setTextColor(100, 100, 100);
   const infoLines = [
-    `Modelo de negocio: ${data.businessModel}`,
-    `Score: ${data.score !== null ? `${data.score}/10` : "—"}  |  Veredicto: ${data.verdict ?? "—"}`,
+    `Modelo de negocio: ${stripEmojis(data.businessModel)}`,
+    `Score: ${data.score !== null ? `${data.score}/10` : "—"}  |  Veredicto: ${data.verdict ? stripEmojis(data.verdict) : "—"}`,
     `Creada: ${data.createdAt}`,
   ];
   for (const line of infoLines) {
@@ -131,7 +141,7 @@ export function generatePdf(filename: string, data: ExportData): void {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.setTextColor(50, 50, 50);
-  const descLines = doc.splitTextToSize(data.description, CONTENT_W);
+  const descLines = doc.splitTextToSize(stripEmojis(data.description), CONTENT_W);
   checkSpace(descLines.length * 5 + 4);
   doc.text(descLines, MARGIN, y);
   y += descLines.length * 5 + 6;
@@ -155,7 +165,7 @@ export function generatePdf(filename: string, data: ExportData): void {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(50, 50, 50);
-    const lines = doc.splitTextToSize(section.value, CONTENT_W);
+    const lines = doc.splitTextToSize(stripEmojis(section.value), CONTENT_W);
     checkSpace(lines.length * 4 + 3);
     doc.text(lines, MARGIN, y);
     y += lines.length * 4 + 5;
@@ -190,7 +200,7 @@ export function generatePdf(filename: string, data: ExportData): void {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
     doc.setTextColor(120, 120, 120);
-    doc.text(`${report.createdAt}${report.verdict ? `  ·  Veredicto: ${report.verdict}` : ""}`, MARGIN, y);
+    doc.text(`${report.createdAt}${report.verdict ? `  ·  Veredicto: ${stripEmojis(report.verdict)}` : ""}`, MARGIN, y);
     y += 6;
 
     const cleaned = stripMarkdown(report.content);
@@ -223,7 +233,7 @@ export function generatePdf(filename: string, data: ExportData): void {
     for (const v of data.versions) {
       checkSpace(5);
       doc.setTextColor(50, 50, 50);
-      doc.text(`• ${v.title} (${v.phase}) — ${v.createdAt}`, MARGIN, y);
+      doc.text(`• ${stripEmojis(v.title)} (${v.phase}) — ${v.createdAt}`, MARGIN, y);
       y += 5;
     }
   }
