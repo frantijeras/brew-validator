@@ -63,6 +63,7 @@ export default function IdeaDetailPage() {
   const [archPending, setArchPending] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const initiallyOpened = useRef(false);
   const [showRefineSection, setShowRefineSection] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -322,10 +323,16 @@ export default function IdeaDetailPage() {
 
   // ── States ──
 
-  // Auto-open refine section if idea is POLISHING or there's a saved session
+  // Auto-open refine section ONLY the first time the page loads with
+  // the idea in POLISHING. We use a ref to avoid re-opening after the
+  // user has explicitly closed the wizard (via X or after discarding
+  // the proposal). A "section collapsed" flag in localStorage tracks the
+  // user intent.
   useEffect(() => {
     if (!idea) return;
-    // Auto-open if idea is in POLISHING state
+    // First load? Auto-open if POLISHING or there's a saved session.
+    if (initiallyOpened.current) return;
+    initiallyOpened.current = true;
     if (idea.status === "POLISHING") {
       setShowRefineSection(true);
       return;
@@ -336,7 +343,8 @@ export default function IdeaDetailPage() {
       const saved = JSON.parse(raw);
       if (
         saved &&
-        saved.screen !== "choice"
+        saved.screen !== "choice" &&
+        saved.screen !== "applied"
       ) {
         setShowRefineSection(true);
       }
@@ -387,13 +395,10 @@ export default function IdeaDetailPage() {
     idea.validationStatus !== "RUNNING" && idea.validationStatus !== "DONE";
   const isDraft = idea.status === "DRAFT";
 
-  // Version badge: dynamic according to state (POLISHING / DRAFT / COMPLETED)
+  // Version badge: dynamic according to state (DRAFT / COMPLETED)
+  // POLISHING state uses the status badge (already shows "Puliendo")
   const versionBadge = (() => {
-    if (idea.status === "POLISHING") {
-      return { label: "Puliendo", color: "bg-blue-500/10 text-blue-400 border-blue-500/30" };
-    }
     if (!isCompleted) {
-      // Estado DRAFT
       return { label: "Borrador", color: "bg-slate-700/30 text-slate-400 border-slate-700" };
     }
     // Estado COMPLETED
@@ -401,12 +406,8 @@ export default function IdeaDetailPage() {
     return { label: phase ? phase.toUpperCase() : "V?", color: "bg-amber-500/10 text-amber-400 border-amber-500/30" };
   })();
 
-  // Explanatory text below the badge for DRAFT states
-  const versionSubtext = (() => {
-    if (idea.status === "POLISHING") return "Pulido en curso";
-    if (isCompleted) return null;
-    return null;
-  })();
+  // No subtext — the status badge (DRAFT / Puliendo / etc) already says enough
+  const versionSubtext: string | null = null;
 
   const formattedCreated = new Date(idea.createdAt).toLocaleDateString("es-ES", {
     day: "numeric",

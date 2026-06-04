@@ -4,11 +4,11 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   X,
   Check,
-  RotateCcw,
   Sparkles,
   Bot,
   Edit3,
   Zap,
+  XCircle,
 } from "lucide-react";
 
 // ── Derived processing states ──
@@ -577,9 +577,28 @@ export default function RefineIdeaSection({
     setError("");
     setIsManualPolling(false);
     setManualApplying(false);
-    // Preserve manualText so user can continue editing
-    // Keep activeTab on "manual" since we came from manual mode
-    setActiveTab("manual");
+    // Keep manualText so user can re-run refinement with same input
+    clearRefineState(idea.id);
+  }
+
+  // Discard the proposal entirely — clears the result AND localStorage,
+  // returns to the start screen. The idea stays in POLISHING (DB) so the
+  // user can start a fresh refinement round.
+  function handleDiscardProposal() {
+    if (pollRef.current) clearInterval(pollRef.current);
+    setPollingJobId(null);
+    setRefineResult(null);
+    setQuestions([]);
+    setAnswers({});
+    setCustomInputs({});
+    setShowCustom({});
+    setCurrentStep(0);
+    setManualText("");
+    setActiveTab("quiz");
+    setError("");
+    setIsManualPolling(false);
+    setManualApplying(false);
+    setScreen("choice");
     clearRefineState(idea.id);
   }
 
@@ -808,16 +827,32 @@ export default function RefineIdeaSection({
 
             {/* Navigation buttons */}
             <div className="mt-6 flex items-center justify-between">
-              {currentStep > 0 ? (
+              <div className="flex items-center gap-2">
+                {currentStep > 0 ? (
+                  <button
+                    onClick={handlePrev}
+                    className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-300 transition-all hover:border-slate-600 hover:bg-slate-700"
+                  >
+                    Anterior
+                  </button>
+                ) : (
+                  <div />
+                )}
                 <button
-                  onClick={handlePrev}
-                  className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-300 transition-all hover:border-slate-600 hover:bg-slate-700"
+                  onClick={() => {
+                    setQuestions([]);
+                    setAnswers({});
+                    setCustomInputs({});
+                    setShowCustom({});
+                    setCurrentStep(0);
+                    setError("");
+                    setScreen("choice");
+                  }}
+                  className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
                 >
-                  Anterior
+                  Descartar preguntas
                 </button>
-              ) : (
-                <div />
-              )}
+              </div>
 
               {currentStep < questions.length - 1 ? (
                 <button
@@ -855,6 +890,21 @@ export default function RefineIdeaSection({
         {/* ═══════════════════════════════════════════
             SCREEN: result — Before/After comparison
             ═══════════════════════════════════════════ */}
+        {screen === "result" && !refineResult && (
+          <div className="p-8 text-center">
+            <p className="text-sm text-slate-400 mb-4">
+              La propuesta se ha perdido. Esto puede pasar si recargaste la página justo cuando terminaba.
+            </p>
+            <button
+              onClick={handleDiscardProposal}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-300 shadow transition-all hover:border-slate-600 hover:bg-slate-700"
+            >
+              <XCircle className="size-4" />
+              Volver a empezar
+            </button>
+          </div>
+        )}
+
         {screen === "result" && refineResult && (
           <div>
             <div className="mb-4 flex items-center gap-2">
@@ -916,17 +966,11 @@ export default function RefineIdeaSection({
                 )}
               </button>
               <button
-                onClick={handleRestart}
+                onClick={handleDiscardProposal}
                 className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-300 shadow transition-all hover:border-slate-600 hover:bg-slate-700"
               >
-                <RotateCcw className="size-4" />
-                Volver a empezar
-              </button>
-              <button
-                onClick={handleDiscard}
-                className="text-sm text-slate-500 hover:text-slate-400 transition-colors"
-              >
-                Descartar
+                <XCircle className="size-4" />
+                Descartar propuesta
               </button>
             </div>
           </div>

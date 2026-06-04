@@ -118,28 +118,12 @@ export async function POST(req: NextRequest) {
       const agentStatus = (output.status as string) || "";
 
       if (agentStatus === "DONE") {
-        // Update idea in-place ONLY — do NOT create IdeaVersion.
-        // Versions are exclusively created after full validation runs.
-        const newDescription = (output.description as string) || "";
-        const newProblem = (output.problem as string) || "";
-        const newValueProposition = (output.valueProposition as string) || "";
-        const newTargetUser = (output.targetUser as string) || "";
-        const newMonetization = (output.monetization as string) || "";
-
-        if (newDescription) {
-          const updateData: Record<string, unknown> = {
-            description: newDescription,
-            targetUser: newTargetUser || "Por determinar",
-            monetization: newMonetization || "Por determinar",
-          };
-          if (newProblem) updateData.problem = newProblem;
-          if (newValueProposition) updateData.valueProposition = newValueProposition;
-
-          await prisma.idea.update({
-            where: { id: job.ideaId },
-            data: updateData,
-          });
-        }
+        // Refiner output is a PROPOSAL. The user reviews it in the
+        // wizard and decides whether to apply it. The refiner must
+        // never mutate the Idea fields directly — that is the job of
+        // POST /api/ideas/:id/refine/apply, called by the user.
+        // We just acknowledge the callback; the frontend reads the
+        // result from GET /api/ideas/:id/refine?jobId=... on next poll.
       }
 
       return NextResponse.json({ success: true });

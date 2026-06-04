@@ -9,7 +9,6 @@ const applyRefineSchema = z.object({
   valueProposition: z.string().optional(),
   targetUser: z.string().min(3),
   monetization: z.string().min(3),
-  suggestedBusinessModel: z.string().optional(),
 });
 
 /**
@@ -61,10 +60,6 @@ export async function POST(
       score: null,
       verdict: null,
     };
-
-    if (data.suggestedBusinessModel) {
-      updateData.businessModel = data.suggestedBusinessModel;
-    }
 
     // Clear polishSnapshot from metadata
     const existingMeta = (idea.metadata as Record<string, unknown>) || {};
