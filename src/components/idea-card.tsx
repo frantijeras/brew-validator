@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Heart, Archive, Trash2, Undo2, MoreHorizontal, Pencil } from "lucide-react";
-import { getScoreColor } from "@/lib/translations";
+import { getScoreColor, STATUS_COLORS, STATUS_LABELS } from "@/lib/translations";
 import { ConfirmModal } from "@/components/confirm-modal";
 
 import { BUSINESS_MODELS } from "@/lib/business-models";
@@ -293,9 +293,12 @@ export function IdeaCard({
             {isFavorite && <Heart className="size-3 text-red-400 shrink-0" fill="currentColor" />}
             {isArchived && <Archive className="size-3 text-amber-400 shrink-0" fill="currentColor" />}
           </span>
-          {/* Subtle status text */}
-          <span className="text-slate-500">
-            {idea.status === "GENERATING" ? "Generando" : idea.status === "DRAFT" ? "Borrador" : idea.status === "VALIDATING" ? "Validando" : idea.status === "COMPLETED" ? "Completada" : idea.status === "REFINING" ? "Puliendo" : idea.status === "FAILED" ? "Error" : ""}
+          {/* Status badge with color */}
+          <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[idea.status] ?? STATUS_COLORS["DRAFT"]}`}>
+            {idea.status === "GENERATING" || idea.status === "VALIDATING" || idea.status === "REFINING" ? (
+              <span className="size-1.5 rounded-full bg-current animate-pulse" />
+            ) : null}
+            {STATUS_LABELS[idea.status] ?? idea.status}
           </span>
         </div>
       </Link>

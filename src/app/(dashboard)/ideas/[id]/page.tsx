@@ -9,7 +9,7 @@ import { ReportViewer } from "@/components/report-viewer";
 import { ConfirmModal } from "@/components/confirm-modal";
 import RefineIdeaSection from "@/components/refine-idea-section";
 import { VersionHistory } from "@/components/version-history";
-import { getBadgeInfo, getScoreColor } from "@/lib/translations";
+import { getScoreColor, STATUS_LABELS, STATUS_COLORS } from "@/lib/translations";
 import { BUSINESS_MODELS } from "@/lib/business-models";
 import { generatePdf } from "@/lib/pdf-export";
 import { TextExpander } from "@/components/text-expander";
@@ -359,8 +359,6 @@ export default function IdeaDetailPage() {
     );
   }
 
-  const badgeInfo = getBadgeInfo(idea.verdict, idea.validationStatus, idea.status);
-
   const canValidate =
     idea.validationStatus !== "RUNNING" && idea.validationStatus !== "DONE";
 
@@ -526,21 +524,15 @@ export default function IdeaDetailPage() {
                 );
               })()}
 
-              {/* 3. Status badge */}
-              {badgeInfo.showSpinner && <Spinner />}
+              {/* 3. Status badge with color */}
               <span
-                className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium ${badgeInfo.color}`}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[idea.status] ?? STATUS_COLORS["DRAFT"]}`}
               >
-                {badgeInfo.label}
+                {(idea.status === "GENERATING" || idea.status === "VALIDATING" || idea.status === "REFINING" || isRefining) && (
+                  <span className="size-1.5 rounded-full bg-current animate-pulse" />
+                )}
+                {STATUS_LABELS[idea.status] ?? idea.status}
               </span>
-
-              {/* 3b. REFINING badge (visible when quiz is active inline) */}
-              {isRefining && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium text-blue-400 bg-blue-500/10 border-blue-500/30">
-                  <span className="size-1.5 rounded-full bg-blue-400 animate-pulse" />
-                  puliendo
-                </span>
-              )}
 
               {/* 4. Score */}
               {idea.score !== null && (

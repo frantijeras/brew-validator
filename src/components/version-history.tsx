@@ -238,34 +238,37 @@ export function VersionHistory({ ideaId }: VersionHistoryProps) {
                 })}
               </p>
             </div>
-            <div className="flex items-center gap-1.5 ml-4 shrink-0">
-              <button
-                onClick={() => setSelectedVersion(v)}
-                className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
-                title="Ver detalles"
-              >
-                <Eye className="size-3.5" />
-                Ver
-              </button>
-              <button
-                onClick={() => handleExportPdf(v)}
-                disabled={exportingId === v.id}
-                className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors disabled:opacity-50"
-                title="Exportar PDF"
-              >
-                <FileDown className="size-3.5" />
-                {exportingId === v.id ? "…" : "PDF"}
-              </button>
-              <button
-                onClick={() => handleRestore(v.id)}
-                disabled={restoring || isActual(idx)}
-                className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                title={isActual(idx) ? "Ya es la versión activa" : "Restaurar esta versión"}
-              >
-                <RotateCcw className="size-3.5" />
-                {restoreId === v.id ? "Restaurando…" : "Restaurar"}
-              </button>
-            </div>
+            {/* Action buttons — hidden for current version */}
+            {!isActual(idx) && (
+              <div className="flex items-center gap-1.5 ml-4 shrink-0">
+                <button
+                  onClick={() => setSelectedVersion(v)}
+                  className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+                  title="Ver detalles"
+                >
+                  <Eye className="size-3.5" />
+                  Ver
+                </button>
+                <button
+                  onClick={() => handleExportPdf(v)}
+                  disabled={exportingId === v.id}
+                  className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors disabled:opacity-50"
+                  title="Exportar PDF"
+                >
+                  <FileDown className="size-3.5" />
+                  {exportingId === v.id ? "…" : "PDF"}
+                </button>
+                <button
+                  onClick={() => handleRestore(v.id)}
+                  disabled={restoring}
+                  className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Restaurar esta versión"
+                >
+                  <RotateCcw className="size-3.5" />
+                  {restoreId === v.id ? "Restaurando…" : "Restaurar"}
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>
