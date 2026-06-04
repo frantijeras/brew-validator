@@ -246,7 +246,7 @@ export function generatePdf(filename: string, data: ExportData): void {
     doc.setFontSize(7);
     doc.setTextColor(150, 150, 150);
     doc.text(
-      `Brew Validator · Informe generado el ${new Date().toLocaleDateString("es-ES")}`,
+      `BrewIA Validator · Informe generado el ${new Date().toLocaleDateString("es-ES")}`,
       MARGIN,
       pageH - 8
     );

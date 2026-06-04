@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { updateProfile, changePassword, addUser } from "./actions";
 
 interface UserData {
@@ -31,6 +31,7 @@ export function SettingsForm({ user, users, isAdmin }: Props) {
     <div className="space-y-8">
       <ProfileSection user={user} />
       <PasswordSection />
+      <AIModelSection />
       {isAdmin && <UsersSection users={users} />}
     </div>
   );
@@ -257,6 +258,146 @@ function PasswordSection() {
   );
 }
 
+/* ── AI Model Section ── */
+
+const MODEL_OPTIONS = [
+  { value: "opencode-go/deepseek-v4-flash", label: "DeepSeek V4 Flash" },
+  { value: "opencode-go/deepseek-v4-pro", label: "DeepSeek V4 Pro" },
+  { value: "opencode-go/minimax-m3-free", label: "MiniMax M3 Free" },
+  { value: "opencode-go/kimi-k2.6", label: "Kimi K2.6" },
+  { value: "opencode-go/mimo-v2.5-free", label: "Mimo V2.5 Free" },
+  { value: "opencode-go/qwen3.6-plus-free", label: "Qwen 3.6 Plus Free" },
+  { value: "opencode-go/nemotron-3-super-free", label: "Nemotron 3 Super Free" },
+  { value: "opencode-go/big-pickle", label: "Big Pickle" },
+] as const;
+
+const DEFAULT_AGENT_MODELS: Record<string, string> = {
+  "generator": "opencode-go/deepseek-v4-flash",
+  "skeptic": "opencode-go/deepseek-v4-flash",
+  "defender": "opencode-go/deepseek-v4-flash",
+  "judge": "opencode-go/deepseek-v4-pro",
+  "refiner": "opencode-go/deepseek-v4-flash",
+};
+
+const AGENT_INFO: { id: string; name: string; description: string }[] = [
+  {
+    id: "generator",
+    name: "Generador de ideas",
+    description: "Propone nuevas ideas de negocio a partir de tendencias, mercados y necesidades detectadas.",
+  },
+  {
+    id: "skeptic",
+    name: "Validador (Escéptico)",
+    description: "Analiza la idea desde una perspectiva crítica, detectando riesgos, debilidades y puntos ciegos.",
+  },
+  {
+    id: "defender",
+    name: "Validador (Defensor)",
+    description: "Busca argumentos a favor, oportunidades de mercado y ventajas competitivas de la idea.",
+  },
+  {
+    id: "judge",
+    name: "Juez",
+    description: "Evalúa los argumentos de ambos validadores y emite un veredicto con puntuación final.",
+  },
+  {
+    id: "refiner",
+    name: "Refinador (QA)",
+    description: "Pule la idea final, mejora la redacción y asegura la calidad del resultado.",
+  },
+];
+
+const STORAGE_KEY = "brew-ia-agent-models";
+
+function loadModelConfig(): Record<string, string> {
+  if (typeof window === "undefined") return DEFAULT_AGENT_MODELS;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return DEFAULT_AGENT_MODELS;
+    const parsed = JSON.parse(raw) as Record<string, string>;
+    // Merge with defaults so that new agents always have a fallback
+    return { ...DEFAULT_AGENT_MODELS, ...parsed };
+  } catch {
+    return DEFAULT_AGENT_MODELS;
+  }
+}
+
+function saveModelConfig(config: Record<string, string>) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+}
+
+function AIModelSection() {
+  const [config, setConfig] = useState<Record<string, string>>(DEFAULT_AGENT_MODELS);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setConfig(loadModelConfig());
+  }, []);
+
+  function handleChange(agentId: string, model: string) {
+    setConfig((prev) => ({ ...prev, [agentId]: model }));
+    setSaved(false);
+  }
+
+  function handleSave() {
+    saveModelConfig(config);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  }
+
+  return (
+    <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
+      <h2 className="text-lg font-semibold text-white">Modelos de IA</h2>
+      <p className="mt-1 text-sm text-slate-400">
+        Asigna un modelo de lenguaje a cada agente del validador
+      </p>
+
+      <div className="mt-6 space-y-4">
+        {AGENT_INFO.map((agent) => (
+          <div
+            key={agent.id}
+            className="flex flex-col gap-3 rounded-lg border border-slate-800 bg-slate-900 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-white">{agent.name}</p>
+              <p className="mt-0.5 text-xs text-slate-400 leading-relaxed">
+                {agent.description}
+              </p>
+            </div>
+            <select
+              value={config[agent.id] ?? DEFAULT_AGENT_MODELS[agent.id]}
+              onChange={(e) => handleChange(agent.id, e.target.value)}
+              className="shrink-0 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+            >
+              {MODEL_OPTIONS.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-6 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={handleSave}
+          className="rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-400"
+        >
+          Guardar configuración
+        </button>
+        {saved && (
+          <span className="text-sm text-emerald-400 animate-in fade-in">
+            ✓ Guardado
+          </span>
+        )}
+      </div>
+    </section>
+  );
+}
+
 /* ── Users Section (Admin only) ── */
 
 function UsersSection({ users }: { users: ListedUser[] }) {
@@ -282,7 +423,7 @@ function UsersSection({ users }: { users: ListedUser[] }) {
     <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
       <h2 className="text-lg font-semibold text-white">Usuarios</h2>
       <p className="mt-1 text-sm text-slate-400">
-        Gestiona quién tiene acceso a Brew
+        Gestiona quién tiene acceso a BrewIA
       </p>
 
       {/* User list */}

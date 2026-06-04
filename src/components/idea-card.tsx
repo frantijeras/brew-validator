@@ -42,6 +42,8 @@ export function IdeaCard({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const [menuUpward, setMenuUpward] = useState(false);
 
   useEffect(() => {
     if (!showMenu) return;
@@ -114,7 +116,15 @@ export function IdeaCard({
   const openMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setShowMenu((prev) => !prev);
+    setShowMenu((prev) => {
+      if (!prev && menuButtonRef.current) {
+        const rect = menuButtonRef.current.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const menuHeight = 220;
+        setMenuUpward(spaceBelow < menuHeight);
+      }
+      return !prev;
+    });
   }, []);
 
   const closeMenu = useCallback(() => setShowMenu(false), []);
@@ -182,6 +192,7 @@ export function IdeaCard({
 
             <div className="relative" ref={menuRef}>
               <button
+                ref={menuButtonRef}
                 onClick={openMenu}
                 className="rounded-md p-1 leading-none transition-colors hover:bg-slate-800 text-slate-400 hover:text-slate-200"
                 title="Más opciones"
@@ -191,7 +202,12 @@ export function IdeaCard({
               </button>
 
               {showMenu && (
-                <div className="absolute right-0 top-full mt-1 z-40 w-48 rounded-lg border border-slate-700 bg-slate-800 shadow-xl py-1.5">
+                <div
+                  className={
+                    "absolute right-0 z-40 w-48 rounded-lg border border-slate-700 bg-slate-800 shadow-xl py-1.5 " +
+                    (menuUpward ? "bottom-full mb-1" : "top-full mt-1")
+                  }
+                >
                   <button
                     onClick={(e) => {
                       e.preventDefault();

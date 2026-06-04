@@ -11,9 +11,9 @@ export default async function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-slate-950">
       <div className="w-full max-w-sm space-y-8 px-4">
         {/* Logo */}
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex flex-col items-center gap-4">
           <svg
-            className="size-16 text-amber-400"
+            className="size-20 text-amber-400"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -21,14 +21,14 @@ export default async function LoginPage() {
             strokeLinecap="round"
             strokeLinejoin="round"
           >
-            <path d="M17 11h1a3 3 0 0 1 0 6h-1" />
-            <path d="M9 12v6" />
-            <path d="M13 12v6" />
-            <path d="M14 7.5c-1 0-1.44.5-3 .5s-2-.5-3-.5-1.72.5-2.5.5a2.5 2.5 0 0 1 0-5c.78 0 1.57.5 2.5.5S9.44 2 11 2s2 1.5 3 1.5 1.72-.5 2.5-.5a2.5 2.5 0 0 1 0 5c-.78 0-1.5-.5-2.5-.5Z" />
-            <path d="M5 8v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8" />
+            <path d="M6 4 C6 -1, 18 -1, 18 4" />
+            <path d="M4.5 5.5 L6 17 C6.6 20, 9 22, 12 22 C15 22, 17.4 20, 18 17 L19.5 5.5" />
+            <path d="M4 5.5 C4 6.5, 20 6.5, 20 5.5" strokeWidth="2" />
+            <circle cx="9" cy="10" r="1.2" />
+            <circle cx="14" cy="12" r="0.9" />
+            <circle cx="11" cy="14" r="1" />
           </svg>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Brew</h1>
-          <p className="text-sm text-slate-400">Validador de ideas</p>
+          <h1 className="text-3xl font-bold tracking-tight text-white">BrewIA</h1>
         </div>
 
         {/* Login form */}
