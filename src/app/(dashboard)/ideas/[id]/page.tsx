@@ -341,12 +341,25 @@ export default function IdeaDetailPage() {
     idea.validationStatus !== "RUNNING" && idea.validationStatus !== "DONE";
   const isDraft = idea.status === "DRAFT";
 
-  // Version badge: V0 if no versions yet (DRAFT / pre-validation), V1+ after validation
-  const hasVersions = (idea._versionCount ?? 0) > 0;
-  const versionLabel = hasVersions ? `V${idea._versionCount}` : "V0";
-  const versionColor = hasVersions
-    ? "text-blue-400 bg-blue-500/10 border-blue-500/30"
-    : "text-slate-400 bg-slate-500/10 border-slate-500/30";
+  // Version badge: dynamic according to state (DRAFT vs COMPLETED)
+  const versionBadge = (() => {
+    if (!isCompleted) {
+      // Estado DRAFT
+      if (idea._versionCount && idea._versionCount > 0) {
+        return { label: `Borrador (V${idea._versionCount} previa)`, color: "bg-slate-700/30 text-slate-400 border-slate-700" };
+      }
+      return { label: "Borrador", color: "bg-slate-700/30 text-slate-400 border-slate-700" };
+    }
+    // Estado COMPLETED
+    return { label: `V${idea._versionCount || 1}`, color: "bg-amber-500/10 text-amber-400 border-amber-500/30" };
+  })();
+
+  // Explanatory text below the badge for DRAFT states
+  const versionSubtext = isCompleted
+    ? null
+    : idea._versionCount && idea._versionCount > 0
+      ? `Validacion previa: V${idea._versionCount} · Pendiente de validar`
+      : "Borrador inicial";
 
   const formattedCreated = new Date(idea.createdAt).toLocaleDateString("es-ES", {
     day: "numeric",
@@ -484,11 +497,16 @@ export default function IdeaDetailPage() {
             {/* Badges: Version | Business type | Status | Score */}
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {/* 1. Version badge */}
-              <span
-                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${versionColor}`}
-              >
-                {versionLabel}
-              </span>
+              <div>
+                <span
+                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${versionBadge.color}`}
+                >
+                  {versionBadge.label}
+                </span>
+                {versionSubtext && (
+                  <p className="mt-1 text-xs text-slate-500">{versionSubtext}</p>
+                )}
+              </div>
 
               {/* 2. Business type badge */}
               {idea.businessModel && (() => {

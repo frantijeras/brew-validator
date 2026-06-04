@@ -32,6 +32,8 @@ export async function POST(
       return NextResponse.json({ error: "Idea no encontrada" }, { status: 404 });
     }
 
+    const bridgeModel = await resolveModelForJobAgent(REFINER_AGENT);
+
     const jobInput = {
       idea: {
         title: idea.title,
@@ -50,7 +52,7 @@ export async function POST(
         ideaId: idea.id,
         agentName: REFINER_AGENT,
         status: "PENDING",
-        input: JSON.stringify(jobInput),
+        input: JSON.stringify({ ...jobInput, _bridgeModel: bridgeModel }),
       },
     });
 
