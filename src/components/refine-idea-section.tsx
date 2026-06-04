@@ -8,6 +8,7 @@ import {
   Sparkles,
   Bot,
   Edit3,
+  Zap,
 } from "lucide-react";
 
 // ── Types ──
@@ -43,6 +44,7 @@ interface RefineIdeaSectionProps {
   idea: IdeaInput;
   onApplied: () => void;
   onCollapse: () => void;
+  onValidate: () => void;
 }
 
 type Screen = "choice" | "quiz-loading" | "quiz-questions" | "quiz-analyzing" | "result" | "applied";
@@ -92,6 +94,7 @@ export default function RefineIdeaSection({
   idea,
   onApplied,
   onCollapse,
+  onValidate,
 }: RefineIdeaSectionProps) {
   const [initialized, setInitialized] = useState(false);
   const [activeTab, setActiveTab] = useState<"quiz" | "manual">("quiz");
@@ -113,6 +116,7 @@ export default function RefineIdeaSection({
   // Manual mode
   const [manualText, setManualText] = useState("");
   const [isManualPolling, setIsManualPolling] = useState(false);
+  const [manualApplying, setManualApplying] = useState(false);
 
   // ── Restore or reset state on mount ──
   useEffect(() => {
@@ -368,7 +372,7 @@ export default function RefineIdeaSection({
   // ── Manual mode: start refinement with raw text ──
   async function handleManualSubmit() {
     if (!manualText.trim()) return;
-    setApplying(true);
+    setManualApplying(true);
     setError("");
     setIsManualPolling(false);
 
@@ -397,9 +401,8 @@ export default function RefineIdeaSection({
         setScreen("applied");
       }
     } catch (err) {
+      setManualApplying(false);
       setError(err instanceof Error ? err.message : "Error al procesar");
-    } finally {
-      setApplying(false);
     }
   }
 
@@ -443,6 +446,22 @@ export default function RefineIdeaSection({
     },
     [idea.id]
   );
+
+  // ── Go back to refinement choice from applied ──
+  function handleKeepRefining() {
+    setScreen("choice");
+    setQuestions([]);
+    setAnswers({});
+    setCustomInputs({});
+    setShowCustom({});
+    setPollingJobId(null);
+    setRefineResult(null);
+    setError("");
+    setManualText("");
+    setIsManualPolling(false);
+    setManualApplying(false);
+    clearQuizState();
+  }
 
   // ── Apply refined result ──
   async function handleApplyResult() {
@@ -492,6 +511,7 @@ export default function RefineIdeaSection({
     setError("");
     setManualText("");
     setIsManualPolling(false);
+    setManualApplying(false);
     clearQuizState();
   }
 
@@ -506,6 +526,7 @@ export default function RefineIdeaSection({
     setRefineResult(null);
     setError("");
     setIsManualPolling(false);
+    setManualApplying(false);
     // Preserve manualText so user can continue editing
     // Keep activeTab on "manual" since we came from manual mode
     setActiveTab("manual");
@@ -591,6 +612,14 @@ export default function RefineIdeaSection({
                   Generar preguntas con IA
                 </button>
               </div>
+            ) : isManualPolling || manualApplying ? (
+              <div className="flex flex-col items-center justify-center py-10 gap-4">
+                <Spinner />
+                <p className="text-sm text-slate-400">Analizando tu idea...</p>
+                <p className="text-xs text-slate-500 max-w-md text-center">
+                  La IA está refinando todos los campos basándose en tu texto
+                </p>
+              </div>
             ) : (
               <div>
                 <p className="text-sm text-slate-400 mb-4">
@@ -609,20 +638,11 @@ export default function RefineIdeaSection({
                 <div className="mt-4 flex items-center gap-3">
                   <button
                     onClick={handleManualSubmit}
-                    disabled={applying || !manualText.trim()}
+                    disabled={!manualText.trim()}
                     className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {applying ? (
-                      <>
-                        <Spinner />
-                        Procesando...
-                      </>
-                    ) : (
-                      <>
-                        <Bot className="size-4" />
-                        Mejorar con IA
-                      </>
-                    )}
+                    <Bot className="size-4" />
+                    Mejorar con IA
                   </button>
                 </div>
               </div>
@@ -731,12 +751,12 @@ export default function RefineIdeaSection({
         {/* ═══════════════════════════════════════════
             SCREEN: quiz-analyzing / manual-polling
             ═══════════════════════════════════════════ */}
-        {(screen === "quiz-analyzing" || isManualPolling) && (
+        {screen === "quiz-analyzing" && (
           <div className="flex flex-col items-center justify-center py-10 gap-4">
             <Spinner />
-            <p className="text-sm text-slate-400">Analizando respuestas...</p>
+            <p className="text-sm text-slate-400">Analizando tu idea...</p>
             <p className="text-xs text-slate-500 max-w-md text-center">
-              La IA está refinando tu idea basándose en la información proporcionada
+              La IA está refinando tu idea basándose en tus respuestas
             </p>
           </div>
         )}
@@ -838,17 +858,30 @@ export default function RefineIdeaSection({
               <Check className="size-6 text-emerald-400" />
             </div>
             <h4 className="text-lg font-semibold text-white mb-2">
-              Cambios aplicados correctamente
+              Cambios aplicados
             </h4>
-            <p className="text-sm text-slate-400 mb-6">
-              La idea ha sido actualizada con la versión refinada. Puedes usar &quot;Pulir idea&quot; de nuevo si quieres seguir mejorándola.
+            <p className="text-sm text-slate-400 mb-8">
+              La idea ha vuelto a estado Borrador. Los informes anteriores se han eliminado.
             </p>
-            <button
-              onClick={handleCollapse}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-300 shadow transition-all hover:border-slate-600 hover:bg-slate-700"
-            >
-              Cerrar
-            </button>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <button
+                onClick={() => {
+                  onValidate();
+                  handleCollapse();
+                }}
+                className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-3 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600"
+              >
+                <Zap className="size-4" />
+                Validar esta idea
+              </button>
+              <button
+                onClick={handleKeepRefining}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-300 shadow transition-all hover:border-slate-600 hover:bg-slate-700"
+              >
+                <Edit3 className="size-4" />
+                Seguir refinando
+              </button>
+            </div>
           </div>
         )}
       </div>

@@ -101,7 +101,7 @@ export async function POST(
   }
 }
 
-// ── Manual mode (structured fields): update idea directly + save IdeaVersion ──
+// ── Manual mode (structured fields): update idea directly, clean reports, reset to DRAFT ──
 async function handleManualMode(
   idea: { id: string; title: string; description: string; problem: string | null; valueProposition: string | null; targetUser: string; monetization: string },
   input: z.infer<typeof manualFieldsSchema>
@@ -121,7 +121,12 @@ async function handleManualMode(
     return NextResponse.json({ success: true, idea });
   }
 
-  // Save previous version
+  // Delete old reports before saving new version
+  await prisma.report.deleteMany({
+    where: { ideaId: idea.id },
+  });
+
+  // Save previous version as V0 snapshot
   await prisma.ideaVersion.create({
     data: {
       ideaId: idea.id,
@@ -133,10 +138,16 @@ async function handleManualMode(
     },
   });
 
-  // Update the idea
+  // Update the idea: apply new fields + reset to DRAFT
   const updated = await prisma.idea.update({
     where: { id: idea.id },
-    data: updateData,
+    data: {
+      ...updateData,
+      status: "DRAFT",
+      validationStatus: "PENDING",
+      score: null,
+      verdict: null,
+    },
   });
 
   return NextResponse.json({ success: true, idea: updated });

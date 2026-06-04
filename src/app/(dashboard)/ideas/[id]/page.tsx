@@ -339,6 +339,7 @@ export default function IdeaDetailPage() {
 
   const canValidate =
     idea.validationStatus !== "RUNNING" && idea.validationStatus !== "DONE";
+  const isDraft = idea.status === "DRAFT";
 
   // Determine version badge: V0 if no real version, otherwise V1, V2...
   // Real versions are only created after validation (_versionCount includes V0)
@@ -538,19 +539,19 @@ export default function IdeaDetailPage() {
                   ) : (
                     <>
                       <ZapIcon />
-                      Validar con IA
+                      {isDraft ? "Validar esta idea" : "Validar con IA"}
                     </>
                   )}
                 </button>
               )}
-              {/* Pulir idea — only enabled when COMPLETED */}
+              {/* Pulir idea — enabled when COMPLETED or DRAFT */}
               {!showRefineSection && (
                 <div className="relative inline-flex group">
                   <button
-                    onClick={() => idea.status === "COMPLETED" && setShowRefineSection(true)}
-                    disabled={idea.status !== "COMPLETED"}
+                    onClick={() => (idea.status === "COMPLETED" || idea.status === "DRAFT") && setShowRefineSection(true)}
+                    disabled={idea.status !== "COMPLETED" && idea.status !== "DRAFT"}
                     className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium shadow transition-all ${
-                      idea.status === "COMPLETED"
+                      idea.status === "COMPLETED" || idea.status === "DRAFT"
                         ? "border-amber-500/40 bg-amber-500/10 text-amber-400 hover:border-amber-400 hover:bg-amber-500/20 active:bg-amber-500/30"
                         : "border-slate-700 bg-slate-900/20 text-slate-600 cursor-not-allowed"
                     }`}
@@ -558,7 +559,7 @@ export default function IdeaDetailPage() {
                     <SparklesIcon />
                     Pulir idea
                   </button>
-                  {idea.status !== "COMPLETED" && (
+                  {idea.status !== "COMPLETED" && idea.status !== "DRAFT" && (
                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50">
                       <div className="rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-xs text-slate-300 shadow-xl whitespace-nowrap">
                         Valida la idea primero para poder pulirla
@@ -601,6 +602,7 @@ export default function IdeaDetailPage() {
           onApplied={() => {
             fetchIdea();
           }}
+          onValidate={handleValidate}
         />
       )}
 
@@ -792,8 +794,8 @@ export default function IdeaDetailPage() {
         </div>
       )}
 
-      {/* Reports */}
-      {idea.validationStatus === "DONE" && idea.reports.length > 0 && (() => {
+      {/* Reports — only when validation is done and not DRAFT */}
+      {idea.validationStatus === "DONE" && idea.reports.length > 0 && idea.status !== "DRAFT" && (() => {
         const reportDate = idea.reports[0]?.createdAt
           ? new Date(idea.reports[0].createdAt).toLocaleDateString("es-ES", {
               day: "2-digit",
