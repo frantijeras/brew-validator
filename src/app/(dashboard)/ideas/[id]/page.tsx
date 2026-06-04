@@ -572,6 +572,16 @@ export default function IdeaDetailPage() {
         </div>
       </div>
 
+      {/* Validation progress — sticky at top while running, always visible on mobile */}
+      {idea.validationStatus === "RUNNING" && (
+        <div className="sticky top-0 z-50 mb-8">
+          <ValidationProgress
+            validationStatus={idea.validationStatus}
+            reports={idea.reports}
+          />
+        </div>
+      )}
+
       {/* Inline Refine Section */}
       {showRefineSection && (
         <RefineIdeaSection
@@ -767,16 +777,6 @@ export default function IdeaDetailPage() {
           </div>
         </dl>
       </div>
-
-      {/* Validation progress — only while running, disappears when done */}
-      {idea.validationStatus === "RUNNING" && (
-        <div className="mb-8">
-          <ValidationProgress
-            validationStatus={idea.validationStatus}
-            reports={idea.reports}
-          />
-        </div>
-      )}
 
       {/* Reports — only when validation is done and not DRAFT */}
       {idea.validationStatus === "DONE" && idea.reports.length > 0 && idea.status !== "DRAFT" && (() => {

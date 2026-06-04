@@ -91,8 +91,8 @@ export function ReportViewer({ report }: ReportViewerProps) {
       {/* Content */}
       {open && (
         <div className="border-t border-slate-800 px-6 py-5">
-          {/* Tabla resumen de puntuación */}
-          {scorecard && scorecard.length > 0 && (
+          {/* Tabla resumen de puntuación — solo si NO es el juez */}
+          {scorecard && scorecard.length > 0 && report.agentName !== "judge" && (
             <div className="mb-6">
               <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
                 Puntuación

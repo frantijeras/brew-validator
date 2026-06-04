@@ -601,26 +601,31 @@ export default function RefineIdeaSection({
         </button>
       </div>
 
-      {/* Tabs — mutually exclusive: only the active tab button is visible */}
+      {/* Tabs — both visible, the active one highlighted */}
       {screen === "choice" && (
         <div className="flex border-b border-slate-800">
-          {activeTab === "quiz" ? (
-            <button
-              onClick={() => setActiveTab("manual")}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-amber-400 border-b-2 border-amber-400 bg-amber-500/5 transition-colors"
-            >
-              <Bot className="size-4" />
-              Responder preguntas
-            </button>
-          ) : (
-            <button
-              onClick={() => setActiveTab("quiz")}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-amber-400 border-b-2 border-amber-400 bg-amber-500/5 transition-colors"
-            >
-              <Edit3 className="size-4" />
-              Redactar manualmente
-            </button>
-          )}
+          <button
+            onClick={() => setActiveTab("quiz")}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === "quiz"
+                ? "text-amber-400 border-amber-400 bg-amber-500/5"
+                : "text-slate-400 border-transparent hover:text-slate-200"
+            }`}
+          >
+            <Bot className="size-4" />
+            Responder preguntas
+          </button>
+          <button
+            onClick={() => setActiveTab("manual")}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === "manual"
+                ? "text-amber-400 border-amber-400 bg-amber-500/5"
+                : "text-slate-400 border-transparent hover:text-slate-200"
+            }`}
+          >
+            <Edit3 className="size-4" />
+            Redactar manualmente
+          </button>
         </div>
       )}
 
