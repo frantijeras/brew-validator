@@ -154,7 +154,8 @@ export async function POST(req: NextRequest) {
             const existingVersions = await prisma.ideaVersion.count({
               where: { ideaId: job.ideaId },
             });
-            const versionPhase = `v${existingVersions + 1}`;
+            // existingVersions includes V0, so the next version number = existingVersions
+            const versionPhase = `v${existingVersions}`;
 
             await prisma.ideaVersion.create({
               data: {
@@ -264,7 +265,8 @@ export async function POST(req: NextRequest) {
         // If the idea already had a score (revalidation), save current state as a version first
         // If score is null (first validation), skip saving snapshot and just create V1 with new data
         if (currentIdea.score !== null) {
-          const versionPhase = `v${existingVersions + 1}`;
+          // existingVersions includes V0, so the next version number = existingVersions (not +1)
+          const versionPhase = `v${existingVersions}`;
 
           const reportsForSnapshot = allReports.map((r) => ({
             agentName: r.agentName,
@@ -323,7 +325,7 @@ export async function POST(req: NextRequest) {
                 score = numericValues.reduce((sum, v) => sum + v, 0) / numericValues.length;
               }
             }
-            if (score !== null) updateData.score = Math.round(score * 10) / 10;
+            if (score !== null) updateData.score = parseFloat(Number(score).toFixed(1));
           } catch {
             // ignore
           }

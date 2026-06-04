@@ -97,7 +97,8 @@ export function VersionHistory({ ideaId }: VersionHistoryProps) {
     }
   }
 
-  async function handleExportPdf(version: VersionData) {
+  async function handleExportPdf(version: VersionData, e?: React.MouseEvent) {
+    if (e) e.stopPropagation();
     setExportingId(version.id);
     try {
       const res = await fetch(`/api/ideas/${ideaId}`, {
@@ -111,17 +112,20 @@ export function VersionHistory({ ideaId }: VersionHistoryProps) {
         ...idea,
         title: version.title,
         description: version.description,
-        problem: version.problem,
-        valueProposition: version.valueProposition,
+        problem: version.problem || "",
+        valueProposition: version.valueProposition || "",
         targetUser: version.targetUser,
         monetization: version.monetization,
         score: version.score,
         verdict: version.verdict,
+        businessModel: idea.businessModel || "No definido",
+        versions: idea.versions || [],
         reports: (version.reportsSnapshot || []).map((r) => ({
           agentName: r.agentName,
           title: r.title,
           content: r.content,
           verdict: r.verdict,
+          scorecard: r.scorecard,
           createdAt: r.createdAt,
         })),
         versionPhase: version.phase,
@@ -252,7 +256,7 @@ export function VersionHistory({ ideaId }: VersionHistoryProps) {
                   Ver
                 </button>
                 <button
-                  onClick={() => handleExportPdf(v)}
+                  onClick={(e) => handleExportPdf(v, e)}
                   disabled={exportingId === v.id}
                   className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors disabled:opacity-50"
                   title="Exportar PDF"
@@ -429,7 +433,7 @@ export function VersionHistory({ ideaId }: VersionHistoryProps) {
                 Cerrar
               </button>
               <button
-                onClick={() => handleExportPdf(selectedVersion)}
+                onClick={(e) => handleExportPdf(selectedVersion, e)}
                 disabled={exportingId === selectedVersion.id}
                 className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 hover:border-slate-600 hover:text-slate-200 transition-colors disabled:opacity-50"
               >

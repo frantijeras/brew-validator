@@ -8,7 +8,6 @@ import {
   Sparkles,
   Bot,
   Edit3,
-  RefreshCw,
 } from "lucide-react";
 
 // ── Types ──
@@ -46,7 +45,7 @@ interface RefineIdeaSectionProps {
   onCollapse: () => void;
 }
 
-type Screen = "choice" | "quiz-loading" | "quiz-questions" | "quiz-analyzing" | "result" | "applied-revalidate";
+type Screen = "choice" | "quiz-loading" | "quiz-questions" | "quiz-analyzing" | "result" | "applied";
 
 const QUIZ_STORAGE_KEY = "brew-refine-quiz";
 
@@ -115,9 +114,6 @@ export default function RefineIdeaSection({
   const [manualText, setManualText] = useState("");
   const [isManualPolling, setIsManualPolling] = useState(false);
 
-  // Revalidation
-  const [revalidating, setRevalidating] = useState(false);
-
   // ── Restore or reset state on mount ──
   useEffect(() => {
     if (initialized) return;
@@ -127,7 +123,7 @@ export default function RefineIdeaSection({
       saved &&
       saved.ideaId === idea.id &&
       saved.screen !== "choice" &&
-      saved.screen !== "applied-revalidate"
+      saved.screen !== "applied"
     ) {
       // Restore previous quiz state
       setScreen(saved.screen);
@@ -169,7 +165,7 @@ export default function RefineIdeaSection({
   // Persist quiz state to sessionStorage
   useEffect(() => {
     if (!initialized) return;
-    if (screen === "choice" || screen === "applied-revalidate") {
+    if (screen === "choice" || screen === "applied") {
       clearQuizState();
       return;
     }
@@ -398,7 +394,7 @@ export default function RefineIdeaSection({
         startManualResultPolling(data.jobId);
       } else if (data.success) {
         // Direct update (no agent job)
-        setScreen("applied-revalidate");
+        setScreen("applied");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al procesar");
@@ -476,37 +472,12 @@ export default function RefineIdeaSection({
         throw new Error(data.error || "Error al aplicar cambios");
       }
 
-      setScreen("applied-revalidate");
+      setScreen("applied");
       onApplied();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al aplicar cambios");
     } finally {
       setApplying(false);
-    }
-  }
-
-  // ── Revalidate ──
-  async function handleRevalidate() {
-    setRevalidating(true);
-    setError("");
-
-    try {
-      const res = await fetch(`/api/ideas/${idea.id}/validate`, {
-        method: "POST",
-        credentials: "same-origin",
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Error al revalidar");
-      }
-
-      onApplied(); // Trigger parent refresh
-      handleCollapse(); // Collapse the section
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al revalidar");
-    } finally {
-      setRevalidating(false);
     }
   }
 
@@ -859,9 +830,9 @@ export default function RefineIdeaSection({
         )}
 
         {/* ═══════════════════════════════════════════
-            SCREEN: applied-revalidate
+            SCREEN: applied
             ═══════════════════════════════════════════ */}
-        {screen === "applied-revalidate" && (
+        {screen === "applied" && (
           <div className="text-center py-6">
             <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-emerald-500/10">
               <Check className="size-6 text-emerald-400" />
@@ -870,33 +841,14 @@ export default function RefineIdeaSection({
               Cambios aplicados correctamente
             </h4>
             <p className="text-sm text-slate-400 mb-6">
-              La idea ha sido actualizada con la versión refinada.
+              La idea ha sido actualizada con la versión refinada. Puedes usar &quot;Pulir idea&quot; de nuevo si quieres seguir mejorándola.
             </p>
-            <div className="flex flex-col items-center gap-3">
-              <button
-                onClick={handleRevalidate}
-                disabled={revalidating}
-                className="inline-flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm font-medium text-amber-400 transition-all hover:border-amber-400 hover:bg-amber-500/20 active:bg-amber-500/30 disabled:opacity-50"
-              >
-                {revalidating ? (
-                  <>
-                    <Spinner />
-                    Revalidando...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="size-4" />
-                    ¿Quieres revalidar la idea?
-                  </>
-                )}
-              </button>
-              <button
-                onClick={handleCollapse}
-                className="text-sm text-slate-500 hover:text-slate-400 transition-colors"
-              >
-                Cerrar
-              </button>
-            </div>
+            <button
+              onClick={handleCollapse}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-300 shadow transition-all hover:border-slate-600 hover:bg-slate-700"
+            >
+              Cerrar
+            </button>
           </div>
         )}
       </div>

@@ -68,7 +68,7 @@ model Idea {
   status           String   @default("DRAFT")
   validationStatus String   @default("PENDING")
   verdict          String?
-  score            Int?
+  score            Float?
   businessModel    String? // SaaS, Marketplace, E-commerce, App móvil, Plataforma, Negocio local, Servicios, Contenido/Media, Hardware/IoT, API/Infra, Impacto social, Otro
   originalIdea     String?
   isArchived       Boolean  @default(false)
@@ -121,7 +121,7 @@ model IdeaVersion {
   targetUser       String
   monetization     String
   phase            String   @default("v0")
-  score            Int?
+  score            Float?
   verdict          String?
   reportsSnapshot  Json?
   createdAt        DateTime @default(now())

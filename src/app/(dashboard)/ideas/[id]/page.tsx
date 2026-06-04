@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Heart, Archive, Trash2, Undo2, MoreHorizontal, Pencil, FileDown, RefreshCw, Save, X } from "lucide-react";
+import { Heart, Archive, Trash2, Undo2, MoreHorizontal, Pencil, FileDown, Save, X } from "lucide-react";
 import { ValidationProgress } from "@/components/validation-progress";
 import { ReportViewer } from "@/components/report-viewer";
 import { ConfirmModal } from "@/components/confirm-modal";
@@ -56,7 +56,6 @@ export default function IdeaDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [validating, setValidating] = useState(false);
-  const [revalidating, setRevalidating] = useState(false);
   const [apiError, setApiError] = useState("");
   const [favPending, setFavPending] = useState(false);
   const [archPending, setArchPending] = useState(false);
@@ -182,26 +181,6 @@ export default function IdeaDetailPage() {
     }
   }
 
-  async function handleRevalidate() {
-    setRevalidating(true);
-    setApiError("");
-    try {
-      const res = await fetch(`/api/ideas/${ideaId}/validate`, {
-        method: "POST",
-        credentials: "same-origin",
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Error al revalidar");
-      }
-      await fetchIdea();
-    } catch (err) {
-      setApiError(err instanceof Error ? err.message : "Error");
-    } finally {
-      setRevalidating(false);
-    }
-  }
-
   async function toggleFavorite() {
     if (!idea || favPending) return;
     setFavPending(true);
@@ -311,8 +290,7 @@ export default function IdeaDetailPage() {
       if (
         saved &&
         saved.ideaId === idea.id &&
-        saved.screen !== "choice" &&
-        saved.screen !== "applied-revalidate"
+        saved.screen !== "choice"
       ) {
         setShowRefineSection(true);
       }
@@ -330,8 +308,7 @@ export default function IdeaDetailPage() {
       return (
         saved &&
         saved.ideaId === ideaId &&
-        saved.screen !== "choice" &&
-        saved.screen !== "applied-revalidate"
+        saved.screen !== "choice"
       );
     } catch {
       return false;
@@ -597,25 +574,6 @@ export default function IdeaDetailPage() {
                 <FileDown className="size-4" />
                 Exportar informe
               </button>
-              {(idea.status === "DONE" || idea.status === "COMPLETED" || idea.status === "KILLED" || idea.validationStatus === "DONE" || idea.validationStatus === "FAILED") && (
-                <button
-                  onClick={handleRevalidate}
-                  disabled={revalidating}
-                  className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900/60 px-4 py-2.5 text-sm font-medium text-slate-300 shadow transition-all hover:border-slate-600 hover:text-slate-200 active:bg-slate-800 disabled:opacity-50"
-                >
-                  {revalidating ? (
-                    <>
-                      <Spinner />
-                      Revalidando…
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="size-4" />
-                      Revalidar idea
-                    </>
-                  )}
-                </button>
-              )}
             </div>
 
             {apiError && (
