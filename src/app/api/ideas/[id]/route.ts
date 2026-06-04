@@ -58,9 +58,12 @@ export async function PATCH(
     const body = await req.json();
     const data = updateIdeaSchema.parse(body);
 
+    // Cast status to IdeaStatus if present
+    const updateData: Record<string, unknown> = { ...data };
+
     const idea = await prisma.idea.update({
       where: { id },
-      data,
+      data: updateData as Record<string, unknown>,
     });
 
     return NextResponse.json(idea);
