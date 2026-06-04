@@ -524,6 +524,23 @@ export default function RefineIdeaSection({
     clearQuizState();
   }
 
+  // Go back to editing mode (discard comparison, keep text and tab)
+  function handleDiscard() {
+    setScreen("choice");
+    setQuestions([]);
+    setAnswers({});
+    setCustomInputs({});
+    setShowCustom({});
+    setPollingJobId(null);
+    setRefineResult(null);
+    setError("");
+    setIsManualPolling(false);
+    // Preserve manualText so user can continue editing
+    // Keep activeTab on "manual" since we came from manual mode
+    setActiveTab("manual");
+    clearQuizState();
+  }
+
   function handleCollapse() {
     clearQuizState();
     onCollapse();
@@ -631,8 +648,8 @@ export default function RefineIdeaSection({
                       </>
                     ) : (
                       <>
-                        <Check className="size-4" />
-                        Enviar a IA
+                        <Bot className="size-4" />
+                        Mejorar con IA
                       </>
                     )}
                   </button>
@@ -820,7 +837,7 @@ export default function RefineIdeaSection({
                 ) : (
                   <>
                     <Check className="size-4" />
-                    Aplicar cambios
+                    Aceptar y aplicar
                   </>
                 )}
               </button>
@@ -832,7 +849,7 @@ export default function RefineIdeaSection({
                 Volver a empezar
               </button>
               <button
-                onClick={handleRestart}
+                onClick={handleDiscard}
                 className="text-sm text-slate-500 hover:text-slate-400 transition-colors"
               >
                 Descartar
@@ -850,7 +867,7 @@ export default function RefineIdeaSection({
               <Check className="size-6 text-emerald-400" />
             </div>
             <h4 className="text-lg font-semibold text-white mb-2">
-              ✅ Cambios aplicados correctamente
+              Cambios aplicados correctamente
             </h4>
             <p className="text-sm text-slate-400 mb-6">
               La idea ha sido actualizada con la versión refinada.

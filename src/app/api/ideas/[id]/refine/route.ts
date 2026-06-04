@@ -37,10 +37,13 @@ const quizAnswersSchema = z.object({
   ).min(1, "Debe incluir al menos una respuesta"),
 });
 
+// WARNING: order matters! More-specific schemas MUST come before less-specific ones.
+// manualRawSchema (requires rawText) before manualFieldsSchema (all optional).
+// quizAnswersSchema (requires answers[]) before quizStartSchema (no extra fields).
 const refineSchema = z.union([
-  manualFieldsSchema,
   manualRawSchema,
   quizAnswersSchema,
+  manualFieldsSchema,
   quizStartSchema,
 ]);
 
