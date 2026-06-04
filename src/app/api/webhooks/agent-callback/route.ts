@@ -127,17 +127,26 @@ export async function POST(req: NextRequest) {
           // Save previous version before updating
           const currentIdea = await prisma.idea.findUnique({
             where: { id: job.ideaId },
-            select: { title: true, description: true, problem: true, valueProposition: true, targetUser: true, monetization: true },
+            select: { title: true, description: true, problem: true, valueProposition: true, targetUser: true, monetization: true, score: true, verdict: true },
           });
           if (currentIdea) {
+            const existingVersions = await prisma.ideaVersion.count({
+              where: { ideaId: job.ideaId },
+            });
+            const versionPhase = `v${existingVersions + 1}`;
+
             await prisma.ideaVersion.create({
               data: {
                 ideaId: job.ideaId,
                 title: currentIdea.title,
                 description: currentIdea.description,
+                problem: currentIdea.problem,
+                valueProposition: currentIdea.valueProposition,
                 targetUser: currentIdea.targetUser,
                 monetization: currentIdea.monetization,
-                phase: "pre-validation",
+                phase: versionPhase,
+                score: currentIdea.score,
+                verdict: currentIdea.verdict,
               },
             });
           }
@@ -215,6 +224,49 @@ export async function POST(req: NextRequest) {
       const allReports = await prisma.report.findMany({
         where: { ideaId: job.ideaId },
       });
+
+      // Get current idea state to snapshot BEFORE updating
+      const currentIdea = await prisma.idea.findUnique({
+        where: { id: job.ideaId },
+        select: {
+          title: true, description: true, problem: true, valueProposition: true,
+          targetUser: true, monetization: true, score: true, verdict: true,
+        },
+      });
+
+      // Determine version number
+      const existingVersions = await prisma.ideaVersion.count({
+        where: { ideaId: job.ideaId },
+      });
+      const versionPhase = `v${existingVersions + 1}`;
+
+      // Save snapshot of current state as IdeaVersion BEFORE updating
+      if (currentIdea) {
+        const reportsForSnapshot = allReports.map((r) => ({
+          agentName: r.agentName,
+          title: r.title,
+          content: r.content,
+          verdict: r.verdict,
+          scorecard: r.scorecard,
+          createdAt: r.createdAt,
+        }));
+
+        await prisma.ideaVersion.create({
+          data: {
+            ideaId: job.ideaId,
+            title: currentIdea.title,
+            description: currentIdea.description,
+            problem: currentIdea.problem,
+            valueProposition: currentIdea.valueProposition,
+            targetUser: currentIdea.targetUser,
+            monetization: currentIdea.monetization,
+            phase: versionPhase,
+            score: currentIdea.score,
+            verdict: currentIdea.verdict,
+            reportsSnapshot: reportsForSnapshot.length > 0 ? reportsForSnapshot : undefined,
+          },
+        });
+      }
 
       const judgeReport = allReports.find(r => r.agentName === "judge");
       const judgeJob = await prisma.job.findFirst({

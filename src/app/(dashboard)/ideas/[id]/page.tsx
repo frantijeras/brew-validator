@@ -407,17 +407,6 @@ export default function IdeaDetailPage() {
                 {idea.title}
               </h1>
 
-              {!isEditing && (
-                <button
-                  onClick={enterEditMode}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 hover:border-slate-600 hover:bg-slate-800 transition-colors"
-                  title="Editar idea"
-                >
-                  <Pencil className="size-3.5" />
-                  Editar
-                </button>
-              )}
-
               {idea.isArchived && (
                 <span className="inline-block rounded-full border px-2.5 py-0.5 text-xs font-medium text-amber-400 bg-amber-500/10 border-amber-500/30">
                   Archivada
@@ -480,6 +469,20 @@ export default function IdeaDetailPage() {
 
                     {/* Separator */}
                     <div className="my-1 border-t border-slate-700" />
+
+                    {/* Edit idea — only when DRAFT */}
+                    {idea.status === "DRAFT" && (
+                      <button
+                        onClick={() => {
+                          setShowMenu(false);
+                          enterEditMode();
+                        }}
+                        className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
+                      >
+                        <Pencil className="size-4 text-slate-400" />
+                        Editar idea
+                      </button>
+                    )}
 
                     {/* Edit name */}
                     <button
@@ -713,7 +716,27 @@ export default function IdeaDetailPage() {
           </div>
         ) : null}
 
-        {/* Description */}
+        {/* Row 1: Creada | Actualizada */}
+        <dl className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+              Creada
+            </dt>
+            <dd className="mt-1 text-sm text-slate-300">
+              {formattedCreated}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+              Actualizada
+            </dt>
+            <dd className="mt-1 text-sm text-slate-300">
+              {formattedUpdated}
+            </dd>
+          </div>
+        </dl>
+
+        {/* Row 2: Descripción */}
         <div className="mb-4">
           <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">
             Descripción
@@ -731,26 +754,9 @@ export default function IdeaDetailPage() {
           )}
         </div>
 
+        {/* Row 3+4: Usuario objetivo | Monetización + Problema | Propuesta de valor */}
         <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Row: Creada | Actualizada */}
-          <div>
-            <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-              Creada
-            </dt>
-            <dd className="mt-1 text-sm text-slate-300">
-              {formattedCreated}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-              Actualizada
-            </dt>
-            <dd className="mt-1 text-sm text-slate-300">
-              {formattedUpdated}
-            </dd>
-          </div>
-
-          {/* Row: Usuario objetivo | Monetización */}
+          {/* Usuario objetivo | Monetización */}
           <div>
             <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
               Usuario objetivo
@@ -786,7 +792,7 @@ export default function IdeaDetailPage() {
             )}
           </div>
 
-          {/* Row: Problema | Propuesta de valor */}
+          {/* Problema | Propuesta de valor */}
           <div>
             <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
               Problema que resuelve

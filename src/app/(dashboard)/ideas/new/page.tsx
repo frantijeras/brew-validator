@@ -130,10 +130,10 @@ export default function NewIdeaPage() {
           </p>
 
           <div className="mt-6 text-left">
-            <p className="mb-2 text-xs font-medium text-slate-400">
+            <p className="mb-3 text-xs font-medium text-slate-400">
               Tipo de idea:
             </p>
-            <BusinessModelChips
+            <BusinessModelSelector
               selected={selectedModel}
               onChange={setSelectedModel}
             />
@@ -240,10 +240,10 @@ function CustomForm({
 
         {/* Modelo de negocio selector */}
         <div className="mb-4">
-          <p className="mb-2 text-xs font-medium text-slate-400">
+          <p className="mb-3 text-xs font-medium text-slate-400">
             Modelo de negocio:
           </p>
-          <BusinessModelChips
+          <BusinessModelSelector
             selected={selectedModel}
             onChange={setSelectedModel}
           />
@@ -311,9 +311,9 @@ function CustomForm({
   );
 }
 
-/* ── Business Model Chips ── */
+/* ── Business Model Card Selector ── */
 
-function BusinessModelChips({
+function BusinessModelSelector({
   selected,
   onChange,
 }: {
@@ -321,37 +321,61 @@ function BusinessModelChips({
   onChange: (v: string) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="space-y-3">
+      {/* "Cualquiera" card */}
       <button
         type="button"
         onClick={() => onChange("")}
-        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+        className={`w-full text-left rounded-xl border px-4 py-3 transition-all ${
           selected === ""
-            ? "bg-amber-500/15 border-amber-500/40 text-amber-400"
-            : "border-slate-700 bg-slate-900/60 text-slate-400 hover:border-slate-600 hover:text-slate-300"
+            ? "border-amber-500/50 bg-amber-500/10 ring-1 ring-amber-500/30"
+            : "border-slate-700 bg-slate-900/60 hover:border-slate-600 hover:bg-slate-900/80"
         }`}
       >
-        <span>🎲</span>
-        <span>Cualquiera</span>
+        <div className="flex items-center gap-3">
+          <span className="text-xl">🎲</span>
+          <div>
+            <p className={`text-sm font-medium ${selected === "" ? "text-amber-400" : "text-slate-200"}`}>
+              Cualquiera
+            </p>
+            <p className="text-xs text-slate-500 mt-0.5">
+              La IA elegirá el modelo más adecuado según las tendencias
+            </p>
+          </div>
+        </div>
       </button>
-      {BUSINESS_MODELS.map((m) => {
-        const isActive = selected === m.value;
-        return (
-          <button
-            key={m.value}
-            type="button"
-            onClick={() => onChange(isActive ? "" : m.value)}
-            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
-              isActive
-                ? "bg-amber-500/15 border-amber-500/40 text-amber-400"
-                : "border-slate-700 bg-slate-900/60 text-slate-400 hover:border-slate-600 hover:text-slate-300"
-            }`}
-          >
-            <span>{m.icon}</span>
-            <span>{m.label}</span>
-          </button>
-        );
-      })}
+
+      {/* Model cards */}
+      <div className="grid gap-2 sm:grid-cols-2">
+        {BUSINESS_MODELS.map((m) => {
+          const isActive = selected === m.value;
+          return (
+            <button
+              key={m.value}
+              type="button"
+              onClick={() => onChange(isActive ? "" : m.value)}
+              className={`text-left rounded-xl border px-4 py-3 transition-all ${
+                isActive
+                  ? "border-amber-500/50 bg-amber-500/10 ring-1 ring-amber-500/30"
+                  : "border-slate-700 bg-slate-900/60 hover:border-slate-600 hover:bg-slate-900/80"
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <span className="text-xl shrink-0 mt-0.5">{m.icon}</span>
+                <div className="min-w-0">
+                  <p className={`text-sm font-medium ${isActive ? "text-amber-400" : "text-slate-200"}`}>
+                    {m.label}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-0.5">{m.description}</p>
+                  <p className="text-xs text-slate-600 mt-0.5 italic">
+                    Ej: {m.example}
+                  </p>
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

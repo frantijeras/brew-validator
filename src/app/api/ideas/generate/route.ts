@@ -70,15 +70,15 @@ export async function POST(req: NextRequest) {
       ideaData.description = data.rawIdea.trim();
       ideaData.targetUser = data.targetUser?.trim() || "Por determinar";
       ideaData.monetization = "Por determinar";
-      ideaData.problem = "Por determinar";
-      ideaData.valueProposition = "Por determinar";
+      ideaData.problem = null;
+      ideaData.valueProposition = null;
       ideaData.originalIdea = data.rawIdea.trim();
     } else {
       ideaData.description = "Buscando tendencias de mercado…";
       ideaData.targetUser = "Por determinar";
       ideaData.monetization = "Por determinar";
-      ideaData.problem = "Por determinar";
-      ideaData.valueProposition = "Por determinar";
+      ideaData.problem = null;
+      ideaData.valueProposition = null;
     }
 
     const idea = await prisma.idea.create({
@@ -91,9 +91,14 @@ export async function POST(req: NextRequest) {
         ideaId: idea.id,
         title: typeof ideaData.title === "string" ? ideaData.title : String(ideaData.title ?? ""),
         description: typeof ideaData.description === "string" ? ideaData.description : String(ideaData.description ?? ""),
+        problem: null,
+        valueProposition: null,
         targetUser: typeof ideaData.targetUser === "string" ? ideaData.targetUser : String(ideaData.targetUser ?? "Por determinar"),
         monetization: typeof ideaData.monetization === "string" ? ideaData.monetization : String(ideaData.monetization ?? "Por determinar"),
-        phase: "initial",
+        phase: "v0",
+        score: null,
+        verdict: null,
+        reportsSnapshot: undefined,
       },
     });
 

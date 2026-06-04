@@ -111,13 +111,18 @@ model Report {
 }
 
 model IdeaVersion {
-  id           String   @id @default(cuid())
-  ideaId       String
-  idea         Idea     @relation(fields: [ideaId], references: [id], onDelete: Cascade)
-  title        String
-  description  String
-  targetUser   String
-  monetization String
-  phase        String   @default("pre-validation")
-  createdAt    DateTime @default(now())
+  id               String   @id @default(cuid())
+  ideaId           String
+  idea             Idea     @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  title            String
+  description      String
+  problem          String?
+  valueProposition String?
+  targetUser       String
+  monetization     String
+  phase            String   @default("v0")
+  score            Int?
+  verdict          String?
+  reportsSnapshot  Json?
+  createdAt        DateTime @default(now())
 }

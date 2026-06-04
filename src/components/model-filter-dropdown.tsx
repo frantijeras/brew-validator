@@ -57,7 +57,7 @@ export function ModelFilterDropdown({ activeModel, activeTab }: ModelFilterDropd
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full mt-1 z-30 w-64 rounded-lg border border-slate-700 bg-slate-850 bg-slate-900 shadow-xl py-1.5 max-h-[320px] overflow-y-auto">
+        <div className="absolute left-0 top-full mt-1 z-30 w-72 rounded-lg border border-slate-700 bg-slate-900 shadow-xl py-1.5 max-h-[420px] overflow-y-auto">
           <button
             onClick={() => selectModel("")}
             className={`flex w-full items-center gap-2 px-3 py-2 text-sm transition-colors ${
@@ -66,21 +66,26 @@ export function ModelFilterDropdown({ activeModel, activeTab }: ModelFilterDropd
                 : "text-slate-300 hover:bg-slate-800"
             }`}
           >
-            Todos los modelos
+            <span className="text-base">🎲</span>
+            <span>Todos los modelos</span>
           </button>
           <div className="my-1 border-t border-slate-800" />
           {BUSINESS_MODELS.map((m) => (
             <button
               key={m.value}
               onClick={() => selectModel(m.value)}
-              className={`flex w-full items-center gap-2 px-3 py-2 text-sm transition-colors ${
+              className={`flex w-full items-start gap-2.5 px-3 py-2.5 text-left transition-colors ${
                 activeModel === m.value
                   ? "bg-amber-500/10 text-amber-400"
                   : "text-slate-300 hover:bg-slate-800"
               }`}
             >
-              <span className="text-base">{m.icon}</span>
-              <span>{m.label}</span>
+              <span className="text-base shrink-0 mt-0.5">{m.icon}</span>
+              <div className="min-w-0">
+                <span className="text-sm font-medium">{m.label}</span>
+                <p className="text-xs text-slate-500 mt-0.5">{m.description}</p>
+                <p className="text-xs text-slate-600 mt-0.5 italic">Ej: {m.example}</p>
+              </div>
             </button>
           ))}
         </div>
