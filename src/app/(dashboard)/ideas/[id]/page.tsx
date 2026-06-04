@@ -549,6 +549,22 @@ export default function IdeaDetailPage() {
               })}
             </dd>
           </div>
+          {idea.problem && (
+            <div>
+              <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+                Problema que resuelve
+              </dt>
+              <dd className="mt-1 text-sm text-slate-300">{idea.problem}</dd>
+            </div>
+          )}
+          {idea.valueProposition && (
+            <div>
+              <dt className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+                Propuesta de valor
+              </dt>
+              <dd className="mt-1 text-sm text-slate-300">{idea.valueProposition}</dd>
+            </div>
+          )}
         </dl>
       </div>
 
