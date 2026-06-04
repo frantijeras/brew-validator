@@ -213,7 +213,7 @@ export function VersionHistory({ ideaId }: VersionHistoryProps) {
         {versions.map((v, idx) => (
           <div
             key={v.id}
-            className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900/80 p-4 transition-colors hover:border-slate-700"
+            className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-0 rounded-lg border border-slate-800 bg-slate-900/80 p-4 transition-colors hover:border-slate-700"
           >
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
@@ -248,32 +248,32 @@ export function VersionHistory({ ideaId }: VersionHistoryProps) {
             </div>
             {/* Action buttons — hidden for current version */}
             {!isActual(idx) && (
-              <div className="flex items-center gap-1.5 ml-4 shrink-0">
+              <div className="flex items-center gap-1.5 shrink-0 pt-2 md:pt-0 border-t border-slate-800 md:border-t-0 md:ml-4">
                 <button
                   onClick={() => setSelectedVersion(v)}
-                  className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+                  className="inline-flex items-center justify-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
                   title="Ver detalles"
                 >
                   <Eye className="size-3.5" />
-                  Ver
+                  <span className="hidden md:inline">Ver</span>
                 </button>
                 <button
                   onClick={(e) => handleExportPdf(v, e)}
                   disabled={exportingId === v.id}
-                  className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors disabled:opacity-50"
                   title="Exportar PDF"
                 >
                   <FileDown className="size-3.5" />
-                  {exportingId === v.id ? "…" : "PDF"}
+                  <span className="hidden md:inline">{exportingId === v.id ? "…" : "PDF"}</span>
                 </button>
                 <button
                   onClick={() => handleRestore(v.id)}
                   disabled={restoring}
-                  className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex items-center justify-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Restaurar esta versión"
                 >
                   <RotateCcw className="size-3.5" />
-                  {restoreId === v.id ? "Restaurando…" : "Restaurar"}
+                  <span className="hidden md:inline">{restoreId === v.id ? "…" : "Restaurar"}</span>
                 </button>
               </div>
             )}
