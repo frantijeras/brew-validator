@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { backfillReportVersionId } from "@/lib/backfill-report-version";
-
-let reportBackfillRan = false;
 
 const updateIdeaSchema = z.object({
   title: z.string().min(3).optional(),
@@ -43,14 +40,6 @@ export async function GET(
 
     if (!idea) {
       return NextResponse.json({ error: "Idea no encontrada" }, { status: 404 });
-    }
-
-    // One-time backfill of Report.ideaVersionId on first request
-    if (!reportBackfillRan) {
-      reportBackfillRan = true;
-      backfillReportVersionId().catch((err) =>
-        console.error("[backfillReportVersionId] error:", err)
-      );
     }
 
     // If a specific version was requested, reshape the response so the
