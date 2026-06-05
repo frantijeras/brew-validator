@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { isIdeaBusy } from "@/lib/idea-state";
 
 const updateIdeaSchema = z.object({
   title: z.string().min(3).optional(),
@@ -121,6 +122,30 @@ export async function PATCH(
     const { id } = await params;
     const body = await req.json();
     const data = updateIdeaSchema.parse(body);
+
+    // Metadata-only fields are always allowed (favorito/archivado). Any
+    // other field (title/description/targetUser/monetization/problem/
+    // valueProposition/status) is content and must be rejected while
+    // the bridge is processing the idea to avoid race conditions.
+    const isMetadataOnly = Object.keys(data).every(
+      (k) => k === "isFavorite" || k === "isArchived"
+    );
+
+    if (!isMetadataOnly) {
+      const current = await prisma.idea.findUnique({
+        where: { id },
+        select: { status: true },
+      });
+      if (!current) {
+        return NextResponse.json({ error: "Idea no encontrada" }, { status: 404 });
+      }
+      if (isIdeaBusy(current.status)) {
+        return NextResponse.json(
+          { error: `No se puede editar una idea en estado ${current.status}. Solo puedes cambiar favorito/archivada.` },
+          { status: 409 }
+        );
+      }
+    }
 
     // Cast status to IdeaStatus if present
     const updateData: Record<string, unknown> = { ...data };

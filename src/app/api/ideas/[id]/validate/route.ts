@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { resolveModelForJobAgent } from "@/lib/agent-models";
+import { isIdeaBusy } from "@/lib/idea-state";
 
 const AGENTS = ["skeptic", "advocate", "judge"];
 
@@ -14,6 +15,13 @@ export async function POST(
     const idea = await prisma.idea.findUnique({ where: { id } });
     if (!idea) {
       return NextResponse.json({ error: "Idea no encontrada" }, { status: 404 });
+    }
+
+    if (isIdeaBusy(idea.status)) {
+      return NextResponse.json(
+        { error: `No se puede validar una idea en estado ${idea.status}. Espera a que termine.` },
+        { status: 409 }
+      );
     }
 
     if (idea.validationStatus === "RUNNING") {

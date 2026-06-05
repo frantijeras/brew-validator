@@ -16,6 +16,19 @@ export async function POST(
       );
     }
 
+    // Block start when another agent is working on the idea. POLISHING
+    // is allowed (resume existing polish) and is handled below.
+    if (
+      idea.status === "GENERATING" ||
+      idea.status === "VALIDATING" ||
+      idea.status === "REFINING"
+    ) {
+      return NextResponse.json(
+        { error: `No se puede iniciar el pulido en estado ${idea.status}. Espera a que termine.` },
+        { status: 409 }
+      );
+    }
+
     if (idea.status === "POLISHING") {
       // Already polishing — return existing snapshot if any
       const meta = (idea.metadata as Record<string, unknown>) || {};

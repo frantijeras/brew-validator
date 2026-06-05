@@ -15,6 +15,7 @@ import { BusinessModelIcon } from "@/components/business-model-icon";
 import { generatePdf } from "@/lib/pdf-export";
 import { TextExpander } from "@/components/text-expander";
 import { useBridgeStatus } from "@/hooks/use-bridge-status";
+import { isIdeaBusy } from "@/lib/idea-state";
 
 interface IdeaData {
   id: string;
@@ -441,8 +442,13 @@ export default function IdeaDetailPage() {
     );
   }
 
+  // Bloquea acciones de mutación de contenido (validar, exportar, etc.)
+  // mientras la idea está siendo procesada por el bridge.
+  const isBusy = isIdeaBusy(idea.status);
   const canValidate =
-    idea.validationStatus !== "RUNNING" && idea.validationStatus !== "DONE";
+    !isBusy &&
+    idea.validationStatus !== "RUNNING" &&
+    idea.validationStatus !== "DONE";
   const isDraft = idea.status === "DRAFT";
   // When the user is browsing a historical version the action buttons
   // are disabled — they would otherwise mutate the LIVE idea (the
@@ -702,11 +708,13 @@ export default function IdeaDetailPage() {
               )}
               <button
                 onClick={handleExportPdf}
-                disabled={isViewingHistorical}
+                disabled={isViewingHistorical || isBusy}
                 title={
                   isViewingHistorical
                     ? "Vuelve a la versión actual para exportar"
-                    : undefined
+                    : isBusy
+                      ? "Espera a que termine el procesamiento actual"
+                      : undefined
                 }
                 className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900/60 px-4 py-2.5 text-sm font-medium text-slate-300 shadow transition-all hover:border-slate-600 hover:text-slate-200 active:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
               >

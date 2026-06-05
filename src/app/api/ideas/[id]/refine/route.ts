@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { resolveModelForJobAgent } from "@/lib/agent-models";
 import { getNextVersionPhase } from "@/lib/versions";
+import { isIdeaBusy } from "@/lib/idea-state";
 
 // ── Schema: manual mode with structured fields ──
 const manualFieldsSchema = z.object({
@@ -63,6 +64,13 @@ export async function POST(
     const idea = await prisma.idea.findUnique({ where: { id: ideaId } });
     if (!idea) {
       return NextResponse.json({ error: "Idea no encontrada" }, { status: 404 });
+    }
+
+    if (isIdeaBusy(idea.status)) {
+      return NextResponse.json(
+        { error: `No se puede refinar una idea en estado ${idea.status}. Espera a que termine.` },
+        { status: 409 }
+      );
     }
 
     // ── Manual mode (structured fields) ──

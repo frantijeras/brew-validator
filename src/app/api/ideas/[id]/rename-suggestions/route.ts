@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { resolveModelForJobAgent } from "@/lib/agent-models";
+import { isIdeaBusy } from "@/lib/idea-state";
 
 const RENAMER_AGENT = "idea-renamer";
 
@@ -14,6 +15,13 @@ export async function POST(
     const idea = await prisma.idea.findUnique({ where: { id: ideaId } });
     if (!idea) {
       return NextResponse.json({ error: "Idea no encontrada" }, { status: 404 });
+    }
+
+    if (isIdeaBusy(idea.status)) {
+      return NextResponse.json(
+        { error: `No se pueden generar sugerencias de nombre en estado ${idea.status}. Espera a que termine.` },
+        { status: 409 }
+      );
     }
 
     // Resolve the model configured in Settings for the renamer agent
