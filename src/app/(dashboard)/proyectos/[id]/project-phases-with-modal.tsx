@@ -273,7 +273,7 @@ export function ProjectPhasesWithModal({
                   />
                 )}
                 {hasQuestions && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col items-end gap-1.5">
                     <button
                       onClick={() => setModalPhase(phase)}
                       className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 transition-all hover:bg-amber-400"
@@ -281,17 +281,17 @@ export function ProjectPhasesWithModal({
                       <HelpCircle className="size-4" />
                       Responder preguntas
                     </button>
-                    <span className="text-xs text-slate-600">·</span>
                     <button
                       onClick={() => handleCancelPhase(phase.id)}
-                      className="text-xs text-slate-500 hover:text-red-400 transition-colors"
+                      className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800/50 px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-red-400 hover:border-red-500/30 transition-colors"
                     >
+                      <XCircle className="size-3" />
                       Cancelar
                     </button>
                   </div>
                 )}
                 {isProcessing && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col items-end gap-1.5">
                     <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-400">
                       <RefreshCw className="size-3 animate-spin" />
                       Procesando
