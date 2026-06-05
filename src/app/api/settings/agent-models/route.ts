@@ -20,6 +20,11 @@ const DEFAULT_MODELS: Record<string, string> = {
   defender: "opencode-zen-free/big-pickle",
   judge: "opencode-zen-free/big-pickle",
   refiner: "opencode-zen-free/big-pickle",
+  "project-analyst": "opencode-go/deepseek-v4-flash",
+  "project-branding": "opencode-go/deepseek-v4-flash",
+  "project-content": "opencode-go/deepseek-v4-flash",
+  "project-dev": "opencode-go/deepseek-v4-flash",
+  "project-dossier": "opencode-go/deepseek-v4-flash",
 };
 
 async function readConfigFromFile(): Promise<Record<string, string> | null> {
@@ -90,19 +95,23 @@ async function forwardToBridge(
 // Returns the latest saved config (per user when authenticated, otherwise
 // the most recently saved user's config — single-tenant today).
 export async function GET() {
-  // 1. agent-models.json local (synced by bridge) — fastest path for the bridge
-  const fileConfig = await readConfigFromFile();
-  if (fileConfig) {
-    return NextResponse.json(fileConfig);
-  }
+  // Priority: DB (user settings) > file (bridge-synced) > defaults
+  // Merge with defaults so any agent without explicit config gets a fallback.
 
-  // 2. DB (tabla Setting) — most-recently-saved user
   const dbConfig = await readConfigFromDB();
+  const fileConfig = await readConfigFromFile();
+
   if (dbConfig) {
-    return NextResponse.json(dbConfig);
+    // DB is the source of truth — merge with defaults for missing agents
+    return NextResponse.json({ ...DEFAULT_MODELS, ...dbConfig });
   }
 
-  // 3. Defaults
+  if (fileConfig) {
+    // File config merged with defaults (covers project agents not in file)
+    return NextResponse.json({ ...DEFAULT_MODELS, ...fileConfig });
+  }
+
+  // Fallback to hardcoded defaults
   return NextResponse.json(DEFAULT_MODELS);
 }
 

@@ -6,11 +6,11 @@ const AGENT_DEFAULTS: Record<string, string> = {
   defender: "opencode-zen-free/big-pickle",
   judge: "opencode-zen-free/big-pickle",
   refiner: "opencode-zen-free/big-pickle",
-  "project-analyst": "opencode-zen-free/deepseek-v4-flash-free",
-  "project-branding": "opencode-zen-free/deepseek-v4-flash-free",
-  "project-content": "opencode-zen-free/deepseek-v4-flash-free",
-  "project-dev": "opencode-zen-free/deepseek-v4-flash-free",
-  "project-dossier": "opencode-zen-free/deepseek-v4-flash-free",
+  "project-analyst": "opencode-go/deepseek-v4-flash",
+  "project-branding": "opencode-go/deepseek-v4-flash",
+  "project-content": "opencode-go/deepseek-v4-flash",
+  "project-dev": "opencode-go/deepseek-v4-flash",
+  "project-dossier": "opencode-go/deepseek-v4-flash",
 };
 
 const JOB_AGENT_TO_SETTINGS_KEY: Record<string, string> = {
