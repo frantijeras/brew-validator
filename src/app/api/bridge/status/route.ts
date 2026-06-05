@@ -35,6 +35,14 @@ type HeartbeatValue = {
   uptime?: number | null;
   lastJobAt?: number | null;
   lastSeenAt?: string;
+  state?: string;
+  stateDetail?: string;
+  currentAgent?: string;
+  currentModel?: string;
+  lastError?: string;
+  lastErrorAt?: number | null;
+  jobsCompleted?: number;
+  jobsFailed?: number;
 };
 
 export async function GET() {
@@ -96,6 +104,12 @@ export async function GET() {
       if (!Number.isNaN(ms)) lastJobAtIso = new Date(ms).toISOString();
     }
 
+    // lastErrorAt: convert epoch to ISO
+    let lastErrorAtIso: string | null = null;
+    if (typeof value.lastErrorAt === "number" && Number.isFinite(value.lastErrorAt)) {
+      lastErrorAtIso = new Date(value.lastErrorAt * 1000).toISOString();
+    }
+
     return NextResponse.json({
       reachable,
       lastHeartbeatAt: lastSeenAt,
@@ -106,6 +120,15 @@ export async function GET() {
           : null,
       lastJobAt: lastJobAtIso,
       staleAfterSeconds: STALE_AFTER_SECONDS,
+      // Live bridge state
+      state: value.state ?? "idle",
+      stateDetail: value.stateDetail ?? "",
+      currentAgent: value.currentAgent ?? "",
+      currentModel: value.currentModel ?? "",
+      lastError: value.lastError ?? "",
+      lastErrorAt: lastErrorAtIso,
+      jobsCompleted: value.jobsCompleted ?? 0,
+      jobsFailed: value.jobsFailed ?? 0,
     });
   } catch (error) {
     console.error("[GET /api/bridge/status]", error);

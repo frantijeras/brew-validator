@@ -10,6 +10,15 @@ export interface BridgeStatus {
   uptimeSeconds: number | null;
   lastJobAt: string | null;
   staleAfterSeconds: number;
+  // Live bridge state
+  state?: string;           // idle | processing | error
+  stateDetail?: string;     // human-readable what's happening
+  currentAgent?: string;    // e.g. "skeptic", "idea-generator"
+  currentModel?: string;    // e.g. "opencode-zen-free/big-pickle"
+  lastError?: string;       // last error message
+  lastErrorAt?: string | null;
+  jobsCompleted?: number;
+  jobsFailed?: number;
 }
 
 const POLL_INTERVAL_MS = 15_000; // 15s

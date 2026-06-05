@@ -63,6 +63,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, stored: false });
     }
 
+    const {
+      state,
+      stateDetail,
+      currentAgent,
+      currentModel,
+      lastError,
+      lastErrorAt,
+      jobsCompleted,
+      jobsFailed,
+    } = body as {
+      state?: unknown;
+      stateDetail?: unknown;
+      currentAgent?: unknown;
+      currentModel?: unknown;
+      lastError?: unknown;
+      lastErrorAt?: unknown;
+      jobsCompleted?: unknown;
+      jobsFailed?: unknown;
+    };
+
     const value = {
       timestamp,                          // bridge-reported time.time()
       uptime: typeof uptime === "number" && Number.isFinite(uptime) ? uptime : null,
@@ -71,6 +91,15 @@ export async function POST(req: NextRequest) {
           ? lastJobAt
           : null,
       lastSeenAt: new Date().toISOString(), // server-side stamp
+      // Live state from the bridge (what it's doing right now)
+      state: typeof state === "string" ? state : "idle",
+      stateDetail: typeof stateDetail === "string" ? stateDetail : "",
+      currentAgent: typeof currentAgent === "string" ? currentAgent : "",
+      currentModel: typeof currentModel === "string" ? currentModel : "",
+      lastError: typeof lastError === "string" ? lastError : "",
+      lastErrorAt: typeof lastErrorAt === "number" && Number.isFinite(lastErrorAt) ? lastErrorAt : null,
+      jobsCompleted: typeof jobsCompleted === "number" ? jobsCompleted : 0,
+      jobsFailed: typeof jobsFailed === "number" ? jobsFailed : 0,
     };
 
     await prisma.setting.upsert({
