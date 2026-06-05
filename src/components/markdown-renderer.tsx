@@ -109,9 +109,18 @@ export function renderMarkdown(markdown: string, agentName?: string): string {
     html = html.replace(JUDGE_EMOJI_REGEX, "");
   }
 
-  // Remove "## Veredicto" from skeptic and advocate — only the judge gives verdicts
+  // For skeptic and advocate: remove the ENTIRE "## Veredicto" section (header + content)
+  // because they should not issue verdicts.
   if (agentName === "skeptic" || agentName === "advocate") {
     html = html.replace(/^## Veredicto[\s\S]*?(?=^## |$)/gm, "");
+  }
+
+  // For judge: remove ONLY the "## Veredicto" header line, keep the content.
+  // The LLM writes both a ## Veredicto header AND starts the body with
+  // "**Verdicto: Pulir idea**" — keeping both creates a visible
+  // "Veredicto Veredicto" duplication in the UI.
+  if (agentName === "judge") {
+    html = html.replace(/^## Veredicto\s*\n+/gm, "");
   }
 
   // Remove empty sections (headers followed by nothing or just whitespace)

@@ -28,6 +28,11 @@ function cleanJudgeReportPdf(content: string): string {
   // Remove "## Decisión" section
   clean = clean.replace(/^## Decisión[\s\S]*?(?=^## |$)/gm, "");
 
+  // Remove "## Veredicto" header line (keep the content)
+  // without this, the LLM's "## Veredicto" header + "**Verdicto: ...**" body
+  // creates a visible "Veredicto Veredicto" duplication
+  clean = clean.replace(/^## Veredicto\s*\n+/gm, "");
+
   // Remove any "## Puntuación*" / "## Scorecard*" / "## Tabla de Puntuaciones"
   // section — the scorecard is rendered separately from the JSON
   const sectionHeaderRe = /^##\s+[^\n]*(puntuación|puntuacion|scorecard|tabla\s+de\s+puntuaciones?|tabla\s+de\s+scores)[^\n]*$/gim;
