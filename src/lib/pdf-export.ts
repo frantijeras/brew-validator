@@ -34,14 +34,23 @@ interface ExportVersion {
   createdAt: string;
 }
 
-/* ── Helpers ── */
+/* ── Constants ── */
 
 const MARGIN = 20;
 const PAGE_W = 210; // A4 mm
 const CONTENT_W = PAGE_W - MARGIN * 2;
 
-// Regex to match emojis and other problematic Unicode
-const EMOJI_REGEX = /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{200D}]/gu;
+// Colors
+const C_BLACK = [0, 0, 0] as [number, number, number];
+const C_DARK = [50, 50, 50] as [number, number, number];
+const C_GREY = [100, 100, 100] as [number, number, number];
+const C_LIGHT = [150, 150, 150] as [number, number, number];
+const C_ACCENT = [180, 130, 20] as [number, number, number]; // amber-ish
+const C_BG = [245, 245, 245] as [number, number, number]; // light grey bg
+
+/* ── Helpers ── */
+
+const EMOJI_REGEX = /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{200D}📊⭐✅🎯🏆💪🔍❌📈📋✨🔥💡]/gu;
 
 function stripEmojis(text: string): string {
   return text.replace(EMOJI_REGEX, "").replace(/\s+/g, " ").trim();
@@ -49,38 +58,123 @@ function stripEmojis(text: string): string {
 
 function agentLabel(name: string): string {
   switch (name) {
-    case "skeptic":
-      return "Escéptico";
-    case "advocate":
-      return "Defensor";
-    case "judge":
-      return "Juez";
-    case "idea-generator":
-      return "Generador de ideas";
-    default:
-      return name;
+    case "skeptic": return "Escéptico";
+    case "advocate": return "Defensor";
+    case "judge": return "Juez";
+    case "idea-generator": return "Generador de ideas";
+    default: return name;
   }
 }
 
-function stripMarkdown(text: string): string {
-  return stripEmojis(
-    text
-      .replace(/#{1,6}\s+/g, "")
-      .replace(/\*{1,3}(.+?)\*{1,3}/g, "$1")
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-      .replace(/`([^`]+)`/g, "$1")
-      .replace(/^[-*+]\s+/gm, "• ")
-      .replace(/^>\s+/gm, "  ")
-      .trim()
-  );
+/**
+ * Parse markdown into structured blocks for PDF rendering.
+ */
+type MdBlock =
+  | { type: "h1" | "h2" | "h3" | "h4"; text: string }
+  | { type: "p"; text: string }
+  | { type: "bold-line"; label: string; rest: string }
+  | { type: "ul"; items: string[] }
+  | { type: "ol"; items: string[] }
+  | { type: "table"; headers: string[]; rows: string[][] }
+  | { type: "hr" };
+
+function parseMarkdownBlocks(md: string): MdBlock[] {
+  const blocks: MdBlock[] = [];
+  const lines = md.split("\n");
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Skip empty lines
+    if (!trimmed) {
+      i++;
+      continue;
+    }
+
+    // Headings
+    const hMatch = trimmed.match(/^(#{1,4})\s+(.+)$/);
+    if (hMatch) {
+      const level = hMatch[1].length;
+      const headingType = `h${level}` as "h1" | "h2" | "h3" | "h4";
+      blocks.push({ type: headingType, text: stripEmojis(hMatch[2].replace(/\*{1,3}(.+?)\*{1,3}/g, "$1")) });
+      i++;
+      continue;
+    }
+
+    // Horizontal rule
+    if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
+      blocks.push({ type: "hr" });
+      i++;
+      continue;
+    }
+
+    // Table (starts with |)
+    if (trimmed.startsWith("|") && i + 1 < lines.length && lines[i + 1]?.trim().startsWith("|---")) {
+      const headers = trimmed.split("|").map(s => s.trim()).filter(Boolean);
+      i += 2; // skip header + separator
+      const rows: string[][] = [];
+      while (i < lines.length && lines[i]?.trim().startsWith("|")) {
+        rows.push(lines[i].trim().split("|").map(s => s.trim()).filter(Boolean));
+        i++;
+      }
+      blocks.push({ type: "table", headers, rows });
+      continue;
+    }
+
+    // Unordered list
+    if (/^[-*+]\s+/.test(trimmed)) {
+      const items: string[] = [];
+      while (i < lines.length && /^[\t ]*[-*+]\s+/.test(lines[i]?.trim())) {
+        items.push(stripEmojis(lines[i].trim().replace(/^[-*+]\s+/, "").replace(/\*{1,3}(.+?)\*{1,3}/g, "$1")));
+        i++;
+      }
+      blocks.push({ type: "ul", items });
+      continue;
+    }
+
+    // Ordered list
+    if (/^\d+\.\s+/.test(trimmed)) {
+      const items: string[] = [];
+      while (i < lines.length && /^[\t ]*\d+\.\s+/.test(lines[i]?.trim())) {
+        items.push(stripEmojis(lines[i].trim().replace(/^\d+\.\s+/, "").replace(/\*{1,3}(.+?)\*{1,3}/g, "$1")));
+        i++;
+      }
+      blocks.push({ type: "ol", items });
+      continue;
+    }
+
+    // Bold-prefixed line: "**Label:** rest of text"
+    const boldMatch = trimmed.match(/^\*{2}([^*]+)\*{2}\s*[:：]?\s*(.*)/);
+    if (boldMatch && boldMatch[2]) {
+      blocks.push({ type: "bold-line", label: stripEmojis(boldMatch[1]), rest: stripEmojis(boldMatch[2].replace(/\*{1,3}(.+?)\*{1,3}/g, "$1")) });
+      i++;
+      continue;
+    }
+
+    // Regular paragraph — collect consecutive non-empty, non-special lines
+    const paraLines: string[] = [];
+    while (i < lines.length) {
+      const pl = lines[i]?.trim();
+      if (!pl) break;
+      if (pl.startsWith("#") || pl.startsWith("|") || /^[-*+]\s+/.test(pl) || /^\d+\.\s+/.test(pl) || /^(-{3,}|\*{3,})$/.test(pl)) break;
+      paraLines.push(stripEmojis(pl.replace(/\*{1,3}(.+?)\*{1,3}/g, "$1")));
+      i++;
+    }
+    if (paraLines.length > 0) {
+      blocks.push({ type: "p", text: paraLines.join(" ") });
+    }
+  }
+
+  return blocks;
 }
 
-/* ── Main generator ── */
+/* ── PDF renderer ── */
 
 export function generatePdf(filename: string, data: ExportData): void {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   let y = MARGIN;
-
   const pageH = doc.internal.pageSize.getHeight();
 
   function checkSpace(needed: number): void {
@@ -90,18 +184,151 @@ export function generatePdf(filename: string, data: ExportData): void {
     }
   }
 
-  function bold(text: string): void {
-    doc.setFont("helvetica", "bold");
-    doc.text(text, MARGIN, y);
-    doc.setFont("helvetica", "normal");
+  function drawHr(): void {
+    checkSpace(4);
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.line(MARGIN, y, PAGE_W - MARGIN, y);
+    y += 5;
+  }
+
+  function writeText(text: string, size: number, color: [number, number, number], style: "normal" | "bold" = "normal", indent = 0): void {
+    doc.setFont("helvetica", style);
+    doc.setFontSize(size);
+    doc.setTextColor(...color);
+    const lines = doc.splitTextToSize(text, CONTENT_W - indent);
+    for (const line of lines) {
+      checkSpace(size * 0.5);
+      doc.text(line, MARGIN + indent, y);
+      y += size * 0.5;
+    }
+  }
+
+  function writeMdBlocks(blocks: MdBlock[]): void {
+    for (const block of blocks) {
+      switch (block.type) {
+        case "h1":
+          checkSpace(10);
+          y += 3;
+          writeText(block.text, 16, C_BLACK, "bold");
+          y += 3;
+          break;
+        case "h2":
+          checkSpace(8);
+          y += 2;
+          writeText(block.text, 13, C_BLACK, "bold");
+          y += 2;
+          break;
+        case "h3":
+          checkSpace(7);
+          y += 1;
+          writeText(block.text, 11, C_DARK, "bold");
+          y += 1;
+          break;
+        case "h4":
+          checkSpace(6);
+          writeText(block.text, 10, C_DARK, "bold");
+          y += 1;
+          break;
+        case "p":
+          writeText(block.text, 9, C_DARK);
+          y += 2;
+          break;
+        case "bold-line":
+          checkSpace(5);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9);
+          doc.setTextColor(...C_DARK);
+          doc.text(`${block.label}:`, MARGIN, y);
+          const labelW = doc.getTextWidth(`${block.label}: `);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(...C_DARK);
+          const restLines = doc.splitTextToSize(block.rest, CONTENT_W - labelW - 2);
+          doc.text(restLines[0] || "", MARGIN + labelW, y);
+          y += 5;
+          // Continuation lines
+          for (let r = 1; r < restLines.length; r++) {
+            checkSpace(5);
+            doc.text(restLines[r], MARGIN, y);
+            y += 5;
+          }
+          break;
+        case "ul":
+          for (const item of block.items) {
+            checkSpace(5);
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(9);
+            doc.setTextColor(...C_DARK);
+            doc.text("•", MARGIN + 2, y);
+            const itemLines = doc.splitTextToSize(item, CONTENT_W - 8);
+            doc.text(itemLines[0], MARGIN + 7, y);
+            y += 5;
+            for (let r = 1; r < itemLines.length; r++) {
+              checkSpace(5);
+              doc.text(itemLines[r], MARGIN + 7, y);
+              y += 5;
+            }
+          }
+          y += 2;
+          break;
+        case "ol":
+          block.items.forEach((item, idx) => {
+            checkSpace(5);
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(9);
+            doc.setTextColor(...C_DARK);
+            doc.text(`${idx + 1}.`, MARGIN + 1, y);
+            const itemLines = doc.splitTextToSize(item, CONTENT_W - 10);
+            doc.text(itemLines[0], MARGIN + 8, y);
+            y += 5;
+            for (let r = 1; r < itemLines.length; r++) {
+              checkSpace(5);
+              doc.text(itemLines[r], MARGIN + 8, y);
+              y += 5;
+            }
+          });
+          y += 2;
+          break;
+        case "table":
+          // Simple table rendering
+          if (block.headers.length === 0) break;
+          const colW = CONTENT_W / block.headers.length;
+          // Header row
+          checkSpace(6);
+          doc.setFillColor(...C_BG);
+          doc.rect(MARGIN, y - 4, CONTENT_W, 6, "F");
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(8);
+          doc.setTextColor(...C_DARK);
+          block.headers.forEach((h, ci) => {
+            doc.text(h, MARGIN + ci * colW + 2, y);
+          });
+          y += 5;
+          // Body rows
+          doc.setFont("helvetica", "normal");
+          for (const row of block.rows) {
+            checkSpace(5);
+            row.forEach((cell, ci) => {
+              doc.text(cell, MARGIN + ci * colW + 2, y);
+            });
+            y += 5;
+            // Separator line
+            doc.setDrawColor(230, 230, 230);
+            doc.line(MARGIN, y - 2, PAGE_W - MARGIN, y - 2);
+          }
+          y += 3;
+          break;
+        case "hr":
+          drawHr();
+          break;
+      }
+    }
   }
 
   // ── Title ──
   doc.setFont("helvetica", "bold");
   doc.setFontSize(20);
-  doc.setTextColor(0, 0, 0);
-
-  // Wrap title (clean emojis first)
+  doc.setTextColor(...C_BLACK);
   const cleanTitle = stripEmojis(data.title);
   const titleLines = doc.splitTextToSize(cleanTitle, CONTENT_W);
   checkSpace(6 + titleLines.length * 8);
@@ -110,10 +337,10 @@ export function generatePdf(filename: string, data: ExportData): void {
 
   // ── Info grid ──
   doc.setFontSize(9);
-  doc.setTextColor(100, 100, 100);
+  doc.setTextColor(...C_GREY);
   const infoLines = [
     `Modelo de negocio: ${stripEmojis(data.businessModel)}`,
-    `Score: ${data.score !== null ? `${data.score}/10` : "—"}  |  Veredicto: ${data.verdict ? stripEmojis(data.verdict) : "—"}`,
+    `Score: ${data.score !== null ? `${data.score.toFixed(1)}/10` : "—"}  |  Veredicto: ${data.verdict ? stripEmojis(data.verdict) : "—"}`,
     `Creada: ${data.createdAt}`,
   ];
   for (const line of infoLines) {
@@ -123,28 +350,18 @@ export function generatePdf(filename: string, data: ExportData): void {
   }
   y += 3;
 
-  // ── Horizontal rule ──
-  checkSpace(3);
-  doc.setDrawColor(200, 200, 200);
-  doc.setLineWidth(0.3);
-  doc.line(MARGIN, y, PAGE_W - MARGIN, y);
-  y += 6;
+  drawHr();
 
   // ── Section: Descripción ──
+  checkSpace(12);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
-  doc.setTextColor(0, 0, 0);
-  checkSpace(10);
+  doc.setTextColor(...C_BLACK);
   doc.text("Descripción", MARGIN, y);
   y += 7;
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.setTextColor(50, 50, 50);
-  const descLines = doc.splitTextToSize(stripEmojis(data.description), CONTENT_W);
-  checkSpace(descLines.length * 5 + 4);
-  doc.text(descLines, MARGIN, y);
-  y += descLines.length * 5 + 6;
+  writeText(stripEmojis(data.description), 10, C_DARK);
+  y += 4;
 
   // ── Section: Detalles ──
   const detailSections = [
@@ -155,64 +372,82 @@ export function generatePdf(filename: string, data: ExportData): void {
   ];
 
   for (const section of detailSections) {
-    checkSpace(14);
+    checkSpace(12);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
+    doc.setTextColor(...C_BLACK);
     doc.text(section.label, MARGIN, y);
     y += 5;
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(50, 50, 50);
-    const lines = doc.splitTextToSize(stripEmojis(section.value), CONTENT_W);
-    checkSpace(lines.length * 4 + 3);
-    doc.text(lines, MARGIN, y);
-    y += lines.length * 4 + 5;
+    writeText(stripEmojis(section.value), 9, C_DARK);
+    y += 3;
   }
 
-  // ── Horizontal rule ──
-  checkSpace(5);
-  doc.setDrawColor(200, 200, 200);
-  doc.line(MARGIN, y, PAGE_W - MARGIN, y);
-  y += 8;
+  drawHr();
 
   // ── Section: Reportes ──
+  checkSpace(10);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
-  doc.setTextColor(0, 0, 0);
-  checkSpace(10);
-  doc.text("Reportes", MARGIN, y);
+  doc.setTextColor(...C_BLACK);
+  doc.text("Reportes de validación", MARGIN, y);
   y += 8;
 
   for (const report of data.reports) {
     const label = agentLabel(report.agentName);
 
-    // Check if we need a new page for this report
-    checkSpace(30);
+    checkSpace(20);
 
+    // Report header
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
-    doc.setTextColor(0, 0, 0);
-    doc.text(`${label}  —  ${report.title}`, MARGIN, y);
+    doc.setTextColor(...C_BLACK);
+    doc.text(`${label} — ${stripEmojis(report.title)}`, MARGIN, y);
     y += 5;
 
+    // Meta line
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
-    doc.setTextColor(120, 120, 120);
-    doc.text(`${report.createdAt}${report.verdict ? `  ·  Veredicto: ${stripEmojis(report.verdict)}` : ""}`, MARGIN, y);
-    y += 6;
+    doc.setTextColor(...C_LIGHT);
+    const meta = `${report.createdAt}${report.verdict ? `  ·  Veredicto: ${stripEmojis(report.verdict)}` : ""}`;
+    doc.text(meta, MARGIN, y);
+    y += 5;
 
-    const cleaned = stripMarkdown(report.content);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(50, 50, 50);
-    const contentLines = doc.splitTextToSize(cleaned, CONTENT_W);
-    checkSpace(contentLines.length * 4 + 6);
-    doc.text(contentLines, MARGIN, y);
-    y += contentLines.length * 4 + 6;
+    // Scorecard (if available)
+    if (report.scorecard) {
+      try {
+        const parsed = JSON.parse(report.scorecard);
+        const entries = typeof parsed === "object" && !Array.isArray(parsed)
+          ? Object.entries(parsed as Record<string, unknown>)
+          : [];
+        if (entries.length > 0) {
+          checkSpace(8);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9);
+          doc.setTextColor(...C_ACCENT);
+          doc.text("Puntuación:", MARGIN, y);
+          y += 5;
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(8);
+          doc.setTextColor(...C_DARK);
+          for (const [key, val] of entries) {
+            checkSpace(4);
+            const scoreStr = typeof val === "number" ? val.toFixed(1) : String(val);
+            doc.text(`${key}: ${scoreStr}/10`, MARGIN + 3, y);
+            y += 4;
+          }
+          y += 2;
+        }
+      } catch {
+        // Not valid JSON, skip
+      }
+    }
 
-    // thin separator between reports
+    // Report content (parsed markdown)
+    const blocks = parseMarkdownBlocks(report.content);
+    writeMdBlocks(blocks);
+
+    // Separator
     checkSpace(3);
     doc.setDrawColor(220, 220, 220);
     doc.line(MARGIN, y, PAGE_W - MARGIN, y);
@@ -224,7 +459,7 @@ export function generatePdf(filename: string, data: ExportData): void {
     checkSpace(14);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
-    doc.setTextColor(0, 0, 0);
+    doc.setTextColor(...C_BLACK);
     doc.text("Historial de versiones", MARGIN, y);
     y += 7;
 
@@ -232,7 +467,7 @@ export function generatePdf(filename: string, data: ExportData): void {
     doc.setFontSize(9);
     for (const v of data.versions) {
       checkSpace(5);
-      doc.setTextColor(50, 50, 50);
+      doc.setTextColor(...C_DARK);
       doc.text(`• ${stripEmojis(v.title)} (${v.phase}) — ${v.createdAt}`, MARGIN, y);
       y += 5;
     }
@@ -244,7 +479,7 @@ export function generatePdf(filename: string, data: ExportData): void {
     doc.setPage(i);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
-    doc.setTextColor(150, 150, 150);
+    doc.setTextColor(...C_LIGHT);
     doc.text(
       `BrewIdea Validator · Informe generado el ${new Date().toLocaleDateString("es-ES")}`,
       MARGIN,

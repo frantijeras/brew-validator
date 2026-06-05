@@ -1,14 +1,62 @@
 /**
- * Basic markdown to HTML renderer.
- * No external dependencies — parses common markdown syntax.
+ * Markdown → HTML renderer.
+ * Handles tables, headings, lists (ordered + unordered), bold, italic,
+ * code, links, blockquotes, and horizontal rules.
+ *
+ * Fixes vs. previous version:
+ * - Proper <ol>/<ul> wrapping (consecutive <li> items are grouped)
+ * - Judge report cleanup: removes duplicate scorecard sections and
+ *   decorative emojis that pollute the output
+ * - Better handling of multi-line list items
  */
 
-export function renderMarkdown(markdown: string): string {
+// ── Judge report cleanup ──────────────────────────────────────────────
+// The judge LLM tends to produce duplicate scorecard tables, emojis,
+// and repeated score lines. We clean that up before rendering.
+
+const JUDGE_EMOJI_REGEX = /[📊⭐✅🎯🏆💪🔍❌📈📋✨🔥💡]/g;
+
+function cleanJudgeReport(markdown: string, agentName?: string): string {
+  if (agentName !== "judge") return markdown;
+
+  let clean = markdown;
+
+  // Remove decorative emojis
+  clean = clean.replace(JUDGE_EMOJI_REGEX, "");
+
+  // Remove duplicate "## Scorecard" sections (keep only the first one)
+  const scorecardMatches = [...clean.matchAll(/^## Scorecard[\s\S]*?(?=^## |\n---|\n\n\n|$)/gim)];
+  if (scorecardMatches.length > 1) {
+    // Keep the first, remove the rest
+    for (let i = 1; i < scorecardMatches.length; i++) {
+      clean = clean.replace(scorecardMatches[i][0], "");
+    }
+  }
+
+  // Remove lines like "Problema: 7/10 ✅" (duplicates of table data)
+  clean = clean.replace(
+    /^[A-ZÁÉÍÓÚ][a-záéíóú]+(?:\s+[a-záéíóú]+)*:\s*\d+(?:\.\d+)?\/10\s*.*$/gm,
+    ""
+  );
+
+  // Remove lines like "## Decisión" (not in the spec)
+  clean = clean.replace(/^## Decisión.*$/gm, "");
+
+  // Clean up multiple blank lines
+  clean = clean.replace(/\n{3,}/g, "\n\n");
+
+  return clean.trim();
+}
+
+// ── Main renderer ─────────────────────────────────────────────────────
+
+export function renderMarkdown(markdown: string, agentName?: string): string {
   if (!markdown) return "";
 
-  let html = markdown;
+  // Clean judge reports before rendering
+  let html = cleanJudgeReport(markdown, agentName);
 
-  // Escape HTML entities first (except what we'll inject)
+  // Escape HTML entities (except what we'll inject)
   html = html
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -37,37 +85,19 @@ export function renderMarkdown(markdown: string): string {
   html = html.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, "<em>$1</em>");
   html = html.replace(/(?<!_)_([^_]+)_(?!_)/g, "<em>$1</em>");
 
-  // Tables
+  // Tables (before list processing)
   html = renderTables(html);
 
   // Horizontal rules
   html = html.replace(/^(---|\*\*\*|___)\s*$/gm, '<hr class="my-4 border-slate-700" />');
 
-  // Blockquotes
+  // Blockquotes (> text)
   html = html.replace(
-    /^(> .*(?:\n> .*)*)/gm,
+    /^&gt;\s*(.+)$/gm,
     '<blockquote class="my-2 border-l-2 border-amber-500/50 pl-4 text-slate-400 italic">$1</blockquote>'
   );
 
-  // Unordered list items
-  html = html.replace(
-    /^[\t ]*[-*+] (.+)$/gm,
-    '<li class="ml-4 list-disc text-slate-300">$1</li>'
-  );
-
-  // Ordered list items
-  html = html.replace(
-    /^[\t ]*\d+\. (.+)$/gm,
-    '<li class="ml-4 list-decimal text-slate-300">$1</li>'
-  );
-
-  // Wrap consecutive list items in <ul> or <ol>
-  html = html.replace(
-    /(<li class="ml-4 list-disc[^"]*">.*?<\/li>)(\s*(?=<li class="ml-4 list-disc))/g,
-    '$1'
-  );
-
-  // Headings (must be after other line-based transforms)
+  // Headings (process BEFORE lists to avoid conflicts)
   html = html.replace(
     /^#### (.+)$/gm,
     '<h4 class="mt-4 mb-2 text-base font-semibold text-slate-200">$1</h4>'
@@ -91,20 +121,104 @@ export function renderMarkdown(markdown: string): string {
     '<a href="$2" class="text-amber-400 hover:text-amber-300 underline" target="_blank" rel="noopener">$1</a>'
   );
 
-  // Line breaks (double newline → paragraph)
-  html = html.replace(/\n\n+/g, "</p><p>");
-  html = "<p>" + html + "</p>";
+  // ── List processing ──
+  // We process lists in a dedicated pass to properly wrap <ol>/<ul>.
 
-  // Clean up empty paragraphs
-  html = html.replace(/<p>\s*<\/p>/g, "");
-  html = html.replace(/<p>\s*<hr/g, "<hr");
-  html = html.replace(/\/>\s*<\/p>/g, "/>");
+  // Ordered list items: "1. text" or "  1. text"
+  // Use a placeholder to protect them from the paragraph split
+  const OL_PLACEHOLDER = "%%OL_ITEM_";
+  const UL_PLACEHOLDER = "%%UL_ITEM_";
+  const olItems: string[] = [];
+  const ulItems: string[] = [];
 
-  return html;
+  // Collect ordered list items
+  html = html.replace(
+    /^[\t ]*(\d+)\.\s+(.+)$/gm,
+    (_match, _num: string, text: string) => {
+      const idx = olItems.length;
+      olItems.push(text);
+      return `${OL_PLACEHOLDER}${idx}%%`;
+    }
+  );
+
+  // Collect unordered list items: "- text", "* text", "+ text"
+  html = html.replace(
+    /^[\t ]*[-*+]\s+(.+)$/gm,
+    (_match, text: string) => {
+      const idx = ulItems.length;
+      ulItems.push(text);
+      return `${UL_PLACEHOLDER}${idx}%%`;
+    }
+  );
+
+  // Now split into paragraphs (double newline)
+  html = html.replace(/\n\n+/g, "\n<!--PARA-->\n");
+  const blocks = html.split("\n<!--PARA-->\n");
+
+  const processedBlocks = blocks.map((block) => {
+    const trimmed = block.trim();
+    if (!trimmed) return "";
+
+    // Check if this block is a sequence of OL items
+    const olMatch = trimmed.match(new RegExp(`^(${OL_PLACEHOLDER}\\d+%%\\s*)+$`));
+    if (olMatch) {
+      const items = trimmed.match(new RegExp(`${OL_PLACEHOLDER}(\\d+)%%`, "g")) || [];
+      const lis = items
+        .map((ph) => {
+          const idx = parseInt(ph.replace(OL_PLACEHOLDER, "").replace("%%", ""));
+          return `<li class="ml-5 list-decimal text-slate-300 mb-1">${olItems[idx] || ""}</li>`;
+        })
+        .join("\n");
+      return `<ol class="my-3 space-y-1">${lis}</ol>`;
+    }
+
+    // Check if this block is a sequence of UL items
+    const ulMatch = trimmed.match(new RegExp(`^(${UL_PLACEHOLDER}\\d+%%\\s*)+$`));
+    if (ulMatch) {
+      const items = trimmed.match(new RegExp(`${UL_PLACEHOLDER}(\\d+)%%`, "g")) || [];
+      const lis = items
+        .map((ph) => {
+          const idx = parseInt(ph.replace(UL_PLACEHOLDER, "").replace("%%", ""));
+          return `<li class="ml-5 list-disc text-slate-300 mb-1">${ulItems[idx] || ""}</li>`;
+        })
+        .join("\n");
+      return `<ul class="my-3 space-y-1">${lis}</ul>`;
+    }
+
+    // Regular paragraph — wrap if it's not already a block element
+    if (
+      trimmed.startsWith("<h") ||
+      trimmed.startsWith("<pre") ||
+      trimmed.startsWith("<table") ||
+      trimmed.startsWith("<div") ||
+      trimmed.startsWith("<blockquote") ||
+      trimmed.startsWith("<hr") ||
+      trimmed.startsWith("<ol") ||
+      trimmed.startsWith("<ul") ||
+      trimmed.startsWith("<li")
+    ) {
+      return trimmed;
+    }
+
+    return `<p class="mb-3 text-slate-300 leading-relaxed">${trimmed}</p>`;
+  });
+
+  html = processedBlocks.filter(Boolean).join("\n");
+
+  // Clean up any remaining placeholder artifacts
+  html = html.replace(new RegExp(`${OL_PLACEHOLDER}\\d+%%`, "g"), "");
+  html = html.replace(new RegExp(`${UL_PLACEHOLDER}\\d+%%`, "g"), "");
+
+  // Clean up empty paragraphs and stray whitespace
+  html = html.replace(/<p[^>]*>\s*<\/p>/g, "");
+  html = html.replace(/\n{3,}/g, "\n\n");
+
+  return html.trim();
 }
 
+// ── Table renderer ────────────────────────────────────────────────────
+
 function renderTables(markdown: string): string {
-  // Match a table: header row + separator + body rows
   const tableRegex = /^\|(.+)\|\n\|([-| :]+)\|\n((?:\|.+\|\n?)*)/gm;
 
   return markdown.replace(
@@ -130,19 +244,21 @@ function renderTables(markdown: string): string {
         );
 
       let tableHtml =
-        '<div class="my-4 overflow-x-auto"><table class="w-full text-sm"><thead><tr class="border-b border-slate-700">';
+        '<div class="my-4 overflow-x-auto rounded-lg border border-slate-700"><table class="w-full text-sm">';
 
+      // Header
+      tableHtml += '<thead><tr class="border-b border-slate-700 bg-slate-800/50">';
       for (const h of headers) {
-        tableHtml += `<th class="px-4 py-2 text-left font-semibold text-slate-200">${h}</th>`;
+        tableHtml += `<th class="px-4 py-2.5 text-left font-semibold text-slate-200">${h}</th>`;
       }
-
       tableHtml += "</tr></thead><tbody>";
 
+      // Body
       for (let i = 0; i < rows.length; i++) {
         const isLast = i === rows.length - 1;
         tableHtml += `<tr class="${isLast ? "" : "border-b border-slate-800"}">`;
         for (const cell of rows[i]) {
-          tableHtml += `<td class="px-4 py-2 text-slate-300">${cell}</td>`;
+          tableHtml += `<td class="px-4 py-2.5 text-slate-300">${cell}</td>`;
         }
         tableHtml += "</tr>";
       }
