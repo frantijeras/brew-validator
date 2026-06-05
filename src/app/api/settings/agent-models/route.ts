@@ -85,17 +85,17 @@ async function forwardToBridge(
 }
 
 // GET /api/settings/agent-models
-// Public endpoint — the bridge daemon polls this without auth
+// Public endpoint — the bridge daemon polls this without auth.
+// Returns the latest saved config (per user when authenticated, otherwise
+// the most recently saved user's config — single-tenant today).
 export async function GET() {
-  // 3-level fallback: file → DB → defaults
-
-  // 1. agent-models.json local (synced by bridge)
+  // 1. agent-models.json local (synced by bridge) — fastest path for the bridge
   const fileConfig = await readConfigFromFile();
   if (fileConfig) {
     return NextResponse.json(fileConfig);
   }
 
-  // 2. DB (tabla Setting) — any user's config
+  // 2. DB (tabla Setting) — most-recently-saved user
   const dbConfig = await readConfigFromDB();
   if (dbConfig) {
     return NextResponse.json(dbConfig);
@@ -123,24 +123,30 @@ export async function POST(request: Request) {
 
     const config = body as Record<string, string>;
 
-    // 1. Try to forward to the local bridge daemon
-    const bridgeOk = await forwardToBridge(config);
+    // 1. Always persist to DB FIRST — this is the durable source of truth
+    //    used by resolveModelForJobAgent() when creating jobs.
+    await saveConfigToDB(session.user.id, config);
 
-    if (bridgeOk) {
-      return NextResponse.json({ success: true, savedTo: "bridge" });
-    }
-
-    // 2. Bridge not available (Vercel serverless) — save to file + DB
+    // 2. Always try to write to the local file (works on Fran's VPS,
+    //    silently fails on Vercel serverless). The bridge daemon reads
+    //    this file on startup and during sync_model_settings().
     try {
       writeConfigToFile(config);
     } catch {
       // file write may fail in serverless — that's expected
     }
 
-    // 3. Always persist to DB as reliable fallback
-    await saveConfigToDB(session.user.id, config);
+    // 3. Best-effort: push the new config to the live bridge process so
+    //    the change takes effect immediately, without waiting for the
+    //    next sync poll. Failure here is non-fatal — the bridge will
+    //    pick up the new config on its next sync (every ~30s).
+    const bridgeOk = await forwardToBridge(config);
 
-    return NextResponse.json({ success: true, savedTo: "db" });
+    return NextResponse.json({
+      success: true,
+      savedTo: "db",
+      bridgeNotified: bridgeOk,
+    });
   } catch (err) {
     console.error("[POST /api/settings/agent-models]", err);
     return NextResponse.json(
