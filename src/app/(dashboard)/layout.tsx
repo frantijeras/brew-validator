@@ -189,21 +189,16 @@ function CauldronStarsSmallIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
+      {/* Cauldron body */}
+      <path d="M6 12 L26 12 L24 26 Q23 28.5 16 28.5 Q9 28.5 8 26 Z" />
+      {/* Cauldron rim */}
+      <ellipse cx="16" cy="12" rx="10" ry="2.5" />
       {/* AI Star 4-point */}
       <path
-        d="M16 1 L17.2 5 L21 6.5 L17.2 8 L16 12 L14.8 8 L11 6.5 L14.8 5 Z"
+        d="M16 16 L17.4 19.2 L21 20.5 L17.4 21.8 L16 25 L14.6 21.8 L11 20.5 L14.6 19.2 Z"
         fill="currentColor"
         stroke="none"
       />
-      {/* Cauldron rim */}
-      <ellipse cx="16" cy="15" rx="9" ry="2.5" />
-      {/* Cauldron body */}
-      <path d="M7 15 L25 15 L23 27 Q22 28.5 16 28.5 Q10 28.5 9 27 Z" />
-      {/* Bubble left */}
-      <circle cx="11" cy="20" r="1.2" fill="currentColor" fillOpacity="0.5" />
-      {/* Bubble right */}
-      <circle cx="19" cy="22" r="1" fill="currentColor" fillOpacity="0.5" />
-      <path d="M16 3 L16 6 M14 4.5 L18 4.5" />
     </svg>
   );
 }
