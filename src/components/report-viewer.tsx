@@ -150,8 +150,8 @@ export function ReportViewer({ report }: ReportViewerProps) {
                 </table>
               </div>
 
-              {/* Desglose — lista */}
-              {scorecard.length > 0 && (
+              {/* Desglose — solo para NO juez (el juez ya muestra todo en la tabla) */}
+              {report.agentName !== "judge" && scorecard.length > 0 && (
                 <ul className="space-y-2">
                   {scorecard.map((item) => {
                     const isTotal =

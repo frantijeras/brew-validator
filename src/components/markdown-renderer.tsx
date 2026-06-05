@@ -14,7 +14,7 @@
 // The judge LLM tends to produce duplicate scorecard tables, emojis,
 // and repeated score lines. We clean that up before rendering.
 
-const JUDGE_EMOJI_REGEX = /[📊⭐✅🎯🏆💪🔍❌📈📋✨🔥💡]/g;
+const JUDGE_EMOJI_REGEX = /[📊⭐✅🎯🏆💪🔍❌📈📋✨🔥💡⚖️🛡️🚀💰]/g;
 
 function cleanJudgeReport(markdown: string, agentName?: string): string {
   if (agentName !== "judge") return markdown;
@@ -27,20 +27,24 @@ function cleanJudgeReport(markdown: string, agentName?: string): string {
   // Remove duplicate "## Scorecard" sections (keep only the first one)
   const scorecardMatches = [...clean.matchAll(/^## Scorecard[\s\S]*?(?=^## |\n---|\n\n\n|$)/gim)];
   if (scorecardMatches.length > 1) {
-    // Keep the first, remove the rest
     for (let i = 1; i < scorecardMatches.length; i++) {
       clean = clean.replace(scorecardMatches[i][0], "");
     }
   }
 
-  // Remove lines like "Problema: 7/10 ✅" (duplicates of table data)
+  // Remove standalone score lines like "Problema: 7/10 ✅" or "Problema: 7.0"
   clean = clean.replace(
-    /^[A-ZÁÉÍÓÚ][a-záéíóú]+(?:\s+[a-záéíóú]+)*:\s*\d+(?:\.\d+)?\/10\s*.*$/gm,
+    /^[A-ZÁÉÍÓÚ][a-záéíóú]+(?:\s+[a-záéíóú]+)*:\s*\d+(?:\.\d+)?(?:\/10)?\s*.*$/gm,
     ""
   );
 
-  // Remove lines like "## Decisión" (not in the spec)
-  clean = clean.replace(/^## Decisión.*$/gm, "");
+  // Remove "## Decisión" section (not in spec)
+  clean = clean.replace(/^## Decisión[\s\S]*?(?=^## |$)/gm, "");
+
+  // Remove "## Puntuación Final" section from markdown — the scorecard is
+  // rendered separately in the ReportViewer table, so showing it in the
+  // markdown body duplicates the scores.
+  clean = clean.replace(/^## Puntuación Final[\s\S]*?(?=^## |$)/gm, "");
 
   // Clean up multiple blank lines
   clean = clean.replace(/\n{3,}/g, "\n\n");
@@ -53,8 +57,16 @@ function cleanJudgeReport(markdown: string, agentName?: string): string {
 export function renderMarkdown(markdown: string, agentName?: string): string {
   if (!markdown) return "";
 
-  // Clean judge reports before rendering
+  // Clean reports before rendering
   let html = cleanJudgeReport(markdown, agentName);
+
+  // Remove emojis from ALL agent reports (they pollute the output)
+  if (agentName && agentName !== "idea-generator") {
+    html = html.replace(JUDGE_EMOJI_REGEX, "");
+  }
+
+  // Remove empty sections (headers followed by nothing or just whitespace)
+  html = html.replace(/^#{2,4}\s+.+\n(?:\s*\n)*(?=^#{2,4}\s+|$)/gm, "");
 
   // Escape HTML entities (except what we'll inject)
   html = html
