@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle,
@@ -71,10 +71,23 @@ export function ProjectPhasesWithModal({
 }: ProjectPhasesWithModalProps) {
     const [modalPhase, setModalPhase] = useState<PhaseData | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const router = useRouter();
+
+  // Auto-poll: refresh when a phase is PROCESSING or QUESTIONING so cancel/refresh is visible
+  const isAnyProcessingOrQuestioning = phases.some(
+    (p) => p.status === "PROCESSING" || p.status === "QUESTIONING"
+  );
+
+  useEffect(() => {
+    if (!isAnyProcessingOrQuestioning) return;
+    const interval = setInterval(() => {
+      router.refresh();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [isAnyProcessingOrQuestioning, router]);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const router = useRouter();
 
   async function handleCancelPhase(phaseId: string) {
     // No confirm — the button is the action

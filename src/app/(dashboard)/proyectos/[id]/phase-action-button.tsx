@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sparkles, AlertCircle } from "lucide-react";
 
@@ -18,44 +18,10 @@ export function PhaseActionButton({
   label,
 }: PhaseActionButtonProps) {
   const [running, setRunning] = useState(false);
-  const [polling, setPolling] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [jobId, setJobId] = useState<string | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const router = useRouter();
 
-  // Poll for job completion
-  useEffect(() => {
-    if (!jobId) return;
 
-    pollRef.current = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/jobs/${jobId}`);
-        if (!res.ok) throw new Error("Job not found");
-
-        const data = await res.json();
-        if (data.status === "COMPLETED") {
-          clearInterval(pollRef.current!);
-          setPolling(false);
-          setRunning(false);
-          setJobId(null);
-          router.refresh();
-        } else if (data.status === "FAILED") {
-          clearInterval(pollRef.current!);
-          setPolling(false);
-          setRunning(false);
-          setJobId(null);
-          setError(data.error || "Error al procesar la fase");
-        }
-      } catch {
-        // keep polling
-      }
-    }, 3000);
-
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, [jobId, router]);
 
   async function handleClick() {
     setRunning(true);
@@ -71,8 +37,8 @@ export function PhaseActionButton({
         setError(data.error || "Error al ejecutar la fase");
         setRunning(false);
       } else {
-        setJobId(data.jobId);
-        setPolling(true);
+        // Refresh page immediately so the parent shows PROCESSING state + cancel button
+        router.refresh();
       }
     } catch {
       setError("Error de conexión");
@@ -81,7 +47,7 @@ export function PhaseActionButton({
   }
 
   // Determine button state
-  const isLoading = running || polling;
+  const isLoading = running;
 
   return (
     <div className="flex flex-col items-end gap-1.5">
@@ -93,7 +59,7 @@ export function PhaseActionButton({
         {isLoading ? (
           <>
             <span className="inline-block size-4 animate-spin rounded-full border-2 border-slate-950 border-t-transparent" />
-            {polling ? "Procesando…" : "Iniciando…"}
+            Iniciando…
           </>
         ) : (
           <>
