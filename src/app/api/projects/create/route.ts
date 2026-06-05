@@ -35,16 +35,16 @@ export async function POST(req: Request) {
         phases: {
           create: [
             {
-              type: "IDENTITY",
-              label: "Identidad de Marca",
-              description: "Naming, tono de voz, estilo visual y personalidad de marca",
+              type: "ANALYSIS",
+              label: "Análisis de Mercado",
+              description: "Competencia, TAM/SAM/SOM y estrategia de lanzamiento",
               status: "AVAILABLE",
               sortOrder: 0,
             },
             {
-              type: "ANALYSIS",
-              label: "Análisis de Mercado",
-              description: "Competencia, TAM/SAM/SOM y estrategia de lanzamiento",
+              type: "IDENTITY",
+              label: "Identidad de Marca",
+              description: "Naming, tono de voz, estilo visual y personalidad de marca",
               status: "LOCKED",
               sortOrder: 1,
             },

@@ -61,42 +61,42 @@ Score: ${idea.score || "N/A"}
     let artifactContent = "";
 
     switch (phaseType) {
-      case "IDENTITY": {
-        artifactTitle = "Briefing de Identidad";
-        artifactContent = `# Briefing de Identidad — ${project.name}
-
-Basado en la idea validada y su análisis, se ha generado el siguiente briefing de identidad de marca.
-
-## Naming
-
-*Opciones de nombre pendientes de generación con IA*
-
-## Tono de Voz
-
-*Definición de personalidad de marca pendiente*
-
-## Estilo Visual
-
-*Descripción visual pendiente*
-
----
-
-*Contexto utilizado:* ${fullContext.slice(0, 500)}...
-`;
-        break;
-      }
       case "ANALYSIS": {
         artifactTitle = "Análisis de Mercado";
         artifactContent = `# Análisis de Mercado — ${project.name}
 
-*Fase en desarrollo — disponible tras completar Identidad de Marca*`;
+Basado en la idea validada y su contexto, se ha generado el siguiente análisis.
+
+## Contexto de la Idea
+
+${fullContext.slice(0, 1000)}
+
+## TAM/SAM/SOM
+
+*Estimación de mercado pendiente*
+
+## Competencia
+
+*Análisis competitivo pendiente*
+
+## DAFO
+
+*Debilidades, Amenazas, Fortalezas, Oportunidades pendiente*
+`;
+        break;
+      }
+      case "IDENTITY": {
+        artifactTitle = "Briefing de Identidad";
+        artifactContent = `# Briefing de Identidad — ${project.name}
+
+*Fase en desarrollo — disponible tras completar Análisis de Mercado*`;
         break;
       }
       case "CONTENT": {
         artifactTitle = "Guía de Contenido";
         artifactContent = `# Guía de Contenido — ${project.name}
 
-*Fase en desarrollo — disponible tras completar Análisis de Mercado*`;
+*Fase en desarrollo — disponible tras completar Identidad de Marca*`;
         break;
       }
       case "DEVELOPMENT": {
