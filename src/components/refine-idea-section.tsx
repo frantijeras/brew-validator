@@ -101,8 +101,6 @@ export default function RefineIdeaSection({
   onCollapse,
   onValidate,
 }: RefineIdeaSectionProps) {
-  const clearQuizState = () => { setQuestions([]); setAnswers({}); };
-
   const [initialized, setInitialized] = useState(false);
   const [activeTab, setActiveTab] = useState<"quiz" | "manual">("quiz");
   const [screen, setScreen] = useState<Screen>("choice");
@@ -275,7 +273,15 @@ export default function RefineIdeaSection({
             `/api/ideas/${idea.id}/refine?jobId=${jobId}`,
             { credentials: "same-origin" }
           );
-          if (!res.ok) return;
+          if (!res.ok) {
+            if (res.status === 404) {
+              if (pollRef.current) clearInterval(pollRef.current);
+              setError("El job se perdió. Vuelve a intentarlo.");
+              setScreen("choice");
+              return;
+            }
+            return;
+          }
           const data = await res.json();
 
           if (data.status === "QUESTIONS_READY" && data.questions?.length > 0) {
@@ -400,7 +406,15 @@ export default function RefineIdeaSection({
             `/api/ideas/${idea.id}/refine?jobId=${jobId}`,
             { credentials: "same-origin" }
           );
-          if (!res.ok) return;
+          if (!res.ok) {
+            if (res.status === 404) {
+              if (pollRef.current) clearInterval(pollRef.current);
+              setError("El job se perdió. Vuelve a intentarlo.");
+              setScreen("choice");
+              return;
+            }
+            return;
+          }
           const data = await res.json();
 
           if (data.status === "DONE") {
@@ -480,7 +494,16 @@ export default function RefineIdeaSection({
             `/api/ideas/${idea.id}/refine?jobId=${jobId}`,
             { credentials: "same-origin" }
           );
-          if (!res.ok) return;
+          if (!res.ok) {
+            if (res.status === 404) {
+              if (pollRef.current) clearInterval(pollRef.current);
+              setError("El job se perdió. Vuelve a intentarlo.");
+              setScreen("choice");
+              setIsManualPolling(false);
+              return;
+            }
+            return;
+          }
           const data = await res.json();
 
           if (data.status === "DONE") {
