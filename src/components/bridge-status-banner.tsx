@@ -27,8 +27,7 @@ export function BridgeStatusBanner() {
           <div className="flex items-center gap-3 px-4 py-2.5">
             <Loader2 className="size-4 shrink-0 animate-spin text-amber-400" />
             <p className="text-sm text-amber-200">
-              <span className="font-medium">Procesando:</span>{" "}
-              {status.stateDetail || "Agente ejecutándose..."}
+              {status.stateDetail || "Procesando..."}
             </p>
           </div>
         </div>
