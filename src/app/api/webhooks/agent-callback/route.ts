@@ -275,25 +275,45 @@ export async function POST(req: NextRequest) {
                 resolvedScore = legacy;
               }
             } else if (Array.isArray(sc)) {
-              // Legacy array format: [{ key, value, description }, ...]
-              const totalItem = sc.find(
+              // New judge v4 format: [{ k, v, d }, ...] — read v from item with k === "Total"
+              const newFormatTotal = sc.find(
                 (it: unknown) =>
                   typeof it === "object" &&
                   it !== null &&
-                  ((it as Record<string, unknown>).key === "Total" ||
-                    (it as Record<string, unknown>).key === "total" ||
-                    (it as Record<string, unknown>).key === "puntuación")
+                  ((it as Record<string, unknown>).k === "Total" ||
+                    (it as Record<string, unknown>).k === "total" ||
+                    (it as Record<string, unknown>).k === "puntuación")
               );
-              if (totalItem) {
-                resolvedScore = Number((totalItem as Record<string, unknown>).value);
-              } else {
-                // No Total row — average the 8 dimension values
+              if (newFormatTotal) {
+                const v = Number((newFormatTotal as Record<string, unknown>).v);
+                if (!isNaN(v) && v >= 0 && v <= 10) {
+                  resolvedScore = v;
+                }
+              }
+              // Legacy array format: [{ key, value, description }, ...]
+              if (resolvedScore === null) {
+                const totalItem = sc.find(
+                  (it: unknown) =>
+                    typeof it === "object" &&
+                    it !== null &&
+                    ((it as Record<string, unknown>).key === "Total" ||
+                      (it as Record<string, unknown>).key === "total" ||
+                      (it as Record<string, unknown>).key === "puntuación")
+                );
+                if (totalItem) {
+                  resolvedScore = Number((totalItem as Record<string, unknown>).value);
+                }
+              }
+              // No Total row — average the 8 dimension values (works for both formats)
+              if (resolvedScore === null) {
                 const numericValues = sc
-                  .map((it: unknown) =>
-                    typeof it === "object" && it !== null
-                      ? Number((it as Record<string, unknown>).value)
-                      : NaN
-                  )
+                  .map((it: unknown) => {
+                    if (typeof it !== "object" || it === null) return NaN;
+                    const obj = it as Record<string, unknown>;
+                    // New format: v; legacy: value
+                    const val = obj.v !== undefined ? obj.v : obj.value;
+                    return Number(val);
+                  })
                   .filter((v: number) => !isNaN(v) && v >= 0 && v <= 10);
                 if (numericValues.length > 0) {
                   resolvedScore =

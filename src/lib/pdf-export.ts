@@ -402,8 +402,13 @@ export function generatePdf(filename: string, data: ExportData): void {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.setTextColor(...C_BLACK);
-    doc.text(`${label} — ${stripEmojis(report.title)}`, MARGIN, y);
-    y += 5;
+    const reportHeader = `${label} — ${stripEmojis(report.title)}`;
+    const reportHeaderLines = doc.splitTextToSize(reportHeader, CONTENT_W);
+    for (const hl of reportHeaderLines) {
+      checkSpace(5);
+      doc.text(hl, MARGIN, y);
+      y += 5;
+    }
 
     // Meta line
     doc.setFont("helvetica", "normal");
@@ -417,9 +422,38 @@ export function generatePdf(filename: string, data: ExportData): void {
     if (report.scorecard) {
       try {
         const parsed = JSON.parse(report.scorecard);
-        const entries = typeof parsed === "object" && !Array.isArray(parsed)
-          ? Object.entries(parsed as Record<string, unknown>)
-          : [];
+        // Normalize to [key, value, description?] entries.
+        // Supports:
+        //   - flat object: {"Problema": 6.0, ..., "Total": 4.5}  (legacy)
+        //   - array k/v/d: [{k: "Problema", v: 6.0, d: "..."}, ...]  (judge v4, new)
+        //   - array key/value/description: [{key, value, description}, ...]  (legacy)
+        type ScEntry = [string, number | string, string | undefined];
+        const entries: ScEntry[] = [];
+        if (Array.isArray(parsed)) {
+          for (const item of parsed) {
+            if (typeof item !== "object" || item === null || Array.isArray(item)) continue;
+            const obj = item as Record<string, unknown>;
+            if (obj.k !== undefined) {
+              // New k/v/d format
+              entries.push([
+                String(obj.k),
+                typeof obj.v === "number" || typeof obj.v === "string" ? obj.v : 0,
+                typeof obj.d === "string" ? obj.d : undefined,
+              ]);
+            } else if (obj.key !== undefined) {
+              // Legacy key/value/description
+              entries.push([
+                String(obj.key),
+                typeof obj.value === "number" || typeof obj.value === "string" ? obj.value : 0,
+                typeof obj.description === "string" ? obj.description : undefined,
+              ]);
+            }
+          }
+        } else if (typeof parsed === "object" && parsed !== null) {
+          for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+            entries.push([k, typeof v === "number" || typeof v === "string" ? v : 0, undefined]);
+          }
+        }
         if (entries.length > 0) {
           checkSpace(8);
           doc.setFont("helvetica", "bold");
@@ -430,11 +464,19 @@ export function generatePdf(filename: string, data: ExportData): void {
           doc.setFont("helvetica", "normal");
           doc.setFontSize(8);
           doc.setTextColor(...C_DARK);
-          for (const [key, val] of entries) {
-            checkSpace(4);
+          for (const [key, val, desc] of entries) {
             const scoreStr = typeof val === "number" ? val.toFixed(1) : String(val);
-            doc.text(`${key}: ${scoreStr}/10`, MARGIN + 3, y);
-            y += 4;
+            const lineText = desc
+              ? `${key}: ${scoreStr}/10 — ${desc}`
+              : `${key}: ${scoreStr}/10`;
+            // Wrap long lines so dimension names + descriptions never get clipped
+            // (e.g. "Monetización: 4.5/10 — Freemium viable...").
+            const lines = doc.splitTextToSize(lineText, CONTENT_W - 3);
+            for (const line of lines) {
+              checkSpace(4);
+              doc.text(line, MARGIN + 3, y);
+              y += 4;
+            }
           }
           y += 2;
         }
@@ -468,8 +510,13 @@ export function generatePdf(filename: string, data: ExportData): void {
     for (const v of data.versions) {
       checkSpace(5);
       doc.setTextColor(...C_DARK);
-      doc.text(`• ${stripEmojis(v.title)} (${v.phase}) — ${v.createdAt}`, MARGIN, y);
-      y += 5;
+      const versionLine = `• ${stripEmojis(v.title)} (${v.phase}) — ${v.createdAt}`;
+      const versionLines = doc.splitTextToSize(versionLine, CONTENT_W);
+      for (const vl of versionLines) {
+        checkSpace(5);
+        doc.text(vl, MARGIN, y);
+        y += 5;
+      }
     }
   }
 

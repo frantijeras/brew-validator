@@ -107,7 +107,7 @@ export function ReportViewer({ report }: ReportViewerProps) {
           {scorecard && scorecard.length > 0 && (
             <div className="mb-6">
               {/* Summary table — all dimensions in rows */}
-              <div className="mb-4 overflow-hidden rounded-lg border border-slate-700">
+              <div className="mb-4 overflow-x-auto rounded-lg border border-slate-700">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-700 bg-slate-800/50">
@@ -141,7 +141,7 @@ export function ReportViewer({ report }: ReportViewerProps) {
                           } ${isLast ? "" : "border-b border-slate-800"}`}
                         >
                           <td
-                            className={`px-4 py-2.5 ${
+                            className={`px-4 py-2.5 break-words ${
                               isTotal ? "text-white" : "text-slate-300"
                             }`}
                           >
@@ -157,7 +157,7 @@ export function ReportViewer({ report }: ReportViewerProps) {
                             {formatScore(item.value)}
                           </td>
                           {showJustification && (
-                            <td className="px-4 py-2.5 text-slate-400 text-xs leading-relaxed">
+                            <td className="px-4 py-2.5 text-slate-400 text-xs leading-relaxed break-words">
                               {item.description ||
                                 (isTotal
                                   ? ""
@@ -308,48 +308,11 @@ function parseScorecard(
 ): { key: string; value: number | string; description?: string }[] {
   if (!scorecard) return [];
 
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(scorecard);
-    if (Array.isArray(parsed)) {
-      const result: { key: string; value: number | string; description?: string }[] = [];
-      for (const item of parsed) {
-        if (typeof item === "object" && item !== null && !Array.isArray(item)) {
-          const obj = item as Record<string, unknown>;
-          // New format: { key, value, description }
-          if (obj.key !== undefined) {
-            const val = obj.value;
-            result.push({
-              key: String(obj.key),
-              value: typeof val === "number" || typeof val === "string" ? val : String(val),
-              description: typeof obj.description === "string" ? obj.description : undefined,
-            });
-          } else {
-            // Legacy array-of-objects: take first entry
-            const entries = Object.entries(obj);
-            if (entries.length > 0) {
-              const val = entries[0][1];
-              result.push({
-                key: String(entries[0][0]),
-                value: typeof val === "number" || typeof val === "string" ? val : String(val),
-              });
-            }
-          }
-        } else {
-          result.push({ key: String(item), value: 0 });
-        }
-      }
-      return result;
-    }
-
-    if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
-      const obj = parsed as Record<string, unknown>;
-      return Object.entries(obj).map(([key, value]) => ({
-        key,
-        value: typeof value === "number" || typeof value === "string" ? value : String(value),
-      }));
-    }
+    parsed = JSON.parse(scorecard);
   } catch {
-    // Not JSON, try line-by-line
+    // Not JSON, try line-by-line as a last resort
     return scorecard
       .split("\n")
       .filter(Boolean)
@@ -360,6 +323,44 @@ function parseScorecard(
           value: parts[1]?.trim() ?? 0,
         };
       });
+  }
+
+  // ── Format 1 (judge v4, NEW): array of { k, v, d } ──
+  // [{ k: "Problema", v: 6.0, d: "..." }, ...]
+  if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === "object" && parsed[0] !== null && "k" in (parsed[0] as Record<string, unknown>)) {
+    return (parsed as Record<string, unknown>[]).map((obj) => ({
+      key: String(obj.k ?? ""),
+      value: typeof obj.v === "number" || typeof obj.v === "string" ? obj.v : 0,
+      description: typeof obj.d === "string" ? obj.d : undefined,
+    }));
+  }
+
+  // ── Format 2 (legacy): array of { key, value, description } ──
+  if (Array.isArray(parsed)) {
+    return parsed
+      .map((item) => {
+        if (typeof item !== "object" || item === null || Array.isArray(item)) {
+          return { key: String(item), value: 0 };
+        }
+        const obj = item as Record<string, unknown>;
+        // Take first recognized key (key or first property) as dimension
+        const dimKey = obj.key !== undefined ? String(obj.key) : Object.keys(obj)[0] ?? "";
+        const dimVal = obj.key !== undefined ? obj.value : Object.values(obj)[0];
+        return {
+          key: dimKey,
+          value: typeof dimVal === "number" || typeof dimVal === "string" ? dimVal : 0,
+          description: typeof obj.description === "string" ? obj.description : undefined,
+        };
+      });
+  }
+
+  // ── Format 3 (legacy): flat object ──
+  // { "Problema": 6.0, ..., "Total": 4.5 }
+  if (typeof parsed === "object" && parsed !== null) {
+    return Object.entries(parsed as Record<string, unknown>).map(([key, value]) => ({
+      key,
+      value: typeof value === "number" || typeof value === "string" ? value : 0,
+    }));
   }
 
   return [];

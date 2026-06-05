@@ -35,12 +35,6 @@ function cleanJudgeReport(markdown: string, agentName?: string): string {
     }
   }
 
-  // Remove standalone score lines like "Problema: 7/10 ✅" or "Problema: 7.0"
-  clean = clean.replace(
-    /^[A-ZÁÉÍÓÚ][a-záéíóú]+(?:\s+[a-záéíóú]+)*:\s*\d+(?:\.\d+)?(?:\/10)?\s*.*$/gm,
-    ""
-  );
-
   // Remove "## Decisión" section (not in spec)
   clean = clean.replace(/^## Decisión[\s\S]*?(?=^## |$)/gm, "");
 
@@ -87,15 +81,6 @@ function cleanJudgeReport(markdown: string, agentName?: string): string {
   // inside a single thought get promoted to paragraph breaks. We squash
   // any blank line that is NOT immediately after a section header.
   clean = clean.replace(/(?<!^#.*\n)\n[ \t]*\n(?!\n|#{1,6} )/gm, " ");
-
-  // Strip per-dimension breakdown lines from judge markdown.
-  // The frontend already renders the scorecard table from JSON
-  // (extracted by extractDimensionExplanation in report-viewer.tsx).
-  // These lines in the body create visual duplication.
-  clean = clean.replace(
-    /^\*\*(Problema|Mercado|Timing|Diferenciación|Diferenciacion|Ejecución|Ejecucion|Monetización|Monetizacion|Defendibilidad|Riesgo|Total)\s*\(\d+\.?\d*\):\*\*\s*.*$/gm,
-    ""
-  );
 
   // Join prose lines that the LLM broke mid-paragraph.
   // The LLM sometimes inserts \n in the middle of a sentence.
