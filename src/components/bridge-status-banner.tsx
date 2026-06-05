@@ -17,22 +17,6 @@ export function BridgeStatusBanner() {
 
   // ── Bridge reachable and healthy ──
   if (status.reachable && status.state !== "error") {
-    // Show a subtle "processing" indicator when an agent is running
-    if (status.state === "processing") {
-      return (
-        <div
-          role="status"
-          className="sticky top-0 z-40 mb-4 rounded-lg border border-amber-700/40 bg-amber-900/20 text-amber-200"
-        >
-          <div className="flex items-center gap-3 px-4 py-2.5">
-            <Loader2 className="size-4 shrink-0 animate-spin text-amber-400" />
-            <p className="text-sm text-amber-200">
-              {status.stateDetail || "Procesando..."}
-            </p>
-          </div>
-        </div>
-      );
-    }
     return null;
   }
 
