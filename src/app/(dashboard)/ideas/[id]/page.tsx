@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Heart, Archive, Trash2, Undo2, MoreHorizontal, Pencil, FileDown, Save, X, Info, AlertCircle, History, FolderKanban } from "lucide-react";
+import { Archive, Trash2, Undo2, MoreHorizontal, Pencil, FileDown, Save, X, Info, AlertCircle, History, FolderKanban } from "lucide-react";
 import { ValidationProgress } from "@/components/validation-progress";
 import { ReportViewer } from "@/components/report-viewer";
 import { ConfirmModal } from "@/components/confirm-modal";
@@ -69,7 +69,6 @@ export default function IdeaDetailPage() {
   const [error, setError] = useState("");
   const [validating, setValidating] = useState(false);
   const [apiError, setApiError] = useState("");
-  const [favPending, setFavPending] = useState(false);
   const [archPending, setArchPending] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -224,26 +223,6 @@ export default function IdeaDetailPage() {
     } catch (err) {
       setApiError(err instanceof Error ? err.message : "Error al exportar PDF");
     }
-  }
-
-  async function toggleFavorite() {
-    if (!idea || favPending) return;
-    setFavPending(true);
-    const next = !idea.isFavorite;
-    setIdea({ ...idea, isFavorite: next });
-    try {
-      await fetch(`/api/ideas/${ideaId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ isFavorite: next }),
-      });
-    } catch {
-      setIdea({ ...idea, isFavorite: !next });
-    } finally {
-      setFavPending(false);
-    }
-    setShowMenu(false);
   }
 
   async function toggleArchive() {
@@ -565,23 +544,8 @@ export default function IdeaDetailPage() {
 
                 {showMenu && (
                   <div className="absolute right-0 top-full mt-1 z-40 w-56 rounded-lg border border-slate-700 bg-slate-800 shadow-xl py-1.5">
-                    {/* Favorite / Unfavorite — hidden if archived or readonly */}
-                    {!readonly && !idea.isArchived && (
-                      <button
-                        onClick={toggleFavorite}
-                        disabled={favPending}
-                        className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors disabled:opacity-50"
-                      >
-                        <Heart
-                          className={`size-4 ${idea.isFavorite ? "text-red-400" : "text-slate-400"}`}
-                          fill={idea.isFavorite ? "currentColor" : "none"}
-                        />
-                        {idea.isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
-                      </button>
-                    )}
-
-                    {/* Archive / Unarchive — hidden if favorited */}
-                    {!idea.isFavorite && (
+                    {/* Archive / Unarchive */}
+                    {!readonly && (
                       idea.isArchived ? (
                         <button
                           onClick={toggleArchive}
@@ -604,11 +568,6 @@ export default function IdeaDetailPage() {
                           Archivar
                         </button>
                       )
-                    )}
-
-                    {/* Convertir en proyecto — only when completed */}
-                    {(idea.status === "COMPLETED" || idea.validationStatus === "DONE") && (
-                      <ConvertToProjectButton ideaId={idea.id} />
                     )}
 
                     {/* Edit idea original — only when DRAFT */}
@@ -749,6 +708,12 @@ export default function IdeaDetailPage() {
                   )}
                 </button>
               )}
+
+              {/* Convertir en proyecto */}
+              {!readonly && (idea.status === "COMPLETED" || idea.validationStatus === "DONE") && (
+                <ConvertToProjectButton ideaId={idea.id} />
+              )}
+
               <button
                 onClick={handleExportPdf}
                 disabled={isViewingHistorical || isBusy}
@@ -762,7 +727,7 @@ export default function IdeaDetailPage() {
                 className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900/60 px-4 py-2.5 text-sm font-medium text-slate-300 shadow transition-all hover:border-slate-600 hover:text-slate-200 active:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <FileDown className="size-4" />
-                Exportar informe
+                Descargar PDF
               </button>
             </div>
 
@@ -1236,32 +1201,28 @@ function ConvertToProjectButton({ ideaId }: { ideaId: string }) {
 
   if (projectId) {
     return (
-      <>
-        <div className="my-1 border-t border-slate-700" />
-        <a
-          href={`/proyectos/${projectId}`}
-          className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-amber-400 hover:bg-slate-700 transition-colors"
-        >
-          <FolderKanban className="size-4" />
-          Ir al proyecto
-        </a>
-      </>
+      <a
+        href={`/proyectos/${projectId}`}
+        className="inline-flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm font-medium text-amber-400 shadow transition-all hover:border-amber-400 hover:bg-amber-500/20"
+      >
+        <FolderKanban className="size-4" />
+        Ir al proyecto
+      </a>
     );
   }
 
   return (
     <>
-      <div className="my-1 border-t border-slate-700" />
       <button
         onClick={handleConvert}
         disabled={loading}
-        className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors disabled:opacity-50"
+        className="inline-flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm font-medium text-amber-400 shadow transition-all hover:border-amber-400 hover:bg-amber-500/20 active:bg-amber-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        <FolderKanban className="size-4 text-slate-400" />
+        <FolderKanban className="size-4" />
         {loading ? "Creando proyecto…" : "Convertir en proyecto"}
       </button>
       {error && (
-        <p className="px-3 pb-1 text-xs text-red-400">{error}</p>
+        <p className="mt-1 text-xs text-red-400">{error}</p>
       )}
     </>
   );
