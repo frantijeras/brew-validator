@@ -933,7 +933,19 @@ export default function IdeaDetailPage() {
               placeholder="Describe la idea"
             />
           ) : (
-            <TextExpander text={idea.originalIdea || idea.description} />
+            <div className="space-y-2">
+              <TextExpander text={idea.description} />
+              {idea.originalIdea && idea.originalIdea !== idea.description && (
+                <details className="text-xs text-slate-500">
+                  <summary className="cursor-pointer hover:text-slate-300 transition-colors">
+                    Ver texto original
+                  </summary>
+                  <div className="mt-2 pl-3 border-l-2 border-slate-700">
+                    <TextExpander text={idea.originalIdea} className="text-sm text-slate-400 italic" maxLength={300} />
+                  </div>
+                </details>
+              )}
+            </div>
           )}
         </div>
 

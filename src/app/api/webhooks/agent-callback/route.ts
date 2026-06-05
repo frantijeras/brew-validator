@@ -90,6 +90,14 @@ export async function POST(req: NextRequest) {
       const monetization = (output.monetization as string) || "";
 
       if (title && description) {
+        // Read the current idea to preserve originalIdea (user's raw input)
+        // before the AI description overwrites it.
+        const currentIdea = await prisma.idea.findUnique({
+          where: { id: job.ideaId },
+          select: { originalIdea: true, description: true },
+        });
+        const preservedOriginal = currentIdea?.originalIdea ?? currentIdea?.description ?? null;
+
         await prisma.idea.update({
           where: { id: job.ideaId },
           data: {
@@ -99,6 +107,7 @@ export async function POST(req: NextRequest) {
             valueProposition: valueProposition || null,
             targetUser: targetUser || "Por determinar",
             monetization: monetization || "Por determinar",
+            originalIdea: preservedOriginal, // ← preserve user's raw input
             status: "DRAFT",
             validationStatus: "PENDING",
           },

@@ -280,11 +280,11 @@ function CustomForm({
             htmlFor="rawIdea"
             className="mb-1.5 block text-sm font-medium text-slate-300"
           >
-            Cuéntame tu idea <span className="text-red-400">*</span>
+            Tu idea en bruto <span className="text-red-400">*</span>
           </label>
           <textarea
             id="rawIdea"
-            placeholder="Cuéntame tu idea... (sector, público objetivo, problema que resuelve, enfoque, monetización...)"
+            placeholder="Describe tu idea en pocas líneas. La IA la reescribirá mejorándola con datos de mercado, propuesta de valor clara y modelo de monetización concreto."
             value={rawIdea}
             onChange={(e) => {
               setRawIdea(e.target.value);
