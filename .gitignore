@@ -6,3 +6,7 @@ next-env.d.ts
 
 /src/generated/prisma
 .vercel
+
+# SQLite (not used — project uses PostgreSQL/Neon)
+prisma/dev.db
+prisma/dev.db-journal
