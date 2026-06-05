@@ -16,6 +16,6 @@ export default auth((req) => {
 export const config = {
   matcher: [
     // Protect everything EXCEPT:
-    "/((?!api/auth|login|_next/static|_next/image|favicon.ico|icon|api/bridge/heartbeat|api/bridge/status|api/settings/available-models).*)",
+    "/((?!api/auth|login|_next/static|_next/image|favicon.ico|favicon.svg|icon|api/bridge/heartbeat|api/bridge/status|api/settings/available-models).*)",
   ],
 };
