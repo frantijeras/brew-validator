@@ -53,6 +53,11 @@ export function BusinessModelDropdown({
               />
               <span className="truncate">{selectedModel.label}</span>
             </>
+          ) : allowAny ? (
+            <>
+              <Shuffle className="size-4 text-amber-400 shrink-0" />
+              <span>Cualquiera</span>
+            </>
           ) : (
             <>
               <span className="text-slate-500">Elige un modelo de negocio...</span>
