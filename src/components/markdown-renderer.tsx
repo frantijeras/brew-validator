@@ -65,6 +65,11 @@ export function renderMarkdown(markdown: string, agentName?: string): string {
     html = html.replace(JUDGE_EMOJI_REGEX, "");
   }
 
+  // Remove "## Veredicto" from skeptic and advocate — only the judge gives verdicts
+  if (agentName === "skeptic" || agentName === "advocate") {
+    html = html.replace(/^## Veredicto[\s\S]*?(?=^## |$)/gm, "");
+  }
+
   // Remove empty sections (headers followed by nothing or just whitespace)
   html = html.replace(/^#{2,4}\s+.+\n(?:\s*\n)*(?=^#{2,4}\s+|$)/gm, "");
 
