@@ -12,13 +12,14 @@ const CONFIG_PATH = path.resolve(
 // Where to forward updates when the local bridge is running
 const BRIDGE_URL = process.env.BRIDGE_API_URL ?? "http://127.0.0.1:9090";
 
-// Default models used as fallback when nothing is configured
+// Default models used as fallback when nothing is configured.
+// big-pickle is currently the only free model that still works (as of 2026-06).
 const DEFAULT_MODELS: Record<string, string> = {
-  generator: "opencode-zen-free/deepseek-v4-flash-free",
-  skeptic: "opencode-zen-free/deepseek-v4-flash-free",
-  defender: "opencode-zen-free/deepseek-v4-flash-free",
-  judge: "opencode-zen-free/minimax-m3-free",
-  refiner: "opencode-zen-free/deepseek-v4-flash-free",
+  generator: "opencode-zen-free/big-pickle",
+  skeptic: "opencode-zen-free/big-pickle",
+  defender: "opencode-zen-free/big-pickle",
+  judge: "opencode-zen-free/big-pickle",
+  refiner: "opencode-zen-free/big-pickle",
 };
 
 async function readConfigFromFile(): Promise<Record<string, string> | null> {

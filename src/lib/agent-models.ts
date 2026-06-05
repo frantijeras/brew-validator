@@ -1,11 +1,12 @@
 import { prisma } from "./db";
 
+// big-pickle is currently the only free model that still works (as of 2026-06).
 const AGENT_DEFAULTS: Record<string, string> = {
-  generator: "opencode-zen-free/deepseek-v4-flash-free",
-  skeptic: "opencode-zen-free/deepseek-v4-flash-free",
-  defender: "opencode-zen-free/deepseek-v4-flash-free",
+  generator: "opencode-zen-free/big-pickle",
+  skeptic: "opencode-zen-free/big-pickle",
+  defender: "opencode-zen-free/big-pickle",
   judge: "opencode-zen-free/big-pickle",
-  refiner: "opencode-zen-free/deepseek-v4-flash-free",
+  refiner: "opencode-zen-free/big-pickle",
 };
 
 /**
