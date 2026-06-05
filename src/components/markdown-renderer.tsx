@@ -76,12 +76,6 @@ function cleanJudgeReport(markdown: string, agentName?: string): string {
     return match;
   });
 
-  // Collapse empty lines that the LLM inserts inside a paragraph.
-  // The renderer splits on \n\n+ for paragraphs, so stray blank lines
-  // inside a single thought get promoted to paragraph breaks. We squash
-  // any blank line that is NOT immediately after a section header.
-  clean = clean.replace(/(?<!^#.*\n)\n[ \t]*\n(?!\n|#{1,6} )/gm, " ");
-
   // Join prose lines that the LLM broke mid-paragraph.
   // The LLM sometimes inserts \n in the middle of a sentence.
   // We want to keep real paragraph breaks (blank lines) but join
@@ -122,9 +116,6 @@ export function renderMarkdown(markdown: string, agentName?: string): string {
   if (agentName === "judge") {
     html = html.replace(/^## Veredicto\s*\n+/gm, "");
   }
-
-  // Remove empty sections (headers followed by nothing or just whitespace)
-  html = html.replace(/^#{2,4}\s+.+\n(?:\s*\n)*(?=^#{2,4}\s+|$)/gm, "");
 
   // Escape HTML entities (except what we'll inject)
   html = html
