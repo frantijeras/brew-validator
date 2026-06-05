@@ -44,20 +44,43 @@ function cleanJudgeReport(markdown: string, agentName?: string): string {
   // Remove "## Decisión" section (not in spec)
   clean = clean.replace(/^## Decisión[\s\S]*?(?=^## |$)/gm, "");
 
-  // Remove "## Puntuación Final" section from markdown — the scorecard is
-  // rendered separately in the ReportViewer table, so showing it in the
-  // markdown body duplicates the scores.
-  // Use a more aggressive regex: match from header to the next ## or end.
-  const puntuacionIdx = clean.indexOf("## Puntuación Final");
-  if (puntuacionIdx !== -1) {
-    const afterHeader = clean.slice(puntuacionIdx + 19); // skip the header
-    const nextSection = afterHeader.search(/^## /m);
-    if (nextSection !== -1) {
-      clean = clean.slice(0, puntuacionIdx) + afterHeader.slice(nextSection);
-    } else {
-      clean = clean.slice(0, puntuacionIdx);
-    }
+  // Remove any "## Puntuación*" / "## Scorecard*" / "## Tabla de Puntuaciones"
+  // section — the scorecard is rendered separately in the ReportViewer
+  // table from the scorecard JSON, so showing it in the markdown body
+  // duplicates the scores. The LLM varies the title (## Puntuación,
+  // ## Puntuación Final, ## Puntuación:, ## Tabla de Puntuaciones, etc.)
+  // so we match case-insensitively on keywords.
+  const sectionHeaderRe = /^##\s+[^\n]*(puntuación|puntuacion|scorecard|tabla\s+de\s+puntuaciones?|tabla\s+de\s+scores)[^\n]*$/gim;
+  const sectionRanges: Array<{ start: number; end: number }> = [];
+  let m: RegExpExecArray | null;
+  while ((m = sectionHeaderRe.exec(clean)) !== null) {
+    const start = m.index;
+    // Find the next "## " section header (start of next section) or end of doc
+    const rest = clean.slice(start + m[0].length);
+    const nextSection = rest.search(/^##\s+/m);
+    const end = nextSection === -1 ? clean.length : start + m[0].length + nextSection;
+    sectionRanges.push({ start, end });
   }
+  // Apply in reverse so earlier indexes stay valid
+  for (let i = sectionRanges.length - 1; i >= 0; i--) {
+    const { start, end } = sectionRanges[i];
+    clean = clean.slice(0, start) + clean.slice(end);
+  }
+
+  // Remove loose scorecard tables (no ## header) — look for a markdown
+  // table whose header row contains both "Dimensión" (or "Dimension") and
+  // "Puntuación" (or "Puntuacion"/"Score"). If found, remove the whole
+  // table (header + separator + all body rows).
+  const looseTableRe = /^\|[^\n]*\|[^\n]*\|\s*\n\|[\s:|-]+\|[\s:|-]+\|\s*\n(?:\|[^\n]*\|\s*\n?)+/gm;
+  clean = clean.replace(looseTableRe, (match) => {
+    const firstLine = match.split("\n")[0].toLowerCase();
+    const hasDim = /dimensi[oó]n/.test(firstLine);
+    const hasPunt = /(puntuaci[oó]n|puntuacion|score)/.test(firstLine);
+    // Only remove if it looks like a scorecard table (small, ~8-10 columns
+    // usually, but we don't filter on column count to keep it simple)
+    if (hasDim && hasPunt) return "";
+    return match;
+  });
 
   // Collapse empty lines that the LLM inserts inside a paragraph.
   // The renderer splits on \n\n+ for paragraphs, so stray blank lines
