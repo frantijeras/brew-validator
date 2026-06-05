@@ -285,6 +285,11 @@ const DEFAULT_AGENT_MODELS: Record<string, string> = {
   "defender": "opencode-zen-free/deepseek-v4-flash-free",
   "judge": "opencode-zen-free/minimax-m3-free",
   "refiner": "opencode-zen-free/deepseek-v4-flash-free",
+  "project-analyst": "opencode-zen-free/deepseek-v4-flash-free",
+  "project-branding": "opencode-zen-free/deepseek-v4-flash-free",
+  "project-content": "opencode-zen-free/deepseek-v4-flash-free",
+  "project-dev": "opencode-zen-free/deepseek-v4-flash-free",
+  "project-dossier": "opencode-zen-free/deepseek-v4-flash-free",
 };
 
 const AGENT_INFO: { id: string; name: string; description: string }[] = [
@@ -312,6 +317,34 @@ const AGENT_INFO: { id: string; name: string; description: string }[] = [
     id: "refiner",
     name: "Refinador (QA)",
     description: "Pule la idea final, mejora la redacción y asegura la calidad del resultado.",
+  },
+];
+
+const PROJECT_AGENT_INFO: { id: string; name: string; description: string }[] = [
+  {
+    id: "project-analyst",
+    name: "Analista de Mercado",
+    description: "Analiza el mercado, competencia, TAM/SAM/SOM y genera estrategia de entrada.",
+  },
+  {
+    id: "project-branding",
+    name: "Branding / Identidad",
+    description: "Define naming, tono de voz, personalidad y estilo visual del proyecto.",
+  },
+  {
+    id: "project-content",
+    name: "Contenido y Publicación",
+    description: "Genera estrategia de contenido, skill de publicación y landing promocional.",
+  },
+  {
+    id: "project-dev",
+    name: "Desarrollo Técnico",
+    description: "Plan técnico, stack, arquitectura y skill de desarrollo con contexto completo.",
+  },
+  {
+    id: "project-dossier",
+    name: "Dossier Completo",
+    description: "Compila todo el proyecto en un documento único y ejecutable.",
   },
 ];
 
@@ -383,42 +416,23 @@ function AIModelSection() {
 
       <div className="mt-6 space-y-4">
         {AGENT_INFO.map((agent) => (
-          <div
-            key={agent.id}
-            className="flex flex-col gap-3 rounded-lg border border-slate-800 bg-slate-900 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
-          >
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white">{agent.name}</p>
-              <p className="mt-0.5 text-xs text-slate-400 leading-relaxed">
-                {agent.description}
-              </p>
-            </div>
-            <select
-              value={config[agent.id] ?? DEFAULT_AGENT_MODELS[agent.id]}
-              onChange={(e) => handleChange(agent.id, e.target.value)}
-              className="shrink-0 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-            >
-              {(() => {
-                const providers = [...new Set(modelOptions.map((m) => m.provider))];
-                const providerLabels: Record<string, string> = {
-                  "opencode-zen-free": "OpenCode Zen Free",
-                  "opencode-go": "OpenCode Go",
-                };
-                return providers.map((provider) => (
-                  <optgroup key={provider} label={providerLabels[provider] ?? provider}>
-                    {modelOptions
-                      .filter((m) => m.provider === provider)
-                      .map((m) => (
-                        <option key={m.value} value={m.value}>
-                          {m.label}
-                        </option>
-                      ))}
-                  </optgroup>
-                ));
-              })()}
-            </select>
-          </div>
+          <AgentSelectRow key={agent.id} agent={agent} config={config} modelOptions={modelOptions} onChange={handleChange} />
         ))}
+      </div>
+
+      {/* Project agents — visually separated */}
+      <div className="mt-8">
+        <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">
+          Proyectos
+        </h3>
+        <p className="mt-1 text-xs text-slate-500">
+          Modelos para las fases de ejecución de proyectos
+        </p>
+        <div className="mt-3 space-y-4">
+          {PROJECT_AGENT_INFO.map((agent) => (
+            <AgentSelectRow key={agent.id} agent={agent} config={config} modelOptions={modelOptions} onChange={handleChange} />
+          ))}
+        </div>
       </div>
 
       <div className="mt-6 flex items-center gap-3">
@@ -587,5 +601,53 @@ function UsersSection({ users }: { users: ListedUser[] }) {
         </form>
       </div>
     </section>
+  );
+}
+
+/* ── Agent select row (reusable) ── */
+function AgentSelectRow({
+  agent,
+  config,
+  modelOptions,
+  onChange,
+}: {
+  agent: { id: string; name: string; description: string };
+  config: Record<string, string>;
+  modelOptions: { value: string; label: string; provider: string }[];
+  onChange: (id: string, model: string) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-slate-800 bg-slate-900 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-white">{agent.name}</p>
+        <p className="mt-0.5 text-xs text-slate-400 leading-relaxed">
+          {agent.description}
+        </p>
+      </div>
+      <select
+        value={config[agent.id] ?? DEFAULT_AGENT_MODELS[agent.id]}
+        onChange={(e) => onChange(agent.id, e.target.value)}
+        className="shrink-0 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+      >
+        {(() => {
+          const providers = [...new Set(modelOptions.map((m) => m.provider))];
+          const providerLabels: Record<string, string> = {
+            "opencode-zen-free": "OpenCode Zen Free",
+            "opencode-go": "OpenCode Go",
+          };
+          return providers.map((provider) => (
+            <optgroup key={provider} label={providerLabels[provider] ?? provider}>
+              {modelOptions
+                .filter((m) => m.provider === provider)
+                .map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+            </optgroup>
+          ));
+        })()}
+      </select>
+    </div>
   );
 }

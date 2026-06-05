@@ -22,9 +22,10 @@ export default async function IdeasPage({ searchParams }: Props) {
       ? { isArchived: true }
       : { isArchived: false };
 
+  // Exclude ideas that have been converted to projects
   const where = activeModel
-    ? { ...whereBase, businessModel: activeModel }
-    : whereBase;
+    ? { ...whereBase, businessModel: activeModel, project: null }
+    : { ...whereBase, project: null };
 
   const orderBy =
     activeTab === "all"

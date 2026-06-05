@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { resolveModelForJobAgent } from "@/lib/agent-models";
 
 export async function POST(req: Request) {
   try {
-    const { projectId, phaseId, phaseType } = await req.json();
+    const { projectId, phaseId, phaseType, modelOverride } = await req.json();
     if (!projectId || !phaseId || !phaseType) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
@@ -16,17 +17,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Phase is not available" }, { status: 409 });
     }
 
-    // Get full project + idea context
+    // Get full project + idea context + previous phase artifacts
     const project = await prisma.project.findUnique({
       where: { id: projectId },
       include: {
         idea: {
           include: {
-            reports: { orderBy: { createdAt: "desc" }, take: 5 },
+            reports: { orderBy: { createdAt: "desc" }, take: 1 },
             currentVersion: true,
           },
         },
-        phases: { orderBy: { sortOrder: "asc" } },
+        phases: {
+          orderBy: { sortOrder: "asc" },
+          where: { status: "COMPLETED" },
+        },
       },
     });
 
@@ -35,126 +39,64 @@ export async function POST(req: Request) {
     }
 
     const idea = project.idea;
-
-    // Build context from idea
-    const ideaContext = `
-Título: ${idea.title}
-Descripción: ${idea.description}
-Problema: ${idea.problem || "N/A"}
-Propuesta de valor: ${idea.valueProposition || "N/A"}
-Usuario objetivo: ${idea.targetUser}
-Monetización: ${idea.monetization}
-Modelo de negocio: ${idea.businessModel || "N/A"}
-Veredicto: ${idea.verdict || "N/A"}
-Score: ${idea.score || "N/A"}
-    `.trim();
-
     const latestReport = idea.reports[0];
-    const reportContext = latestReport
-      ? `\n\nInforme de validación:\n${latestReport.content?.slice(0, 2000)}`
-      : "";
 
-    const fullContext = ideaContext + reportContext;
+    // Build idea context for the agent
+    const ideaContext = {
+      title: idea.title,
+      description: idea.description,
+      problem: idea.problem || "",
+      valueProposition: idea.valueProposition || "",
+      targetUser: idea.targetUser,
+      monetization: idea.monetization,
+      businessModel: idea.businessModel || "",
+      verdict: idea.verdict || "",
+      score: idea.score || 0,
+      judgeReport: latestReport?.content?.slice(0, 3000) || "",
+    };
 
-    // Generate phase output (placeholder — will be real AI generation)
-    let artifactTitle = "";
-    let artifactContent = "";
+    // Get previous phase artifacts
+    const previousArtifacts = project.phases
+      .filter((p) => p.artifacts)
+      .map((p) => {
+        const arts = p.artifacts as Array<{ title: string; content: string }> | null;
+        return arts?.[0] || null;
+      })
+      .filter(Boolean);
 
-    switch (phaseType) {
-      case "ANALYSIS": {
-        artifactTitle = "Análisis de Mercado";
-        artifactContent = `# Análisis de Mercado — ${project.name}
+    // Determine agent name
+    const agentName = `project-${phaseType.toLowerCase()}`;
 
-Basado en la idea validada y su contexto, se ha generado el siguiente análisis.
+    // Resolve the model
+    const model = modelOverride || (await resolveModelForJobAgent(agentName));
 
-## Contexto de la Idea
-
-${fullContext.slice(0, 1000)}
-
-## TAM/SAM/SOM
-
-*Estimación de mercado pendiente*
-
-## Competencia
-
-*Análisis competitivo pendiente*
-
-## DAFO
-
-*Debilidades, Amenazas, Fortalezas, Oportunidades pendiente*
-`;
-        break;
-      }
-      case "IDENTITY": {
-        artifactTitle = "Briefing de Identidad";
-        artifactContent = `# Briefing de Identidad — ${project.name}
-
-*Fase en desarrollo — disponible tras completar Análisis de Mercado*`;
-        break;
-      }
-      case "CONTENT": {
-        artifactTitle = "Guía de Contenido";
-        artifactContent = `# Guía de Contenido — ${project.name}
-
-*Fase en desarrollo — disponible tras completar Identidad de Marca*`;
-        break;
-      }
-      case "DEVELOPMENT": {
-        artifactTitle = "Skill de Desarrollo";
-        artifactContent = `# Skill de Desarrollo — ${project.name}
-
-*Fase en desarrollo — disponible tras completar Contenido y Publicación*`;
-        break;
-      }
-      case "DOSSIER": {
-        artifactTitle = "Dossier Completo";
-        // Collect all phase artifacts
-        const allPhases = project.phases;
-        const allArtifacts = allPhases
-          .filter((p) => p.artifacts)
-          .flatMap((p) => (p.artifacts as Array<{ title: string; content: string }>) || []);
-
-        artifactContent = `# Dossier Completo — ${project.name}
-
-## Contexto Original
-${fullContext}
-
-## Artefactos Generados
-
-${allArtifacts.map((a) => `### ${a.title}\n\n${a.content}`).join("\n\n---\n\n")}
-`;
-        break;
-      }
-    }
-
-    // Update phase as completed with artifact
-    await prisma.projectPhase.update({
-      where: { id: phaseId },
+    // Create a job in the DB
+    const job = await prisma.job.create({
       data: {
-        status: "COMPLETED",
-        completedAt: new Date(),
-        artifacts: [
-          {
-            title: artifactTitle,
-            content: artifactContent,
-            type: phaseType,
-          },
-        ],
+        ideaId: idea.id,
+        agentName,
+        status: "PENDING",
+        input: JSON.stringify({
+          projectId,
+          phaseId,
+          ideaContext,
+          previousArtifacts,
+          _bridgeModel: model,
+        }),
       },
     });
 
-    // Unlock next phase
-    const nextPhase = await prisma.projectPhase.findFirst({
-      where: { projectId, sortOrder: phase.sortOrder + 1 },
+    // Mark the phase as IN_PROGRESS
+    await prisma.projectPhase.update({
+      where: { id: phaseId },
+      data: { status: "AVAILABLE" },
     });
-    if (nextPhase) {
-      await prisma.projectPhase.update({
-        where: { id: nextPhase.id },
-        data: { status: "AVAILABLE" },
-      });
-    }
 
-    return NextResponse.json({ success: true, artifact: { title: artifactTitle } });
+    return NextResponse.json({
+      success: true,
+      jobId: job.id,
+      message: "Fase iniciada. El bridge la procesará en breve.",
+    });
   } catch (error) {
     console.error("Error executing phase:", error);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
