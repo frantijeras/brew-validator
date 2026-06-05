@@ -88,6 +88,23 @@ function cleanJudgeReport(markdown: string, agentName?: string): string {
   // any blank line that is NOT immediately after a section header.
   clean = clean.replace(/(?<!^#.*\n)\n[ \t]*\n(?!\n|#{1,6} )/gm, " ");
 
+  // Strip per-dimension breakdown lines from judge markdown.
+  // The frontend already renders the scorecard table from JSON
+  // (extracted by extractDimensionExplanation in report-viewer.tsx).
+  // These lines in the body create visual duplication.
+  clean = clean.replace(
+    /^\*\*(Problema|Mercado|Timing|Diferenciación|Diferenciacion|Ejecución|Ejecucion|Monetización|Monetizacion|Defendibilidad|Riesgo|Total)\s*\(\d+\.?\d*\):\*\*\s*.*$/gm,
+    ""
+  );
+
+  // Join prose lines that the LLM broke mid-paragraph.
+  // The LLM sometimes inserts \n in the middle of a sentence.
+  // We want to keep real paragraph breaks (blank lines) but join
+  // soft wraps within the same paragraph.
+  // Strategy: normalize to single \n between non-blank lines that
+  // don't start with markdown structures.
+  clean = clean.replace(/(?<!\n)\n(?!\n|#{1,6}\s|\*\*|\d+\.\s|-\s|\|\s*\|)/g, " ");
+
   // Clean up multiple blank lines
   clean = clean.replace(/\n{3,}/g, "\n\n");
 
