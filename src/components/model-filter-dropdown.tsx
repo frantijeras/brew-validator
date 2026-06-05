@@ -8,7 +8,7 @@ import { BusinessModelIcon } from "@/components/business-model-icon";
 
 interface ModelFilterDropdownProps {
   activeModel: string;
-  activeTab: "all" | "favorites" | "archived";
+  activeTab: "all" | "archived";
 }
 
 export function ModelFilterDropdown({ activeModel, activeTab }: ModelFilterDropdownProps) {

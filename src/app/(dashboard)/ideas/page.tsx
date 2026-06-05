@@ -6,7 +6,7 @@ import { IdeasToolbar } from "./ideas-toolbar";
 
 export const dynamic = "force-dynamic";
 
-type Tab = "all" | "favorites" | "archived";
+type Tab = "all" | "archived";
 
 interface Props {
   searchParams: Promise<{ tab?: string; model?: string }>;
@@ -14,16 +14,13 @@ interface Props {
 
 export default async function IdeasPage({ searchParams }: Props) {
   const { tab: rawTab, model: rawModel } = await searchParams;
-  const activeTab: Tab =
-    rawTab === "favorites" ? "favorites" : rawTab === "archived" ? "archived" : "all";
+  const activeTab: Tab = rawTab === "archived" ? "archived" : "all";
   const activeModel = rawModel || "";
 
   const whereBase =
-    activeTab === "favorites"
-      ? { isFavorite: true }
-      : activeTab === "archived"
-        ? { isArchived: true }
-        : { isArchived: false };
+    activeTab === "archived"
+      ? { isArchived: true }
+      : { isArchived: false };
 
   const where = activeModel
     ? { ...whereBase, businessModel: activeModel }
@@ -39,36 +36,38 @@ export default async function IdeasPage({ searchParams }: Props) {
     orderBy,
   });
 
-  const tabLabel =
-    activeTab === "favorites"
-      ? "Favoritas"
-      : activeTab === "archived"
-        ? "Archivadas"
-        : "Todas";
+  const tabLabel = activeTab === "archived" ? "Archivadas" : "Todas";
 
   const hasGenerating = ideas.some((i) => i.status === "GENERATING");
   const hasValidating = ideas.some((i) => i.validationStatus === "RUNNING");
 
   // Check for any active jobs related to displayed ideas
   const ideaIds = ideas.map((i) => i.id);
-  const activeJobCount = ideaIds.length > 0
-    ? await prisma.job.count({
-        where: {
-          ideaId: { in: ideaIds },
-          status: { in: ["PENDING", "RUNNING"] },
-        },
-      })
-    : 0;
+  const activeJobCount =
+    ideaIds.length > 0
+      ? await prisma.job.count({
+          where: {
+            ideaId: { in: ideaIds },
+            status: { in: ["PENDING", "RUNNING"] },
+          },
+        })
+      : 0;
   const hasActiveJobs = activeJobCount > 0;
 
   return (
     <div>
-      <IdeasAutoRefresh hasGenerating={hasGenerating} hasValidating={hasValidating} hasActiveJobs={hasActiveJobs} />
+      <IdeasAutoRefresh
+        hasGenerating={hasGenerating}
+        hasValidating={hasValidating}
+        hasActiveJobs={hasActiveJobs}
+      />
 
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-white">Ideas</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-white">
+            Ideas
+          </h1>
           <p className="mt-1 text-sm text-slate-400">
             {ideas.length === 0
               ? `No hay ideas en ${tabLabel.toLowerCase()}`
@@ -92,11 +91,9 @@ export default async function IdeasPage({ searchParams }: Props) {
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-700 bg-slate-900/50 py-16">
           <LightbulbIcon className="size-12 text-slate-600" />
           <p className="mt-4 text-sm text-slate-500">
-            {activeTab === "favorites"
-              ? "No hay ideas favoritas todavía"
-              : activeTab === "archived"
-                ? "No hay ideas archivadas"
-                : "No hay ideas todavía"}
+            {activeTab === "archived"
+              ? "No hay ideas archivadas"
+              : "No hay ideas todavía"}
           </p>
           {activeTab === "all" && (
             <Link
@@ -113,7 +110,7 @@ export default async function IdeasPage({ searchParams }: Props) {
             <IdeaCard
               key={idea.id}
               idea={idea as IdeaCardData}
-              showArchive={activeTab !== "favorites"}
+              showArchive
               showDelete
             />
           ))}
@@ -126,7 +123,15 @@ export default async function IdeasPage({ searchParams }: Props) {
 // Internal icon components to avoid extra imports
 function PlusIcon() {
   return (
-    <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className="size-4"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <line x1="12" y1="5" x2="12" y2="19" />
       <line x1="5" y1="12" x2="19" y2="12" />
     </svg>
@@ -135,7 +140,15 @@ function PlusIcon() {
 
 function LightbulbIcon({ className }: { className?: string }) {
   return (
-    <svg className={className ?? "size-4"} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className={className ?? "size-4"}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" />
       <path d="M9 18h6" />
       <path d="M10 22h4" />
@@ -158,5 +171,3 @@ interface IdeaCardData {
   createdAt: Date;
   updatedAt: Date;
 }
-
-

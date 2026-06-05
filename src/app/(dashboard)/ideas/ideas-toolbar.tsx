@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { List, Heart, Archive } from "lucide-react";
+import { List, Archive } from "lucide-react";
 import { ModelFilterDropdown } from "@/components/model-filter-dropdown";
 
 interface IdeasToolbarProps {
-  activeTab: "all" | "favorites" | "archived";
+  activeTab: "all" | "archived";
   activeModel: string;
 }
 
@@ -19,12 +19,6 @@ export function IdeasToolbar({ activeTab, activeModel }: IdeasToolbarProps) {
           active={activeTab === "all"}
           icon={<List className="size-4" />}
           label="Todas"
-        />
-        <TabLink
-          href={activeModel ? `/ideas?tab=favorites&model=${activeModel}` : "/ideas?tab=favorites"}
-          active={activeTab === "favorites"}
-          icon={<Heart className="size-4" />}
-          label="Favoritas"
         />
         <TabLink
           href={activeModel ? `/ideas?tab=archived&model=${activeModel}` : "/ideas?tab=archived"}

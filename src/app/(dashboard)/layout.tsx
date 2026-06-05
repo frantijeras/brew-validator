@@ -80,6 +80,7 @@ export default function DashboardLayout({
         {/* Nav */}
         <nav className="flex-1 space-y-1 px-4 py-6">
           <NavItem href="/ideas" icon="lightbulb" label="Ideas" />
+          <NavItem href="/proyectos" icon="folder" label="Proyectos" />
         </nav>
 
         {/* Build info (commit hash) */}
