@@ -66,7 +66,11 @@ export async function POST(
       return NextResponse.json({ error: "Idea no encontrada" }, { status: 404 });
     }
 
-    if (isIdeaBusy(idea.status)) {
+    // Block only when another agent is actively working on the idea.
+    // POLISHING is allowed — it's the expected state when the user is
+    // using the refine quiz or entering manual text during the polish flow.
+    const REFINING_BLOCKED = ["GENERATING", "VALIDATING", "REFINING"] as const;
+    if (REFINING_BLOCKED.includes(idea.status as typeof REFINING_BLOCKED[number])) {
       return NextResponse.json(
         { error: `No se puede refinar una idea en estado ${idea.status}. Espera a que termine.` },
         { status: 409 }
