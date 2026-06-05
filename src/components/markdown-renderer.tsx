@@ -241,6 +241,19 @@ export function renderMarkdown(markdown: string, agentName?: string): string {
 
   html = processedBlocks.filter(Boolean).join("\n");
 
+  // Merge adjacent <ol> blocks into a single continuous list.
+  // The LLM sometimes emits a numbered list with a blank line between
+  // items (or restarts numbering mid-list), and the paragraph splitter
+  // above turns that into several separate <ol> elements, each starting
+  // back at 1. Collapse them so the browser renumbers 1, 2, 3…
+  // continuously. Same treatment for <ul> blocks.
+  let prevHtml = "";
+  while (prevHtml !== html) {
+    prevHtml = html;
+    html = html.replace(/<\/ol>(\s*)<ol[^>]*>/g, "$1");
+    html = html.replace(/<\/ul>(\s*)<ul[^>]*>/g, "$1");
+  }
+
   // Clean up any remaining placeholder artifacts
   html = html.replace(new RegExp(`${OL_PLACEHOLDER}\\d+%%`, "g"), "");
   html = html.replace(new RegExp(`${UL_PLACEHOLDER}\\d+%%`, "g"), "");
