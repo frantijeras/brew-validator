@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Heart, Archive, Trash2, Undo2, MoreHorizontal, Pencil, FileDown, Save, X, Info, AlertCircle, History, FolderKanban } from "lucide-react";
 import { ValidationProgress } from "@/components/validation-progress";
@@ -59,7 +59,10 @@ interface ReportData {
 export default function IdeaDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const ideaId = params.id as string;
+  const readonly = searchParams.get("readonly") === "true";
+  const projectId = searchParams.get("projectId");
 
   const [idea, setIdea] = useState<IdeaData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -514,13 +517,23 @@ export default function IdeaDetailPage() {
   return (
     <div>
       {/* Back link */}
-      <Link
-        href="/ideas"
-        className="mb-4 inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-200 transition-colors"
-      >
-        <ArrowLeftIcon />
-        Volver a ideas
-      </Link>
+      {readonly && projectId ? (
+        <Link
+          href={`/proyectos/${projectId}`}
+          className="mb-4 inline-flex items-center gap-1.5 text-sm text-amber-400 hover:text-amber-300 transition-colors"
+        >
+          <ArrowLeftIcon />
+          Volver al proyecto
+        </Link>
+      ) : (
+        <Link
+          href="/ideas"
+          className="mb-4 inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-200 transition-colors"
+        >
+          <ArrowLeftIcon />
+          Volver a ideas
+        </Link>
+      )}
 
       {/* Header */}
       <div className="mb-8">
@@ -551,8 +564,8 @@ export default function IdeaDetailPage() {
 
                 {showMenu && (
                   <div className="absolute right-0 top-full mt-1 z-40 w-56 rounded-lg border border-slate-700 bg-slate-800 shadow-xl py-1.5">
-                    {/* Favorite / Unfavorite — hidden if archived */}
-                    {!idea.isArchived && (
+                    {/* Favorite / Unfavorite — hidden if archived or readonly */}
+                    {!readonly && !idea.isArchived && (
                       <button
                         onClick={toggleFavorite}
                         disabled={favPending}
@@ -709,8 +722,8 @@ export default function IdeaDetailPage() {
                   )}
                 </button>
               )}
-              {/* Pulir idea — solo aparece cuando la idea ya está validada y no está puliendo */}
-              {!showRefineSection && (idea.status === "COMPLETED" || idea.status === "POLISHING") && (
+              {/* Pulir idea — solo aparece cuando la idea ya está validada y no está puliendo, oculto en readonly */}
+              {!readonly && !showRefineSection && (idea.status === "COMPLETED" || idea.status === "POLISHING") && (
                 <button
                   onClick={handleStartPolish}
                   disabled={startingPolish || isViewingHistorical}

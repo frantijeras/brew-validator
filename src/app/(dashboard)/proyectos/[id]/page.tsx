@@ -59,8 +59,8 @@ export default async function ProjectDetailPage({ params }: Props) {
           </span>
           <span className="text-xs text-slate-600">•</span>
           <Link
-            href={`/ideas/${project.ideaId}`}
-            className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+            href={`/ideas/${project.ideaId}?readonly=true&projectId=${project.id}`}
+            className="text-xs text-amber-500 hover:text-amber-400 transition-colors"
           >
             Ver idea original →
           </Link>
@@ -70,6 +70,8 @@ export default async function ProjectDetailPage({ params }: Props) {
       {/* Fases */}
       <ProjectPhasesWithModal
         projectId={project.id}
+        ideaId={project.ideaId}
+        projectName={project.name}
         phases={project.phases.map((p) => ({
           id: p.id,
           type: p.type,
