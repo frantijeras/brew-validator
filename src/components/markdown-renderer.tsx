@@ -44,7 +44,17 @@ function cleanJudgeReport(markdown: string, agentName?: string): string {
   // Remove "## Puntuación Final" section from markdown — the scorecard is
   // rendered separately in the ReportViewer table, so showing it in the
   // markdown body duplicates the scores.
-  clean = clean.replace(/^## Puntuación Final[\s\S]*?(?=^## |$)/gm, "");
+  // Use a more aggressive regex: match from header to the next ## or end.
+  const puntuacionIdx = clean.indexOf("## Puntuación Final");
+  if (puntuacionIdx !== -1) {
+    const afterHeader = clean.slice(puntuacionIdx + 19); // skip the header
+    const nextSection = afterHeader.search(/^## /m);
+    if (nextSection !== -1) {
+      clean = clean.slice(0, puntuacionIdx) + afterHeader.slice(nextSection);
+    } else {
+      clean = clean.slice(0, puntuacionIdx);
+    }
+  }
 
   // Clean up multiple blank lines
   clean = clean.replace(/\n{3,}/g, "\n\n");

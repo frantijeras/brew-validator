@@ -42,11 +42,16 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // If judge fails too, mark idea as FAILED
-      if (job.agentName === "judge") {
+      // If any validation agent fails, mark idea as FAILED so the
+      // user sees the error and can retry. Reset status to COMPLETED
+      // so the idea isn't stuck in VALIDATING (which blocks retry).
+      if (isValidationAgent) {
         await prisma.idea.update({
           where: { id: job.ideaId },
-          data: { validationStatus: "FAILED" },
+          data: {
+            validationStatus: "FAILED",
+            status: "COMPLETED",
+          },
         });
       }
 
