@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { NavItem } from "@/components/nav-item";
 import { BridgeStatusBanner } from "@/components/bridge-status-banner";
+import { BuildInfoBadge } from "@/components/build-info-badge";
 
 export default function DashboardLayout({
   children,
@@ -80,6 +81,9 @@ export default function DashboardLayout({
         <nav className="flex-1 space-y-1 px-4 py-6">
           <NavItem href="/ideas" icon="lightbulb" label="Ideas" />
         </nav>
+
+        {/* Build info (commit hash) */}
+        <BuildInfoBadge />
 
         {/* User info + bottom nav */}
         <div className="border-t border-slate-800 px-4 py-3 space-y-2">
