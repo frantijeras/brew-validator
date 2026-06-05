@@ -1169,7 +1169,6 @@ function SparklesIcon() {
 /* ── Convertir en proyecto button ── */
 function ConvertToProjectButton({ ideaId }: { ideaId: string }) {
   const [loading, setLoading] = useState(false);
-  const [projectId, setProjectId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
@@ -1185,30 +1184,18 @@ function ConvertToProjectButton({ ideaId }: { ideaId: string }) {
       const data = await res.json();
       if (!res.ok) {
         if (res.status === 409 && data.projectId) {
-          setProjectId(data.projectId);
-        } else {
-          setError(data.error || "Error al crear proyecto");
+          router.push(`/proyectos/${data.projectId}`);
+          return;
         }
+        setError(data.error || "Error al crear proyecto");
       } else {
-        setProjectId(data.project.id);
+        router.push(`/proyectos/${data.project.id}`);
       }
     } catch {
       setError("Error de conexión");
     } finally {
       setLoading(false);
     }
-  }
-
-  if (projectId) {
-    return (
-      <a
-        href={`/proyectos/${projectId}`}
-        className="inline-flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm font-medium text-amber-400 shadow transition-all hover:border-amber-400 hover:bg-amber-500/20"
-      >
-        <FolderKanban className="size-4" />
-        Ir al proyecto
-      </a>
-    );
   }
 
   return (
