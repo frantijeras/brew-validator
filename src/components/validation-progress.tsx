@@ -55,7 +55,7 @@ export function ValidationProgress({
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6 gap-3">
+      <div className="flex flex-wrap items-center justify-between mb-6 gap-3">
         <h2 className="text-lg font-semibold text-white">
           Progreso de validación
         </h2>
