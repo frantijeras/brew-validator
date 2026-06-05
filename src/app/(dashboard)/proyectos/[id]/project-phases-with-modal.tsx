@@ -76,7 +76,25 @@ export function ProjectPhasesWithModal({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const router = useRouter();
 
-  async function handleDelete() {
+  async function handleCancelPhase(phaseId: string) {
+    if (!confirm("¿Cancelar esta fase? Se perderá el progreso actual y podrás volver a iniciarla.")) return;
+    try {
+      const res = await fetch("/api/projects/cancel-phase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phaseId }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        console.error("Error canceling phase:", data.error);
+      }
+      router.refresh();
+    } catch (err) {
+      console.error("Error canceling phase:", err);
+    }
+  }
+
+    async function handleDelete() {
     if (deleteConfirm.trim() !== projectName) return;
     setDeleting(true);
     setDeleteError(null);
@@ -134,7 +152,25 @@ export function ProjectPhasesWithModal({
 
           const hasQuestions = isQuestioning && questions && questions.length > 0;
 
-          async function handleDelete() {
+          async function handleCancelPhase(phaseId: string) {
+    if (!confirm("¿Cancelar esta fase? Se perderá el progreso actual y podrás volver a iniciarla.")) return;
+    try {
+      const res = await fetch("/api/projects/cancel-phase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phaseId }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        console.error("Error canceling phase:", data.error);
+      }
+      router.refresh();
+    } catch (err) {
+      console.error("Error canceling phase:", err);
+    }
+  }
+
+    async function handleDelete() {
     if (deleteConfirm.trim() !== projectName) return;
     setDeleting(true);
     setDeleteError(null);

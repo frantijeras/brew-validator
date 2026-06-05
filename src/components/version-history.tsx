@@ -47,6 +47,10 @@ interface VersionHistoryProps {
    * currentVersionId when not provided.
    */
   activeVersionId?: string | null;
+  /**
+   * When true, hides restore buttons (used from project readonly view).
+   */
+  readonly?: boolean;
 }
 
 export function VersionHistory({

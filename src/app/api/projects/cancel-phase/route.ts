@@ -1,0 +1,35 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+
+export async function POST(req: Request) {
+  try {
+    const { phaseId } = await req.json();
+    if (!phaseId) {
+      return NextResponse.json({ error: "Missing phaseId" }, { status: 400 });
+    }
+
+    const phase = await prisma.projectPhase.findUnique({ where: { id: phaseId } });
+    if (!phase) {
+      return NextResponse.json({ error: "Phase not found" }, { status: 404 });
+    }
+
+    // Only allow cancel if in PROCESSING or QUESTIONING state
+    if (phase.status !== "PROCESSING" && phase.status !== "QUESTIONING") {
+      return NextResponse.json({ error: "Phase is not in a cancellable state" }, { status: 409 });
+    }
+
+    // Update phase: reset to AVAILABLE, clear any stored questions
+    await prisma.projectPhase.update({
+      where: { id: phaseId },
+      data: {
+        status: "AVAILABLE",
+        questions: undefined,
+      },
+    });
+
+    return NextResponse.json({ success: true, message: "Fase cancelada y disponible de nuevo" });
+  } catch (error) {
+    console.error("[POST /api/projects/cancel-phase]", error);
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
+  }
+}

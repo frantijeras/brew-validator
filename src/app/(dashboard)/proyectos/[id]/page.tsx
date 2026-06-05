@@ -55,15 +55,9 @@ export default async function ProjectDetailPage({ params }: Props) {
             {allCompleted ? "Completado" : "En progreso"}
           </span>
           <span className="text-xs text-slate-500">
-            {project.phases.filter((p) => p.status === "COMPLETED").length}/{project.phases.length} fases
+            {project.phases.filter((p) => p.status === "COMPLETED").length + 1}/6 fases
           </span>
-          <span className="text-xs text-slate-600">•</span>
-          <Link
-            href={`/ideas/${project.ideaId}?readonly=true&projectId=${project.id}`}
-            className="text-xs text-amber-500 hover:text-amber-400 transition-colors"
-          >
-            Ver idea original →
-          </Link>
+
         </div>
       </div>
 

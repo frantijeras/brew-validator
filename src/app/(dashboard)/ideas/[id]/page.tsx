@@ -551,7 +551,8 @@ export default function IdeaDetailPage() {
                 </span>
               )}
 
-              {/* 3-dot menu */}
+              {/* 3-dot menu — hidden in readonly */}
+              {!readonly && (
               <div className="relative ml-auto" ref={menuRef}>
                 <button
                   onClick={() => setShowMenu((prev) => !prev)}
@@ -645,6 +646,7 @@ export default function IdeaDetailPage() {
                   </div>
                 )}
               </div>
+              )}
             </div>
 
             {/* Badges: Version | Business type | Status | Score */}
@@ -1080,6 +1082,7 @@ export default function IdeaDetailPage() {
       {/* Version history */}
       <div className="mt-8">
         <VersionHistory
+          readonly={readonly}
           ideaId={idea.id}
           currentVersionId={idea.currentVersionId}
           activeVersionId={idea.activeVersionId}
