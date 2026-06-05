@@ -160,11 +160,20 @@ function CauldronStarsIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <circle cx="16" cy="20" r="8" />
-      <ellipse cx="16" cy="13" rx="8" ry="2" />
-      <path d="M10 6 L10 10 M8 8 L12 8" />
-      <path d="M22 6 L22 10 M20 8 L24 8" />
-      <path d="M16 3 L16 6 M14 4.5 L18 4.5" />
+      {/* AI Star 4-point */}
+      <path
+        d="M16 1 L17.2 5 L21 6.5 L17.2 8 L16 12 L14.8 8 L11 6.5 L14.8 5 Z"
+        fill="currentColor"
+        stroke="none"
+      />
+      {/* Cauldron rim */}
+      <ellipse cx="16" cy="15" rx="9" ry="2.5" />
+      {/* Cauldron body */}
+      <path d="M7 15 L25 15 L23 27 Q22 28.5 16 28.5 Q10 28.5 9 27 Z" />
+      {/* Bubble left */}
+      <circle cx="11" cy="20" r="1.2" fill="currentColor" fillOpacity="0.5" />
+      {/* Bubble right */}
+      <circle cx="19" cy="22" r="1" fill="currentColor" fillOpacity="0.5" />
     </svg>
   );
 }
@@ -180,10 +189,20 @@ function CauldronStarsSmallIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <circle cx="16" cy="20" r="8" />
-      <ellipse cx="16" cy="13" rx="8" ry="2" />
-      <path d="M10 6 L10 10 M8 8 L12 8" />
-      <path d="M22 6 L22 10 M20 8 L24 8" />
+      {/* AI Star 4-point */}
+      <path
+        d="M16 1 L17.2 5 L21 6.5 L17.2 8 L16 12 L14.8 8 L11 6.5 L14.8 5 Z"
+        fill="currentColor"
+        stroke="none"
+      />
+      {/* Cauldron rim */}
+      <ellipse cx="16" cy="15" rx="9" ry="2.5" />
+      {/* Cauldron body */}
+      <path d="M7 15 L25 15 L23 27 Q22 28.5 16 28.5 Q10 28.5 9 27 Z" />
+      {/* Bubble left */}
+      <circle cx="11" cy="20" r="1.2" fill="currentColor" fillOpacity="0.5" />
+      {/* Bubble right */}
+      <circle cx="19" cy="22" r="1" fill="currentColor" fillOpacity="0.5" />
       <path d="M16 3 L16 6 M14 4.5 L18 4.5" />
     </svg>
   );
