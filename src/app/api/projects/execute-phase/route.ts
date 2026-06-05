@@ -4,7 +4,7 @@ import { resolveModelForJobAgent } from "@/lib/agent-models";
 
 export async function POST(req: Request) {
   try {
-    const { projectId, phaseId, phaseType, modelOverride } = await req.json();
+    const { projectId, phaseId, phaseType, mode = "questions", answers, modelOverride } = await req.json();
     if (!projectId || !phaseId || !phaseType) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
@@ -13,11 +13,16 @@ export async function POST(req: Request) {
     if (!phase) {
       return NextResponse.json({ error: "Phase not found" }, { status: 404 });
     }
-    if (phase.status !== "AVAILABLE") {
-      return NextResponse.json({ error: "Phase is not available" }, { status: 409 });
+
+    // Validate phase status based on mode
+    if (mode === "questions" && phase.status !== "AVAILABLE") {
+      return NextResponse.json({ error: "Phase is not available for questions" }, { status: 409 });
+    }
+    if (mode === "report" && phase.status !== "QUESTIONING") {
+      return NextResponse.json({ error: "Phase must be in QUESTIONING state to submit answers" }, { status: 409 });
     }
 
-    // Get full project + idea context + previous phase artifacts
+    // Get project with idea context + previous phase artifacts
     const project = await prisma.project.findUnique({
       where: { id: projectId },
       include: {
@@ -41,7 +46,6 @@ export async function POST(req: Request) {
     const idea = project.idea;
     const latestReport = idea.reports[0];
 
-    // Build idea context for the agent
     const ideaContext = {
       title: idea.title,
       description: idea.description,
@@ -55,7 +59,6 @@ export async function POST(req: Request) {
       judgeReport: latestReport?.content?.slice(0, 3000) || "",
     };
 
-    // Get previous phase artifacts
     const previousArtifacts = project.phases
       .filter((p) => p.artifacts)
       .map((p) => {
@@ -64,11 +67,23 @@ export async function POST(req: Request) {
       })
       .filter(Boolean);
 
-    // Determine agent name
     const agentName = `project-${phaseType.toLowerCase()}`;
-
-    // Resolve the model
     const model = modelOverride || (await resolveModelForJobAgent(agentName));
+
+    // Build job input
+    const jobInput: Record<string, unknown> = {
+      mode,
+      projectId,
+      phaseId,
+      phaseType,
+      ideaContext,
+      previousArtifacts,
+      _bridgeModel: model,
+    };
+
+    if (mode === "report" && answers) {
+      jobInput.answers = answers;
+    }
 
     // Create a job in the DB
     const job = await prisma.job.create({
@@ -76,26 +91,24 @@ export async function POST(req: Request) {
         ideaId: idea.id,
         agentName,
         status: "PENDING",
-        input: JSON.stringify({
-          projectId,
-          phaseId,
-          ideaContext,
-          previousArtifacts,
-          _bridgeModel: model,
-        }),
+        input: JSON.stringify(jobInput),
       },
     });
 
-    // Mark the phase as IN_PROGRESS
-    await prisma.projectPhase.update({
-      where: { id: phaseId },
-      data: { status: "AVAILABLE" },
-    });
+    // Update phase status
+    if (mode === "questions") {
+      await prisma.projectPhase.update({
+        where: { id: phaseId },
+        data: { status: "PROCESSING" },
+      });
+    }
 
     return NextResponse.json({
       success: true,
       jobId: job.id,
-      message: "Fase iniciada. El bridge la procesará en breve.",
+      message: mode === "questions"
+        ? "Generando preguntas personalizadas..."
+        : "Generando informe con tus respuestas...",
     });
   } catch (error) {
     console.error("Error executing phase:", error);

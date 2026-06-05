@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { jobId, status, output } = body;
+    const { jobId, status, output, mode } = body;
 
     if (!jobId || !status) {
       return NextResponse.json({ error: "Missing jobId or status" }, { status: 400 });
@@ -16,41 +16,64 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
 
-    if (status === "COMPLETED" && output) {
-      // Parse the output to extract reportMarkdown
-      let reportMarkdown = "";
-      let extraFields: Record<string, string> = {};
+    // Find phase from job input
+    const rawInput = job.input;
+    const jobInput =
+      typeof rawInput === "string"
+        ? JSON.parse(rawInput)
+        : rawInput && typeof rawInput === "object"
+          ? (rawInput as Record<string, unknown>)
+          : {};
+    const projectId = (jobInput as any)?.projectId;
+    const phaseId = (jobInput as any)?.phaseId;
+    const phaseType = (jobInput as any)?.phaseType;
 
+    if (status === "COMPLETED" && output) {
+      // Parse output
+      let parsedOutput: Record<string, unknown> = {};
       try {
-        const parsed = typeof output === "string" ? JSON.parse(output) : output;
-        if (typeof parsed === "object") {
-          reportMarkdown = parsed.reportMarkdown || "";
-          extraFields = parsed;
-          delete extraFields.reportMarkdown;
-        } else {
-          reportMarkdown = String(output);
-        }
+        parsedOutput =
+          typeof output === "string" ? JSON.parse(output) : output;
       } catch {
-        reportMarkdown = String(output);
+        parsedOutput = { reportMarkdown: String(output) };
       }
 
-      // Find the phase associated with this job
-      // The job input contains project context
-      const rawInput = job.input;
-      const jobInput =
-        typeof rawInput === "string"
-          ? JSON.parse(rawInput)
-          : rawInput && typeof rawInput === "object"
-            ? (rawInput as Record<string, unknown>)
-            : {};
-      const projectId = (jobInput as any)?.projectId;
-      const phaseId = (jobInput as any)?.phaseId;
+      const responseMode = mode || parsedOutput.mode || "report";
 
-      if (projectId && phaseId) {
-        // Get the current phase to find its sort order
+      if (responseMode === "questions" && phaseId) {
+        // ── QUESTIONS MODE: store questions, mark phase as QUESTIONING ──
+        const questions = parsedOutput.questions || [];
+        if (Array.isArray(questions) && questions.length > 0) {
+          await prisma.projectPhase.update({
+            where: { id: phaseId },
+            data: {
+              status: "QUESTIONING",
+              questions: questions,
+            },
+          });
+        } else {
+          // No questions generated — fallback: complete phase
+          await prisma.projectPhase.update({
+            where: { id: phaseId },
+            data: { status: "COMPLETED", completedAt: new Date() },
+          });
+        }
+      } else if (phaseId) {
+        // ── REPORT MODE: store artifact, mark completed, unlock next ──
+        const reportMarkdown =
+          typeof parsedOutput.reportMarkdown === "string"
+            ? parsedOutput.reportMarkdown
+            : String(output);
+
+        const extraFields: Record<string, string> = {};
+        for (const [k, v] of Object.entries(parsedOutput)) {
+          if (k !== "reportMarkdown" && k !== "mode" && typeof v === "string") {
+            extraFields[k] = v;
+          }
+        }
+
         const phase = await prisma.projectPhase.findUnique({ where: { id: phaseId } });
         if (phase) {
-          // Build the artifact
           const artifact = {
             title: phase.label,
             content: reportMarkdown,
@@ -58,7 +81,6 @@ export async function POST(req: Request) {
             ...extraFields,
           };
 
-          // Update phase status to COMPLETED with artifact
           await prisma.projectPhase.update({
             where: { id: phaseId },
             data: {
@@ -87,7 +109,7 @@ export async function POST(req: Request) {
         where: { id: jobId },
         data: {
           status: "COMPLETED",
-          output: reportMarkdown,
+          output: typeof parsedOutput === "string" ? parsedOutput : JSON.stringify(parsedOutput),
           cost,
           finishedAt: new Date(),
         },
@@ -101,6 +123,19 @@ export async function POST(req: Request) {
           finishedAt: new Date(),
         },
       });
+
+      // If phase was in a question/processing state, unlock it so user can retry
+      if (phaseId) {
+        const phase = await prisma.projectPhase.findUnique({
+          where: { id: phaseId },
+        });
+        if (phase && (phase.status === "QUESTIONING" || phase.status === "PROCESSING")) {
+          await prisma.projectPhase.update({
+            where: { id: phaseId },
+            data: { status: "AVAILABLE" },
+          });
+        }
+      }
     }
 
     return NextResponse.json({ ok: true });
