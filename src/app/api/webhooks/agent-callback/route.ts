@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { getNextVersionPhase } from "@/lib/versions";
 
 const callbackSchema = z.object({
   jobId: z.string(),
@@ -184,22 +185,29 @@ export async function POST(req: NextRequest) {
     }
 
     // ── VERSION CREATION: ONLY when all 3 agents are DONE ──
-    const pendingJobs = await prisma.job.count({
-      where: {
-        ideaId: job.ideaId,
-        agentName: { in: ["skeptic", "advocate", "judge"] },
-        status: { in: ["PENDING", "RUNNING"] },
-      },
-    });
+    // Advisory lock prevents duplicate version creation when callbacks arrive
+    // simultaneously (race condition). The lock key is the ideaId as a bigint.
+    await prisma.$transaction(async (tx) => {
+      // Acquire an advisory lock scoped to this idea + transaction
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(abs(hashtext(${job.ideaId})))`;
 
-    if (pendingJobs === 0) {
+      const pendingJobs = await tx.job.count({
+        where: {
+          ideaId: job.ideaId,
+          agentName: { in: ["skeptic", "advocate", "judge"] },
+          status: { in: ["PENDING", "RUNNING"] },
+        },
+      });
+
+      if (pendingJobs !== 0) return;
+
       // All 3 validation agents completed
-      const allReports = await prisma.report.findMany({
+      const allReports = await tx.report.findMany({
         where: { ideaId: job.ideaId },
       });
 
       // Get current idea state for snapshot
-      const currentIdea = await prisma.idea.findUnique({
+      const currentIdea = await tx.idea.findUnique({
         where: { id: job.ideaId },
         select: {
           title: true, description: true, problem: true, valueProposition: true,
@@ -209,7 +217,7 @@ export async function POST(req: NextRequest) {
 
       // Compute judge verdict and score from reports
       const judgeReport = allReports.find(r => r.agentName === "judge");
-      const judgeJob = await prisma.job.findFirst({
+      const judgeJob = await tx.job.findFirst({
         where: { ideaId: job.ideaId, agentName: "judge", status: "COMPLETED" },
         select: { output: true },
       });
@@ -256,23 +264,17 @@ export async function POST(req: NextRequest) {
       }
 
       // Update the idea
-      await prisma.idea.update({
+      await tx.idea.update({
         where: { id: job.ideaId },
         data: updateData,
       });
 
       // ── Create version snapshot ──
-      // Count existing versions (excluding V0, which we no longer create)
-      const existingVersionsCount = await prisma.ideaVersion.count({
-        where: { ideaId: job.ideaId },
-      });
-
-      // Version number = existing count + 1 (V1 for first, V2 for second, etc.)
-      const versionPhase = `v${existingVersionsCount + 1}`;
+      const versionPhase = await getNextVersionPhase(job.ideaId, tx);
 
       if (currentIdea) {
         // Re-read the idea to get updated score/verdict
-        const updatedIdea = await prisma.idea.findUnique({
+        const updatedIdea = await tx.idea.findUnique({
           where: { id: job.ideaId },
           select: {
             title: true, description: true, problem: true, valueProposition: true,
@@ -290,7 +292,7 @@ export async function POST(req: NextRequest) {
             createdAt: r.createdAt,
           }));
 
-          const newVersion = await prisma.ideaVersion.create({
+          const newVersion = await tx.ideaVersion.create({
             data: {
               ideaId: job.ideaId,
               title: updatedIdea.title,
@@ -310,20 +312,20 @@ export async function POST(req: NextRequest) {
           // of a brand-new idea), the reports created above carry no
           // ideaVersionId — attach them to the freshly created version now.
           if (!ideaForReport?.currentVersionId) {
-            await prisma.report.updateMany({
+            await tx.report.updateMany({
               where: { ideaId: job.ideaId, ideaVersionId: null },
               data: { ideaVersionId: newVersion.id },
             });
           }
 
           // Set currentVersionId on the Idea
-          await prisma.idea.update({
+          await tx.idea.update({
             where: { id: job.ideaId },
             data: { currentVersionId: newVersion.id },
           });
         }
       }
-    }
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

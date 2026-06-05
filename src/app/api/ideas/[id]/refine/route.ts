@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { resolveModelForJobAgent } from "@/lib/agent-models";
+import { getNextVersionPhase } from "@/lib/versions";
 
 // ── Schema: manual mode with structured fields ──
 const manualFieldsSchema = z.object({
@@ -125,7 +126,9 @@ async function handleManualMode(
     where: { ideaId: idea.id },
   });
 
-  // Save previous version as V0 snapshot
+  const nextPhase = await getNextVersionPhase(idea.id);
+
+  // Save previous version as a numbered snapshot
   await prisma.ideaVersion.create({
     data: {
       ideaId: idea.id,
@@ -133,7 +136,7 @@ async function handleManualMode(
       description: idea.description,
       targetUser: idea.targetUser,
       monetization: idea.monetization,
-      phase: "pre-validation",
+      phase: nextPhase,
     },
   });
 
