@@ -218,6 +218,9 @@ function CustomForm({
     if (rawIdea.trim().length > 2000) {
       errs.rawIdea = "Máximo 2000 caracteres";
     }
+    if (!selectedModel) {
+      errs.businessModel = "Selecciona un modelo de negocio para que la IA tenga mejor contexto";
+    }
     setFormErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -266,12 +269,15 @@ function CustomForm({
         {/* Modelo de negocio selector */}
         <div className="mb-4">
           <p className="mb-3 text-xs font-medium text-slate-400">
-            Modelo de negocio:
+            Modelo de negocio <span className="text-red-400">*</span>
           </p>
           <BusinessModelDropdown
             selected={selectedModel}
-            onChange={setSelectedModel}
+            onChange={(v) => { setSelectedModel(v); if (formErrors.businessModel) setFormErrors({}); }}
           />
+          {formErrors.businessModel && (
+            <p className="mt-1.5 text-xs text-red-400">{formErrors.businessModel}</p>
+          )}
         </div>
 
         {/* Raw Idea — large textarea */}
