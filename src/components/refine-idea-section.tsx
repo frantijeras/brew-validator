@@ -637,7 +637,7 @@ export default function RefineIdeaSection({
       </div>
 
       {/* Choice cards — only visible at the very start, before any action */}
-      {screen === "choice" && !manualText && questions.length === 0 && (
+      {screen === "choice" && activeTab === "quiz" && !manualText && questions.length === 0 && (
         <div className="px-5 pt-5 pb-4">
           <p className="text-sm text-slate-400 mb-4 max-w-3xl mx-auto">
             ¿Cómo quieres empezar a pulir?
@@ -707,7 +707,7 @@ export default function RefineIdeaSection({
         {/* ═══════════════════════════════════════════
             SCREEN: choice → tabs
             ═══════════════════════════════════════════ */}
-        {screen === "choice" && (
+        {screen === "choice" && !(activeTab === "quiz" && !manualText && questions.length === 0) && (
           <div>
             {activeTab === "quiz" ? (
               <div>
