@@ -274,6 +274,7 @@ function CustomForm({
           <BusinessModelDropdown
             selected={selectedModel}
             onChange={(v) => { setSelectedModel(v); if (formErrors.businessModel) setFormErrors({}); }}
+            allowAny={false}
           />
           {formErrors.businessModel && (
             <p className="mt-1.5 text-xs text-red-400">{formErrors.businessModel}</p>
