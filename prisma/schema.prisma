@@ -122,6 +122,7 @@ model Report {
   content       String
   verdict       String?
   scorecard     String?
+  score         Float?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 }

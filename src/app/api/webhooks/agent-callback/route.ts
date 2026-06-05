@@ -146,6 +146,11 @@ export async function POST(req: NextRequest) {
     const reportContent = (output.reportMarkdown as string) || JSON.stringify(output);
     const verdict = (output.verdict as string) || "";
     const scorecard = (output.scorecard as string) || "";
+    const rawScore = output.score;
+    const judgeScore: number | null =
+      typeof rawScore === "number" && !isNaN(rawScore) && rawScore >= 0 && rawScore <= 10
+        ? parseFloat(rawScore.toFixed(1))
+        : null;
 
     // Look up the idea's currentVersionId so the report is anchored to
     // the version under validation. If the idea has no current version
@@ -167,6 +172,7 @@ export async function POST(req: NextRequest) {
           content: reportContent,
           ...(verdict ? { verdict } : {}),
           ...(scorecard ? { scorecard } : {}),
+          ...(judgeScore !== null ? { score: judgeScore } : {}),
           // Backfill version link on legacy reports (null → current)
           ...(existingReport.ideaVersionId === null && ideaForReport?.currentVersionId
             ? { ideaVersionId: ideaForReport.currentVersionId }
@@ -182,6 +188,7 @@ export async function POST(req: NextRequest) {
           content: reportContent,
           ...(verdict ? { verdict } : {}),
           ...(scorecard ? { scorecard } : {}),
+          ...(judgeScore !== null ? { score: judgeScore } : {}),
           ...(ideaForReport?.currentVersionId
             ? { ideaVersionId: ideaForReport.currentVersionId }
             : {}),
@@ -235,12 +242,21 @@ export async function POST(req: NextRequest) {
       if (judgeReport) {
         if (judgeReport.verdict) updateData.verdict = judgeReport.verdict;
 
-        if (judgeReport.scorecard) {
+        // New contract: judgeReport.score is a number with 1 decimal (0.0-10.0).
+        // Legacy: judgeReport.scorecard is a JSON string with [{key,value,description},...].
+        // We prefer `score`; if it's missing/invalid, fall back to legacy scorecard parsing.
+        let resolvedScore: number | null = null;
+        if (judgeReport.score !== null && judgeReport.score !== undefined) {
+          const s = Number(judgeReport.score);
+          if (!isNaN(s) && s >= 0 && s <= 10) {
+            resolvedScore = s;
+          }
+        }
+        if (resolvedScore === null && judgeReport.scorecard) {
           try {
             const sc = JSON.parse(judgeReport.scorecard);
-            let score: number | null = null;
             if (Array.isArray(sc)) {
-              // New format: array of { key, value, description }
+              // Legacy format: array of { key, value, description }
               const totalItem = sc.find(
                 (it: unknown) =>
                   typeof it === "object" &&
@@ -250,7 +266,7 @@ export async function POST(req: NextRequest) {
                     (it as Record<string, unknown>).key === "puntuación")
               );
               if (totalItem) {
-                score = Number((totalItem as Record<string, unknown>).value);
+                resolvedScore = Number((totalItem as Record<string, unknown>).value);
               } else {
                 // No Total row — average the 8 dimension values
                 const numericValues = sc
@@ -261,28 +277,34 @@ export async function POST(req: NextRequest) {
                   )
                   .filter((v: number) => !isNaN(v) && v >= 0 && v <= 10);
                 if (numericValues.length > 0) {
-                  score = numericValues.reduce((s: number, v: number) => s + v, 0) / numericValues.length;
+                  resolvedScore =
+                    numericValues.reduce((s: number, v: number) => s + v, 0) / numericValues.length;
                 }
               }
             } else if (typeof sc === "object" && sc !== null) {
               // Legacy format: flat object
               const obj = sc as Record<string, unknown>;
-              score = (obj.Total as number) || (obj.total as number) || (obj.puntuacion as number) || null;
-              if (score === null) {
+              let legacy: number | null =
+                (obj.Total as number) || (obj.total as number) || (obj.puntuacion as number) || null;
+              if (legacy === null) {
                 const numericValues = Object.values(obj)
                   .map(Number)
                   .filter((v) => !isNaN(v) && v >= 0 && v <= 10);
                 if (numericValues.length > 0) {
-                  score = numericValues.reduce((sum, v) => sum + v, 0) / numericValues.length;
+                  legacy = numericValues.reduce((sum, v) => sum + v, 0) / numericValues.length;
                 }
               }
-            }
-            if (score !== null && !isNaN(score)) {
-              updateData.score = parseFloat(Number(score).toFixed(1));
+              if (legacy !== null && !isNaN(legacy)) {
+                resolvedScore = legacy;
+              }
             }
           } catch {
             // ignore parse error
           }
+        }
+
+        if (resolvedScore !== null && !isNaN(resolvedScore)) {
+          updateData.score = parseFloat(Number(resolvedScore).toFixed(1));
         }
       }
 
@@ -326,6 +348,7 @@ export async function POST(req: NextRequest) {
             content: r.content,
             verdict: r.verdict,
             scorecard: r.scorecard,
+            score: r.score,
             createdAt: r.createdAt,
           }));
 
