@@ -255,8 +255,27 @@ export async function POST(req: NextRequest) {
         if (resolvedScore === null && judgeReport.scorecard) {
           try {
             const sc = JSON.parse(judgeReport.scorecard);
-            if (Array.isArray(sc)) {
-              // Legacy format: array of { key, value, description }
+            if (typeof sc === "object" && sc !== null && !Array.isArray(sc)) {
+              // Flat object format: {"Problema": 6.0, ..., "Total": 4.5}
+              // Preferred: read "Total" directly. Fallback: average numeric values.
+              const obj = sc as Record<string, unknown>;
+              let legacy: number | null =
+                (typeof obj.Total === "number" ? obj.Total : null) ??
+                (typeof obj.total === "number" ? obj.total : null) ??
+                (typeof obj.puntuacion === "number" ? obj.puntuacion : null);
+              if (legacy === null) {
+                const numericValues = Object.values(obj)
+                  .map((v) => Number(v))
+                  .filter((v) => !isNaN(v) && v >= 0 && v <= 10);
+                if (numericValues.length > 0) {
+                  legacy = numericValues.reduce((sum, v) => sum + v, 0) / numericValues.length;
+                }
+              }
+              if (legacy !== null && !isNaN(legacy)) {
+                resolvedScore = legacy;
+              }
+            } else if (Array.isArray(sc)) {
+              // Legacy array format: [{ key, value, description }, ...]
               const totalItem = sc.find(
                 (it: unknown) =>
                   typeof it === "object" &&
@@ -280,22 +299,6 @@ export async function POST(req: NextRequest) {
                   resolvedScore =
                     numericValues.reduce((s: number, v: number) => s + v, 0) / numericValues.length;
                 }
-              }
-            } else if (typeof sc === "object" && sc !== null) {
-              // Legacy format: flat object
-              const obj = sc as Record<string, unknown>;
-              let legacy: number | null =
-                (obj.Total as number) || (obj.total as number) || (obj.puntuacion as number) || null;
-              if (legacy === null) {
-                const numericValues = Object.values(obj)
-                  .map(Number)
-                  .filter((v) => !isNaN(v) && v >= 0 && v <= 10);
-                if (numericValues.length > 0) {
-                  legacy = numericValues.reduce((sum, v) => sum + v, 0) / numericValues.length;
-                }
-              }
-              if (legacy !== null && !isNaN(legacy)) {
-                resolvedScore = legacy;
               }
             }
           } catch {

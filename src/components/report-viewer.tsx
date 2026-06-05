@@ -67,6 +67,18 @@ export function ReportViewer({ report }: ReportViewerProps) {
   // Parse scorecard
   const scorecard = parseScorecard(report.scorecard);
 
+  // Show "Justificación" column when EITHER:
+  //  - the scorecard items carry a `description` (legacy/new array format)
+  //  - the markdown body contains per-dimension explanations in any
+  //    known format (v3 **Dim (X.X):** … or legacy **Dim:** …)
+  const showJustification =
+    scorecardHasDescription(scorecard) ||
+    scorecard.some(
+      (it) =>
+        it.key.toLowerCase() !== "total" &&
+        extractDimensionExplanation(report.content, it.key).length > 0
+    );
+
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/50 overflow-hidden">
       {/* Header */}
@@ -105,7 +117,7 @@ export function ReportViewer({ report }: ReportViewerProps) {
                       <th className="px-4 py-2.5 text-center font-semibold text-slate-200 w-20">
                         Puntuación
                       </th>
-                      {scorecardHasDescription(scorecard) && (
+                      {showJustification && (
                         <th className="px-4 py-2.5 text-left font-semibold text-slate-200">
                           Justificación
                         </th>
@@ -144,9 +156,12 @@ export function ReportViewer({ report }: ReportViewerProps) {
                           >
                             {formatScore(item.value)}
                           </td>
-                          {scorecardHasDescription(scorecard) && (
+                          {showJustification && (
                             <td className="px-4 py-2.5 text-slate-400 text-xs leading-relaxed">
-                              {item.description || (isTotal ? "" : "—")}
+                              {item.description ||
+                                (isTotal
+                                  ? ""
+                                  : extractDimensionExplanation(report.content, item.key) || "—")}
                             </td>
                           )}
                         </tr>
@@ -367,12 +382,21 @@ function formatScore(value: number | string): string {
 
 /**
  * Try to extract a per-dimension explanation from the report markdown.
- * Looks for lines like "**Problema:** …" or "- **Problema**: …"
+ * Looks for lines like:
+ *   **Problema (7.5):** explanation     (v3 — judge format)
+ *   **Problema:** …                     (legacy)
+ *   - **Problema**: …                   (legacy)
+ *   Problema: 7.5/10 — explanation      (legacy)
  */
 function extractDimensionExplanation(content: string, dimension: string): string {
   const patterns = [
+    // v3 judge format: **Problema (7.5):** explanation
+    new RegExp(`\\*\\*${escapeRegex(dimension)}\\s*\\(\\d+(?:\\.\\d+)?\\)\\s*[:：]\\*\\*\\s*(.+?)(?:\\n|$)`, "i"),
+    // Legacy: **Problema:** …
     new RegExp(`\\*\\*${escapeRegex(dimension)}\\s*[:：]?\\*\\*\\s*(.+?)(?:\\n|$)`, "i"),
+    // Legacy: - **Problema**: …
     new RegExp(`^\\s*-\\s+\\*\\*${escapeRegex(dimension)}\\s*[:：]?\\*\\*\\s*(.+?)(?:\\n|$)`, "im"),
+    // Legacy: Problema: 7.5/10 — explanation
     new RegExp(`${escapeRegex(dimension)}\\s*[:：]\\s*([0-9]+(?:\\.[0-9]+)?)\\/10\\s*[—-]?\\s*(.+?)(?:\\n|$)`, "i"),
   ];
 
