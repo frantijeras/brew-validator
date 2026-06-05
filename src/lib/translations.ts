@@ -34,12 +34,13 @@ export const VALIDATION_STATUS_LABELS = STATUS_LABELS;
 export const VERDICT_COLORS: Record<string, string> = {
   Adelante: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30",
   GO: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30",
-  "Pulir idea": "text-amber-400 bg-amber-500/10 border-amber-500/30",
-  PIVOT: "text-amber-400 bg-amber-500/10 border-amber-500/30",
+  "Pulir idea": "text-blue-400 bg-blue-500/10 border-blue-500/30",
+  PIVOT: "text-blue-400 bg-blue-500/10 border-blue-500/30",
   "No viable": "text-red-400 bg-red-500/10 border-red-500/30",
   KILL: "text-red-400 bg-red-500/10 border-red-500/30",
-  Revisa: "text-blue-400 bg-blue-500/10 border-blue-500/30",
-  ITERATE: "text-blue-400 bg-blue-500/10 border-blue-500/30",
+  Revisar: "text-orange-400 bg-orange-500/10 border-orange-500/30",
+  Revisa: "text-orange-400 bg-orange-500/10 border-orange-500/30",
+  ITERATE: "text-orange-400 bg-orange-500/10 border-orange-500/30",
 };
 
 /** Status → Tailwind color classes */
@@ -103,9 +104,14 @@ export function getBadgeInfo(
   };
 }
 
-/** Get score color class based on 0-10 scale */
-export function getScoreColor(score: number): string {
-  if (score <= 3) return "text-red-400";
-  if (score <= 6) return "text-orange-400";
-  return "text-emerald-400";
+/**
+ * Get the color class for the numeric score badge.
+ *
+ * The score number is intentionally rendered in a neutral color so it
+ * doesn't compete with the verdict badge. The verdict (Adelante /
+ * Pulir idea / Revisar / No viable) carries the only color signal —
+ * what to do with the idea.
+ */
+export function getScoreColor(_score: number): string {
+  return "text-slate-300";
 }

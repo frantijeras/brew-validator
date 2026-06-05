@@ -238,16 +238,48 @@ export async function POST(req: NextRequest) {
         if (judgeReport.scorecard) {
           try {
             const sc = JSON.parse(judgeReport.scorecard);
-            let score: number | null = sc.Total || sc.total || sc.puntuacion || null;
-            if (score === null) {
-              const numericValues = Object.values(sc as Record<string, unknown>)
-                .map(Number)
-                .filter((v) => !isNaN(v) && v >= 0 && v <= 10);
-              if (numericValues.length > 0) {
-                score = numericValues.reduce((sum, v) => sum + v, 0) / numericValues.length;
+            let score: number | null = null;
+            if (Array.isArray(sc)) {
+              // New format: array of { key, value, description }
+              const totalItem = sc.find(
+                (it: unknown) =>
+                  typeof it === "object" &&
+                  it !== null &&
+                  ((it as Record<string, unknown>).key === "Total" ||
+                    (it as Record<string, unknown>).key === "total" ||
+                    (it as Record<string, unknown>).key === "puntuación")
+              );
+              if (totalItem) {
+                score = Number((totalItem as Record<string, unknown>).value);
+              } else {
+                // No Total row — average the 8 dimension values
+                const numericValues = sc
+                  .map((it: unknown) =>
+                    typeof it === "object" && it !== null
+                      ? Number((it as Record<string, unknown>).value)
+                      : NaN
+                  )
+                  .filter((v: number) => !isNaN(v) && v >= 0 && v <= 10);
+                if (numericValues.length > 0) {
+                  score = numericValues.reduce((s: number, v: number) => s + v, 0) / numericValues.length;
+                }
+              }
+            } else if (typeof sc === "object" && sc !== null) {
+              // Legacy format: flat object
+              const obj = sc as Record<string, unknown>;
+              score = (obj.Total as number) || (obj.total as number) || (obj.puntuacion as number) || null;
+              if (score === null) {
+                const numericValues = Object.values(obj)
+                  .map(Number)
+                  .filter((v) => !isNaN(v) && v >= 0 && v <= 10);
+                if (numericValues.length > 0) {
+                  score = numericValues.reduce((sum, v) => sum + v, 0) / numericValues.length;
+                }
               }
             }
-            if (score !== null) updateData.score = parseFloat(Number(score).toFixed(1));
+            if (score !== null && !isNaN(score)) {
+              updateData.score = parseFloat(Number(score).toFixed(1));
+            }
           } catch {
             // ignore parse error
           }

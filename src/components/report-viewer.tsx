@@ -94,10 +94,6 @@ export function ReportViewer({ report }: ReportViewerProps) {
           {/* Tabla resumen de puntuación */}
           {scorecard && scorecard.length > 0 && (
             <div className="mb-6">
-              <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
-                Puntuación
-              </h4>
-
               {/* Summary table — all dimensions in rows */}
               <div className="mb-4 overflow-hidden rounded-lg border border-slate-700">
                 <table className="w-full text-sm">
@@ -109,6 +105,11 @@ export function ReportViewer({ report }: ReportViewerProps) {
                       <th className="px-4 py-2.5 text-center font-semibold text-slate-200 w-20">
                         Puntuación
                       </th>
+                      {scorecardHasDescription(scorecard) && (
+                        <th className="px-4 py-2.5 text-left font-semibold text-slate-200">
+                          Justificación
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
@@ -143,6 +144,11 @@ export function ReportViewer({ report }: ReportViewerProps) {
                           >
                             {formatScore(item.value)}
                           </td>
+                          {scorecardHasDescription(scorecard) && (
+                            <td className="px-4 py-2.5 text-slate-400 text-xs leading-relaxed">
+                              {item.description || (isTotal ? "" : "—")}
+                            </td>
+                          )}
                         </tr>
                       );
                     })}
@@ -284,22 +290,34 @@ function parseIdeaJson(content: string): IdeaJson | null {
 
 function parseScorecard(
   scorecard: string | null
-): { key: string; value: number | string }[] {
+): { key: string; value: number | string; description?: string }[] {
   if (!scorecard) return [];
 
   try {
     const parsed = JSON.parse(scorecard);
     if (Array.isArray(parsed)) {
-      const result: { key: string; value: string | number }[] = [];
+      const result: { key: string; value: number | string; description?: string }[] = [];
       for (const item of parsed) {
         if (typeof item === "object" && item !== null && !Array.isArray(item)) {
-          const entries = Object.entries(item as Record<string, unknown>);
-          if (entries.length > 0) {
-            const val = entries[0][1];
+          const obj = item as Record<string, unknown>;
+          // New format: { key, value, description }
+          if (obj.key !== undefined) {
+            const val = obj.value;
             result.push({
-              key: String(entries[0][0]),
+              key: String(obj.key),
               value: typeof val === "number" || typeof val === "string" ? val : String(val),
+              description: typeof obj.description === "string" ? obj.description : undefined,
             });
+          } else {
+            // Legacy array-of-objects: take first entry
+            const entries = Object.entries(obj);
+            if (entries.length > 0) {
+              const val = entries[0][1];
+              result.push({
+                key: String(entries[0][0]),
+                value: typeof val === "number" || typeof val === "string" ? val : String(val),
+              });
+            }
           }
         } else {
           result.push({ key: String(item), value: 0 });
@@ -330,6 +348,12 @@ function parseScorecard(
   }
 
   return [];
+}
+
+function scorecardHasDescription(
+  scorecard: { description?: string }[]
+): boolean {
+  return scorecard.some((item) => item.description && item.description.trim().length > 0);
 }
 
 function formatScore(value: number | string): string {

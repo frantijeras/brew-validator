@@ -76,6 +76,8 @@ export default function IdeaDetailPage() {
   const [saving, setSaving] = useState(false);
   const [startingPolish, setStartingPolish] = useState(false);
   const [cancellingPolish, setCancellingPolish] = useState(false);
+  const [cancellingValidation, setCancellingValidation] = useState(false);
+  const [showCancelValidationConfirm, setShowCancelValidationConfirm] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editProblem, setEditProblem] = useState("");
@@ -369,6 +371,27 @@ export default function IdeaDetailPage() {
       setApiError(err instanceof Error ? err.message : "Error al cancelar el pulido");
     } finally {
       setCancellingPolish(false);
+    }
+  }
+
+  async function handleCancelValidation() {
+    setShowCancelValidationConfirm(false);
+    setCancellingValidation(true);
+    setApiError("");
+    try {
+      const res = await fetch(`/api/ideas/${ideaId}/validate/cancel`, {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Error al cancelar la validación");
+      }
+      await fetchIdea();
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : "Error al cancelar la validación");
+    } finally {
+      setCancellingValidation(false);
     }
   }
 
@@ -779,6 +802,8 @@ export default function IdeaDetailPage() {
           <ValidationProgress
             validationStatus={idea.validationStatus}
             reports={idea.reports}
+            onCancel={() => setShowCancelValidationConfirm(true)}
+            cancelling={cancellingValidation}
           />
         </div>
       )}
@@ -1068,6 +1093,15 @@ export default function IdeaDetailPage() {
         variant="danger"
         onConfirm={handleDelete}
         onCancel={() => setShowDeleteModal(false)}
+      />
+      <ConfirmModal
+        open={showCancelValidationConfirm}
+        title="¿Detener la validación?"
+        message="Se cancelarán los informes en curso y se borrarán los reports parciales. Podrás volver a validar la idea desde cero cuando quieras."
+        confirmText="Detener"
+        variant="danger"
+        onConfirm={handleCancelValidation}
+        onCancel={() => setShowCancelValidationConfirm(false)}
       />
     </div>
   );

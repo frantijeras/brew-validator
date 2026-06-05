@@ -21,6 +21,9 @@ function cleanJudgeReport(markdown: string, agentName?: string): string {
 
   let clean = markdown;
 
+  // Strip replacement characters and other invalid glyphs the LLM sometimes emits
+  clean = clean.replace(/\uFFFD/g, "");
+
   // Remove decorative emojis
   clean = clean.replace(JUDGE_EMOJI_REGEX, "");
 
@@ -55,6 +58,12 @@ function cleanJudgeReport(markdown: string, agentName?: string): string {
       clean = clean.slice(0, puntuacionIdx);
     }
   }
+
+  // Collapse empty lines that the LLM inserts inside a paragraph.
+  // The renderer splits on \n\n+ for paragraphs, so stray blank lines
+  // inside a single thought get promoted to paragraph breaks. We squash
+  // any blank line that is NOT immediately after a section header.
+  clean = clean.replace(/(?<!^#.*\n)\n[ \t]*\n(?!\n|#{1,6} )/gm, " ");
 
   // Clean up multiple blank lines
   clean = clean.replace(/\n{3,}/g, "\n\n");

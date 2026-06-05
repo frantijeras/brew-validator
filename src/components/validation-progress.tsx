@@ -6,6 +6,8 @@ interface ValidationProgressProps {
   validationStatus: string;
   reports: ReportRef[];
   elapsedSeconds?: number;
+  onCancel?: () => void;
+  cancelling?: boolean;
 }
 
 type StepIcon = "shield-alert" | "shield-check" | "scale";
@@ -35,6 +37,8 @@ export function ValidationProgress({
   validationStatus,
   reports,
   elapsedSeconds,
+  onCancel,
+  cancelling,
 }: ValidationProgressProps) {
   const isRunning = validationStatus === "RUNNING";
   const isFailed = validationStatus === "FAILED";
@@ -51,7 +55,7 @@ export function ValidationProgress({
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 gap-3">
         <h2 className="text-lg font-semibold text-white">
           Progreso de validación
         </h2>
@@ -69,6 +73,15 @@ export function ValidationProgress({
           )}
           {isFailed && (
             <span className="text-sm text-red-400 font-medium">Fallido</span>
+          )}
+          {isRunning && onCancel && (
+            <button
+              onClick={onCancel}
+              disabled={cancelling}
+              className="shrink-0 rounded-md border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {cancelling ? "Deteniendo…" : "Detener validación"}
+            </button>
           )}
         </div>
       </div>
