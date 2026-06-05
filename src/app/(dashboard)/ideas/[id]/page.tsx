@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Heart, Archive, Trash2, Undo2, MoreHorizontal, Pencil, FileDown, Save, X, Info, AlertCircle, History } from "lucide-react";
+import { Heart, Archive, Trash2, Undo2, MoreHorizontal, Pencil, FileDown, Save, X, Info, AlertCircle, History, FolderKanban } from "lucide-react";
 import { ValidationProgress } from "@/components/validation-progress";
 import { ReportViewer } from "@/components/report-viewer";
 import { ConfirmModal } from "@/components/confirm-modal";
@@ -592,6 +592,11 @@ export default function IdeaDetailPage() {
                       )
                     )}
 
+                    {/* Convertir en proyecto — only when completed */}
+                    {(idea.status === "COMPLETED" || idea.validationStatus === "DONE") && (
+                      <ConvertToProjectButton ideaId={idea.id} />
+                    )}
+
                     {/* Edit idea original — only when DRAFT */}
                     {idea.status === "DRAFT" && (
                       <>
@@ -1177,5 +1182,71 @@ function SparklesIcon() {
     <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
     </svg>
+  );
+}
+
+/* ── Convertir en proyecto button ── */
+function ConvertToProjectButton({ ideaId }: { ideaId: string }) {
+  const [loading, setLoading] = useState(false);
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  async function handleConvert() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/projects/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ideaId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 409 && data.projectId) {
+          setProjectId(data.projectId);
+        } else {
+          setError(data.error || "Error al crear proyecto");
+        }
+      } else {
+        setProjectId(data.project.id);
+      }
+    } catch {
+      setError("Error de conexión");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (projectId) {
+    return (
+      <>
+        <div className="my-1 border-t border-slate-700" />
+        <a
+          href={`/proyectos/${projectId}`}
+          className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-amber-400 hover:bg-slate-700 transition-colors"
+        >
+          <FolderKanban className="size-4" />
+          Ir al proyecto
+        </a>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="my-1 border-t border-slate-700" />
+      <button
+        onClick={handleConvert}
+        disabled={loading}
+        className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors disabled:opacity-50"
+      >
+        <FolderKanban className="size-4 text-slate-400" />
+        {loading ? "Creando proyecto…" : "Convertir en proyecto"}
+      </button>
+      {error && (
+        <p className="px-3 pb-1 text-xs text-red-400">{error}</p>
+      )}
+    </>
   );
 }
