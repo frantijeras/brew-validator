@@ -15,7 +15,7 @@ import {
   RefreshCw,
   HelpCircle,
   Trash2,
-  X,
+  X, XCircle,
   AlertTriangle,
 } from "lucide-react";
 import { PhaseActionButton } from "./phase-action-button";
@@ -77,7 +77,7 @@ export function ProjectPhasesWithModal({
   const router = useRouter();
 
   async function handleCancelPhase(phaseId: string) {
-    if (!confirm("¿Cancelar esta fase? Se perderá el progreso actual y podrás volver a iniciarla.")) return;
+    // No confirm — the button is the action
     try {
       const res = await fetch("/api/projects/cancel-phase", {
         method: "POST",
@@ -151,24 +151,6 @@ export function ProjectPhasesWithModal({
           const questions = phase.questions as Array<{ id: string; label: string; type: string }> | null;
 
           const hasQuestions = isQuestioning && questions && questions.length > 0;
-
-          async function handleCancelPhase(phaseId: string) {
-    if (!confirm("¿Cancelar esta fase? Se perderá el progreso actual y podrás volver a iniciarla.")) return;
-    try {
-      const res = await fetch("/api/projects/cancel-phase", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phaseId }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        console.error("Error canceling phase:", data.error);
-      }
-      router.refresh();
-    } catch (err) {
-      console.error("Error canceling phase:", err);
-    }
-  }
 
     async function handleDelete() {
     if (deleteConfirm.trim() !== projectName) return;
@@ -278,19 +260,38 @@ export function ProjectPhasesWithModal({
                   />
                 )}
                 {hasQuestions && (
-                  <button
-                    onClick={() => setModalPhase(phase)}
-                    className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 transition-all hover:bg-amber-400"
-                  >
-                    <HelpCircle className="size-4" />
-                    Responder preguntas
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setModalPhase(phase)}
+                      className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 transition-all hover:bg-amber-400"
+                    >
+                      <HelpCircle className="size-4" />
+                      Responder preguntas
+                    </button>
+                    <span className="text-xs text-slate-600">·</span>
+                    <button
+                      onClick={() => handleCancelPhase(phase.id)}
+                      className="text-xs text-slate-500 hover:text-red-400 transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
                 )}
                 {isProcessing && (
-                  <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-400">
-                    <RefreshCw className="size-3 animate-spin" />
-                    Procesando
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-400">
+                      <RefreshCw className="size-3 animate-spin" />
+                      Procesando
+                    </span>
+                    <button
+                      onClick={() => handleCancelPhase(phase.id)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800/50 px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-red-400 hover:border-red-500/30 transition-colors"
+                      title="Cancelar y volver a disponible"
+                    >
+                      <XCircle className="size-3" />
+                      Cancelar
+                    </button>
+                  </div>
                 )}
                 {isCompleted && (
                   <span className="shrink-0 rounded-full bg-green-500/10 px-3 py-1 text-xs font-medium text-green-400">
