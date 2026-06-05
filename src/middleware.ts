@@ -27,6 +27,6 @@ export const config = {
     //   - /api/settings/available-models, /api/settings/agent-models (model config)
     // These endpoints are safe to expose because the bridge is on a private VPS
     // and not reachable from the public internet.
-    "/((?!api/auth|api/jobs|api/webhooks|api/ideas|api/bridge/heartbeat|api/bridge/status|api/settings|login|_next/static|_next/image|favicon.ico|favicon.svg|icon).*)",
+    "/((?!api/auth|api/build-info|api/jobs|api/webhooks|api/ideas|api/bridge/heartbeat|api/bridge/status|api/settings|login|_next/static|_next/image|favicon.ico|favicon.svg|icon).*)",
   ],
 };
