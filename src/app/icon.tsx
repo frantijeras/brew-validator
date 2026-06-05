@@ -26,23 +26,20 @@ export default function Icon() {
           strokeLinecap="round"
           strokeLinejoin="round"
         >
-          {/* Star 4-point (top) */}
+          {/* AI Star 4-point */}
           <path
-            d="M16 1.5 L17.2 4.8 L20.5 6 L17.2 7.2 L16 10.5 L14.8 7.2 L11.5 6 L14.8 4.8 Z"
+            d="M16 1 L17.2 5 L21 6.5 L17.2 8 L16 12 L14.8 8 L11 6.5 L14.8 5 Z"
             fill="#f59e0b"
             stroke="none"
           />
-          {/* Foam bubbles */}
-          <circle cx="10" cy="9" r="1.4" fill="#f59e0b" fillOpacity="0.85" />
-          <circle cx="14" cy="8" r="1.6" fill="#f59e0b" fillOpacity="0.85" />
-          <circle cx="18.5" cy="8" r="1.5" fill="#f59e0b" fillOpacity="0.85" />
-          <circle cx="22" cy="9.2" r="1.2" fill="#f59e0b" fillOpacity="0.85" />
-          {/* Mug body */}
-          <path d="M7 12 L25 12 L24 28 Q24 29 23 29 L9 29 Q8 29 8 28 Z" />
-          {/* Handle */}
-          <path d="M25 16 Q29 16 29 20 Q29 24 25 24" />
-          {/* Liquid line */}
-          <line x1="9" y1="14.5" x2="23" y2="14.5" strokeOpacity="0.45" />
+          {/* Cauldron rim */}
+          <ellipse cx="16" cy="15" rx="9" ry="2.5" />
+          {/* Cauldron body */}
+          <path d="M7 15 L25 15 L23 27 Q22 28.5 16 28.5 Q10 28.5 9 27 Z" />
+          {/* Bubble left */}
+          <circle cx="11" cy="20" r="1.2" fill="#f59e0b" fillOpacity="0.5" />
+          {/* Bubble right */}
+          <circle cx="19" cy="22" r="1" fill="#f59e0b" fillOpacity="0.5" />
         </svg>
       </div>
     ),
