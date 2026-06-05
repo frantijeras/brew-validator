@@ -1,6 +1,12 @@
 import { prisma } from "@/lib/db";
 import Link from "next/link";
-import { FolderKanban, CheckCircle, Clock } from "lucide-react";
+import {
+  FolderKanban,
+  CheckCircle,
+  Clock,
+  HelpCircle,
+  Play,
+} from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -46,9 +52,47 @@ export default async function ProyectosPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {projects.map((project) => {
-            const total = project.phases.length;
-            const completed = project.phases.filter((p) => p.status === "COMPLETED").length;
+            const total = 6; // 5 reales + Fase 0 (validación)
+            const completedPhases = project.phases.filter(
+              (p) => p.status === "COMPLETED"
+            ).length;
+            const completed = 1 + completedPhases;
+            const isProcessing = project.phases.some(
+              (p) => p.status === "PROCESSING"
+            );
+            const isQuestioning = project.phases.some(
+              (p) => p.status === "QUESTIONING"
+            );
+            const isAvailable = project.phases.some(
+              (p) => p.status === "AVAILABLE"
+            );
             const allDone = completed === total;
+
+            let statusText: string;
+            let statusColor: string;
+            let StatusIcon: React.ElementType;
+
+            if (allDone) {
+              statusText = "Completado";
+              statusColor = "text-green-400";
+              StatusIcon = CheckCircle;
+            } else if (isProcessing) {
+              statusText = "Procesando…";
+              statusColor = "text-amber-400";
+              StatusIcon = Clock;
+            } else if (isQuestioning) {
+              statusText = "Esperando respuestas";
+              statusColor = "text-purple-400";
+              StatusIcon = HelpCircle;
+            } else if (isAvailable) {
+              statusText = "Esperando siguiente fase";
+              statusColor = "text-amber-400";
+              StatusIcon = Play;
+            } else {
+              statusText = "En progreso";
+              statusColor = "text-amber-400";
+              StatusIcon = Clock;
+            }
 
             return (
               <Link
@@ -57,21 +101,34 @@ export default async function ProyectosPage() {
                 className="group block rounded-xl border border-slate-700 bg-slate-900/50 p-5 transition-all hover:border-slate-600 hover:bg-slate-900"
               >
                 <div className="flex items-start gap-3">
-                  <div className={`rounded-lg p-2.5 ${
-                    allDone ? "bg-green-500/10" : "bg-amber-500/10"
-                  }`}>
-                    {allDone ? (
-                      <CheckCircle className="size-5 text-green-400" />
-                    ) : (
-                      <Clock className="size-5 text-amber-400" />
-                    )}
+                  <div
+                    className={`rounded-lg p-2.5 ${
+                      allDone
+                        ? "bg-green-500/10"
+                        : isQuestioning
+                          ? "bg-purple-500/10"
+                          : "bg-amber-500/10"
+                    }`}
+                  >
+                    <StatusIcon
+                      className={`size-5 ${
+                        allDone
+                          ? "text-green-400"
+                          : isQuestioning
+                            ? "text-purple-400"
+                            : "text-amber-400"
+                      }`}
+                    />
                   </div>
                   <div className="min-w-0 flex-1">
                     <h3 className="text-base font-semibold text-white group-hover:text-amber-400 transition-colors truncate">
                       {project.name}
                     </h3>
                     <p className="mt-1 text-xs text-slate-500">
-                      {completed}/{total} fases completadas
+                      {completed}/{total} fases
+                    </p>
+                    <p className={`mt-0.5 text-xs font-medium ${statusColor}`}>
+                      {statusText}
                     </p>
                     <div className="mt-2 flex items-center gap-2">
                       <div className="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
@@ -79,11 +136,16 @@ export default async function ProyectosPage() {
                           className={`h-full rounded-full transition-all ${
                             allDone ? "bg-green-500" : "bg-amber-500"
                           }`}
-                          style={{ width: `${(completed / total) * 100}%` }}
+                          style={{
+                            width: `${Math.min(
+                              (completed / total) * 100,
+                              100
+                            )}%`,
+                          }}
                         />
                       </div>
                       <span className="text-xs font-medium text-slate-400">
-                        {Math.round((completed / total) * 100)}%
+                        {Math.round(Math.min((completed / total) * 100, 100))}%
                       </span>
                     </div>
                   </div>
