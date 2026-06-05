@@ -67,7 +67,15 @@ export async function POST(req: Request) {
       })
       .filter(Boolean);
 
-    const agentName = `project-${phaseType.toLowerCase()}`;
+    // Map phaseType → agent name (phase types != agent names)
+    const PHASE_TO_AGENT: Record<string, string> = {
+      ANALYSIS: "project-analyst",
+      IDENTITY: "project-branding",
+      CONTENT: "project-content",
+      DEVELOPMENT: "project-dev",
+      DOSSIER: "project-dossier",
+    };
+    const agentName = PHASE_TO_AGENT[phaseType] || `project-${phaseType.toLowerCase()}`;
     const model = modelOverride || (await resolveModelForJobAgent(agentName));
 
     // Build job input
