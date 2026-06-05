@@ -1,5 +1,52 @@
 import { jsPDF } from "jspdf";
 
+/* ── Judge content cleanup ──────────────────────────────────────────── */
+// Matches the same cleanup the web UI does (markdown-renderer.tsx) so the
+// PDF rendering of judge reports is consistent with what the user sees in
+// the browser. Without this, the PDF shows duplicate scorecard tables and
+// decorative emojis that the web UI strips out.
+
+const JUDGE_EMOJI_REGEX_PDF = /[📊⭐✅🎯🏆💪🔍❌📈📋✨🔥💡⚖️🛡️🚀💰]/g;
+
+function cleanJudgeReportPdf(content: string): string {
+  let clean = content;
+
+  // Strip replacement characters
+  clean = clean.replace(/\uFFFD/g, "");
+
+  // Remove decorative emojis
+  clean = clean.replace(JUDGE_EMOJI_REGEX_PDF, "");
+
+  // Remove duplicate "## Scorecard" sections (keep only the first)
+  const scorecardMatches = [...clean.matchAll(/^## Scorecard[\s\S]*?(?=^## |\n---|\n\n\n|$)/gim)];
+  if (scorecardMatches.length > 1) {
+    for (let i = 1; i < scorecardMatches.length; i++) {
+      clean = clean.replace(scorecardMatches[i][0], "");
+    }
+  }
+
+  // Remove "## Decisión" section
+  clean = clean.replace(/^## Decisión[\s\S]*?(?=^## |$)/gm, "");
+
+  // Remove any "## Puntuación*" / "## Scorecard*" / "## Tabla de Puntuaciones"
+  // section — the scorecard is rendered separately from the JSON
+  const sectionHeaderRe = /^##\s+[^\n]*(puntuación|puntuacion|scorecard|tabla\s+de\s+puntuaciones?|tabla\s+de\s+scores)[^\n]*$/gim;
+  clean = clean.replace(sectionHeaderRe, "");
+
+  // Remove loose scorecard tables (header has "Dimensión" + "Puntuación")
+  const looseTableRe = /^\|[^\n]*\|[^\n]*\|\s*\n\|[\s:|-]+\|[\s:|-]+\|\s*\n(?:\|[^\n]*\|\s*\n?)+/gm;
+  clean = clean.replace(looseTableRe, (match) => {
+    const firstLine = match.split("\n")[0].toLowerCase();
+    if (/dimensi[oó]n/.test(firstLine) && /(puntuaci[oó]n|puntuacion|score)/.test(firstLine)) return "";
+    return match;
+  });
+
+  // Collapse multiple blank lines
+  clean = clean.replace(/\n{3,}/g, "\n\n");
+
+  return clean.trim();
+}
+
 /* ── Type matching the export API response ── */
 
 interface ExportData {
@@ -486,7 +533,9 @@ export function generatePdf(filename: string, data: ExportData): void {
     }
 
     // Report content (parsed markdown)
-    const blocks = parseMarkdownBlocks(report.content);
+    // Apply same cleanup as the web UI for judge reports so the output is consistent
+    const reportContent = report.agentName === "judge" ? cleanJudgeReportPdf(report.content) : report.content;
+    const blocks = parseMarkdownBlocks(reportContent);
     writeMdBlocks(blocks);
 
     // Separator
@@ -494,30 +543,6 @@ export function generatePdf(filename: string, data: ExportData): void {
     doc.setDrawColor(220, 220, 220);
     doc.line(MARGIN, y, PAGE_W - MARGIN, y);
     y += 6;
-  }
-
-  // ── Section: Historial de versiones ──
-  if (data.versions.length > 0) {
-    checkSpace(14);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.setTextColor(...C_BLACK);
-    doc.text("Historial de versiones", MARGIN, y);
-    y += 7;
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    for (const v of data.versions) {
-      checkSpace(5);
-      doc.setTextColor(...C_DARK);
-      const versionLine = `• ${stripEmojis(v.title)} (${v.phase}) — ${v.createdAt}`;
-      const versionLines = doc.splitTextToSize(versionLine, CONTENT_W);
-      for (const vl of versionLines) {
-        checkSpace(5);
-        doc.text(vl, MARGIN, y);
-        y += 5;
-      }
-    }
   }
 
   // ── Footer ──
