@@ -4,26 +4,41 @@ import * as React from "react";
 import { Download, FileText, Loader2 } from "lucide-react";
 
 /**
- * PhaseCard — Tarjeta rediseñada (v4: header inline + sin parpadeo) para
- * una fase del proyecto o la validación de idea. Estructura visual:
+ * PhaseCard — Tarjeta rediseñada (v5: acciones responsive) para una fase
+ * del proyecto o la validación de idea. Estructura visual:
  *
- *  MÓVIL (< 768px) y DESKTOP (≥ 768px) — header en una sola línea
+ *  MÓVIL (< 768px)
  *  ┌──────────────────────────────────────────────────────────┐
- *  │  [01]  🎨  Título de la fase              [StatusBadge] │  ← número → icono → título, todos en `flex-row items-center gap-2`
+ *  │  [    Acción primaria   ]                                │  ← acciones en columna, items-start
+ *  │  [   Acción secundaria  ]                                │     ARRIBA del header
+ *  │  ──────────────────────────────────────────────────────  │
+ *  │  [01]  🎨  Título de la fase                             │  ← header: número → icono → título
+ *  │       [StatusBadge]                                      │  ← badge en su línea, indentado
  *  │  Generando análisis... ~2-3 min                          │  ← solo si isProcessing
  *  │  Descripción con leading-relaxed                        │
  *  │                                                          │
- *  │  [📄 artefacto-1.md]                                     │  ← artefactos en columna (móvil) / fila (desktop)
+ *  │  [📄 artefacto-1.md]                                     │  ← artefactos en columna
  *  │  [📄 preview.html]                                       │
- *  │  ──────────────────────────────────────────────────────  │
- *  │  [    Acción primaria   ]                                │  ← acciones full-width en móvil
- *  │  [   Acción secundaria  ]                                │
  *  └──────────────────────────────────────────────────────────┘
  *
- *  Reglas (v4):
+ *  DESKTOP (≥ 768px)
+ *  ┌──────────────────────────────────────────────────────────┐
+ *  │  [01]  🎨  Título de la fase        [Acción1] [Acción2]  │  ← header + acciones en fila,
+ *  │       [StatusBadge]                                      │     acciones a la derecha (ml-auto)
+ *  │  Generando análisis... ~2-3 min                          │
+ *  │  Descripción con leading-relaxed                        │
+ *  │                                                          │
+ *  │  [📄 artefacto-1.md] [📄 preview.html]                   │  ← artefactos en fila
+ *  └──────────────────────────────────────────────────────────┘
+ *
+ *  Reglas (v5):
  *    - Header SIEMPRE en una sola línea: `número → icono → título`,
  *      en ese orden, en móvil y desktop, dentro de
  *      `flex flex-row items-center gap-2`.
+ *    - El badge de estado se mueve FUERA del flex-row del header y se
+ *      renderiza en su propia línea, indentado con `ml-2` para alinearse
+ *      bajo el título. Esto libera la fila del header para las acciones
+ *      en desktop.
  *    - El icono de fase es SIEMPRE visible:
  *        · Móvil: `size-4`.
  *        · Desktop: `size-5` (vía `md:size-5` en el wrapper del icono).
@@ -34,11 +49,15 @@ import { Download, FileText, Loader2 } from "lucide-react";
  *        · El borde ámbar cambia a `border-amber-500/40` PERO SIN animación
  *          de opacidad (sin `animate-pulse`). El feedback "está vivo" lo
  *          dan el spinner y el texto "Generando...".
- *    - Si NO hay acciones, el bloque inferior no se renderiza.
+ *    - Si NO hay acciones, el bloque superior no se renderiza.
+ *    - Layout de las acciones (v5 — responsive):
+ *        · Móvil: columna, alineadas a la izquierda (`items-start gap-2`),
+ *          renderizadas ANTES del header, con un separador `border-b`
+ *          debajo.
+ *        · Desktop: fila, alineadas a la derecha (`md:ml-auto md:items-center
+ *          md:justify-end md:gap-2`), en la MISMA línea que el header.
  *    - Las acciones hijas se envuelven automáticamente en
  *      `w-full md:w-auto` para que ocupen el ancho en móvil.
- *    - Si hay 1 sola acción, se alinea a la izquierda;
- *      si hay 2+, primary a la derecha (`justify-between`).
  */
 
 export type PhaseCardStatus =
@@ -162,9 +181,9 @@ export function PhaseCard({
   // y el texto "Generando análisis..." bajo el header.
   const isProcessing = status === "processing";
 
-  // Aplanar fragments para contar y envolver acciones hijas.
+  // Aplanar fragments para envolver acciones hijas.
   // Los consumidores pasan `<>...</>` con varios buttons, por lo que
-  // necesitamos aplanar para detectar cuántos botones reales hay.
+  // necesitamos aplanar para iterar uniformemente.
   const flatActions: React.ReactNode[] = [];
   React.Children.forEach(actions, (child) => {
     if (!React.isValidElement(child)) return;
@@ -181,7 +200,6 @@ export function PhaseCard({
       flatActions.push(child);
     }
   });
-  const hasMultipleActions = flatActions.length > 1;
 
   return (
     <div
@@ -191,10 +209,30 @@ export function PhaseCard({
         isInactive ? "opacity-60" : ""
       }`}
     >
-      {/* Cabecera (v4): número → icono → título, TODO en la misma línea.
-          Móvil y desktop usan el mismo `flex flex-row items-center gap-2`.
-          El badge se empuja a la derecha con `ml-auto`. */}
-      <div className="flex flex-row items-center gap-2">
+      {/* Acciones (v5 — responsive).
+          Móvil (< md): renderizadas ARRIBA del header, en columna,
+            alineadas a la izquierda, con un separador `border-b` debajo.
+          Desktop (≥ md): este bloque se oculta (`md:hidden`) y las
+            acciones se renderizan DENTRO de la fila del header, alineadas
+            a la derecha (ver bloque "Cabecera" más abajo). */}
+      {hasActions && (
+        <div className="flex w-full flex-col items-start gap-2 border-b border-slate-800/60 pb-4 md:hidden">
+          {flatActions.map((action, i) => (
+            <div key={i} className="w-full">
+              {action}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Cabecera (v5): número → icono → título, en la misma línea.
+          En desktop, las acciones se renderizan también aquí, a la derecha,
+          con `md:ml-auto`. En móvil, las acciones ya se renderizaron arriba. */}
+      <div
+        className={`flex flex-row items-center gap-2 ${
+          hasActions ? "mt-4 md:mt-0" : ""
+        }`}
+      >
         <span
           className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-base font-semibold tracking-wider md:h-6 md:w-6 md:rounded-md md:text-[10px] ${toneNumberStyles[tone]}`}
         >
@@ -224,7 +262,7 @@ export function PhaseCard({
           )}
         </div>
         <h3
-          className={`min-w-0 flex-1 truncate text-lg font-medium leading-snug md:text-base md:font-semibold md:leading-tight ${
+          className={`min-w-0 flex-1 truncate text-lg font-medium leading-snug md:flex-none md:text-base md:font-semibold md:leading-tight ${
             isInactive
               ? "text-slate-500"
               : status === "completed"
@@ -234,8 +272,26 @@ export function PhaseCard({
         >
           {title}
         </h3>
+        {/* Acciones en desktop (v5): se renderizan aquí, a la derecha del
+            título. En desktop el <h3> pasa a `flex-none` (auto-size) y
+            este wrapper usa `md:ml-auto` para empujar las acciones al
+            final de la fila. */}
+        {hasActions && (
+          <div className="hidden shrink-0 flex-row items-center justify-end gap-2 md:flex md:ml-auto">
+            {flatActions.map((action, i) => (
+              <div key={i} className="w-auto">
+                {action}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Badge de estado (v5): movido FUERA del flex-row del header a su
+          propia línea, indentado con `ml-2` para alinearse bajo el título. */}
+      <div className="mt-1 ml-2">
         <span
-          className={`ml-auto inline-flex w-fit shrink-0 items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${badge.className}`}
+          className={`inline-flex w-fit shrink-0 items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${badge.className}`}
         >
           {statusLabel || badge.label}
         </span>
@@ -281,25 +337,6 @@ export function PhaseCard({
               {a.title}
             </a>
           ))}
-        </div>
-      )}
-
-      {/* Acciones: debajo del separador */}
-      {hasActions && (
-        <div className="mt-5 border-t border-slate-800/60 pt-5 md:mt-4 md:pt-4">
-          <div
-            className={`flex flex-col gap-3 md:flex-row md:items-center ${
-              hasMultipleActions
-                ? "md:justify-between"
-                : "md:justify-start"
-            }`}
-          >
-            {flatActions.map((action, i) => (
-              <div key={i} className="w-full md:w-auto">
-                {action}
-              </div>
-            ))}
-          </div>
         </div>
       )}
     </div>
