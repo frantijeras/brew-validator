@@ -4,10 +4,30 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { X, Sparkles, AlertCircle } from "lucide-react";
 
+/**
+ * Question types supported by the modal:
+ *  - "text": single-line free text. Rendered as a textarea (3 rows).
+ *  - "textarea": longer free text. Rendered as a textarea (6 rows).
+ *  - "choice": single-select radio buttons. The selected option's value is sent as a string.
+ *  - "multi": multi-select checkboxes. Selected values are joined with a comma (",")
+ *    and sent as a single string. The backend (and downstream agents) receive
+ *    `Record<string, string>` regardless of the question type, so a deterministic
+ *    delimiter is the cleanest way to keep the API contract stable.
+ *
+ * Options for "choice" / "multi" use the shape:
+ *   { value: string, label: string }
+ * The `value` is what gets sent; the `label` is what the user sees.
+ */
+interface QuestionOption {
+  value: string;
+  label: string;
+}
+
 interface Question {
   id: string;
   label: string;
   type: string;
+  options?: QuestionOption[];
 }
 
 interface PhaseQuestionsModalProps {
@@ -38,7 +58,11 @@ export function PhaseQuestionsModal({
   useEffect(() => {
     if (open) {
       const initial: Record<string, string> = {};
-      questions.forEach((q) => { initial[q.id] = ""; });
+      questions.forEach((q) => {
+        // For "multi" we store a comma-separated list of selected values.
+        // For "choice" a single value. For text/textarea the user-typed string.
+        initial[q.id] = "";
+      });
       setAnswers(initial);
       setError(null);
       setSubmitting(false);
@@ -78,10 +102,10 @@ export function PhaseQuestionsModal({
     setSubmitting(true);
     setError(null);
 
-    // Filter out empty answers
+    // Filter out empty answers. For "multi" we check the comma-joined string.
     const filledAnswers: Record<string, string> = {};
     for (const [k, v] of Object.entries(answers)) {
-      if (v.trim()) filledAnswers[k] = v.trim();
+      if (v && v.trim()) filledAnswers[k] = v.trim();
     }
 
     if (Object.keys(filledAnswers).length === 0) {
@@ -116,8 +140,26 @@ export function PhaseQuestionsModal({
     }
   }
 
-  function handleChange(qId: string, value: string) {
+  function handleTextChange(qId: string, value: string) {
     setAnswers((prev) => ({ ...prev, [qId]: value }));
+  }
+
+  function handleChoiceChange(qId: string, value: string) {
+    setAnswers((prev) => ({ ...prev, [qId]: value }));
+  }
+
+  function handleMultiToggle(qId: string, value: string) {
+    setAnswers((prev) => {
+      const current = prev[qId] || "";
+      const list = current ? current.split(",").filter(Boolean) : [];
+      const idx = list.indexOf(value);
+      if (idx >= 0) {
+        list.splice(idx, 1);
+      } else {
+        list.push(value);
+      }
+      return { ...prev, [qId]: list.join(",") };
+    });
   }
 
   if (!open) return null;
@@ -156,20 +198,98 @@ export function PhaseQuestionsModal({
               Responde estas preguntas para ayudar a la IA a generar un análisis más preciso y adaptado a tu situación real.
             </p>
 
-            {questions.map((q) => (
-              <div key={q.id}>
-                <label className="block text-sm font-medium text-white mb-1.5">
-                  {q.label}
-                </label>
-                <textarea
-                  value={answers[q.id] || ""}
-                  onChange={(e) => handleChange(q.id, e.target.value)}
-                  placeholder="Escribe tu respuesta..."
-                  rows={3}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"
-                />
-              </div>
-            ))}
+            {questions.map((q) => {
+              const opts = q.options || [];
+              return (
+                <div key={q.id}>
+                  <label className="block text-sm font-medium text-white mb-1.5">
+                    {q.label}
+                  </label>
+
+                  {/* text → 3 rows */}
+                  {q.type === "text" && (
+                    <textarea
+                      value={answers[q.id] || ""}
+                      onChange={(e) => handleTextChange(q.id, e.target.value)}
+                      placeholder="Escribe tu respuesta..."
+                      rows={3}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"
+                    />
+                  )}
+
+                  {/* textarea → 6 rows */}
+                  {q.type === "textarea" && (
+                    <textarea
+                      value={answers[q.id] || ""}
+                      onChange={(e) => handleTextChange(q.id, e.target.value)}
+                      placeholder="Escribe tu respuesta..."
+                      rows={6}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"
+                    />
+                  )}
+
+                  {/* choice → radio buttons */}
+                  {q.type === "choice" && (
+                    <div className="space-y-2">
+                      {opts.map((opt) => {
+                        const selected = (answers[q.id] || "") === opt.value;
+                        return (
+                          <label
+                            key={opt.value}
+                            className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
+                              selected
+                                ? "border-amber-500 bg-amber-500/10 text-white"
+                                : "border-slate-700 bg-slate-800 text-slate-200 hover:border-slate-600"
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name={q.id}
+                              value={opt.value}
+                              checked={selected}
+                              onChange={() => handleChoiceChange(q.id, opt.value)}
+                              className="size-4 cursor-pointer accent-amber-500"
+                            />
+                            <span>{opt.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* multi → checkboxes */}
+                  {q.type === "multi" && (
+                    <div className="space-y-2">
+                      {opts.map((opt) => {
+                        const current = answers[q.id] || "";
+                        const selected = current
+                          .split(",")
+                          .filter(Boolean)
+                          .includes(opt.value);
+                        return (
+                          <label
+                            key={opt.value}
+                            className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
+                              selected
+                                ? "border-amber-500 bg-amber-500/10 text-white"
+                                : "border-slate-700 bg-slate-800 text-slate-200 hover:border-slate-600"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              onChange={() => handleMultiToggle(q.id, opt.value)}
+                              className="size-4 cursor-pointer accent-amber-500"
+                            />
+                            <span>{opt.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
 
             {error && (
               <span className="flex items-center gap-1 text-xs text-red-400">

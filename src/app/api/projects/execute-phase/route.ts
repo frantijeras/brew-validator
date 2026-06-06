@@ -74,6 +74,8 @@ export async function POST(req: Request) {
       CONTENT: "project-content",
       DEVELOPMENT: "project-dev",
       DOSSIER: "project-dossier",
+      BUSINESS: "project-business",
+      EXECUTION: "project-execution",
     };
     const agentName = PHASE_TO_AGENT[phaseType] || `project-${phaseType.toLowerCase()}`;
     const model = modelOverride || (await resolveModelForJobAgent(agentName));

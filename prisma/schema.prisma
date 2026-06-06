@@ -167,6 +167,8 @@ enum PhaseType {
   CONTENT
   DEVELOPMENT
   DOSSIER
+  BUSINESS
+  EXECUTION
 }
 
 model ProjectPhase {

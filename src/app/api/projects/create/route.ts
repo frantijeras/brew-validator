@@ -26,6 +26,8 @@ export async function POST(req: Request) {
     }
 
     // Create the project with its phases
+    // Phase 0 (VALIDATION) is read-only on the frontend and points to /ideas/[id],
+    // so it is NOT a ProjectPhase here. The 6 phases below are the agent-driven ones.
     const project = await prisma.project.create({
       data: {
         ideaId: idea.id,
@@ -36,7 +38,7 @@ export async function POST(req: Request) {
           create: [
             {
               type: "ANALYSIS",
-              label: "Análisis de Mercado",
+              label: "Análisis Estratégico",
               description: "Competencia, TAM/SAM/SOM y estrategia de lanzamiento",
               status: "AVAILABLE",
               sortOrder: 0,
@@ -50,24 +52,31 @@ export async function POST(req: Request) {
             },
             {
               type: "CONTENT",
-              label: "Contenido y Publicación",
+              label: "Estrategia de Contenido",
               description: "Guía de contenido, skill de publicación y landing promocional",
               status: "LOCKED",
               sortOrder: 2,
             },
             {
               type: "DEVELOPMENT",
-              label: "Desarrollo Técnico",
+              label: "Plan Técnico y de Producto",
               description: "Skill de desarrollo con contexto completo y plan técnico",
               status: "LOCKED",
               sortOrder: 3,
             },
             {
-              type: "DOSSIER",
-              label: "Dossier Completo",
-              description: "Exportación de todo el proyecto en un MD ejecutable",
+              type: "BUSINESS",
+              label: "Estrategia de Negocio",
+              description: "Modelo de negocio, pricing, métricas clave y plan financiero",
               status: "LOCKED",
               sortOrder: 4,
+            },
+            {
+              type: "EXECUTION",
+              label: "Plan de Ejecución",
+              description: "Exportación de todo el proyecto en un MD ejecutable",
+              status: "LOCKED",
+              sortOrder: 5,
             },
           ],
         },

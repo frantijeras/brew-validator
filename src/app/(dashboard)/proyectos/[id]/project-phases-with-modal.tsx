@@ -15,8 +15,14 @@ import {
   RefreshCw,
   HelpCircle,
   Trash2,
-  X, XCircle,
+  X,
+  XCircle,
   AlertTriangle,
+  BriefcaseBusiness,
+  Rocket,
+  FileCheck,
+  Download,
+  Eye,
 } from "lucide-react";
 import { PhaseActionButton } from "./phase-action-button";
 import { PhaseQuestionsModal } from "./phase-questions-modal";
@@ -45,6 +51,8 @@ const phaseIcons: Record<string, React.ReactNode> = {
   CONTENT: <FileText className="size-5" />,
   DEVELOPMENT: <Code className="size-5" />,
   DOSSIER: <FileDown className="size-5" />,
+  BUSINESS: <BriefcaseBusiness className="size-5" />,
+  EXECUTION: <Rocket className="size-5" />,
 };
 
 const phaseColors: Record<string, string> = {
@@ -53,6 +61,8 @@ const phaseColors: Record<string, string> = {
   CONTENT: "text-amber-400 border-amber-500/30",
   DEVELOPMENT: "text-green-400 border-green-500/30",
   DOSSIER: "text-rose-400 border-rose-500/30",
+  BUSINESS: "text-cyan-400 border-cyan-500/30",
+  EXECUTION: "text-orange-400 border-orange-500/30",
 };
 
 const phaseBgColors: Record<string, string> = {
@@ -61,6 +71,22 @@ const phaseBgColors: Record<string, string> = {
   CONTENT: "bg-amber-500/10",
   DEVELOPMENT: "bg-green-500/10",
   DOSSIER: "bg-rose-500/10",
+  BUSINESS: "bg-cyan-500/10",
+  EXECUTION: "bg-orange-500/10",
+};
+
+/**
+ * Human label for the download button on a COMPLETED phase, keyed by PhaseType.
+ * Falls back to "Descargar" if a phase type is somehow missing.
+ */
+const phaseDownloadLabels: Record<string, string> = {
+  ANALYSIS: "Descargar análisis",
+  IDENTITY: "Descargar brand book",
+  CONTENT: "Descargar estrategia",
+  DEVELOPMENT: "Descargar skill técnica",
+  DOSSIER: "Descargar dossier",
+  BUSINESS: "Descargar plan de negocio",
+  EXECUTION: "Descargar dossier",
 };
 
 export function ProjectPhasesWithModal({
@@ -69,7 +95,7 @@ export function ProjectPhasesWithModal({
   projectName,
   phases,
 }: ProjectPhasesWithModalProps) {
-    const [modalPhase, setModalPhase] = useState<PhaseData | null>(null);
+  const [modalPhase, setModalPhase] = useState<PhaseData | null>(null);
   const [deleting, setDeleting] = useState(false);
   const router = useRouter();
 
@@ -85,12 +111,12 @@ export function ProjectPhasesWithModal({
     }, 5000);
     return () => clearInterval(interval);
   }, [isAnyProcessingOrQuestioning, router]);
+
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   async function handleCancelPhase(phaseId: string) {
-    // No confirm — the button is the action
     try {
       const res = await fetch("/api/projects/cancel-phase", {
         method: "POST",
@@ -107,7 +133,7 @@ export function ProjectPhasesWithModal({
     }
   }
 
-    async function handleDelete() {
+  async function handleDelete() {
     if (deleteConfirm.trim() !== projectName) return;
     setDeleting(true);
     setDeleteError(null);
@@ -130,12 +156,11 @@ export function ProjectPhasesWithModal({
 
   return (
     <>
-      {/* Fase 0 — Validación de Idea (read-only view) */}
-      <a
-        href={`/ideas/${ideaId}?readonly=true&projectId=${projectId}`}
-        className="block rounded-xl border border-slate-700 bg-slate-900/50 p-5 transition-all hover:border-slate-600 hover:bg-slate-900/70"
-      >
-        <div className="flex items-start justify-between gap-4">
+      {/* Fase 0 — Validación de Idea (read-only view, NOT a ProjectPhase).
+          Same visual weight as the "Ejecutar" / "Responder" buttons: solid amber
+          pill with icon, not a link with a span trailing. */}
+      <div className="rounded-xl border border-slate-700 bg-slate-900/50 p-5 transition-all hover:border-slate-600 hover:bg-slate-900/70">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div className="flex items-start gap-3 min-w-0">
             <div className="mt-0.5 shrink-0 text-amber-400">
               <FileText className="size-5" />
@@ -147,11 +172,15 @@ export function ProjectPhasesWithModal({
               </p>
             </div>
           </div>
-          <span className="shrink-0 rounded-full bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-400">
+          <a
+            href={`/ideas/${ideaId}?readonly=true&projectId=${projectId}`}
+            className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600"
+          >
+            <Eye className="size-4" />
             Ver detalles
-          </span>
+          </a>
         </div>
-      </a>
+      </div>
 
       <div className="space-y-3">
         {phases.map((phase) => {
@@ -164,29 +193,11 @@ export function ProjectPhasesWithModal({
           const questions = phase.questions as Array<{ id: string; label: string; type: string }> | null;
 
           const hasQuestions = isQuestioning && questions && questions.length > 0;
+          const hasArtifacts = isCompleted && artifacts && artifacts.length > 0;
 
-    async function handleDelete() {
-    if (deleteConfirm.trim() !== projectName) return;
-    setDeleting(true);
-    setDeleteError(null);
-    try {
-      const res = await fetch("/api/projects/delete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Error al borrar");
-      }
-      router.push("/proyectos");
-    } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : "Error al borrar");
-      setDeleting(false);
-    }
-  }
+          const downloadLabel = phaseDownloadLabels[phase.type] || "Descargar";
 
-  return (
+          return (
             <div
               key={phase.id}
               className={`rounded-xl border p-5 transition-all ${
@@ -199,7 +210,11 @@ export function ProjectPhasesWithModal({
                       : `${phaseBgColors[phase.type] || "bg-slate-900/50"} border-slate-700 hover:border-slate-600`
               }`}
             >
-              <div className="flex items-start justify-between gap-4">
+              {/* Layout: vertical en móvil (contenido arriba, botones abajo en grid 2 cols),
+                  horizontal en desktop (sm:flex-row con la cabecera a la izquierda y los
+                  botones a la derecha). */}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                {/* Cabecera de la fase */}
                 <div className="flex items-start gap-3 min-w-0">
                   <div
                     className={`mt-0.5 shrink-0 ${
@@ -263,27 +278,36 @@ export function ProjectPhasesWithModal({
                   </div>
                 </div>
 
-                {/* Status / Action */}
+                {/* Status / Action:
+                    - AVAILABLE: botón Ejecutar
+                    - QUESTIONING: botón Responder + Cancelar
+                    - PROCESSING: pill Procesando + Cancelar
+                    - COMPLETED: pill Completado + botón Descargar
+                    - LOCKED: pill Bloqueado
+                    En móvil, los botones van en grid de 2 columnas.
+                    En desktop, van en fila (sm:flex-row) o apilados verticalmente. */}
                 {isAvailable && (
-                  <PhaseActionButton
-                    projectId={projectId}
-                    phaseId={phase.id}
-                    phaseType={phase.type}
-                    label={phase.label}
-                  />
+                  <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-col sm:items-end sm:gap-1.5">
+                    <PhaseActionButton
+                      projectId={projectId}
+                      phaseId={phase.id}
+                      phaseType={phase.type}
+                      label={phase.label}
+                    />
+                  </div>
                 )}
                 {hasQuestions && (
-                  <div className="flex flex-col items-end gap-1.5">
+                  <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-col sm:items-end sm:gap-1.5">
                     <button
                       onClick={() => setModalPhase(phase)}
-                      className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 transition-all hover:bg-amber-400"
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 transition-all hover:bg-amber-400"
                     >
                       <HelpCircle className="size-4" />
-                      Responder preguntas
+                      Responder
                     </button>
                     <button
                       onClick={() => handleCancelPhase(phase.id)}
-                      className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800/50 px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-red-400 hover:border-red-500/30 transition-colors"
+                      className="inline-flex items-center justify-center gap-1 rounded-lg border border-slate-700 bg-slate-800/50 px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-red-400 hover:border-red-500/30 transition-colors"
                     >
                       <XCircle className="size-3" />
                       Cancelar
@@ -291,14 +315,14 @@ export function ProjectPhasesWithModal({
                   </div>
                 )}
                 {isProcessing && (
-                  <div className="flex flex-col items-end gap-1.5">
-                    <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-400">
+                  <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-col sm:items-end sm:gap-1.5">
+                    <span className="inline-flex items-center justify-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-400">
                       <RefreshCw className="size-3 animate-spin" />
                       Procesando
                     </span>
                     <button
                       onClick={() => handleCancelPhase(phase.id)}
-                      className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800/50 px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-red-400 hover:border-red-500/30 transition-colors"
+                      className="inline-flex items-center justify-center gap-1 rounded-lg border border-slate-700 bg-slate-800/50 px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-red-400 hover:border-red-500/30 transition-colors"
                       title="Cancelar y volver a disponible"
                     >
                       <XCircle className="size-3" />
@@ -307,12 +331,34 @@ export function ProjectPhasesWithModal({
                   </div>
                 )}
                 {isCompleted && (
-                  <span className="shrink-0 rounded-full bg-green-500/10 px-3 py-1 text-xs font-medium text-green-400">
-                    Completado
-                  </span>
+                  <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-col sm:items-end sm:gap-1.5">
+                    <span className="inline-flex items-center justify-center gap-1.5 rounded-full bg-green-500/10 px-3 py-1 text-xs font-medium text-green-400">
+                      <CheckCircle className="size-3" />
+                      Completado
+                    </span>
+                    {hasArtifacts ? (
+                      <a
+                        href={`/api/projects/${projectId}/phases/${phase.id}/download`}
+                        className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-100 border border-slate-700 hover:bg-slate-700 hover:border-slate-600 transition-colors"
+                        download
+                      >
+                        <Download className="size-3.5" />
+                        {downloadLabel}
+                      </a>
+                    ) : (
+                      <span
+                        className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-slate-900/50 px-3 py-1.5 text-xs font-medium text-slate-600 border border-slate-800 cursor-not-allowed"
+                        title="Sin artefacto"
+                      >
+                        <Download className="size-3.5" />
+                        {downloadLabel}
+                      </span>
+                    )}
+                  </div>
                 )}
                 {isLocked && (
-                  <span className="shrink-0 rounded-full bg-slate-800 px-3 py-1 text-xs font-medium text-slate-500">
+                  <span className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-full bg-slate-800 px-3 py-1 text-xs font-medium text-slate-500">
+                    <Lock className="size-3" />
                     Bloqueado
                   </span>
                 )}
