@@ -222,28 +222,32 @@ export function ProjectPhasesWithModal({
 
   return (
     <>
-      {/* Fase 0 — Validación de Idea (read-only view, NOT a ProjectPhase).
-          Rediseño v2 con PhaseCard. */}
-      <PhaseCard
-        number={0}
-        title="Validación de Idea"
-        description="Datos originales de la validación: problema, propuesta de valor, target, veredicto y reporte del juez"
-        icon={<FileText className="size-5" />}
-        status="available"
-        statusLabel="Información"
-        tone="amber"
-        actions={
-          <a
-            href={`/ideas/${ideaId}?readonly=true&projectId=${projectId}`}
-            className={`${btnStyles.download} shadow`}
-          >
-            <Eye className="size-4" />
-            Ver detalles
-          </a>
-        }
-      />
-
+      {/* Contenedor de TODAS las tarjetas de fase (Fase 0 + fases del proyecto).
+          El `space-y-3` aplica el mismo gap entre CUALQUIER par de tarjetas
+          consecutivas, incluida la pareja Fase 0 → Fase 1. Antes la Fase 0
+          estaba fuera de este contenedor y por eso se pegaba a la Fase 1. */}
       <div className="space-y-3">
+        {/* Fase 0 — Validación de Idea (read-only view, NOT a ProjectPhase).
+            Rediseño v2 con PhaseCard. */}
+        <PhaseCard
+          number={0}
+          title="Validación de Idea"
+          description="Datos originales de la validación: problema, propuesta de valor, target, veredicto y reporte del juez"
+          icon={<FileText className="size-5" />}
+          status="available"
+          statusLabel="Información"
+          tone="amber"
+          actions={
+            <a
+              href={`/ideas/${ideaId}?readonly=true&projectId=${projectId}`}
+              className={`${btnStyles.download} shadow`}
+            >
+              <Eye className="size-4" />
+              Ver detalles
+            </a>
+          }
+        />
+
         {phases.map((phase) => {
           const isLocked = phase.status === "LOCKED";
           const isCompleted = phase.status === "COMPLETED";
