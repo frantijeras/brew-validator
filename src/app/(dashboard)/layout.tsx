@@ -5,8 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { NavItem } from "@/components/nav-item";
-import { BridgeStatusBanner } from "@/components/bridge-status-banner";
-import { BuildInfoBadge } from "@/components/build-info-badge";
 
 export default function DashboardLayout({
   children,
@@ -78,18 +76,42 @@ export default function DashboardLayout({
         </Link>
 
         {/* Nav */}
-        <nav className="flex-1 space-y-1 px-4 py-6">
-          <NavItem href="/ideas" icon="lightbulb" label="Ideas" />
-          <NavItem href="/proyectos" icon="folder" label="Proyectos" />
-        </nav>
+        <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
+          {/* Navegación */}
+          <div>
+            <p className="mb-2 px-3 text-[11px] font-medium uppercase tracking-wider text-slate-500">
+              Navegación
+            </p>
+            <div className="space-y-1">
+              <NavItem href="/ideas" icon="lightbulb" label="Ideas" />
+              <NavItem href="/proyectos" icon="folder" label="Proyectos" />
+              <Link
+                href="/ideas"
+                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-amber-400 transition-colors hover:bg-amber-500/10"
+              >
+                <PlusIcon />
+                Nuevo proyecto
+              </Link>
+            </div>
+          </div>
 
-        {/* Build info (commit hash) */}
-        <BuildInfoBadge />
+          {/* Proyectos recientes */}
+          <RecentProjects onClick={closeSidebar} />
 
-        {/* User info + bottom nav */}
+          {/* Configuración */}
+          <div>
+            <p className="mb-2 px-3 text-[11px] font-medium uppercase tracking-wider text-slate-500">
+              Configuración
+            </p>
+            <div className="space-y-1">
+              <NavItem href="/settings" icon="settings" label="Ajustes" />
+              <BridgeStatusItem />
+            </div>
+          </div>
+        </div>
+
+        {/* User + version */}
         <div className="border-t border-slate-800 px-4 py-3 space-y-2">
-          <NavItem href="/settings" icon="settings" label="Ajustes" />
-
           {session?.user && (
             <div className="flex items-center gap-3 rounded-lg px-3 py-2">
               {session.user.image ? (
@@ -122,7 +144,7 @@ export default function DashboardLayout({
             </div>
           )}
 
-          <p className="px-3 text-xs text-slate-600">BrewIdea Validator v0.1</p>
+          <p className="px-3 text-xs text-slate-600">v0.1.0</p>
         </div>
       </aside>
 
@@ -144,13 +166,109 @@ export default function DashboardLayout({
       {/* ── Main content ── */}
       <main className="flex-1 pt-14 md:pt-0 md:pl-64 overflow-x-hidden">
         <div className="mx-auto max-w-5xl p-4 md:p-8">
-          <BridgeStatusBanner />
           {children}
         </div>
       </main>
     </div>
   );
 }
+
+/* ── Recent projects ── */
+
+function RecentProjects({ onClick }: { onClick: () => void }) {
+  const [projects, setProjects] = useState<Array<{
+    id: string;
+    name: string;
+    completedPhases: number;
+    total: number;
+    currentPhaseType: string | null;
+    status: string;
+  }> | null>(null);
+
+  useEffect(() => {
+    fetch("/api/projects/recent")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setProjects(data))
+      .catch(() => setProjects([]));
+  }, []);
+
+  if (!projects || projects.length === 0) return null;
+
+  return (
+    <div>
+      <p className="mb-2 px-3 text-[11px] font-medium uppercase tracking-wider text-slate-500">
+        Recientes
+      </p>
+      <div className="space-y-1">
+        {projects.map((p) => (
+          <Link
+            key={p.id}
+            href={`/proyectos/${p.id}`}
+            onClick={onClick}
+            className="flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-slate-800"
+          >
+            <div
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-xs font-bold ${
+                p.status === "completed"
+                  ? "bg-green-500/20 text-green-400"
+                  : p.status === "processing"
+                    ? "bg-amber-500/20 text-amber-400"
+                    : p.status === "questioning"
+                      ? "bg-purple-500/20 text-purple-400"
+                      : "bg-blue-500/20 text-blue-400"
+              }`}
+            >
+              {p.name.charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-slate-200">
+                {p.name}
+              </p>
+              <p className="truncate text-xs text-slate-500">
+                {statusText(p.status)} · {p.completedPhases}/{p.total} fases
+              </p>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function statusText(status: string): string {
+  switch (status) {
+    case "completed": return "Completado";
+    case "processing": return "Procesando";
+    case "questioning": return "Esperando respuestas";
+    default: return "En progreso";
+  }
+}
+
+/* ── Bridge status ── */
+
+function BridgeStatusItem() {
+  const [online, setOnline] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetch("/api/bridge/status")
+      .then((r) => r.json())
+      .then((d) => setOnline(d.online === true))
+      .catch(() => setOnline(false));
+  }, []);
+
+  return (
+    <div className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-400">
+      <div className={`size-2 rounded-full ${online === true ? "bg-green-500" : online === false ? "bg-red-500" : "bg-slate-600"}`} />
+      <span>Estado del bridge</span>
+      <span className="ml-auto text-xs text-slate-500">
+        {online === true ? "online" : online === false ? "offline" : "..."}
+      </span>
+    </div>
+  );
+}
+
+/* ── Version ── */
+
 
 /* ── Icons ── */
 
@@ -234,6 +352,23 @@ function LogoutIcon() {
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
       <polyline points="16 17 21 12 16 7" />
       <line x1="21" y1="12" x2="9" y2="12" />
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg
+      className="size-4 text-amber-400"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
     </svg>
   );
 }
