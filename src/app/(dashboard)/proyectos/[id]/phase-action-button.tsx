@@ -11,6 +11,14 @@ interface PhaseActionButtonProps {
   label: string;
 }
 
+/**
+ * Botón principal (estilo "primary") para lanzar una fase AVAILABLE.
+ * Devuelve un fragment con el <button> + un eventual <span> de error,
+ * sin wrapper propio: el padre controla el layout (wrapper 50% desktop /
+ * grid 2-cols móvil, alineado a la derecha).
+ *
+ * Mantiene la API: projectId, phaseId, phaseType, label.
+ */
 export function PhaseActionButton({
   projectId,
   phaseId,
@@ -20,8 +28,6 @@ export function PhaseActionButton({
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-
-
 
   async function handleClick() {
     setRunning(true);
@@ -46,17 +52,15 @@ export function PhaseActionButton({
     }
   }
 
-  // Determine button state
-  const isLoading = running;
-
   return (
-    <div className="flex flex-col items-end gap-1.5">
+    <>
       <button
         onClick={handleClick}
-        disabled={isLoading}
-        className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
+        disabled={running}
+        className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
+        title={error ?? label}
       >
-        {isLoading ? (
+        {running ? (
           <>
             <span className="inline-block size-4 animate-spin rounded-full border-2 border-slate-950 border-t-transparent" />
             Iniciando…
@@ -74,6 +78,6 @@ export function PhaseActionButton({
           {error}
         </span>
       )}
-    </div>
+    </>
   );
 }

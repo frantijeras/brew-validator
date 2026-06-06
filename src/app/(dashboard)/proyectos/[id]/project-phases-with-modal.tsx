@@ -89,6 +89,55 @@ const phaseDownloadLabels: Record<string, string> = {
   EXECUTION: "Descargar dossier",
 };
 
+/**
+ * Estilos de los 4 tipos de botón que aparecen en cada tarjeta de fase.
+ * - `primary`: acción principal que ejecuta (Ejecutar, Responder, Ver detalles de fase 0).
+ *   Fondo ámbar sólido, texto oscuro. Ocupa 50% del ancho en desktop (via wrapper).
+ * - `download`: descargar artefacto completado. Estilo "ghost" oscuro con borde.
+ * - `cancel`: cancelar/reiniciar fase. Compacto, sin border-fuerte, hover rojo.
+ * - `status`: pills de solo-lectura. Variantes por estado (processing / completed / locked).
+ *
+ * Regla: NUNCA estilos inline. Todo se aplica vía clases Tailwind. El wrapper externo
+ * (`sm:w-1/2 sm:ml-auto` en desktop) hace que el botón ocupe el 50% del ancho de la
+ * tarjeta y quede alineado a la derecha. En móvil, `w-full` lo expande dentro de su
+ * celda del grid 2-columnas del padre.
+ */
+const btnStyles = {
+  primary:
+    "inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed",
+  download:
+    "inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/60 px-4 py-2 text-sm font-medium text-slate-100 transition-all hover:bg-slate-700/60 hover:border-slate-600",
+  downloadDisabled:
+    "inline-flex w-full cursor-not-allowed items-center justify-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/50 px-4 py-2 text-sm font-medium text-slate-600",
+  cancel:
+    "inline-flex w-full items-center justify-center gap-1 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/20 hover:border-red-500/50 hover:text-red-300",
+  status: {
+    processing:
+      "inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-400",
+    completed:
+      "inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-green-500/20 bg-green-500/10 px-3 py-1 text-xs font-medium text-green-400",
+    locked:
+      "inline-flex items-center justify-center gap-1.5 rounded-full border border-slate-700 bg-slate-800 px-3 py-1 text-xs font-medium text-slate-500",
+  },
+} as const;
+
+/**
+ * Contenedor derecho de cada tarjeta de fase.
+ * - Móvil (<sm): grid 2-col → botón principal en col 1 (w-full), secundario en col 2.
+ *   Solo se aplica cuando hay 2 elementos (principal + secundario). Si solo hay 1
+ *   elemento, el grid-cols-2 lo deja en la col 1 con w-full.
+ * - Desktop (≥sm): flex-col, alineado a la derecha, ocupa el 50% del ancho de la
+ *   tarjeta (`sm:w-1/2 sm:ml-auto`). El botón con `w-full` ocupa el 100% del wrapper
+ *   = 50% del padre.
+ */
+const rightCol =
+  "grid grid-cols-2 gap-2 sm:flex sm:flex-col sm:items-end sm:gap-2 sm:w-1/2 sm:ml-auto";
+
+/** Contenedor derecho simplificado para casos donde NO hay botón principal
+ *  (pills de solo lectura: Bloqueado, Completado-sin-artefactos).
+ *  Solo alinea a la derecha, sin ocupar 50%. */
+const rightColSimple = "flex flex-col items-end gap-2";
+
 export function ProjectPhasesWithModal({
   projectId,
   ideaId,
@@ -172,13 +221,15 @@ export function ProjectPhasesWithModal({
               </p>
             </div>
           </div>
-          <a
-            href={`/ideas/${ideaId}?readonly=true&projectId=${projectId}`}
-            className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600"
-          >
-            <Eye className="size-4" />
-            Ver detalles
-          </a>
+          <div className={rightCol}>
+            <a
+              href={`/ideas/${ideaId}?readonly=true&projectId=${projectId}`}
+              className={`${btnStyles.primary} shadow`}
+            >
+              <Eye className="size-4" />
+              Ver detalles
+            </a>
+          </div>
         </div>
       </div>
 
@@ -287,7 +338,7 @@ export function ProjectPhasesWithModal({
                     En móvil, los botones van en grid de 2 columnas.
                     En desktop, van en fila (sm:flex-row) o apilados verticalmente. */}
                 {isAvailable && (
-                  <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-col sm:items-end sm:gap-1.5">
+                  <div className={rightCol}>
                     <PhaseActionButton
                       projectId={projectId}
                       phaseId={phase.id}
@@ -297,17 +348,18 @@ export function ProjectPhasesWithModal({
                   </div>
                 )}
                 {hasQuestions && (
-                  <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-col sm:items-end sm:gap-1.5">
+                  <div className={rightCol}>
                     <button
                       onClick={() => setModalPhase(phase)}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 transition-all hover:bg-amber-400"
+                      className={btnStyles.primary}
                     >
                       <HelpCircle className="size-4" />
                       Responder
                     </button>
                     <button
                       onClick={() => handleCancelPhase(phase.id)}
-                      className="inline-flex items-center justify-center gap-1 rounded-lg border border-slate-700 bg-slate-800/50 px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-red-400 hover:border-red-500/30 transition-colors"
+                      className={btnStyles.cancel}
+                      title="Cancelar y volver a disponible"
                     >
                       <XCircle className="size-3" />
                       Cancelar
@@ -315,14 +367,14 @@ export function ProjectPhasesWithModal({
                   </div>
                 )}
                 {isProcessing && (
-                  <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-col sm:items-end sm:gap-1.5">
-                    <span className="inline-flex items-center justify-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-400">
+                  <div className={rightCol}>
+                    <span className={btnStyles.status.processing}>
                       <RefreshCw className="size-3 animate-spin" />
                       Procesando
                     </span>
                     <button
                       onClick={() => handleCancelPhase(phase.id)}
-                      className="inline-flex items-center justify-center gap-1 rounded-lg border border-slate-700 bg-slate-800/50 px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-red-400 hover:border-red-500/30 transition-colors"
+                      className={btnStyles.cancel}
                       title="Cancelar y volver a disponible"
                     >
                       <XCircle className="size-3" />
@@ -331,36 +383,38 @@ export function ProjectPhasesWithModal({
                   </div>
                 )}
                 {isCompleted && (
-                  <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-col sm:items-end sm:gap-1.5">
-                    <span className="inline-flex items-center justify-center gap-1.5 rounded-full bg-green-500/10 px-3 py-1 text-xs font-medium text-green-400">
+                  <div className={hasArtifacts ? rightCol : rightColSimple}>
+                    <span className={btnStyles.status.completed}>
                       <CheckCircle className="size-3" />
                       Completado
                     </span>
                     {hasArtifacts ? (
                       <a
                         href={`/api/projects/${projectId}/phases/${phase.id}/download`}
-                        className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-100 border border-slate-700 hover:bg-slate-700 hover:border-slate-600 transition-colors"
+                        className={btnStyles.download}
                         download
                       >
-                        <Download className="size-3.5" />
+                        <Download className="size-4" />
                         {downloadLabel}
                       </a>
                     ) : (
                       <span
-                        className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-slate-900/50 px-3 py-1.5 text-xs font-medium text-slate-600 border border-slate-800 cursor-not-allowed"
+                        className={btnStyles.downloadDisabled}
                         title="Sin artefacto"
                       >
-                        <Download className="size-3.5" />
+                        <Download className="size-4" />
                         {downloadLabel}
                       </span>
                     )}
                   </div>
                 )}
                 {isLocked && (
-                  <span className="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-full bg-slate-800 px-3 py-1 text-xs font-medium text-slate-500">
-                    <Lock className="size-3" />
-                    Bloqueado
-                  </span>
+                  <div className={rightColSimple}>
+                    <span className={btnStyles.status.locked}>
+                      <Lock className="size-3" />
+                      Bloqueado
+                    </span>
+                  </div>
                 )}
               </div>
             </div>
