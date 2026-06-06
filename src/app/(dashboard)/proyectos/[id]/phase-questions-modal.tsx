@@ -199,7 +199,14 @@ export function PhaseQuestionsModal({
             </p>
 
             {questions.map((q) => {
-              const opts = q.options || [];
+              // Normalize options: skills may emit raw strings or {value,label} objects.
+              // Both shapes are accepted; strings are coerced into {value,label} at runtime
+              // so the rendered radios/checkboxes always have valid data.
+              const rawOpts: Array<string | QuestionOption> =
+                (q.options as Array<string | QuestionOption> | undefined) || [];
+              const opts: QuestionOption[] = rawOpts.map((o) =>
+                typeof o === "string" ? { value: o, label: o } : o
+              );
               return (
                 <div key={q.id}>
                   <label className="block text-sm font-medium text-white mb-1.5">
