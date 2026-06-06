@@ -10,6 +10,7 @@ import {
   Edit3,
 } from "lucide-react";
 import { TextExpander } from "@/components/text-expander";
+import { WizardProgress } from "@/components/wizard";
 
 // ── Types ──
 
@@ -592,7 +593,17 @@ export default function RefineQuizModal({
           {/* ── Quiz Questions Screen (all questions in scroll) ── */}
           {screen === "quiz-questions" && questions.length > 0 && (
             <div>
-              <p className="text-sm text-slate-400 mb-2">
+              {/* Shared wizard progress bar. We pass the count of
+                  answered questions as `currentStep` so the segments
+                  fill up as the user progresses, mirroring the visual
+                  language of the phase-questions wizard. */}
+              <WizardProgress
+                currentStep={questions.filter((q) => answers[q.id]?.trim()).length}
+                totalSteps={questions.length}
+                label={`${questions.filter((q) => answers[q.id]?.trim()).length} de ${questions.length} respondidas`}
+              />
+
+              <p className="text-sm text-slate-400 mt-4 mb-2">
                 Responde todas las preguntas y pulsa Finalizar. La IA analizará tus respuestas para mejorar la idea.
               </p>
 
