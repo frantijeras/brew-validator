@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { PhaseActionButton } from "./phase-action-button";
 import { PhaseQuestionsModal } from "./phase-questions-modal";
+import { PhaseSubstepModal, type SubStepArtifact } from "./phase-substep-modal";
 
 interface PhaseData {
   id: string;
@@ -36,6 +37,9 @@ interface PhaseData {
   sortOrder: number;
   artifacts: Array<{ title: string; type: string }> | null;
   questions: Array<{ id: string; label: string; type: string }> | null;
+  subStep: string | null;
+  subStepArtifact: { type?: "html" | "markdown"; content?: string; options?: Array<{ value: string; label: string }> } | null;
+  subStepChoice: string | null;
 }
 
 interface ProjectPhasesWithModalProps {
@@ -90,6 +94,21 @@ const phaseDownloadLabels: Record<string, string> = {
 };
 
 /**
+ * Human label for the "Revisar" button shown when a phase is in
+ * SUBSTEP_READY. The label depends on the kind of sub-step, not the phase
+ * type — e.g. branding's "naming" sub-step shows "Revisar nombres", while
+ * dev's "compare" sub-step shows "Revisar comparativa".
+ */
+const subStepReviewLabels: Record<string, string> = {
+  naming: "Revisar nombres",
+  mockup: "Revisar mockup",
+  compare: "Revisar comparativa",
+  simulate: "Revisar simulación",
+  pilars: "Revisar pilares",
+  final: "Revisar resultado",
+};
+
+/**
  * Estilos de los 4 tipos de botón que aparecen en cada tarjeta de fase.
  * - `primary`: acción principal que ejecuta (Ejecutar, Responder, Ver detalles de fase 0).
  *   Fondo ámbar sólido, texto oscuro. Ocupa 50% del ancho en desktop (via wrapper).
@@ -122,19 +141,30 @@ const btnStyles = {
 } as const;
 
 /**
- * Contenedor derecho de cada tarjeta de fase.
- * - Móvil (<sm): grid 2-col → botón principal en col 1 (w-full), secundario en col 2.
- *   Solo se aplica cuando hay 2 elementos (principal + secundario). Si solo hay 1
- *   elemento, el grid-cols-2 lo deja en la col 1 con w-full.
- * - Desktop (≥sm): flex-col, alineado a la derecha, ocupa el 50% del ancho de la
- *   tarjeta (`sm:w-1/2 sm:ml-auto`). El botón con `w-full` ocupa el 100% del wrapper
- *   = 50% del padre.
+ * Wrapper de la zona de acciones de cada tarjeta de fase.
+ *
+ * Layout: en móvil (<sm), grid de 2 columnas para que primario y secundario
+ * vayan lado a lado. En desktop (≥sm), contenedor flexible que ocupa el
+ * 50% del ancho de la tarjeta y se alinea a la derecha, con dos columnas
+ * internas (leftCol/rightCol) para colocar los botones.
+ *
+ * El usuario quiere:
+ *   - Acciones que EJECUTAN (Ejecutar, Responder, Descargar, Revisar, Procesando)
+ *     → a la DERECHA (rightCol)
+ *   - Acciones SECUNDARIAS (Ver detalles de fase 0, Cancelar)
+ *     → a la IZQUIERDA (leftCol)
  */
-const rightCol =
-  "grid grid-cols-2 gap-2 sm:flex sm:flex-col sm:items-end sm:gap-2 sm:w-1/2 sm:ml-auto";
+const actionsWrapper =
+  "grid grid-cols-2 gap-2 sm:flex sm:w-1/2 sm:ml-auto sm:gap-2";
 
-/** Contenedor derecho simplificado para casos donde NO hay botón principal
- *  (pills de solo lectura: Bloqueado, Completado-sin-artefactos).
+/** Columna derecha del wrapper de acciones. Ocupa el 50% del wrapper.
+ *  El hijo dentro se estira a w-full para llenar el slot. */
+const rightCol = "sm:flex-1";
+
+/** Columna izquierda del wrapper de acciones. Ocupa el 50% del wrapper. */
+const leftCol = "sm:flex-1";
+
+/** Wrapper simplificado para pills de solo lectura (Bloqueado, Completado-sin-artefactos).
  *  Solo alinea a la derecha, sin ocupar 50%. */
 const rightColSimple = "flex flex-col items-end gap-2";
 
@@ -145,12 +175,19 @@ export function ProjectPhasesWithModal({
   phases,
 }: ProjectPhasesWithModalProps) {
   const [modalPhase, setModalPhase] = useState<PhaseData | null>(null);
+  const [substepModalPhase, setSubstepModalPhase] = useState<PhaseData | null>(null);
   const [deleting, setDeleting] = useState(false);
   const router = useRouter();
 
-  // Auto-poll: refresh when a phase is PROCESSING or QUESTIONING so cancel/refresh is visible
+  // Auto-poll: refresh when a phase is PROCESSING / QUESTIONING / SUBSTEP_READY
+  // so cancel/refresh is visible. We also poll when the sub-step modal is
+  // open and the user has just confirmed — the parent will see PROCESSING
+  // and then SUBSTEP_READY again when the next job finishes.
   const isAnyProcessingOrQuestioning = phases.some(
-    (p) => p.status === "PROCESSING" || p.status === "QUESTIONING"
+    (p) =>
+      p.status === "PROCESSING" ||
+      p.status === "QUESTIONING" ||
+      p.status === "SUBSTEP_READY"
   );
 
   useEffect(() => {
@@ -206,8 +243,8 @@ export function ProjectPhasesWithModal({
   return (
     <>
       {/* Fase 0 — Validación de Idea (read-only view, NOT a ProjectPhase).
-          Same visual weight as the "Ejecutar" / "Responder" buttons: solid amber
-          pill with icon, not a link with a span trailing. */}
+          Botón "Ver detalles" a la IZQUIERDA con estilo secundario (no primary),
+          ya que es una acción de lectura, no de ejecución. */}
       <div className="rounded-xl border border-slate-700 bg-slate-900/50 p-5 transition-all hover:border-slate-600 hover:bg-slate-900/70">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div className="flex items-start gap-3 min-w-0">
@@ -221,14 +258,16 @@ export function ProjectPhasesWithModal({
               </p>
             </div>
           </div>
-          <div className={rightCol}>
-            <a
-              href={`/ideas/${ideaId}?readonly=true&projectId=${projectId}`}
-              className={`${btnStyles.primary} shadow`}
-            >
-              <Eye className="size-4" />
-              Ver detalles
-            </a>
+          <div className={actionsWrapper}>
+            <div className={leftCol}>
+              <a
+                href={`/ideas/${ideaId}?readonly=true&projectId=${projectId}`}
+                className={`${btnStyles.download} shadow`}
+              >
+                <Eye className="size-4" />
+                Ver detalles
+              </a>
+            </div>
           </div>
         </div>
       </div>
@@ -240,13 +279,25 @@ export function ProjectPhasesWithModal({
           const isAvailable = phase.status === "AVAILABLE";
           const isQuestioning = phase.status === "QUESTIONING";
           const isProcessing = phase.status === "PROCESSING";
+          const isSubstepReady = phase.status === "SUBSTEP_READY";
           const artifacts = phase.artifacts as Array<{ title: string; type: string }> | null;
           const questions = phase.questions as Array<{ id: string; label: string; type: string }> | null;
+          // Normalize subStepArtifact so `type` is always defined (default
+          // to "markdown" if the JSON lacks it).
+          const subStepArtifact: SubStepArtifact | null = phase.subStepArtifact
+            ? {
+                type: (phase.subStepArtifact.type as "html" | "markdown") || "markdown",
+                content: phase.subStepArtifact.content || "",
+                options: phase.subStepArtifact.options,
+              }
+            : null;
 
           const hasQuestions = isQuestioning && questions && questions.length > 0;
           const hasArtifacts = isCompleted && artifacts && artifacts.length > 0;
 
           const downloadLabel = phaseDownloadLabels[phase.type] || "Descargar";
+          const reviewLabel =
+            (phase.subStep && subStepReviewLabels[phase.subStep]) || "Revisar sub-paso";
 
           return (
             <div
@@ -258,7 +309,9 @@ export function ProjectPhasesWithModal({
                     ? "border-green-500/20 bg-green-950/10"
                     : isProcessing
                       ? "border-amber-500/20 bg-amber-950/10"
-                      : `${phaseBgColors[phase.type] || "bg-slate-900/50"} border-slate-700 hover:border-slate-600`
+                      : isSubstepReady
+                        ? "border-purple-500/20 bg-purple-950/10"
+                        : `${phaseBgColors[phase.type] || "bg-slate-900/50"} border-slate-700 hover:border-slate-600`
               }`}
             >
               {/* Layout: vertical en móvil (contenido arriba, botones abajo en grid 2 cols),
@@ -275,7 +328,9 @@ export function ProjectPhasesWithModal({
                           ? "text-slate-600"
                           : isProcessing
                             ? "text-amber-400"
-                            : phaseColors[phase.type] || "text-slate-400"
+                            : isSubstepReady
+                              ? "text-purple-400"
+                              : phaseColors[phase.type] || "text-slate-400"
                     }`}
                   >
                     {isCompleted ? (
@@ -284,6 +339,8 @@ export function ProjectPhasesWithModal({
                       <Lock className="size-5" />
                     ) : isProcessing ? (
                       <RefreshCw className="size-5 animate-spin" />
+                    ) : isSubstepReady ? (
+                      <Sparkles className="size-5" />
                     ) : hasQuestions ? (
                       <HelpCircle className="size-5" />
                     ) : (
@@ -338,73 +395,113 @@ export function ProjectPhasesWithModal({
                     En móvil, los botones van en grid de 2 columnas.
                     En desktop, van en fila (sm:flex-row) o apilados verticalmente. */}
                 {isAvailable && (
-                  <div className={rightCol}>
-                    <PhaseActionButton
-                      projectId={projectId}
-                      phaseId={phase.id}
-                      phaseType={phase.type}
-                      label={phase.label}
-                    />
+                  <div className={actionsWrapper}>
+                    <div className={rightCol}>
+                      <PhaseActionButton
+                        projectId={projectId}
+                        phaseId={phase.id}
+                        phaseType={phase.type}
+                        label={phase.label}
+                      />
+                    </div>
                   </div>
                 )}
                 {hasQuestions && (
-                  <div className={rightCol}>
-                    <button
-                      onClick={() => setModalPhase(phase)}
-                      className={btnStyles.primary}
-                    >
-                      <HelpCircle className="size-4" />
-                      Responder
-                    </button>
-                    <button
-                      onClick={() => handleCancelPhase(phase.id)}
-                      className={btnStyles.cancel}
-                      title="Cancelar y volver a disponible"
-                    >
-                      <XCircle className="size-3" />
-                      Cancelar
-                    </button>
+                  <div className={actionsWrapper}>
+                    <div className={leftCol}>
+                      <button
+                        onClick={() => handleCancelPhase(phase.id)}
+                        className={btnStyles.cancel}
+                        title="Cancelar y volver a disponible"
+                      >
+                        <XCircle className="size-3" />
+                        Cancelar
+                      </button>
+                    </div>
+                    <div className={rightCol}>
+                      <button
+                        onClick={() => setModalPhase(phase)}
+                        className={btnStyles.primary}
+                      >
+                        <HelpCircle className="size-4" />
+                        Responder
+                      </button>
+                    </div>
                   </div>
                 )}
                 {isProcessing && (
-                  <div className={rightCol}>
-                    <span className={btnStyles.status.processing}>
-                      <RefreshCw className="size-3 animate-spin" />
-                      Procesando
-                    </span>
-                    <button
-                      onClick={() => handleCancelPhase(phase.id)}
-                      className={btnStyles.cancel}
-                      title="Cancelar y volver a disponible"
-                    >
-                      <XCircle className="size-3" />
-                      Cancelar
-                    </button>
+                  <div className={actionsWrapper}>
+                    <div className={leftCol}>
+                      <button
+                        onClick={() => handleCancelPhase(phase.id)}
+                        className={btnStyles.cancel}
+                        title="Cancelar y volver a disponible"
+                      >
+                        <XCircle className="size-3" />
+                        Cancelar
+                      </button>
+                    </div>
+                    <div className={rightCol}>
+                      <span className={btnStyles.status.processing}>
+                        <RefreshCw className="size-3 animate-spin" />
+                        Procesando
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {isSubstepReady && (
+                  <div className={actionsWrapper}>
+                    <div className={leftCol}>
+                      <button
+                        onClick={() => handleCancelPhase(phase.id)}
+                        className={btnStyles.cancel}
+                        title="Cancelar y volver a disponible"
+                      >
+                        <XCircle className="size-3" />
+                        Cancelar
+                      </button>
+                    </div>
+                    <div className={rightCol}>
+                      <button
+                        onClick={() =>
+                          setSubstepModalPhase({ ...phase, subStepArtifact })
+                        }
+                        className={btnStyles.primary}
+                      >
+                        <Sparkles className="size-4" />
+                        {reviewLabel}
+                      </button>
+                    </div>
                   </div>
                 )}
                 {isCompleted && (
-                  <div className={hasArtifacts ? rightCol : rightColSimple}>
-                    <span className={btnStyles.status.completed}>
-                      <CheckCircle className="size-3" />
-                      Completado
-                    </span>
+                  <div className={hasArtifacts ? actionsWrapper : rightColSimple}>
                     {hasArtifacts ? (
-                      <a
-                        href={`/api/projects/${projectId}/phases/${phase.id}/download`}
-                        className={btnStyles.download}
-                        download
-                      >
-                        <Download className="size-4" />
-                        {downloadLabel}
-                      </a>
+                      <>
+                        <div className={leftCol}>
+                          <span className={btnStyles.status.completed}>
+                            <CheckCircle className="size-3" />
+                            Completado
+                          </span>
+                        </div>
+                        <div className={rightCol}>
+                          <a
+                            href={`/api/projects/${projectId}/phases/${phase.id}/download`}
+                            className={btnStyles.download}
+                            download
+                          >
+                            <Download className="size-4" />
+                            {downloadLabel}
+                          </a>
+                        </div>
+                      </>
                     ) : (
-                      <span
-                        className={btnStyles.downloadDisabled}
-                        title="Sin artefacto"
-                      >
-                        <Download className="size-4" />
-                        {downloadLabel}
-                      </span>
+                      <div className={rightCol}>
+                        <span className={btnStyles.status.completed}>
+                          <CheckCircle className="size-3" />
+                          Completado
+                        </span>
+                      </div>
                     )}
                   </div>
                 )}
@@ -522,6 +619,27 @@ export function ProjectPhasesWithModal({
           phaseId={modalPhase.id}
           phaseType={modalPhase.type}
           questions={(modalPhase.questions as Array<{ id: string; label: string; type: string }>) || []}
+        />
+      )}
+
+      {/* Sub-step modal (SUBSTEP_READY state) */}
+      {substepModalPhase && (
+        <PhaseSubstepModal
+          open={!!substepModalPhase}
+          onClose={() => setSubstepModalPhase(null)}
+          projectId={projectId}
+          phaseId={substepModalPhase.id}
+          phaseType={substepModalPhase.type}
+          subStep={substepModalPhase.subStep || "final"}
+          subStepArtifact={substepModalPhase.subStepArtifact}
+          subStepChoice={substepModalPhase.subStepChoice}
+          onResolved={() => {
+            // When the user confirms / iterates, the parent (page.tsx) will
+            // pick up the new PROCESSING status on the next router.refresh.
+            // We also clear the modal here so the polling effect kicks in
+            // and we don't keep the modal open on top of a stale phase.
+            setSubstepModalPhase(null);
+          }}
         />
       )}
     </>
