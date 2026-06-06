@@ -445,7 +445,7 @@ export function ProjectPhasesWithModal({
           return (
             <PhaseCard
               key={phase.id}
-              number={phase.sortOrder + 1}
+              number={phase.sortOrder}
               title={phase.label}
               description={phase.description ?? undefined}
               icon={(() => {
