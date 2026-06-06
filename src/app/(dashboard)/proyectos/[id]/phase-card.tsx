@@ -209,29 +209,11 @@ export function PhaseCard({
         isInactive ? "opacity-60" : ""
       }`}
     >
-      {/* Acciones (v5 — responsive).
-          Móvil (< md): renderizadas ARRIBA del header, en columna,
-            alineadas a la izquierda, con un separador `border-b` debajo.
-          Desktop (≥ md): este bloque se oculta (`md:hidden`) y las
-            acciones se renderizan DENTRO de la fila del header, alineadas
-            a la derecha (ver bloque "Cabecera" más abajo). */}
-      {hasActions && (
-        <div className="flex w-full flex-col items-start gap-2 border-b border-slate-800/60 pb-4 md:hidden">
-          {flatActions.map((action, i) => (
-            <div key={i} className="w-full">
-              {action}
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* Cabecera (v5): número → icono → título, en la misma línea.
           En desktop, las acciones se renderizan también aquí, a la derecha,
           con `md:ml-auto`. En móvil, las acciones ya se renderizaron arriba. */}
       <div
-        className={`flex flex-row items-center gap-2 ${
-          hasActions ? "mt-4 md:mt-0" : ""
-        }`}
+        className="flex flex-row items-center gap-2"
       >
         <span
           className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-base font-semibold tracking-wider md:h-6 md:w-6 md:rounded-md md:text-[10px] ${toneNumberStyles[tone]}`}
@@ -262,7 +244,7 @@ export function PhaseCard({
           )}
         </div>
         <h3
-          className={`min-w-0 flex-1 truncate text-lg font-medium leading-snug md:flex-none md:text-base md:font-semibold md:leading-tight ${
+          className={`min-w-0 flex-1 truncate text-lg font-medium leading-snug md:text-base md:font-semibold md:leading-tight ${
             isInactive
               ? "text-slate-500"
               : status === "completed"
@@ -272,19 +254,7 @@ export function PhaseCard({
         >
           {title}
         </h3>
-        {/* Acciones en desktop (v5): se renderizan aquí, a la derecha del
-            título. En desktop el <h3> pasa a `flex-none` (auto-size) y
-            este wrapper usa `md:ml-auto` para empujar las acciones al
-            final de la fila. */}
-        {hasActions && (
-          <div className="hidden shrink-0 flex-row items-center justify-end gap-2 md:flex md:ml-auto">
-            {flatActions.map((action, i) => (
-              <div key={i} className="w-auto">
-                {action}
-              </div>
-            ))}
-          </div>
-        )}
+
       </div>
 
       {/* Badge de estado (v5): movido FUERA del flex-row del header a su
@@ -336,6 +306,27 @@ export function PhaseCard({
               )}
               {a.title}
             </a>
+          ))}
+        </div>
+      )}
+
+      {/* Acciones — siempre al final de la tarjeta (tanto móvil como desktop).
+          Móvil: columna apilada, alineadas a la izquierda, con separador
+          `border-t` arriba.
+          Desktop: también en columna por defecto pero con `border-t` y
+          alineadas a la derecha (`md:items-end`). Si el consumidor pasa
+          varios botones, se apilan verticalmente. El flex-col items-start
+          garantiza que ocupen todo el ancho disponible en móvil (w-full
+          heredado del wrapper del action child).
+          Para mantener compatibilidad, las acciones hijas se envuelven
+          en un contenedor con `w-full md:w-auto` para que en desktop
+          ocupen solo su contenido. */}
+      {hasActions && (
+        <div className="mt-5 flex flex-col items-start gap-2 border-t border-slate-800/60 pt-5 md:flex-row md:items-center md:justify-end md:gap-3">
+          {flatActions.map((action, i) => (
+            <div key={i} className="w-full md:w-auto">
+              {action}
+            </div>
           ))}
         </div>
       )}
