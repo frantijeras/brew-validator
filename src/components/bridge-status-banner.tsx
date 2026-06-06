@@ -2,7 +2,7 @@
 
 import { AlertCircle, WifiOff, X } from "lucide-react";
 import { useBridgeStatus } from "@/hooks/use-bridge-status";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 /**
  * Banner that shows bridge status with real feedback:
@@ -156,6 +156,42 @@ export function BridgeStatusBanner() {
   const { status, loading } = useBridgeStatus();
   const [dismissed, setDismissed] = useState(false);
 
+  // Persistencia del dismiss: si el usuario cierra el banner, se guarda un
+  // identificador del error en localStorage con un timestamp. Si el mismo
+  // error sigue activo 30 minutos después, se vuelve a mostrar (el
+  // usuario probablemente olvidó y necesita ver el aviso de nuevo).
+  // Si el error cambia (mensaje diferente), se resetea el flag.
+  useEffect(() => {
+    if (!status || (status.reachable && status.state !== "error")) return;
+    const errorKey = status.lastError || "bridge-offline";
+    const raw = typeof window !== "undefined" ? localStorage.getItem("bridge-banner-dismissed") : null;
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw) as { key: string; at: number };
+      const sameError = parsed.key === errorKey;
+      const ttl = 30 * 60 * 1000; // 30 minutos
+      if (sameError && Date.now() - parsed.at < ttl) {
+        setDismissed(true);
+      } else {
+        // error cambió o expiró el TTL → resetea
+        setDismissed(false);
+      }
+    } catch {
+      setDismissed(false);
+    }
+  }, [status]);
+
+  const handleDismiss = () => {
+    setDismissed(true);
+    if (typeof window !== "undefined" && status) {
+      const errorKey = status.lastError || "bridge-offline";
+      localStorage.setItem(
+        "bridge-banner-dismissed",
+        JSON.stringify({ key: errorKey, at: Date.now() })
+      );
+    }
+  };
+
   if (loading || dismissed) return null;
   if (!status) return null;
 
@@ -174,7 +210,7 @@ export function BridgeStatusBanner() {
         description={err.description}
         hint={err.hint}
         raw={status.lastError}
-        onDismiss={() => setDismissed(true)}
+        onDismiss={handleDismiss}
       />
     );
   }
@@ -197,7 +233,7 @@ export function BridgeStatusBanner() {
         description={err.description}
         hint={err.hint}
         raw={status.lastError}
-        onDismiss={() => setDismissed(true)}
+        onDismiss={handleDismiss}
       />
     );
   }
@@ -221,7 +257,7 @@ export function BridgeStatusBanner() {
           </p>
         </div>
         <button
-          onClick={() => setDismissed(true)}
+          onClick={handleDismiss}
           className="inline-flex shrink-0 items-center justify-center rounded-md p-1.5 text-red-200/80 transition-colors hover:bg-red-950/40 hover:text-red-100 focus:outline-none focus:ring-2 focus:ring-red-500/40"
           aria-label="Cerrar aviso"
         >

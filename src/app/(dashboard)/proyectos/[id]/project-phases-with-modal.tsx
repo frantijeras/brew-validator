@@ -27,6 +27,7 @@ import {
 import { PhaseActionButton } from "./phase-action-button";
 import { PhaseQuestionsModal } from "./phase-questions-modal";
 import { PhaseSubstepModal, type SubStepArtifact } from "./phase-substep-modal";
+import { PhaseCard } from "./phase-card";
 
 interface PhaseData {
   id: string;
@@ -130,14 +131,6 @@ const btnStyles = {
     "inline-flex w-full cursor-not-allowed items-center justify-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/50 px-4 py-2 text-sm font-medium text-slate-600",
   cancel:
     "inline-flex w-full items-center justify-center gap-1 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/20 hover:border-red-500/50 hover:text-red-300",
-  status: {
-    processing:
-      "inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-400",
-    completed:
-      "inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-green-500/20 bg-green-500/10 px-3 py-1 text-xs font-medium text-green-400",
-    locked:
-      "inline-flex items-center justify-center gap-1.5 rounded-full border border-slate-700 bg-slate-800 px-3 py-1 text-xs font-medium text-slate-500",
-  },
 } as const;
 
 /**
@@ -154,19 +147,6 @@ const btnStyles = {
  *   - Acciones SECUNDARIAS (Ver detalles de fase 0, Cancelar)
  *     → a la IZQUIERDA (leftCol)
  */
-const actionsWrapper =
-  "grid grid-cols-2 gap-2 sm:flex sm:w-1/2 sm:ml-auto sm:gap-2";
-
-/** Columna derecha del wrapper de acciones. Ocupa el 50% del wrapper.
- *  El hijo dentro se estira a w-full para llenar el slot. */
-const rightCol = "sm:flex-1";
-
-/** Columna izquierda del wrapper de acciones. Ocupa el 50% del wrapper. */
-const leftCol = "sm:flex-1";
-
-/** Wrapper simplificado para pills de solo lectura (Bloqueado, Completado-sin-artefactos).
- *  Solo alinea a la derecha, sin ocupar 50%. */
-const rightColSimple = "flex flex-col items-end gap-2";
 
 export function ProjectPhasesWithModal({
   projectId,
@@ -243,34 +223,25 @@ export function ProjectPhasesWithModal({
   return (
     <>
       {/* Fase 0 — Validación de Idea (read-only view, NOT a ProjectPhase).
-          Botón "Ver detalles" a la IZQUIERDA con estilo secundario (no primary),
-          ya que es una acción de lectura, no de ejecución. */}
-      <div className="rounded-xl border border-slate-700 bg-slate-900/50 p-5 transition-all hover:border-slate-600 hover:bg-slate-900/70">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-          <div className="flex items-start gap-3 min-w-0">
-            <div className="mt-0.5 shrink-0 text-amber-400">
-              <FileText className="size-5" />
-            </div>
-            <div className="min-w-0">
-              <h3 className="text-base font-semibold text-white">Validación de Idea</h3>
-              <p className="mt-1 text-sm text-slate-400">
-                Datos originales de la validación: problema, propuesta de valor, target, veredicto y reporte del juez
-              </p>
-            </div>
-          </div>
-          <div className={actionsWrapper}>
-            <div className={leftCol}>
-              <a
-                href={`/ideas/${ideaId}?readonly=true&projectId=${projectId}`}
-                className={`${btnStyles.download} shadow`}
-              >
-                <Eye className="size-4" />
-                Ver detalles
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
+          Rediseño v2 con PhaseCard. */}
+      <PhaseCard
+        number={0}
+        title="Validación de Idea"
+        description="Datos originales de la validación: problema, propuesta de valor, target, veredicto y reporte del juez"
+        icon={<FileText className="size-5" />}
+        status="available"
+        statusLabel="Información"
+        tone="amber"
+        actions={
+          <a
+            href={`/ideas/${ideaId}?readonly=true&projectId=${projectId}`}
+            className={`${btnStyles.download} shadow`}
+          >
+            <Eye className="size-4" />
+            Ver detalles
+          </a>
+        }
+      />
 
       <div className="space-y-3">
         {phases.map((phase) => {
@@ -300,221 +271,132 @@ export function ProjectPhasesWithModal({
             (phase.subStep && subStepReviewLabels[phase.subStep]) || "Revisar sub-paso";
 
           return (
-            <div
+            <PhaseCard
               key={phase.id}
-              className={`rounded-xl border p-5 transition-all ${
-                isLocked
-                  ? "border-slate-800 bg-slate-900/30 opacity-50"
-                  : isCompleted
-                    ? "border-green-500/20 bg-green-950/10"
-                    : isProcessing
-                      ? "border-amber-500/20 bg-amber-950/10"
-                      : isSubstepReady
-                        ? "border-purple-500/20 bg-purple-950/10"
-                        : `${phaseBgColors[phase.type] || "bg-slate-900/50"} border-slate-700 hover:border-slate-600`
-              }`}
-            >
-              {/* Layout: vertical en móvil (contenido arriba, botones abajo en grid 2 cols),
-                  horizontal en desktop (sm:flex-row con la cabecera a la izquierda y los
-                  botones a la derecha). */}
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-                {/* Cabecera de la fase */}
-                <div className="flex items-start gap-3 min-w-0">
-                  <div
-                    className={`mt-0.5 shrink-0 ${
-                      isCompleted
-                        ? "text-green-400"
-                        : isLocked
-                          ? "text-slate-600"
-                          : isProcessing
-                            ? "text-amber-400"
-                            : isSubstepReady
-                              ? "text-purple-400"
-                              : phaseColors[phase.type] || "text-slate-400"
-                    }`}
-                  >
-                    {isCompleted ? (
-                      <CheckCircle className="size-5" />
-                    ) : isLocked ? (
-                      <Lock className="size-5" />
-                    ) : isProcessing ? (
-                      <RefreshCw className="size-5 animate-spin" />
-                    ) : isSubstepReady ? (
-                      <Sparkles className="size-5" />
-                    ) : hasQuestions ? (
-                      <HelpCircle className="size-5" />
-                    ) : (
-                      phaseIcons[phase.type] || <Brain className="size-5" />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <h3
-                      className={`text-base font-semibold ${
-                        isCompleted
-                          ? "text-green-300"
-                          : isLocked
-                            ? "text-slate-500"
-                            : "text-white"
-                      }`}
+              number={phase.sortOrder + 1}
+              title={phase.label}
+              description={phase.description ?? undefined}
+              icon={(() => {
+                if (isCompleted) return <CheckCircle className="size-5" />;
+                if (isLocked) return <Lock className="size-5" />;
+                if (isProcessing) return <RefreshCw className="size-5 animate-spin" />;
+                if (isSubstepReady) return <Sparkles className="size-5" />;
+                if (hasQuestions) return <HelpCircle className="size-5" />;
+                return phaseIcons[phase.type] || <Brain className="size-5" />;
+              })()}
+              status={(() => {
+                if (isCompleted) return "completed" as const;
+                if (isLocked) return "locked" as const;
+                if (isProcessing) return "processing" as const;
+                if (isSubstepReady) return "substep" as const;
+                if (isQuestioning) return "questioning" as const;
+                return "available" as const;
+              })()}
+              tone={(() => {
+                if (isCompleted) return "green" as const;
+                if (isLocked) return "slate" as const;
+                if (isProcessing) return "amber" as const;
+                if (isSubstepReady) return "purple" as const;
+                return "blue" as const;
+              })()}
+              artifacts={
+                hasArtifacts
+                  ? artifacts!.map((a) => ({
+                      title: a.title,
+                      href: `/api/projects/${projectId}/phases/${phase.id}/download`,
+                    }))
+                  : undefined
+              }
+              actions={(() => {
+                const list: React.ReactNode[] = [];
+                if (isAvailable) {
+                  list.push(
+                    <PhaseActionButton
+                      key="primary"
+                      projectId={projectId}
+                      phaseId={phase.id}
+                      phaseType={phase.type}
+                      label={phase.label}
+                    />
+                  );
+                }
+                if (hasQuestions) {
+                  list.push(
+                    <button
+                      key="primary"
+                      onClick={() => setModalPhase(phase)}
+                      className={btnStyles.primary}
                     >
-                      {phase.label}
-                    </h3>
-                    {phase.description && (
-                      <p
-                        className={`mt-1 text-sm ${
-                          isLocked ? "text-slate-600" : "text-slate-400"
-                        }`}
-                      >
-                        {phase.description}
-                      </p>
-                    )}
-
-                    {/* Artefactos generados */}
-                    {artifacts && artifacts.length > 0 && (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {artifacts.map((a, i) => (
-                          <span
-                            key={i}
-                            className="inline-flex items-center gap-1 rounded-md bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-300"
-                          >
-                            <FileText className="size-3" />
-                            {a.title}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Status / Action:
-                    - AVAILABLE: botón Ejecutar
-                    - QUESTIONING: botón Responder + Cancelar
-                    - PROCESSING: pill Procesando + Cancelar
-                    - COMPLETED: pill Completado + botón Descargar
-                    - LOCKED: pill Bloqueado
-                    En móvil, los botones van en grid de 2 columnas.
-                    En desktop, van en fila (sm:flex-row) o apilados verticalmente. */}
-                {isAvailable && (
-                  <div className={actionsWrapper}>
-                    <div className={rightCol}>
-                      <PhaseActionButton
-                        projectId={projectId}
-                        phaseId={phase.id}
-                        phaseType={phase.type}
-                        label={phase.label}
-                      />
-                    </div>
-                  </div>
-                )}
-                {hasQuestions && (
-                  <div className={actionsWrapper}>
-                    <div className={leftCol}>
-                      <button
-                        onClick={() => handleCancelPhase(phase.id)}
-                        className={btnStyles.cancel}
-                        title="Cancelar y volver a disponible"
-                      >
-                        <XCircle className="size-3" />
-                        Cancelar
-                      </button>
-                    </div>
-                    <div className={rightCol}>
-                      <button
-                        onClick={() => setModalPhase(phase)}
-                        className={btnStyles.primary}
-                      >
-                        <HelpCircle className="size-4" />
-                        Responder
-                      </button>
-                    </div>
-                  </div>
-                )}
-                {isProcessing && (
-                  <div className={actionsWrapper}>
-                    <div className={leftCol}>
-                      <button
-                        onClick={() => handleCancelPhase(phase.id)}
-                        className={btnStyles.cancel}
-                        title="Cancelar y volver a disponible"
-                      >
-                        <XCircle className="size-3" />
-                        Cancelar
-                      </button>
-                    </div>
-                    <div className={rightCol}>
-                      <span className={btnStyles.status.processing}>
-                        <RefreshCw className="size-3 animate-spin" />
-                        Procesando
-                      </span>
-                    </div>
-                  </div>
-                )}
-                {isSubstepReady && (
-                  <div className={actionsWrapper}>
-                    <div className={leftCol}>
-                      <button
-                        onClick={() => handleCancelPhase(phase.id)}
-                        className={btnStyles.cancel}
-                        title="Cancelar y volver a disponible"
-                      >
-                        <XCircle className="size-3" />
-                        Cancelar
-                      </button>
-                    </div>
-                    <div className={rightCol}>
-                      <button
-                        onClick={() =>
-                          setSubstepModalPhase({ ...phase, subStepArtifact })
-                        }
-                        className={btnStyles.primary}
-                      >
-                        <Sparkles className="size-4" />
-                        {reviewLabel}
-                      </button>
-                    </div>
-                  </div>
-                )}
-                {isCompleted && (
-                  <div className={hasArtifacts ? actionsWrapper : rightColSimple}>
-                    {hasArtifacts ? (
-                      <>
-                        <div className={leftCol}>
-                          <span className={btnStyles.status.completed}>
-                            <CheckCircle className="size-3" />
-                            Completado
-                          </span>
-                        </div>
-                        <div className={rightCol}>
-                          <a
-                            href={`/api/projects/${projectId}/phases/${phase.id}/download`}
-                            className={btnStyles.download}
-                            download
-                          >
-                            <Download className="size-4" />
-                            {downloadLabel}
-                          </a>
-                        </div>
-                      </>
-                    ) : (
-                      <div className={rightCol}>
-                        <span className={btnStyles.status.completed}>
-                          <CheckCircle className="size-3" />
-                          Completado
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-                {isLocked && (
-                  <div className={rightColSimple}>
-                    <span className={btnStyles.status.locked}>
-                      <Lock className="size-3" />
-                      Bloqueado
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
+                      <HelpCircle className="size-4" />
+                      Responder
+                    </button>
+                  );
+                  list.push(
+                    <button
+                      key="cancel"
+                      onClick={() => handleCancelPhase(phase.id)}
+                      className={btnStyles.cancel}
+                      title="Cancelar y volver a disponible"
+                    >
+                      <XCircle className="size-3" />
+                      Cancelar
+                    </button>
+                  );
+                }
+                if (isProcessing) {
+                  list.push(
+                    <button
+                      key="cancel"
+                      onClick={() => handleCancelPhase(phase.id)}
+                      className={btnStyles.cancel}
+                      title="Cancelar y volver a disponible"
+                    >
+                      <XCircle className="size-3" />
+                      Cancelar
+                    </button>
+                  );
+                }
+                if (isSubstepReady) {
+                  list.push(
+                    <button
+                      key="primary"
+                      onClick={() =>
+                        setSubstepModalPhase({ ...phase, subStepArtifact })
+                      }
+                      className={btnStyles.primary}
+                    >
+                      <Sparkles className="size-4" />
+                      {reviewLabel}
+                    </button>
+                  );
+                  list.push(
+                    <button
+                      key="cancel"
+                      onClick={() => handleCancelPhase(phase.id)}
+                      className={btnStyles.cancel}
+                      title="Cancelar y volver a disponible"
+                    >
+                      <XCircle className="size-3" />
+                      Cancelar
+                    </button>
+                  );
+                }
+                if (isCompleted && hasArtifacts) {
+                  list.push(
+                    <a
+                      key="download"
+                      href={`/api/projects/${projectId}/phases/${phase.id}/download`}
+                      className={btnStyles.download}
+                      download
+                    >
+                      <Download className="size-4" />
+                      {downloadLabel}
+                    </a>
+                  );
+                }
+                return <>{list}</>;
+              })()}
+            />
           );
         })}
       </div>
