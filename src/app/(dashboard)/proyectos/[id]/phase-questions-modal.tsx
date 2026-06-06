@@ -34,6 +34,19 @@ import {
  *    applies a 24px horizontal slide driven by Tailwind keyframes
  *    (`animate-wizard-next` / `animate-wizard-prev`).
  *  - The footer is `shrink-0` and contains the back / next buttons.
+ *
+ * Submit flow (v4):
+ *  - User clicks "Generar informe" on the summary step.
+ *  - `handleSubmit` POSTs to `/api/projects/execute-phase`. The endpoint
+ *    already transitions the phase to `PROCESSING` in the DB before
+ *    returning the `jobId`.
+ *  - On success: the modal closes immediately and `router.refresh()` is
+ *    called so the parent picks up the new `PROCESSING` status. The
+ *    parent's existing 5s polling effect (see `project-phases-with-modal`)
+ *    then keeps the UI in sync while the job runs.
+ *  - On error (network, 4xx, 5xx): the modal stays open with the error
+ *    message and the user can retry or close manually.
+ *  - This component owns NO polling — the parent owns it.
  */
 
 interface QuestionOption {
@@ -67,8 +80,6 @@ export function PhaseQuestionsModal({
 }: PhaseQuestionsModalProps) {
   const wizard = useWizard(questions as WizardQuestion[]);
   const [submitting, setSubmitting] = useState(false);
-  const [polling, setPolling] = useState(false);
-  const [jobId, setJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
@@ -78,40 +89,12 @@ export function PhaseQuestionsModal({
       wizard.reset(questions as WizardQuestion[]);
       setError(null);
       setSubmitting(false);
-      setPolling(false);
-      setJobId(null);
     }
     // We intentionally only depend on `open` so question shape changes
     // mid-session don't blow away the user's answers; the wizard
     // is volatile by design (no persistence).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
-
-  // ── Polling for job completion (unchanged logic) ──
-  useEffect(() => {
-    if (!jobId) return;
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/jobs/${jobId}`);
-        if (!res.ok) throw new Error("not found");
-        const data = await res.json();
-        if (data.status === "COMPLETED") {
-          clearInterval(interval);
-          setPolling(false);
-          setJobId(null);
-          router.refresh();
-        } else if (data.status === "FAILED") {
-          clearInterval(interval);
-          setPolling(false);
-          setJobId(null);
-          setError(data.error || "Error al generar el informe");
-        }
-      } catch {
-        // keep polling
-      }
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [jobId, router]);
 
   // ── Submit (triggered from the summary step) ──
   const handleSubmit = useCallback(async () => {
@@ -145,15 +128,18 @@ export function PhaseQuestionsModal({
       if (!res.ok) {
         setError(data.error || "Error al enviar respuestas");
         setSubmitting(false);
-      } else {
-        setJobId(data.jobId);
-        setPolling(true);
+        return;
       }
+      // Success: the endpoint has already set the phase to PROCESSING in
+      // the DB. Close the modal immediately and let the parent pick up
+      // the new status via router.refresh(). The parent owns polling.
+      onClose();
+      router.refresh();
     } catch {
       setError("Error de conexión");
       setSubmitting(false);
     }
-  }, [wizard.answers, projectId, phaseId, phaseType]);
+  }, [wizard.answers, projectId, phaseId, phaseType, onClose, router]);
 
   // ── Focus management ──
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -171,7 +157,7 @@ export function PhaseQuestionsModal({
 
   // ── Keyboard navigation ──
   const modalRef = useRef<HTMLDivElement | null>(null);
-  const isLoading = submitting || polling;
+  const isLoading = submitting;
   useKeyboardNavigation({
     containerRef: modalRef,
     isDisabled: isLoading,
@@ -229,7 +215,7 @@ export function PhaseQuestionsModal({
             id="phase-questions-modal-title"
             className="text-base font-semibold text-white"
           >
-            {polling ? "Generando informe..." : "Cuéntanos más"}
+            Cuéntanos más
           </h3>
           <button
             type="button"
@@ -242,92 +228,77 @@ export function PhaseQuestionsModal({
           </button>
         </div>
 
-        {/* Polling state (no wizard) */}
-        {polling ? (
-          <div className="flex flex-col items-center gap-4 px-5 py-10">
-            <span className="inline-block size-8 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
-            <p className="text-sm text-slate-400">
-              Generando el informe con tus respuestas...
-            </p>
-            <p className="text-xs text-slate-500">
-              Esto puede tomar un par de minutos
-            </p>
-          </div>
-        ) : (
-          <>
-            {/* Scrollable body */}
-            <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
-              <WizardProgress
-                currentStep={wizard.currentStep}
-                totalSteps={wizard.totalSteps}
-                label={progressLabel}
+        {/* Scrollable body */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
+          <WizardProgress
+            currentStep={wizard.currentStep}
+            totalSteps={wizard.totalSteps}
+            label={progressLabel}
+          />
+
+          {error && (
+            <div
+              className="mt-4 flex items-center gap-1 text-xs text-red-400"
+              role="alert"
+            >
+              <AlertCircle className="size-3" />
+              {error}
+            </div>
+          )}
+
+          <p className="mt-4 mb-3 text-xs text-slate-400 leading-relaxed">
+            Responde estas preguntas para ayudar a la IA a generar un
+            análisis más preciso y adaptado a tu situación real.
+          </p>
+
+          <div
+            key={wizard.currentStep}
+            className={
+              wizard.direction === "next"
+                ? "animate-wizard-next"
+                : "animate-wizard-prev"
+            }
+          >
+            {wizard.isSummary ? (
+              <SummaryStep
+                questions={questions as WizardQuestion[]}
+                answers={wizard.answers}
+                onEdit={(idx) => wizard.goTo(idx)}
               />
-
-              {error && (
-                <div
-                  className="mt-4 flex items-center gap-1 text-xs text-red-400"
-                  role="alert"
-                >
-                  <AlertCircle className="size-3" />
-                  {error}
-                </div>
-              )}
-
-              <p className="mt-4 mb-3 text-xs text-slate-400 leading-relaxed">
-                Responde estas preguntas para ayudar a la IA a generar un
-                análisis más preciso y adaptado a tu situación real.
-              </p>
-
-              <div
-                key={wizard.currentStep}
-                className={
-                  wizard.direction === "next"
-                    ? "animate-wizard-next"
-                    : "animate-wizard-prev"
+            ) : currentQ ? (
+              <QuestionStep
+                question={currentQ as WizardQuestion}
+                stepNumber={wizard.currentStep + 1}
+                answer={currentAnswer}
+                inputRef={inputRef}
+                containerRef={containerRef}
+                onChange={(value) =>
+                  wizard.setAnswer(currentQ.id, value)
                 }
-              >
-                {wizard.isSummary ? (
-                  <SummaryStep
-                    questions={questions as WizardQuestion[]}
-                    answers={wizard.answers}
-                    onEdit={(idx) => wizard.goTo(idx)}
-                  />
-                ) : currentQ ? (
-                  <QuestionStep
-                    question={currentQ as WizardQuestion}
-                    stepNumber={wizard.currentStep + 1}
-                    answer={currentAnswer}
-                    inputRef={inputRef}
-                    containerRef={containerRef}
-                    onChange={(value) =>
-                      wizard.setAnswer(currentQ.id, value)
-                    }
-                  />
-                ) : null}
-              </div>
-            </div>
-
-            {/* Pinned footer */}
-            <div className="shrink-0 border-t border-slate-800 px-5 py-4">
-              <WizardNavigation
-                canGoBack={!wizard.isFirst}
-                canGoForward={wizard.isSummary ? !isLoading : wizard.isValid}
-                onBack={wizard.goPrev}
-                onNext={() => {
-                  if (wizard.isSummary) {
-                    handleSubmit();
-                  } else {
-                    wizard.goNext();
-                  }
-                }}
-                isSummary={wizard.isSummary}
-                isLastQuestion={wizard.isLastQuestion}
-                isSubmitting={isLoading}
-                submitLabel="Generar informe"
               />
-            </div>
-          </>
-        )}
+            ) : null}
+          </div>
+        </div>
+
+        {/* Pinned footer */}
+        <div className="shrink-0 border-t border-slate-800 px-5 py-4">
+          <WizardNavigation
+            canGoBack={!wizard.isFirst}
+            canGoForward={wizard.isSummary ? !isLoading : wizard.isValid}
+            onBack={wizard.goPrev}
+            onNext={() => {
+              if (wizard.isSummary) {
+                handleSubmit();
+              } else {
+                wizard.goNext();
+              }
+            }}
+            isSummary={wizard.isSummary}
+            isLastQuestion={wizard.isLastQuestion}
+            isSubmitting={isLoading}
+            submitLabel="Generar informe"
+          />
+        </div>
       </div>
     </div>
   );
