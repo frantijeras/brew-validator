@@ -227,195 +227,29 @@ export function ProjectPhasesWithModal({
           consecutivas, incluida la pareja Fase 0 → Fase 1. Antes la Fase 0
           estaba fuera de este contenedor y por eso se pegaba a la Fase 1. */}
       <div className="space-y-3">
-        {/* Fase 0 — Validación de Idea.
-            Antes: tarjeta hardcoded con status="available" / tone="amber" /
-            badge "Información", ignorando el estado real de la fase 0 en BD.
-            Ahora: se renderiza desde la fase real de la BD (ProjectPhase con
-            type=ANALYSIS, sortOrder=0). Si esa fase ya está COMPLETED (lo
-            habitual — se completa durante la fase preliminar de la idea),
-            la tarjeta sale en verde con badge "Completado" e icono de check.
-            Si por algún motivo el proyecto es huérfano y no tiene fila de
-            ANALYSIS (caso raro, proyecto pre-refactor), caemos al fallback
-            read-only con "Ver detalles" a la vista de idea. */}
-        {(() => {
-          // Buscar la fase 0 (sortOrder=0). El create route crea la fase
-          // con type="ANALYSIS" y sortOrder=0 — esta fila es la fuente
-          // de verdad del estado de Fase 0.
-          const phase0 = phases.find((p) => p.sortOrder === 0);
-
-          if (!phase0) {
-            // Fallback: proyecto sin fila de ANALYSIS (huérfano, no debería
-            // ocurrir tras el refactor de fases). Mostrar la tarjeta
-            // read-only con link a la validación original de la idea.
-            return (
-              <PhaseCard
-                number={0}
-                title="Validación de Idea"
-                description="Datos originales de la validación: problema, propuesta de valor, target, veredicto y reporte del juez"
-                icon={<FileText className="size-5" />}
-                status="available"
-                statusLabel="Información"
-                tone="amber"
-                actions={
-                  <a
-                    href={`/ideas/${ideaId}?readonly=true&projectId=${projectId}`}
-                    className={`${btnStyles.download} shadow`}
-                  >
-                    <Eye className="size-4" />
-                    Ver detalles
-                  </a>
-                }
-              />
-            );
+        {/* Fase 00 — Validación de Idea (heredada de la fase de ideas).
+            Siempre se muestra como completada porque la validación ya se
+            realizó en la fase de ideas. Las acciones son solo "Ver detalles"
+            hacia la vista read-only de la idea original. */}
+        <PhaseCard
+          number={0}
+          title="Validación de Idea"
+          description="Datos originales de la validación: problema, propuesta de valor, target, veredicto y reporte del juez"
+          icon={<FileText className="size-5" />}
+          status="completed"
+          tone="green"
+          actions={
+            <a
+              href={`/ideas/${ideaId}?readonly=true&projectId=${projectId}`}
+              className={`${btnStyles.download} shadow`}
+            >
+              <Eye className="size-4" />
+              Ver detalles
+            </a>
           }
-
-          // Mapeo de status de BD → estado visual del PhaseCard
-          // (mismo mapeo que las fases 1-5).
-          const isCompleted = phase0.status === "COMPLETED";
-          const isAvailable = phase0.status === "AVAILABLE";
-          const isProcessing = phase0.status === "PROCESSING";
-          const isQuestioning = phase0.status === "QUESTIONING";
-          const isSubstepReady = phase0.status === "SUBSTEP_READY";
-          const isLocked = phase0.status === "LOCKED";
-          const artifacts = phase0.artifacts as Array<{ title: string; type: string }> | null;
-          const hasArtifacts = isCompleted && artifacts && artifacts.length > 0;
-
-          return (
-            <PhaseCard
-              number={0}
-              title={phase0.label}
-              description={phase0.description ?? null}
-              icon={(() => {
-                if (isCompleted) return <CheckCircle className="size-5" />;
-                if (isLocked) return <Lock className="size-5" />;
-                if (isProcessing) return <RefreshCw className="size-5" />;
-                if (isSubstepReady) return <Sparkles className="size-5" />;
-                if (isQuestioning) return <HelpCircle className="size-5" />;
-                if (isAvailable) return <FileText className="size-5" />;
-                return <FileText className="size-5" />;
-              })()}
-              status={(() => {
-                if (isCompleted) return "completed" as const;
-                if (isLocked) return "locked" as const;
-                if (isProcessing) return "processing" as const;
-                if (isSubstepReady) return "substep" as const;
-                if (isQuestioning) return "questioning" as const;
-                return "available" as const;
-              })()}
-              tone={(() => {
-                if (isCompleted) return "green" as const;
-                if (isLocked) return "slate" as const;
-                if (isProcessing) return "amber" as const;
-                if (isSubstepReady) return "purple" as const;
-                if (isAvailable) return "amber" as const;
-                return "blue" as const;
-              })()}
-              actions={(() => {
-                // Para Fase 0, la acción es siempre "ver la validación" en
-                // /ideas/[id], independientemente del estado de la fase.
-                // La diferencia entre estados se refleja en:
-                //   - el badge (Completado / Disponible / Procesando / …)
-                //   - el icono (CheckCircle / FileText / Loader2 / …)
-                //   - el tono del borde y fondo (emerald / amber / slate)
-                // Pero el CTA sigue siendo un link a la vista read-only de
-                // la idea (ahí están el reporte del juez, la propuesta de
-                // valor, el veredicto, etc.).
-                const list: React.ReactNode[] = [];
-
-                if (isAvailable) {
-                  // Fase 0 disponible: el usuario todavía no la ha ejecutado.
-                  // Mostrar el botón "Ejecutar" (igual que las demás fases)
-                  // junto con el link "Ver detalles" para revisar la idea
-                  // original antes de ejecutar.
-                  list.push(
-                    <PhaseActionButton
-                      key="primary"
-                      projectId={projectId}
-                      phaseId={phase0.id}
-                      phaseType={phase0.type}
-                      label={phase0.label}
-                    />
-                  );
-                  list.push(
-                    <a
-                      key="view"
-                      href={`/ideas/${ideaId}?readonly=true&projectId=${projectId}`}
-                      className={btnStyles.download}
-                    >
-                      <Eye className="size-4" />
-                      Ver detalles
-                    </a>
-                  );
-                } else if (isProcessing) {
-                  list.push(
-                    <button
-                      key="cancel"
-                      onClick={() => handleCancelPhase(phase0.id)}
-                      className={btnStyles.cancel}
-                      title="Cancelar y volver a disponible"
-                    >
-                      <XCircle className="size-3" />
-                      Cancelar
-                    </button>
-                  );
-                } else if (isQuestioning || isSubstepReady) {
-                  // Fase 0 con preguntas pendientes o sub-step listo: no se
-                  // espera que esto ocurra porque Fase 0 viene de la
-                  // validación de la idea y no genera preguntas, pero si
-                  // llega a ocurrir, mostramos el link "Ver detalles" para
-                  // que el usuario pueda ver el estado actual.
-                  list.push(
-                    <a
-                      key="view"
-                      href={`/ideas/${ideaId}?readonly=true&projectId=${projectId}`}
-                      className={btnStyles.download}
-                    >
-                      <Eye className="size-4" />
-                      Ver detalles
-                    </a>
-                  );
-                } else {
-                  // COMPLETED, LOCKED, FAILED o cualquier otro estado:
-                  // el CTA principal es "Ver detalles" hacia la vista
-                  // read-only de la idea. Si está completada y tiene
-                  // artefactos (reporte del agente), añadimos también el
-                  // botón de descarga del reporte.
-                  list.push(
-                    <a
-                      key="view"
-                      href={`/ideas/${ideaId}?readonly=true&projectId=${projectId}`}
-                      className={btnStyles.download}
-                    >
-                      <Eye className="size-4" />
-                      Ver detalles
-                    </a>
-                  );
-                  if (isCompleted && hasArtifacts) {
-                    list.push(
-                      <a
-                        key="download"
-                        href={`/api/projects/${projectId}/phases/${phase0.id}/download`}
-                        className={btnStyles.download}
-                        download
-                      >
-                        <Download className="size-4" />
-                        Descargar reporte
-                      </a>
-                    );
-                  }
-                }
-
-                return <>{list}</>;
-              })()}
-            />
-          );
-        })()}
+        />
 
         {phases
-          // Filtrar Fase 0 (sortOrder=0) — ya se ha renderizado arriba con
-          // el título "Validación de Idea" y el CTA a /ideas/[id]. El
-          // render genérico de las fases 1-5 viene después.
-          .filter((phase) => phase.sortOrder !== 0)
           .map((phase) => {
           const isLocked = phase.status === "LOCKED";
           const isCompleted = phase.status === "COMPLETED";
