@@ -19,7 +19,8 @@ interface UseKeyboardNavigationArgs {
   onClose: () => void;
   /**
    * The type of the active question. For `textarea` we do NOT advance
-   * on Enter (Enter should insert a newline).
+   * on Enter (Enter should insert a newline). For `text` we DO advance
+   * on Enter, matching the design's intent.
    */
   activeType?: string;
 }
@@ -29,7 +30,7 @@ interface UseKeyboardNavigationArgs {
  *
  * - **Enter** advances to the next step (`onNext`) unless the active
  *   question is a `textarea` (Enter inserts a newline) or the wizard
- *   is disabled.
+ *   is disabled. `text` and `choice` questions DO advance on Enter.
  * - **ArrowRight** also advances, **ArrowLeft** goes back, mirroring
  *   the visual left/right flow of the slide animation.
  * - **Escape** closes the wizard via `onClose` (typically the modal
@@ -62,14 +63,14 @@ export function useKeyboardNavigation({
         return;
       }
 
-      // Enter advances. Skip when the user is typing in a textarea
-      // (Enter must insert a newline) or inside an actual <input>
-      // of type text — we still want to advance, so we only block
-      // for <textarea>.
+      // Enter advances.
       if (event.key === "Enter" && !event.shiftKey) {
         const target = event.target as HTMLElement | null;
         const inTextarea = target?.tagName === "TEXTAREA";
-        if (inTextarea) return;
+        // Only block Enter for the long `textarea` type. Short `text`
+        // (also rendered as <textarea> with rows=3) advances on Enter
+        // per the design.
+        if (inTextarea && activeType === "textarea") return;
         if (!canGoNext) return;
         event.preventDefault();
         onNext();
