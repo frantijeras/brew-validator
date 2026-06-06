@@ -1,23 +1,41 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { X, Sparkles, AlertCircle } from "lucide-react";
+import { X, AlertCircle } from "lucide-react";
+import {
+  useWizard,
+  useFocusOnStepChange,
+  useKeyboardNavigation,
+  WizardProgress,
+  QuestionStep,
+  SummaryStep,
+  WizardNavigation,
+  type WizardQuestion,
+} from "@/components/wizard";
 
 /**
- * Question types supported by the modal:
+ * PhaseQuestionsModal — wizard-style multi-step form.
+ *
+ * Question types supported:
  *  - "text": single-line free text. Rendered as a textarea (3 rows).
  *  - "textarea": longer free text. Rendered as a textarea (6 rows).
- *  - "choice": single-select radio buttons. The selected option's value is sent as a string.
- *  - "multi": multi-select checkboxes. Selected values are joined with a comma (",")
- *    and sent as a single string. The backend (and downstream agents) receive
- *    `Record<string, string>` regardless of the question type, so a deterministic
- *    delimiter is the cleanest way to keep the API contract stable.
+ *  - "choice": single-select radio buttons.
+ *  - "multi": multi-select checkboxes. Selected values are joined
+ *    with a comma (",") and sent as a single string to preserve the
+ *    existing API contract: the backend receives
+ *    `Record<string, string>` regardless of question type.
  *
- * Options for "choice" / "multi" use the shape:
- *   { value: string, label: string }
- * The `value` is what gets sent; the `label` is what the user sees.
+ * Layout:
+ *  - The outer container is a `flex flex-col` capped at `max-h-[90vh]`
+ *    so the footer navigation is always visible on mobile.
+ *  - The middle area is `flex-1 overflow-y-auto min-h-0` and contains
+ *    the progress bar plus the active step card. Switching steps
+ *    applies a 24px horizontal slide driven by Tailwind keyframes
+ *    (`animate-wizard-next` / `animate-wizard-prev`).
+ *  - The footer is `shrink-0` and contains the back / next buttons.
  */
+
 interface QuestionOption {
   value: string;
   label: string;
@@ -47,31 +65,29 @@ export function PhaseQuestionsModal({
   phaseType,
   questions,
 }: PhaseQuestionsModalProps) {
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const wizard = useWizard(questions as WizardQuestion[]);
   const [submitting, setSubmitting] = useState(false);
   const [polling, setPolling] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  // Reset answers when modal opens
+  // ── Reset wizard when modal opens ──
   useEffect(() => {
     if (open) {
-      const initial: Record<string, string> = {};
-      questions.forEach((q) => {
-        // For "multi" we store a comma-separated list of selected values.
-        // For "choice" a single value. For text/textarea the user-typed string.
-        initial[q.id] = "";
-      });
-      setAnswers(initial);
+      wizard.reset(questions as WizardQuestion[]);
       setError(null);
       setSubmitting(false);
       setPolling(false);
       setJobId(null);
     }
-  }, [open, questions]);
+    // We intentionally only depend on `open` so question shape changes
+    // mid-session don't blow away the user's answers; the wizard
+    // is volatile by design (no persistence).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
-  // Poll for report job completion
+  // ── Polling for job completion (unchanged logic) ──
   useEffect(() => {
     if (!jobId) return;
     const interval = setInterval(async () => {
@@ -97,14 +113,13 @@ export function PhaseQuestionsModal({
     return () => clearInterval(interval);
   }, [jobId, router]);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  // ── Submit (triggered from the summary step) ──
+  const handleSubmit = useCallback(async () => {
     setSubmitting(true);
     setError(null);
 
-    // Filter out empty answers. For "multi" we check the comma-joined string.
     const filledAnswers: Record<string, string> = {};
-    for (const [k, v] of Object.entries(answers)) {
+    for (const [k, v] of Object.entries(wizard.answers)) {
       if (v && v.trim()) filledAnswers[k] = v.trim();
     }
 
@@ -138,192 +153,180 @@ export function PhaseQuestionsModal({
       setError("Error de conexión");
       setSubmitting(false);
     }
-  }
+  }, [wizard.answers, projectId, phaseId, phaseType]);
 
-  function handleTextChange(qId: string, value: string) {
-    setAnswers((prev) => ({ ...prev, [qId]: value }));
-  }
+  // ── Focus management ──
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const activeQuestion = wizard.isSummary
+    ? null
+    : (questions[wizard.currentStep] as WizardQuestion | undefined) ?? null;
 
-  function handleChoiceChange(qId: string, value: string) {
-    setAnswers((prev) => ({ ...prev, [qId]: value }));
-  }
+  useFocusOnStepChange({
+    inputRef,
+    containerRef,
+    question: activeQuestion,
+    stepIndex: wizard.currentStep,
+  });
 
-  function handleMultiToggle(qId: string, value: string) {
-    setAnswers((prev) => {
-      const current = prev[qId] || "";
-      const list = current ? current.split(",").filter(Boolean) : [];
-      const idx = list.indexOf(value);
-      if (idx >= 0) {
-        list.splice(idx, 1);
+  // ── Keyboard navigation ──
+  const modalRef = useRef<HTMLDivElement | null>(null);
+  const isLoading = submitting || polling;
+  useKeyboardNavigation({
+    containerRef: modalRef,
+    isDisabled: isLoading,
+    canGoNext: wizard.isValid || wizard.isSummary,
+    canGoPrev: !wizard.isFirst,
+    onNext: () => {
+      if (wizard.isSummary) {
+        handleSubmit();
       } else {
-        list.push(value);
+        wizard.goNext();
       }
-      return { ...prev, [qId]: list.join(",") };
-    });
+    },
+    onPrev: wizard.goPrev,
+    onClose: () => {
+      if (!isLoading) onClose();
+    },
+    activeType: activeQuestion?.type,
+  });
+
+  // ── Backdrop click closes (when not loading) ──
+  function handleBackdropClick(e: React.MouseEvent<HTMLDivElement>) {
+    if (e.target === e.currentTarget && !isLoading) {
+      onClose();
+    }
   }
 
   if (!open) return null;
 
-  const isLoading = submitting || polling;
+  const currentQ = wizard.isSummary
+    ? null
+    : questions[wizard.currentStep];
+  const currentAnswer = currentQ ? wizard.answers[currentQ.id] || "" : "";
+  const totalRealSteps = questions.length;
+  // Display label for the progress bar: "Pregunta X de Y" while on a
+  // question, and a different copy on the summary step.
+  const progressLabel = wizard.isSummary
+    ? "Revisa tus respuestas"
+    : `Pregunta ${wizard.currentStep + 1} de ${totalRealSteps}`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="w-full max-w-lg rounded-xl border border-slate-700 bg-slate-900 shadow-xl">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      onClick={handleBackdropClick}
+    >
+      <div
+        ref={modalRef}
+        className="w-full max-w-lg max-h-[90vh] flex flex-col rounded-xl border border-slate-700 bg-slate-900 shadow-xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="phase-questions-modal-title"
+      >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
-          <h3 className="text-base font-semibold text-white">
+        <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4 shrink-0">
+          <h3
+            id="phase-questions-modal-title"
+            className="text-base font-semibold text-white"
+          >
             {polling ? "Generando informe..." : "Cuéntanos más"}
           </h3>
           <button
+            type="button"
             onClick={onClose}
             disabled={isLoading}
             className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors disabled:opacity-50"
+            aria-label="Cerrar"
           >
             <X className="size-4" />
           </button>
         </div>
 
-        {/* Content */}
+        {/* Polling state (no wizard) */}
         {polling ? (
           <div className="flex flex-col items-center gap-4 px-5 py-10">
             <span className="inline-block size-8 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
             <p className="text-sm text-slate-400">
               Generando el informe con tus respuestas...
             </p>
-            <p className="text-xs text-slate-500">Esto puede tomar un par de minutos</p>
+            <p className="text-xs text-slate-500">
+              Esto puede tomar un par de minutos
+            </p>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="px-5 py-4 space-y-4">
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Responde estas preguntas para ayudar a la IA a generar un análisis más preciso y adaptado a tu situación real.
-            </p>
+          <>
+            {/* Scrollable body */}
+            <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
+              <WizardProgress
+                currentStep={wizard.currentStep}
+                totalSteps={wizard.totalSteps}
+                label={progressLabel}
+              />
 
-            {questions.map((q) => {
-              // Normalize options: skills may emit raw strings or {value,label} objects.
-              // Both shapes are accepted; strings are coerced into {value,label} at runtime
-              // so the rendered radios/checkboxes always have valid data.
-              const rawOpts: Array<string | QuestionOption> =
-                (q.options as Array<string | QuestionOption> | undefined) || [];
-              const opts: QuestionOption[] = rawOpts.map((o) =>
-                typeof o === "string" ? { value: o, label: o } : o
-              );
-              return (
-                <div key={q.id}>
-                  <label className="block text-sm font-medium text-white mb-1.5">
-                    {q.label}
-                  </label>
-
-                  {/* text → 3 rows */}
-                  {q.type === "text" && (
-                    <textarea
-                      value={answers[q.id] || ""}
-                      onChange={(e) => handleTextChange(q.id, e.target.value)}
-                      placeholder="Escribe tu respuesta..."
-                      rows={3}
-                      className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"
-                    />
-                  )}
-
-                  {/* textarea → 6 rows */}
-                  {q.type === "textarea" && (
-                    <textarea
-                      value={answers[q.id] || ""}
-                      onChange={(e) => handleTextChange(q.id, e.target.value)}
-                      placeholder="Escribe tu respuesta..."
-                      rows={6}
-                      className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"
-                    />
-                  )}
-
-                  {/* choice → radio buttons */}
-                  {q.type === "choice" && (
-                    <div className="space-y-2">
-                      {opts.map((opt) => {
-                        const selected = (answers[q.id] || "") === opt.value;
-                        return (
-                          <label
-                            key={opt.value}
-                            className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
-                              selected
-                                ? "border-amber-500 bg-amber-500/10 text-white"
-                                : "border-slate-700 bg-slate-800 text-slate-200 hover:border-slate-600"
-                            }`}
-                          >
-                            <input
-                              type="radio"
-                              name={q.id}
-                              value={opt.value}
-                              checked={selected}
-                              onChange={() => handleChoiceChange(q.id, opt.value)}
-                              className="size-4 cursor-pointer accent-amber-500"
-                            />
-                            <span>{opt.label}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* multi → checkboxes */}
-                  {q.type === "multi" && (
-                    <div className="space-y-2">
-                      {opts.map((opt) => {
-                        const current = answers[q.id] || "";
-                        const selected = current
-                          .split(",")
-                          .filter(Boolean)
-                          .includes(opt.value);
-                        return (
-                          <label
-                            key={opt.value}
-                            className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
-                              selected
-                                ? "border-amber-500 bg-amber-500/10 text-white"
-                                : "border-slate-700 bg-slate-800 text-slate-200 hover:border-slate-600"
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selected}
-                              onChange={() => handleMultiToggle(q.id, opt.value)}
-                              className="size-4 cursor-pointer accent-amber-500"
-                            />
-                            <span>{opt.label}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  )}
+              {error && (
+                <div
+                  className="mt-4 flex items-center gap-1 text-xs text-red-400"
+                  role="alert"
+                >
+                  <AlertCircle className="size-3" />
+                  {error}
                 </div>
-              );
-            })}
+              )}
 
-            {error && (
-              <span className="flex items-center gap-1 text-xs text-red-400">
-                <AlertCircle className="size-3" />
-                {error}
-              </span>
-            )}
+              <p className="mt-4 mb-3 text-xs text-slate-400 leading-relaxed">
+                Responde estas preguntas para ayudar a la IA a generar un
+                análisis más preciso y adaptado a tu situación real.
+              </p>
 
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-400 disabled:opacity-50"
+              <div
+                key={wizard.currentStep}
+                className={
+                  wizard.direction === "next"
+                    ? "animate-wizard-next"
+                    : "animate-wizard-prev"
+                }
               >
-                <Sparkles className="size-4" />
-                {isLoading ? "Enviando…" : "Generar informe"}
-              </button>
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={isLoading}
-                className="text-sm text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-50"
-              >
-                Cancelar
-              </button>
+                {wizard.isSummary ? (
+                  <SummaryStep
+                    questions={questions as WizardQuestion[]}
+                    answers={wizard.answers}
+                    onEdit={(idx) => wizard.goTo(idx)}
+                  />
+                ) : currentQ ? (
+                  <QuestionStep
+                    question={currentQ as WizardQuestion}
+                    stepNumber={wizard.currentStep + 1}
+                    answer={currentAnswer}
+                    inputRef={inputRef}
+                    containerRef={containerRef}
+                    onChange={(value) =>
+                      wizard.setAnswer(currentQ.id, value)
+                    }
+                  />
+                ) : null}
+              </div>
             </div>
-          </form>
+
+            {/* Pinned footer */}
+            <div className="shrink-0 border-t border-slate-800 px-5 py-4">
+              <WizardNavigation
+                canGoBack={!wizard.isFirst}
+                canGoForward={wizard.isSummary ? !isLoading : wizard.isValid}
+                onBack={wizard.goPrev}
+                onNext={() => {
+                  if (wizard.isSummary) {
+                    handleSubmit();
+                  } else {
+                    wizard.goNext();
+                  }
+                }}
+                isSummary={wizard.isSummary}
+                isLastQuestion={wizard.isLastQuestion}
+                isSubmitting={isLoading}
+                submitLabel="Generar informe"
+              />
+            </div>
+          </>
         )}
       </div>
     </div>
