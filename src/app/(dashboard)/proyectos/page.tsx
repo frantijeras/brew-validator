@@ -2,10 +2,6 @@ import { prisma } from "@/lib/db";
 import Link from "next/link";
 import {
   FolderKanban,
-  CheckCircle,
-  Clock,
-  HelpCircle,
-  Play,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -70,28 +66,22 @@ export default async function ProyectosPage() {
 
             let statusText: string;
             let statusColor: string;
-            let StatusIcon: React.ElementType;
 
             if (allDone) {
               statusText = "Completado";
               statusColor = "text-green-400";
-              StatusIcon = CheckCircle;
             } else if (isProcessing) {
               statusText = "Procesando…";
               statusColor = "text-amber-400";
-              StatusIcon = Clock;
             } else if (isQuestioning) {
               statusText = "Esperando respuestas";
               statusColor = "text-purple-400";
-              StatusIcon = HelpCircle;
             } else if (isAvailable) {
               statusText = "Esperando siguiente fase";
               statusColor = "text-amber-400";
-              StatusIcon = Play;
             } else {
               statusText = "En progreso";
               statusColor = "text-amber-400";
-              StatusIcon = Clock;
             }
 
             return (
@@ -100,26 +90,6 @@ export default async function ProyectosPage() {
                 href={`/proyectos/${project.id}`}
                 className="group block rounded-xl border border-slate-700 bg-slate-900/50 p-5 transition-all hover:border-slate-600 hover:bg-slate-900"
               >
-                <div className="flex items-start gap-3">
-                  <div
-                    className={`rounded-lg p-2.5 ${
-                      allDone
-                        ? "bg-green-500/10"
-                        : isQuestioning
-                          ? "bg-purple-500/10"
-                          : "bg-amber-500/10"
-                    }`}
-                  >
-                    <StatusIcon
-                      className={`size-5 ${
-                        allDone
-                          ? "text-green-400"
-                          : isQuestioning
-                            ? "text-purple-400"
-                            : "text-amber-400"
-                      }`}
-                    />
-                  </div>
                   <div className="min-w-0 flex-1">
                     <h3 className="text-base font-semibold text-white group-hover:text-amber-400 transition-colors truncate">
                       {project.name}
@@ -149,7 +119,6 @@ export default async function ProyectosPage() {
                       </span>
                     </div>
                   </div>
-                </div>
               </Link>
             );
           })}
