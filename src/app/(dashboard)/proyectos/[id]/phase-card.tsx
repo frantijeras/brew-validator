@@ -1,17 +1,18 @@
 "use client";
 
 import * as React from "react";
-import { Download, FileText } from "lucide-react";
+import { Download, FileText, Loader2 } from "lucide-react";
 
 /**
- * PhaseCard — Tarjeta rediseñada (v2 mobile-first) para una fase del
+ * PhaseCard — Tarjeta rediseñada (v3 icon + spinner) para una fase del
  * proyecto o la validación de idea. Estructura visual:
  *
  *  MÓVIL (< 768px) — layout vertical apilado
  *  ┌────────────────────────────────────────┐
  *  │  ┌────┐                                │
- *  │  │ 01 │  Título de la fase             │  ← número hero 40x40
+ *  │  │ 01 │  Título de la fase        🎨  │  ← número hero 40x40 + icono inline (md:hidden)
  *  │  └────┘                                │
+ *  │  Generando análisis... ~2-3 min        │  ← solo si isProcessing
  *  │  [StatusBadge]                         │  ← badge debajo
  *  │  Descripción con leading-relaxed      │
  *  │                                        │
@@ -32,10 +33,18 @@ import { Download, FileText } from "lucide-react";
  *  │  [Acción secundaria]       [Acción primaria]      │
  *  └────────────────────────────────────────────────────┘
  *
- *  Reglas:
+ *  Reglas (v3):
  *    - Mobile-first: < 768px apilado, ≥ 768px fila horizontal.
- *    - El icono se oculta en móvil (`hidden md:block`).
- *    - El badge va debajo del título en móvil, al lado en desktop.
+ *    - El icono de fase es SIEMPRE visible:
+ *        · Móvil: `size-4` inline al lado del título.
+ *        · Desktop: `size-5` al lado del número (md:block).
+ *    - Durante `isProcessing` el icono se SUSTITUYE por `Loader2 animate-spin`
+ *      en ambos viewports (mismo slot, mismo tamaño).
+ *    - Durante `isProcessing`:
+ *        · Aparece "Generando análisis..." + "~2-3 min" bajo el título.
+ *        · El borde ámbar cambia a `border-amber-500/40` y la tarjeta
+ *          recibe `animate-pulse` (pulso sutil, siempre activo —
+ *          `prefers-reduced-motion` NO se respeta por decisión de Fran).
  *    - Si NO hay acciones, el bloque inferior no se renderiza.
  *    - Las acciones hijas se envuelven automáticamente en
  *      `w-full md:w-auto` para que ocupen el ancho en móvil.
@@ -158,6 +167,9 @@ export function PhaseCard({
   const hasArtifacts = artifacts && artifacts.length > 0;
   const hasActions = React.Children.count(actions) > 0;
   const isInactive = status === "locked";
+  // v3: durante processing el icono se sustituye por un spinner
+  // y el borde ámbar recibe un pulso sutil.
+  const isProcessing = status === "processing";
 
   // Aplanar fragments para contar y envolver acciones hijas.
   // Los consumidores pasan `<>...</>` con varios buttons, por lo que
@@ -183,30 +195,39 @@ export function PhaseCard({
   return (
     <div
       className={`rounded-xl border p-6 transition-all hover:border-slate-600 md:p-5 lg:p-6 ${
-        toneBorderStyles[tone]
+        isProcessing ? "border-amber-500/40 animate-pulse" : toneBorderStyles[tone]
       } ${toneBgStyles[tone]} ${
         isInactive ? "opacity-60" : ""
       }`}
     >
       {/* Cabecera: hero (número + icono) + content (título + badge + descripción) */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-3">
-        {/* Hero block: número grande a la izquierda + icono (oculto en móvil) */}
+        {/* Hero block: número grande a la izquierda + icono (desktop) */}
         <div className="flex items-start gap-4 md:items-center md:gap-3">
           <span
             className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-base font-semibold tracking-wider md:h-6 md:w-6 md:rounded-md md:text-[10px] ${toneNumberStyles[tone]}`}
           >
             {String(number).padStart(2, "0")}
           </span>
-          <div className={`hidden shrink-0 md:block ${toneIconStyles[tone]}`}>
-            {icon}
+          {/* Icono de fase — solo desktop. Se sustituye por Loader2 durante processing. */}
+          <div
+            className={`hidden shrink-0 md:block ${
+              isProcessing ? "text-amber-400" : toneIconStyles[tone]
+            }`}
+          >
+            {isProcessing ? (
+              <Loader2 className="size-5 animate-spin" aria-label="Procesando..." />
+            ) : (
+              icon
+            )}
           </div>
         </div>
 
-        {/* Content block: título + badge + descripción */}
+        {/* Content block: título + icono inline (mobile) + badge + descripción */}
         <div className="min-w-0 flex-1">
           <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between md:gap-3">
             <h3
-              className={`text-lg font-medium leading-snug md:text-base md:font-semibold md:leading-tight ${
+              className={`min-w-0 text-lg font-medium leading-snug md:text-base md:font-semibold md:leading-tight ${
                 isInactive
                   ? "text-slate-500"
                   : status === "completed"
@@ -214,7 +235,25 @@ export function PhaseCard({
                     : "text-white"
               }`}
             >
-              {title}
+              <span className="inline-flex min-w-0 items-center gap-2">
+                <span className="min-w-0 truncate">{title}</span>
+                {/* Icono de fase — solo mobile, inline al final del título.
+                    Se sustituye por Loader2 durante processing. */}
+                <span
+                  className={`shrink-0 md:hidden ${
+                    isProcessing ? "text-amber-400" : toneIconStyles[tone]
+                  }`}
+                >
+                  {isProcessing ? (
+                    <Loader2
+                      className="size-4 animate-spin"
+                      aria-label="Procesando..."
+                    />
+                  ) : (
+                    icon
+                  )}
+                </span>
+              </span>
             </h3>
             <span
               className={`inline-flex w-fit shrink-0 items-center gap-1 self-start rounded-full border px-2.5 py-0.5 text-[11px] font-medium md:w-auto ${badge.className}`}
@@ -222,6 +261,19 @@ export function PhaseCard({
               {statusLabel || badge.label}
             </span>
           </div>
+
+          {/* Indicador de progreso: spinner + texto + ETA. Solo durante processing. */}
+          {isProcessing && (
+            <div className="mt-2 flex items-center gap-2 text-xs text-amber-400/80">
+              <Loader2
+                className="size-3 shrink-0 animate-spin"
+                aria-hidden="true"
+              />
+              <span>Generando análisis...</span>
+              <span className="text-amber-400/60">~2-3 min</span>
+            </div>
+          )}
+
           {description && (
             <p
               className={`mt-3 text-sm leading-relaxed md:mt-1 md:leading-snug ${
