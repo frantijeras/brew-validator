@@ -220,29 +220,6 @@ export function PhaseCard({
         >
           {String(number).padStart(2, "0")}
         </span>
-        {/* Icono de fase — siempre visible. Se sustituye por Loader2 durante processing.
-            Tamaño: size-4 en móvil, size-5 en desktop (md:size-5). */}
-        <div
-          className={`shrink-0 ${
-            isProcessing ? "text-amber-400" : toneIconStyles[tone]
-          }`}
-        >
-          {isProcessing ? (
-            <Loader2
-              className="size-4 animate-spin md:size-5"
-              aria-label="Procesando..."
-            />
-          ) : (
-            <>
-              {/* Móvil: reescalar el icono del consumer a size-4. */}
-              <span className="block md:hidden [&_svg]:!h-4 [&_svg]:!w-4">
-                {icon}
-              </span>
-              {/* Desktop: icono en su tamaño original (size-5). */}
-              <span className="hidden md:inline-flex">{icon}</span>
-            </>
-          )}
-        </div>
         <h3
           className={`min-w-0 flex-1 truncate text-lg font-medium leading-snug md:text-base md:font-semibold md:leading-tight ${
             isInactive
