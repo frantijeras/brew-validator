@@ -1,6 +1,28 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
+/**
+ * Sub-step artifact shape. The agent emits this JSON when a sub-step produces
+ * an intermediate artifact (e.g. 3 mockup options, 3 naming rounds, 3
+ * unit-economics scenarios). The bridge stores it in `subStepArtifact` and
+ * puts the phase in `SUBSTEP_READY` so the UI can show it for user review.
+ */
+interface SubStepArtifact {
+  type: "html" | "markdown";
+  content: string;
+  options?: Array<{ value: string; label: string }>;
+}
+
+/**
+ * POST /api/webhooks/project-phase-callback
+ *
+ * Bridge webhook que recibe el resultado de un job de ProjectPhase. Soporta:
+ *  - mode "questions" (job 1 — quiz): guarda `questions` y pone la fase en QUESTIONING.
+ *  - mode "report" + subStep final: guarda el output en `artifacts` y completa la fase.
+ *  - mode "report" + subStep intermedio: guarda el output en `subStepArtifact` y
+ *    pone la fase en SUBSTEP_READY para que el usuario revise y elija/iterate.
+ */
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -26,7 +48,7 @@ export async function POST(req: Request) {
           : {};
     const projectId = (jobInput as any)?.projectId;
     const phaseId = (jobInput as any)?.phaseId;
-    const phaseType = (jobInput as any)?.phaseType;
+    const subStep = (jobInput as any)?.subStep as string | null | undefined;
 
     if (status === "COMPLETED" && output) {
       // Parse output
@@ -49,6 +71,7 @@ export async function POST(req: Request) {
             data: {
               status: "QUESTIONING",
               questions: questions,
+              subStep: subStep || "quiz",
             },
           });
         } else {
@@ -59,46 +82,111 @@ export async function POST(req: Request) {
           });
         }
       } else if (phaseId) {
-        // ── REPORT MODE: store artifact, mark completed, unlock next ──
-        const reportMarkdown =
-          typeof parsedOutput.reportMarkdown === "string"
-            ? parsedOutput.reportMarkdown
-            : String(output);
+        // ── REPORT MODE ──
+        // Detect if this is a sub-step intermediate output (naming/mockup/compare/...)
+        // or the final sub-step ("final"). The agent emits `subStep` in its output,
+        // but the bridge can also infer it from the job input.
+        const outputSubStep = (parsedOutput.subStep as string | undefined) ?? subStep ?? null;
+        const isIntermediate = outputSubStep && outputSubStep !== "final";
+        // The agent may emit the intermediate artifact as `subStepArtifact` OR as
+        // `reportMarkdown`/`content` + `options`. We accept both shapes.
+        const artifact: SubStepArtifact | null =
+          (parsedOutput.subStepArtifact as SubStepArtifact | undefined) ??
+          (parsedOutput.subStepArtifactJson as SubStepArtifact | undefined) ??
+          (parsedOutput.content && (parsedOutput.options || (parsedOutput.type === "html"))
+            ? {
+                type: (parsedOutput.type as "html" | "markdown") || "markdown",
+                content: String(parsedOutput.content),
+                options: (parsedOutput.options as Array<{ value: string; label: string }> | undefined) ?? undefined,
+              }
+            : null);
 
-        const extraFields: Record<string, string> = {};
-        for (const [k, v] of Object.entries(parsedOutput)) {
-          if (k !== "reportMarkdown" && k !== "mode" && typeof v === "string") {
-            extraFields[k] = v;
-          }
-        }
-
-        const phase = await prisma.projectPhase.findUnique({ where: { id: phaseId } });
-        if (phase) {
-          const artifact = {
-            title: phase.label,
-            content: reportMarkdown,
-            type: phase.type,
-            ...extraFields,
+        if (isIntermediate && artifact) {
+          // ── INTERMEDIATE SUB-STEP ──
+          // Persist the artifact in subStepArtifact + mark phase as SUBSTEP_READY.
+          // We DON'T unlock the next phase — the user must review first.
+          const artifactJson: Prisma.InputJsonValue = {
+            type: artifact.type,
+            content: artifact.content,
+            ...(artifact.options
+              ? { options: artifact.options as unknown as Prisma.InputJsonValue }
+              : {}),
           };
-
+          const data: Prisma.ProjectPhaseUpdateInput = {
+            status: "SUBSTEP_READY",
+            subStep: outputSubStep,
+            subStepArtifact: artifactJson,
+          };
+          if (artifact.options && artifact.options.length > 0) {
+            data.questions = artifact.options.map((o) => ({
+              id: `substep_option_${o.value}`,
+              label: o.label,
+              type: "choice",
+              options: [o],
+            })) as unknown as Prisma.InputJsonValue;
+          } else {
+            data.questions = Prisma.JsonNull;
+          }
           await prisma.projectPhase.update({
             where: { id: phaseId },
-            data: {
-              status: "COMPLETED",
-              completedAt: new Date(),
-              artifacts: [artifact],
-            },
+            data,
           });
+        } else {
+          // ── FINAL REPORT (or fallback when artifact shape is unexpected) ──
+          // Store in artifacts and complete the phase.
+          const reportMarkdown =
+            typeof parsedOutput.reportMarkdown === "string"
+              ? parsedOutput.reportMarkdown
+              : typeof parsedOutput.content === "string"
+                ? parsedOutput.content
+                : String(output);
 
-          // Unlock the next phase
-          const nextPhase = await prisma.projectPhase.findFirst({
-            where: { projectId, sortOrder: phase.sortOrder + 1 },
-          });
-          if (nextPhase) {
+          const extraFields: Record<string, string> = {};
+          for (const [k, v] of Object.entries(parsedOutput)) {
+            if (
+              k !== "reportMarkdown" &&
+              k !== "mode" &&
+              k !== "subStep" &&
+              k !== "subStepArtifact" &&
+              k !== "subStepArtifactJson" &&
+              k !== "type" &&
+              k !== "content" &&
+              k !== "options" &&
+              typeof v === "string"
+            ) {
+              extraFields[k] = v;
+            }
+          }
+
+          const phase = await prisma.projectPhase.findUnique({ where: { id: phaseId } });
+          if (phase) {
+            const artifactEntry = {
+              title: phase.label,
+              content: reportMarkdown,
+              type: phase.type,
+              ...extraFields,
+            };
+
             await prisma.projectPhase.update({
-              where: { id: nextPhase.id },
-              data: { status: "AVAILABLE" },
+              where: { id: phaseId },
+              data: {
+                status: "COMPLETED",
+                completedAt: new Date(),
+                subStep: outputSubStep,
+                artifacts: [artifactEntry],
+              },
             });
+
+            // Unlock the next phase
+            const nextPhase = await prisma.projectPhase.findFirst({
+              where: { projectId, sortOrder: phase.sortOrder + 1 },
+            });
+            if (nextPhase) {
+              await prisma.projectPhase.update({
+                where: { id: nextPhase.id },
+                data: { status: "AVAILABLE" },
+              });
+            }
           }
         }
       }
@@ -124,12 +212,17 @@ export async function POST(req: Request) {
         },
       });
 
-      // If phase was in a question/processing state, unlock it so user can retry
+      // If phase was in a question/processing/substep state, unlock it so user can retry
       if (phaseId) {
         const phase = await prisma.projectPhase.findUnique({
           where: { id: phaseId },
         });
-        if (phase && (phase.status === "QUESTIONING" || phase.status === "PROCESSING")) {
+        if (
+          phase &&
+          (phase.status === "QUESTIONING" ||
+            phase.status === "PROCESSING" ||
+            phase.status === "SUBSTEP_READY")
+        ) {
           await prisma.projectPhase.update({
             where: { id: phaseId },
             data: { status: "AVAILABLE" },

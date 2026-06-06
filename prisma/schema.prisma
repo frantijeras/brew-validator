@@ -178,10 +178,13 @@ model ProjectPhase {
   type        PhaseType
   label       String
   description String?
-  status      String    @default("LOCKED") // LOCKED, AVAILABLE, COMPLETED
+  status      String    @default("LOCKED") // LOCKED, AVAILABLE, PROCESSING, QUESTIONING, SUBSTEP_READY, COMPLETED, FAILED
   sortOrder   Int       @default(0)
   artifacts   Json?     // Array de { title, content, type }
   questions   Json?     // Array de preguntas interactivas: { id, label, type }
+  subStep         String?   // "quiz" | "naming" | "mockup" | "compare" | "simulate" | "pilars" | "final"
+  subStepArtifact Json?     // Artefacto intermedio: {type: "html"|"markdown", content: string, options?: [{value,label}]}
+  subStepChoice   String?   // Lo que eligió el usuario: "A" | "B" | "C" | "nombre personalizado" | etc.
   completedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

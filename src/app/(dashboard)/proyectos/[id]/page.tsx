@@ -75,6 +75,11 @@ export default async function ProjectDetailPage({ params }: Props) {
           sortOrder: p.sortOrder,
           artifacts: p.artifacts as Array<{ title: string; type: string }> | null,
           questions: p.questions as Array<{ id: string; label: string; type: string }> | null,
+          subStep: p.subStep,
+          subStepArtifact: p.subStepArtifact as
+            | { type?: "html" | "markdown"; content?: string; options?: Array<{ value: string; label: string }> }
+            | null,
+          subStepChoice: p.subStepChoice,
         }))}
       />
     </div>

@@ -13,17 +13,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Phase not found" }, { status: 404 });
     }
 
-    // Only allow cancel if in PROCESSING or QUESTIONING state
-    if (phase.status !== "PROCESSING" && phase.status !== "QUESTIONING") {
+    // Only allow cancel if in PROCESSING, QUESTIONING or SUBSTEP_READY state
+    if (
+      phase.status !== "PROCESSING" &&
+      phase.status !== "QUESTIONING" &&
+      phase.status !== "SUBSTEP_READY"
+    ) {
       return NextResponse.json({ error: "Phase is not in a cancellable state" }, { status: 409 });
     }
 
-    // Update phase: reset to AVAILABLE, clear any stored questions
+    // Update phase: reset to AVAILABLE, clear any stored questions/artifact
     await prisma.projectPhase.update({
       where: { id: phaseId },
       data: {
         status: "AVAILABLE",
         questions: undefined,
+        subStepArtifact: undefined,
+        subStepChoice: undefined,
       },
     });
 
