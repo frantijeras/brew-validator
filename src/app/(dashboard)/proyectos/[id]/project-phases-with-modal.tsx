@@ -283,8 +283,8 @@ export function ProjectPhasesWithModal({
           return (
             <PhaseCard
               number={0}
-              title="Validación de Idea"
-              description="Datos originales de la validación: problema, propuesta de valor, target, veredicto y reporte del juez"
+              title={phase0.label}
+              description={phase0.description ?? null}
               icon={(() => {
                 if (isCompleted) return <CheckCircle className="size-5" />;
                 if (isLocked) return <Lock className="size-5" />;
