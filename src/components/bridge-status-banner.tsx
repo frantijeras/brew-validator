@@ -1,18 +1,24 @@
 "use client";
 
-import { AlertCircle, RefreshCw, Wifi, WifiOff, Loader2 } from "lucide-react";
+import { AlertCircle, WifiOff, X } from "lucide-react";
 import { useBridgeStatus } from "@/hooks/use-bridge-status";
+import { useState } from "react";
 
 /**
  * Banner that shows bridge status with real feedback:
  * - reachable + processing → amber "Procesando..." (not an error)
  * - reachable + error → red with specific error message
  * - not reachable → red "Bridge caído"
+ *
+ * The banner is dismissible with the X button. When dismissed, the banner
+ * stays hidden for the rest of the session. The user can manually re-check
+ * the bridge status by reloading the page.
  */
 export function BridgeStatusBanner() {
-  const { status, loading, refresh } = useBridgeStatus();
+  const { status, loading } = useBridgeStatus();
+  const [dismissed, setDismissed] = useState(false);
 
-  if (loading) return null;
+  if (loading || dismissed) return null;
   if (!status) return null;
 
   // ── Bridge reachable and healthy ──
@@ -38,11 +44,11 @@ export function BridgeStatusBanner() {
             </p>
           </div>
           <button
-            onClick={() => void refresh()}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-red-700/70 bg-red-950/40 px-3 py-1.5 text-xs font-medium text-red-200 transition-colors hover:bg-red-950/70 hover:text-red-100"
+            onClick={() => setDismissed(true)}
+            className="inline-flex shrink-0 items-center justify-center rounded-md p-1.5 text-red-200/80 transition-colors hover:bg-red-950/40 hover:text-red-100 focus:outline-none focus:ring-2 focus:ring-red-500/40"
+            aria-label="Cerrar aviso"
           >
-            <RefreshCw className="size-3.5" />
-            Reintentar
+            <X className="size-4" />
           </button>
         </div>
       </div>
@@ -89,12 +95,11 @@ export function BridgeStatusBanner() {
           </p>
         </div>
         <button
-          onClick={() => void refresh()}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-red-700/70 bg-red-950/40 px-3 py-1.5 text-xs font-medium text-red-200 transition-colors hover:bg-red-950/70 hover:text-red-100 focus:outline-none focus:ring-2 focus:ring-red-500/40"
-          aria-label="Reintentar comprobación del bridge"
+          onClick={() => setDismissed(true)}
+          className="inline-flex shrink-0 items-center justify-center rounded-md p-1.5 text-red-200/80 transition-colors hover:bg-red-950/40 hover:text-red-100 focus:outline-none focus:ring-2 focus:ring-red-500/40"
+          aria-label="Cerrar aviso"
         >
-          <RefreshCw className="size-3.5" />
-          Reintentar
+          <X className="size-4" />
         </button>
       </div>
     </div>
