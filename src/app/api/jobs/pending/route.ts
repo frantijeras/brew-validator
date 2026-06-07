@@ -5,6 +5,7 @@ const MONITORED_AGENTS = [
   "skeptic", "advocate", "judge",
   "idea-generator", "brew-qa-refiner",
   "project-analyst", "project-branding", "project-content", "project-dev", "project-dossier",
+  "project-business", "project-execution",
 ];
 
 /**

@@ -162,17 +162,22 @@ function parseMarkdownBlocks(md: string): MdBlock[] {
       continue;
     }
 
-    // Table (starts with |)
-    if (trimmed.startsWith("|") && i + 1 < lines.length && lines[i + 1]?.trim().startsWith("|---")) {
-      const headers = trimmed.split("|").map(s => s.trim()).filter(Boolean);
-      i += 2; // skip header + separator
-      const rows: string[][] = [];
-      while (i < lines.length && lines[i]?.trim().startsWith("|")) {
-        rows.push(lines[i].trim().split("|").map(s => s.trim()).filter(Boolean));
-        i++;
+    // Table (starts with |). Separator line is | --- | --- | (with or
+    // without spaces). Match the canonical markdown table separator.
+    if (trimmed.startsWith("|") && i + 1 < lines.length) {
+      const sep = lines[i + 1]?.trim() ?? "";
+      const isTableSep = /^\|[\s:|-]+\|$/.test(sep);
+      if (isTableSep) {
+        const headers = trimmed.split("|").map(s => s.trim()).filter(Boolean);
+        i += 2; // skip header + separator
+        const rows: string[][] = [];
+        while (i < lines.length && lines[i]?.trim().startsWith("|")) {
+          rows.push(lines[i].trim().split("|").map(s => s.trim()).filter(Boolean));
+          i++;
+        }
+        blocks.push({ type: "table", headers, rows });
+        continue;
       }
-      blocks.push({ type: "table", headers, rows });
-      continue;
     }
 
     // Unordered list
@@ -216,6 +221,15 @@ function parseMarkdownBlocks(md: string): MdBlock[] {
     }
     if (paraLines.length > 0) {
       blocks.push({ type: "p", text: paraLines.join(" ") });
+    }
+
+    // Defensive: if none of the branches above advanced `i` for this
+    // line (e.g. an unrecognized syntax like a stray `| ` row from a
+    // malformed table), force-advance to avoid an infinite loop. The
+    // line is rendered as a plain paragraph so it doesn't get lost.
+    if (paraLines.length === 0) {
+      blocks.push({ type: "p", text: stripEmojis(trimmed) });
+      i++;
     }
   }
 
