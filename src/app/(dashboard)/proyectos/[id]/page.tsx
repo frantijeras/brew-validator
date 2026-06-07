@@ -66,6 +66,7 @@ export default async function ProjectDetailPage({ params }: Props) {
         projectId={project.id}
         ideaId={project.ideaId}
         projectName={project.name}
+        memory={project.memory as import("@/lib/project-memory").ProjectMemory | null}
         phases={project.phases.map((p) => ({
           id: p.id,
           type: p.type,

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { X, AlertCircle } from "lucide-react";
+import { X, AlertCircle, Info } from "lucide-react";
 import {
   useWizard,
   useFocusOnStepChange,

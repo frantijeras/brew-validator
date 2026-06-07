@@ -23,6 +23,9 @@ import {
   FileCheck,
   Download,
   Eye,
+  Save,
+  Info,
+  Edit3,
 } from "lucide-react";
 import { PhaseActionButton } from "./phase-action-button";
 import { PhaseQuestionsModal } from "./phase-questions-modal";
@@ -32,6 +35,12 @@ import {
   IDENTITY_SUBSTEP_ORDER,
   getIdentitySubStepIndex,
 } from "@/lib/identity-substeps";
+import {
+  formatMemoryValue,
+  memoryKeyLabels,
+  type ProjectMemory,
+  type MemoryEntry,
+} from "@/lib/project-memory";
 
 interface PhaseData {
   id: string;
@@ -53,6 +62,7 @@ interface ProjectPhasesWithModalProps {
   ideaId: string;
   projectName: string;
   phases: PhaseData[];
+  memory: ProjectMemory | null;
 }
 
 const phaseIcons: Record<string, React.ReactNode> = {
@@ -160,11 +170,21 @@ export function ProjectPhasesWithModal({
   ideaId,
   projectName,
   phases,
+  memory,
 }: ProjectPhasesWithModalProps) {
   const [modalPhase, setModalPhase] = useState<PhaseData | null>(null);
   const [substepModalPhase, setSubstepModalPhase] = useState<PhaseData | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [localMemory, setLocalMemory] = useState<ProjectMemory | null>(memory);
+  const [showMemoryModal, setShowMemoryModal] = useState(false);
+  const [savingMemory, setSavingMemory] = useState(false);
+  const [editFields, setEditFields] = useState<Record<string, string>>({});
   const router = useRouter();
+
+  // Sync localMemory when parent memory changes
+  useEffect(() => {
+    setLocalMemory(memory);
+  }, [memory]);
 
   // Auto-poll: refresh when a phase is PROCESSING / QUESTIONING / SUBSTEP_READY
   // so cancel/refresh is visible. We also poll when the sub-step modal is
@@ -227,6 +247,66 @@ export function ProjectPhasesWithModal({
     }
   }
 
+  // ── Memory edit handlers ──
+  function openMemoryModal() {
+    // Populate edit fields from current memory values (for known keys)
+    const fields: Record<string, string> = {};
+    if (localMemory) {
+      for (const [key, entry] of Object.entries(localMemory)) {
+        if (entry && entry.value !== null && entry.value !== undefined) {
+          fields[key] = typeof entry.value === "string" ? entry.value : JSON.stringify(entry.value);
+        }
+      }
+    }
+    setEditFields(fields);
+    setShowMemoryModal(true);
+  }
+
+  async function handleSaveMemory() {
+    setSavingMemory(true);
+    try {
+      const memoryPatch: Record<string, MemoryEntry> = {};
+      const now = new Date().toISOString();
+      for (const [key, value] of Object.entries(editFields)) {
+        if (value.trim()) {
+          memoryPatch[key] = {
+            value: value.trim(),
+            source: "user",
+            updatedAt: now,
+          };
+        }
+      }
+      const res = await fetch(`/api/projects/${projectId}/memory`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memory: memoryPatch }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        console.error("Error saving memory:", data.error);
+      } else {
+        const data = await res.json();
+        setLocalMemory(data.memory as ProjectMemory);
+        setShowMemoryModal(false);
+      }
+    } catch (err) {
+      console.error("Error saving memory:", err);
+    } finally {
+      setSavingMemory(false);
+    }
+  }
+
+  // ── Build the banner text ──
+  const memoryEntries = localMemory
+    ? Object.entries(localMemory)
+        .filter(([, e]) => e && e.value !== null && e.value !== undefined)
+        .sort((a, b) => {
+          const dateA = a[1]?.updatedAt ?? "";
+          const dateB = b[1]?.updatedAt ?? "";
+          return dateB.localeCompare(dateA); // most recent first
+        })
+    : [];
+
   return (
     <>
       {/* Contenedor de TODAS las tarjetas de fase (Fase 0 + fases del proyecto).
@@ -274,6 +354,53 @@ export function ProjectPhasesWithModal({
             </>
           }
         />
+
+        {/* 📌 Memory banner — decisiones vigentes */}
+        {memoryEntries.length > 0 && (
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3">
+            <div className="flex items-start gap-3">
+              <Info className="mt-0.5 size-4 shrink-0 text-amber-400" />
+              <div className="flex-1 min-w-0">
+                <span className="text-xs font-semibold text-amber-400">
+                  Decisiones vigentes:
+                </span>{" "}
+                <span className="text-xs text-slate-300">
+                  {memoryEntries.slice(0, 5).map(([key, entry], i) => (
+                    <span key={key}>
+                      {i > 0 && " | "}
+                      <span className="text-amber-400/80">
+                        {memoryKeyLabels[key] ?? key}
+                      </span>
+                      =
+                      <span className="text-white">
+                        {formatMemoryValue(entry!.value)}
+                      </span>
+                      {entry!.source && (
+                        <span className="text-slate-500">
+                          {" "}
+                          ({entry!.source === "user" ? "usuario" : `Fase ${entry!.source}`})
+                        </span>
+                      )}
+                    </span>
+                  ))}
+                  {memoryEntries.length > 5 && (
+                    <span className="text-slate-500">
+                      {" "}
+                      +{memoryEntries.length - 5} más
+                    </span>
+                  )}
+                </span>
+              </div>
+              <button
+                onClick={openMemoryModal}
+                className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-400 transition-colors hover:bg-amber-500/20 hover:border-amber-500/50"
+              >
+                <Edit3 className="size-3" />
+                Editar
+              </button>
+            </div>
+          </div>
+        )}
 
         {phases
           .map((phase) => {
@@ -662,6 +789,87 @@ export function ProjectPhasesWithModal({
           />
         );
       })()}
+
+      {/* Memory edit modal */}
+      {showMemoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md max-h-[85vh] flex flex-col rounded-xl border border-slate-700 bg-slate-900 shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4 shrink-0">
+              <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                <Edit3 className="size-4 text-amber-400" />
+                Editar decisiones
+              </h3>
+              <button
+                onClick={() => setShowMemoryModal(false)}
+                disabled={savingMemory}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors disabled:opacity-50"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-4">
+              <p className="text-xs text-slate-400">
+                Las decisiones que establezcas aquí tendrán prioridad sobre las decisiones automáticas de las fases.
+              </p>
+
+              {(Object.keys(memoryKeyLabels) as string[]).map((key) => (
+                <div key={key} className="space-y-1.5">
+                  <label className="block text-xs font-medium text-slate-300 capitalize">
+                    {memoryKeyLabels[key] ?? key}
+                    {localMemory?.[key] && localMemory[key]!.source !== "user" && (
+                      <span className="ml-1.5 text-slate-500 font-normal">
+                        — definido por Fase {localMemory[key]!.source}
+                      </span>
+                    )}
+                    {localMemory?.[key] && localMemory[key]!.source === "user" && (
+                      <span className="ml-1.5 text-amber-400 font-normal">
+                        — definido por usuario
+                      </span>
+                    )}
+                  </label>
+                  <input
+                    type="text"
+                    value={editFields[key] ?? ""}
+                    onChange={(e) =>
+                      setEditFields((prev) => ({ ...prev, [key]: e.target.value }))
+                    }
+                    placeholder={localMemory?.[key] ? formatMemoryValue(localMemory[key]!.value) : `Sin definir`}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="shrink-0 border-t border-slate-800 px-5 py-4 flex items-center gap-3">
+              <button
+                onClick={handleSaveMemory}
+                disabled={savingMemory}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {savingMemory ? (
+                  <>
+                    <span className="inline-block size-4 animate-spin rounded-full border-2 border-slate-950 border-t-transparent" />
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="size-4" />
+                    Guardar
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => setShowMemoryModal(false)}
+                disabled={savingMemory}
+                className="text-sm text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
