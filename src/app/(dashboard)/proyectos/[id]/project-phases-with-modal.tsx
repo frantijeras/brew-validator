@@ -570,6 +570,7 @@ export function ProjectPhasesWithModal({
           subStep={substepModalPhase.subStep || "final"}
           subStepArtifact={substepModalPhase.subStepArtifact}
           subStepChoice={substepModalPhase.subStepChoice}
+          currentName={projectName}
           onResolved={() => {
             // When the user confirms / iterates, the parent (page.tsx) will
             // pick up the new PROCESSING status on the next router.refresh.
