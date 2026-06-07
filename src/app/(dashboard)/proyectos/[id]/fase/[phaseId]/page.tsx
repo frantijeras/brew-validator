@@ -1,16 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import { renderMarkdown } from "@/components/markdown-renderer";
+
+interface PhaseContent {
+  title: string;
+  content: string;
+  contentType: string;
+}
 
 export default function PhaseViewPage() {
   const params = useParams<{ id: string; phaseId: string }>();
-  const projectId = params.id;
-  const phaseId = params.phaseId;
-
-  const [html, setHtml] = useState<string | null>(null);
+  const [data, setData] = useState<PhaseContent | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,17 +26,20 @@ export default function PhaseViewPage() {
       setError(null);
       try {
         const res = await fetch(
-          `/api/projects/${projectId}/phases/${phaseId}/view`
+          `/api/projects/${params.id}/phases/${params.phaseId}/content`
         );
         if (!res.ok) {
-          const data = await res.json().catch(() => null);
+          const body = await res.json().catch(() => null);
           throw new Error(
-            data?.error || `Error ${res.status}: No se pudo cargar el contenido`
+            body?.error ||
+              (res.status === 404
+                ? "Fase no encontrada"
+                : "Error al cargar el contenido")
           );
         }
-        const text = await res.text();
+        const json = await res.json();
         if (!cancelled) {
-          setHtml(text);
+          setData(json);
         }
       } catch (err) {
         if (!cancelled) {
@@ -49,60 +56,81 @@ export default function PhaseViewPage() {
     return () => {
       cancelled = true;
     };
-  }, [projectId, phaseId]);
+  }, [params.id, params.phaseId]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="max-w-4xl mx-auto py-12 px-4">
+        <Link
+          href={`/proyectos/${params.id}`}
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-6"
+        >
+          <ArrowLeft className="size-4" />
+          Volver al proyecto
+        </Link>
+        <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-6 text-center">
+          <p className="text-destructive font-medium">
+            {error || "No se pudo cargar el informe"}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const htmlContent =
+    data.contentType === "html" ? data.content : renderMarkdown(data.content);
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header con breadcrumb */}
-      <header className="shrink-0 border-b border-slate-800 bg-slate-900/80 backdrop-blur-sm">
-        <div className="px-4 py-3 sm:px-6">
-          <Link
-            href={`/proyectos/${projectId}`}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700/60 hover:text-white hover:border-slate-600"
-          >
-            <ArrowLeft className="size-4" />
-            Volver al proyecto
-          </Link>
+    <div className="max-w-4xl mx-auto py-8 px-4">
+      {/* Breadcrumb */}
+      <Link
+        href={`/proyectos/${params.id}`}
+        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6 group"
+      >
+        <ArrowLeft className="size-4 group-hover:-translate-x-0.5 transition-transform" />
+        Volver al proyecto
+      </Link>
+
+      {/* Report content */}
+      <div className="bg-card border rounded-xl shadow-sm">
+        <div className="px-6 py-4 border-b">
+          <h1 className="text-xl font-semibold">{data.title}</h1>
         </div>
-      </header>
-
-      {/* Contenido */}
-      <main className="flex-1 min-h-0">
-        {loading && (
-          <div className="flex items-center justify-center py-32">
-            <div className="flex flex-col items-center gap-3 text-slate-400">
-              <Loader2 className="size-8 animate-spin" />
-              <span className="text-sm">Cargando contenido...</span>
-            </div>
-          </div>
-        )}
-
-        {error && (
-          <div className="flex items-center justify-center py-32">
-            <div className="flex flex-col items-center gap-3 max-w-md text-center">
-              <AlertTriangle className="size-8 text-red-400" />
-              <p className="text-sm text-red-400">{error}</p>
-              <Link
-                href={`/proyectos/${projectId}`}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/60 px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700/60 hover:text-white"
-              >
-                <ArrowLeft className="size-4" />
-                Volver al proyecto
-              </Link>
-            </div>
-          </div>
-        )}
-
-        {html && !loading && (
-          <iframe
-            srcDoc={html}
-            sandbox="allow-same-origin"
-            className="w-full border-0"
-            style={{ minHeight: "100vh" }}
-            title="Contenido de la fase"
-          />
-        )}
-      </main>
+        <div className="px-6 py-6">
+          {data.contentType === "html" ? (
+            <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
+          ) : (
+            <div
+              className="prose prose-sm dark:prose-invert max-w-none
+                prose-headings:text-foreground prose-p:text-foreground/85
+                prose-strong:text-foreground prose-a:text-primary
+                prose-li:text-foreground/85
+                [&_table]:w-full [&_table]:border-collapse
+                [&_th]:border [&_th]:border-border [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:bg-muted/50 [&_th]:text-xs [&_th]:font-semibold
+                [&_td]:border [&_td]:border-border [&_td]:px-3 [&_td]:py-2 [&_td]:text-sm
+                [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mt-8 [&_h1]:mb-4
+                [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mt-6 [&_h2]:mb-3
+                [&_h3]:text-base [&_h3]:font-medium [&_h3]:mt-4 [&_h3]:mb-2
+                [&_p]:leading-relaxed [&_p]:mb-3
+                [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-4
+                [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-4
+                [&_blockquote]:border-l-4 [&_blockquote]:border-primary/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted-foreground
+                [&_hr]:my-6 [&_hr]:border-border
+                [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_code]:font-mono
+                [&_pre]:bg-muted [&_pre]:p-4 [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_pre]:text-sm"
+              dangerouslySetInnerHTML={{ __html: htmlContent }}
+            />
+          )}
+        </div>
+      </div>
     </div>
   );
 }
