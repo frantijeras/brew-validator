@@ -84,7 +84,7 @@ export default async function ProyectosPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {projects.map((project) => {
-            const total = 6;
+            const total = project.phases.length + 1; // +1 for inherited Phase 00
             const completedPhases = project.phases.filter(
               (p) => p.status === "COMPLETED"
             ).length;

@@ -14,7 +14,7 @@ export async function GET() {
     });
 
     const items = projects.map((p) => {
-      const total = 6;
+      const total = p.phases.length + 1; // +1 for inherited Phase 00
       const completedPhases = p.phases.filter((ph) => ph.status === "COMPLETED").length + 1; // +1 for inherited Phase 00
       const currentPhase = p.phases.find((ph) => ph.status !== "COMPLETED" && ph.status !== "LOCKED");
 
