@@ -83,15 +83,15 @@ export default function DashboardLayout({
               Navegación
             </p>
             <div className="space-y-1">
-              <NavItem href="/ideas" icon="lightbulb" label="Ideas" />
-              <NavItem href="/proyectos" icon="folder" label="Proyectos" />
               <Link
                 href="/ideas"
                 className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-amber-400 transition-colors hover:bg-amber-500/10"
               >
                 <PlusIcon />
-                Nuevo proyecto
+                Nueva idea
               </Link>
+              <NavItem href="/ideas" icon="lightbulb" label="Ideas" />
+              <NavItem href="/proyectos" icon="folder" label="Proyectos" />
             </div>
           </div>
 
@@ -105,7 +105,6 @@ export default function DashboardLayout({
             </p>
             <div className="space-y-1">
               <NavItem href="/settings" icon="settings" label="Ajustes" />
-              <BridgeStatusItem />
             </div>
           </div>
         </div>
@@ -242,29 +241,6 @@ function statusText(status: string): string {
     case "questioning": return "Esperando respuestas";
     default: return "En progreso";
   }
-}
-
-/* ── Bridge status ── */
-
-function BridgeStatusItem() {
-  const [online, setOnline] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    fetch("/api/bridge/status")
-      .then((r) => r.json())
-      .then((d) => setOnline(d.online === true))
-      .catch(() => setOnline(false));
-  }, []);
-
-  return (
-    <div className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-400">
-      <div className={`size-2 rounded-full ${online === true ? "bg-green-500" : online === false ? "bg-red-500" : "bg-slate-600"}`} />
-      <span>Estado del bridge</span>
-      <span className="ml-auto text-xs text-slate-500">
-        {online === true ? "online" : online === false ? "offline" : "..."}
-      </span>
-    </div>
-  );
 }
 
 /* ── Version ── */
