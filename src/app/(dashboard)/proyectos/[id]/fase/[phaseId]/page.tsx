@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Download, Loader2 } from "lucide-react";
 import { renderMarkdown } from "@/components/markdown-renderer";
 
 interface PhaseContent {
@@ -90,14 +90,25 @@ export default function PhaseViewPage() {
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
-      {/* Breadcrumb */}
-      <Link
-        href={`/proyectos/${params.id}`}
-        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6 group"
-      >
-        <ArrowLeft className="size-4 group-hover:-translate-x-0.5 transition-transform" />
-        Volver al proyecto
-      </Link>
+      {/* Header row: breadcrumb + download button */}
+      <div className="flex justify-between items-center mb-6">
+        <Link
+          href={`/proyectos/${params.id}`}
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group"
+        >
+          <ArrowLeft className="size-4 group-hover:-translate-x-0.5 transition-transform" />
+          Volver al proyecto
+        </Link>
+
+        <a
+          href={`/api/projects/${params.id}/phases/${params.phaseId}/download`}
+          className="inline-flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors font-medium"
+          download
+        >
+          <Download className="size-4" />
+          Descargar PDF
+        </a>
+      </div>
 
       {/* Report content */}
       <div className="bg-card border rounded-xl shadow-sm">
