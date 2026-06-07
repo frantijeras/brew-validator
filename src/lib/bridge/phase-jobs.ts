@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/db";
 import { resolveModelForJobAgent } from "@/lib/agent-models";
+import { buildAgentContextRules } from "@/lib/agent-context-rules";
+import type { ProjectMemory } from "@/lib/project-memory";
 import {
   getNextIdentitySubStep,
   getIdentitySubStepIndex,
@@ -91,6 +93,13 @@ export async function enqueuePhaseJob(
       },
     },
   });
+
+  // Load Project.memory separately to avoid polluting the include chain
+  const projectMemoryDoc = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { memory: true },
+  });
+  const projectMemory = (projectMemoryDoc?.memory as ProjectMemory) ?? null;
   if (!project) {
     throw new Error("Project not found");
   }
@@ -166,6 +175,8 @@ export async function enqueuePhaseJob(
       ? getIdentitySubStepIndex(effectiveSubStep)
       : null;
 
+  const contextRules = buildAgentContextRules(projectMemory);
+
   const jobInput: Record<string, unknown> = {
     mode,
     subStep: effectiveSubStep,
@@ -175,6 +186,8 @@ export async function enqueuePhaseJob(
     phaseType,
     ideaContext,
     previousArtifacts,
+    projectMemory: projectMemory ?? {},
+    contextRules,
     _bridgeModel: model,
   };
 
