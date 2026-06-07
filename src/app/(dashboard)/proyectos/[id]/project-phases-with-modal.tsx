@@ -86,18 +86,18 @@ const phaseBgColors: Record<string, string> = {
 };
 
 /**
- * Human label for the download button on a COMPLETED phase, keyed by PhaseType.
- * Falls back to "Descargar" if a phase type is somehow missing.
+ * Phase 4 refactor: the download + view buttons are now CONSISTENT across
+ * all phases (and across the validation phase 0). Both buttons say the
+ * same thing regardless of phase type:
+ *   - Left:  "Ver"              (secondary outline, opens HTML in new tab)
+ *   - Right: "Descargar PDF"    (primary download, attachment PDF)
+ *
+ * The previous per-phase download labels (e.g. "Descargar brand book")
+ * are gone — keeping them was inconsistent and the user explicitly
+ * asked for symmetric, predictable labels.
  */
-const phaseDownloadLabels: Record<string, string> = {
-  ANALYSIS: "Descargar análisis",
-  IDENTITY: "Descargar brand book",
-  CONTENT: "Descargar estrategia",
-  DEVELOPMENT: "Descargar skill técnica",
-  DOSSIER: "Descargar dossier",
-  BUSINESS: "Descargar plan de negocio",
-  EXECUTION: "Descargar dossier",
-};
+const PHASE4_VIEW_LABEL = "Ver";
+const PHASE4_DOWNLOAD_LABEL = "Descargar PDF";
 
 /**
  * Human label for the "Revisar" button shown when a phase is in
@@ -130,6 +130,8 @@ const subStepReviewLabels: Record<string, string> = {
 const btnStyles = {
   primary:
     "inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed",
+  secondary:
+    "inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/40 px-4 py-2 text-sm font-medium text-slate-200 transition-all hover:bg-slate-700/60 hover:border-slate-600",
   download:
     "inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/60 px-4 py-2 text-sm font-medium text-slate-100 transition-all hover:bg-slate-700/60 hover:border-slate-600",
   downloadDisabled:
@@ -234,8 +236,15 @@ export function ProjectPhasesWithModal({
       <div className="space-y-3">
         {/* Fase 00 — Validación de Idea (heredada de la fase de ideas).
             Siempre se muestra como completada porque la validación ya se
-            realizó en la fase de ideas. Las acciones son solo "Ver detalles"
-            hacia la vista read-only de la idea original. */}
+            realizó en la fase de ideas.
+
+            Phase 4 refactor: en lugar del antiguo "Ver detalles" que
+            abría la página de la idea en modo read-only (con UI
+            sobrecargada de elementos de edición), ahora seguimos el
+            mismo patrón simétrico que las fases reales del proyecto:
+              - "Ver" → abre el HTML consolidado en una pestaña nueva
+              - "Descargar PDF" → descarga el PDF consolidado
+            Las URLs apuntan a /api/projects/[id]/validation/{view,download}. */}
         <PhaseCard
           number={0}
           title="Validación de Idea"
@@ -244,13 +253,25 @@ export function ProjectPhasesWithModal({
           status="completed"
           tone="green"
           actions={
-            <a
-              href={`/ideas/${ideaId}?readonly=true&projectId=${projectId}`}
-              className={`${btnStyles.download} shadow`}
-            >
-              <Eye className="size-4" />
-              Ver detalles
-            </a>
+            <>
+              <a
+                href={`/api/projects/${projectId}/validation/view`}
+                target="_blank"
+                rel="noopener"
+                className={`${btnStyles.secondary} shadow`}
+              >
+                <Eye className="size-4" />
+                {PHASE4_VIEW_LABEL}
+              </a>
+              <a
+                href={`/api/projects/${projectId}/validation/download`}
+                className={`${btnStyles.download} shadow`}
+                download
+              >
+                <Download className="size-4" />
+                {PHASE4_DOWNLOAD_LABEL}
+              </a>
+            </>
           }
         />
 
@@ -277,7 +298,6 @@ export function ProjectPhasesWithModal({
           const hasQuestions = isQuestioning && questions && questions.length > 0;
           const hasArtifacts = isCompleted && artifacts && artifacts.length > 0;
 
-          const downloadLabel = phaseDownloadLabels[phase.type] || "Descargar";
           const reviewLabel =
             (phase.subStep && subStepReviewLabels[phase.subStep]) || "Revisar sub-paso";
 
@@ -437,6 +457,21 @@ export function ProjectPhasesWithModal({
                   );
                 }
                 if (isCompleted && hasArtifacts) {
+                  // Phase 4: symmetric "Ver" + "Descargar PDF" buttons.
+                  // The HTML view is opened in a new tab; the PDF triggers
+                  // a download. Both labels are consistent across all phases.
+                  list.push(
+                    <a
+                      key="view"
+                      href={`/api/projects/${projectId}/phases/${phase.id}/view`}
+                      target="_blank"
+                      rel="noopener"
+                      className={btnStyles.secondary}
+                    >
+                      <Eye className="size-4" />
+                      {PHASE4_VIEW_LABEL}
+                    </a>
+                  );
                   list.push(
                     <a
                       key="download"
@@ -445,7 +480,7 @@ export function ProjectPhasesWithModal({
                       download
                     >
                       <Download className="size-4" />
-                      {downloadLabel}
+                      {PHASE4_DOWNLOAD_LABEL}
                     </a>
                   );
                 }

@@ -567,3 +567,276 @@ export function generatePdf(filename: string, data: ExportData): void {
 
   doc.save(filename);
 }
+
+/* ─────────────────────────────────────────────────────────────────────
+ * PHASE 4 — Project phase report export
+ *
+ * `buildReportPdf` is the generic markdown → PDF converter used by:
+ *   - GET /api/projects/[id]/phases/[phaseId]/download  (project phases)
+ *   - GET /api/projects/[id]/validation/download        (phase 0 / idea)
+ *
+ * Unlike `generatePdf` (above) which is purpose-built for the ideas
+ * validation reports, `buildReportPdf` takes raw markdown + metadata
+ * and produces a clean, paginated PDF buffer.
+ *
+ * Key differences from `generatePdf`:
+ *   - Returns a Buffer (not saved to disk) so it can be streamed by
+ *     Next.js route handlers.
+ *   - Header shows `projectName — title` + generation date.
+ *   - Page numbers in the footer.
+ *   - Markdown rendering uses the shared `parseMarkdownBlocks` helper.
+ *
+ * Supports: headings (h1-h4), paragraphs, bullet lists, ordered lists,
+ * tables, bold lines (`**Label:** rest`), and horizontal rules.
+ * ───────────────────────────────────────────────────────────────────── */
+
+/** Parameters for `buildReportPdf`. */
+export interface BuildReportPdfParams {
+  /** Title of the report (e.g. "Brand Book", "Análisis de Mercado"). */
+  title: string;
+  /** Markdown body. May be a single document or multiple sections. */
+  content: string;
+  /** Phase type key (e.g. "IDENTITY", "VALIDATION"). Used in the header. */
+  phaseType: string;
+  /** Project name shown in the header. */
+  projectName: string;
+  /** Generation timestamp. Defaults to `new Date()`. */
+  generatedAt?: Date;
+}
+
+export function buildReportPdf(params: BuildReportPdfParams): Buffer {
+  const { title, content, phaseType, projectName } = params;
+  const generatedAt = params.generatedAt ?? new Date();
+
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  let y = MARGIN;
+  const pageH = doc.internal.pageSize.getHeight();
+  const pageW = doc.internal.pageSize.getWidth();
+  // CONTENT_W = pageW - MARGIN*2 (use a local recompute to be safe across formats)
+  const localContentW = pageW - MARGIN * 2;
+
+  function checkSpace(needed: number): void {
+    if (y + needed > pageH - MARGIN) {
+      addPage();
+    }
+  }
+
+  function addPage(): void {
+    doc.addPage();
+    y = MARGIN;
+  }
+
+  function drawHr(): void {
+    checkSpace(4);
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.line(MARGIN, y, PAGE_W - MARGIN, y);
+    y += 5;
+  }
+
+  /**
+   * Render a single text line at the current y, advancing y based on
+   * the number of wrapped lines. If a bold prefix is provided, the
+   * first chunk is rendered in bold and the rest in normal weight.
+   */
+  function writeText(
+    text: string,
+    size: number,
+    color: [number, number, number],
+    style: "normal" | "bold" = "normal",
+    indent = 0
+  ): void {
+    doc.setFont("helvetica", style);
+    doc.setFontSize(size);
+    doc.setTextColor(...color);
+    const lines = doc.splitTextToSize(text, localContentW - indent);
+    for (const line of lines) {
+      checkSpace(size * 0.6);
+      doc.text(line, MARGIN + indent, y);
+      y += size * 0.5;
+    }
+  }
+
+  function writeMdBlocks(blocks: MdBlock[]): void {
+    for (const block of blocks) {
+      switch (block.type) {
+        case "h1":
+          checkSpace(10);
+          y += 3;
+          writeText(stripEmojis(block.text), 16, C_BLACK, "bold");
+          y += 3;
+          break;
+        case "h2":
+          checkSpace(8);
+          y += 2;
+          writeText(stripEmojis(block.text), 13, C_BLACK, "bold");
+          y += 2;
+          break;
+        case "h3":
+          checkSpace(7);
+          y += 1;
+          writeText(stripEmojis(block.text), 11, C_DARK, "bold");
+          y += 1;
+          break;
+        case "h4":
+          checkSpace(6);
+          writeText(stripEmojis(block.text), 10, C_DARK, "bold");
+          y += 1;
+          break;
+        case "p":
+          writeText(stripEmojis(block.text), 9, C_DARK);
+          y += 2;
+          break;
+        case "bold-line":
+          checkSpace(5);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9);
+          doc.setTextColor(...C_DARK);
+          doc.text(`${stripEmojis(block.label)}:`, MARGIN, y);
+          const labelW = doc.getTextWidth(`${stripEmojis(block.label)}: `);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(...C_DARK);
+          const restLines = doc.splitTextToSize(stripEmojis(block.rest), localContentW - labelW - 2);
+          doc.text(restLines[0] || "", MARGIN + labelW, y);
+          y += 5;
+          for (let r = 1; r < restLines.length; r++) {
+            checkSpace(5);
+            doc.text(restLines[r], MARGIN, y);
+            y += 5;
+          }
+          break;
+        case "ul":
+          for (const item of block.items) {
+            checkSpace(5);
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(9);
+            doc.setTextColor(...C_DARK);
+            doc.text("•", MARGIN + 2, y);
+            const itemLines = doc.splitTextToSize(stripEmojis(item), localContentW - 8);
+            doc.text(itemLines[0], MARGIN + 7, y);
+            y += 5;
+            for (let r = 1; r < itemLines.length; r++) {
+              checkSpace(5);
+              doc.text(itemLines[r], MARGIN + 7, y);
+              y += 5;
+            }
+          }
+          y += 2;
+          break;
+        case "ol":
+          block.items.forEach((item, idx) => {
+            checkSpace(5);
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(9);
+            doc.setTextColor(...C_DARK);
+            doc.text(`${idx + 1}.`, MARGIN + 1, y);
+            const itemLines = doc.splitTextToSize(stripEmojis(item), localContentW - 10);
+            doc.text(itemLines[0], MARGIN + 8, y);
+            y += 5;
+            for (let r = 1; r < itemLines.length; r++) {
+              checkSpace(5);
+              doc.text(itemLines[r], MARGIN + 8, y);
+              y += 5;
+            }
+          });
+          y += 2;
+          break;
+        case "table":
+          if (block.headers.length === 0) break;
+          const colW = localContentW / block.headers.length;
+          checkSpace(6);
+          doc.setFillColor(...C_BG);
+          doc.rect(MARGIN, y - 4, localContentW, 6, "F");
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(8);
+          doc.setTextColor(...C_DARK);
+          block.headers.forEach((h, ci) => {
+            doc.text(stripEmojis(h), MARGIN + ci * colW + 2, y);
+          });
+          y += 5;
+          doc.setFont("helvetica", "normal");
+          for (const row of block.rows) {
+            checkSpace(5);
+            row.forEach((cell, ci) => {
+              doc.text(stripEmojis(cell), MARGIN + ci * colW + 2, y);
+            });
+            y += 5;
+            doc.setDrawColor(230, 230, 230);
+            doc.line(MARGIN, y - 2, PAGE_W - MARGIN, y - 2);
+          }
+          y += 3;
+          break;
+        case "hr":
+          drawHr();
+          break;
+      }
+    }
+  }
+
+  // ── Header (first page only) ──
+  // projectName — title
+  // Phase: <phaseType>    Date: <DD/MM/YYYY>
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(...C_GREY);
+  const headerLine = `${projectName} — ${title}`;
+  doc.text(doc.splitTextToSize(headerLine, localContentW), MARGIN, y);
+  y += 5;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(...C_LIGHT);
+  const dateStr = generatedAt.toLocaleDateString("es-ES", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+  doc.text(`Fase: ${phaseType}    ·    Generado: ${dateStr}`, MARGIN, y);
+  y += 6;
+  drawHr();
+
+  // ── Body ──
+  // If the content already has a top-level heading that matches the title
+  // we skip rendering a duplicate title block. Otherwise we emit a clean
+  // title block at the top.
+  const trimmed = content.trim();
+  const firstHeading = trimmed.match(/^#{1,4}\s+(.+)/);
+  const alreadyHasTitle =
+    firstHeading && stripEmojis(firstHeading[1]).trim().toLowerCase() === stripEmojis(title).trim().toLowerCase();
+
+  if (!alreadyHasTitle) {
+    checkSpace(15);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(20);
+    doc.setTextColor(...C_BLACK);
+    const cleanTitle = stripEmojis(title);
+    const titleLines = doc.splitTextToSize(cleanTitle, localContentW);
+    doc.text(titleLines, MARGIN, y);
+    y += titleLines.length * 8 + 4;
+  }
+
+  // Clean and parse
+  const cleanContent = cleanJudgeReportPdf(trimmed);
+  const blocks = parseMarkdownBlocks(cleanContent);
+  writeMdBlocks(blocks);
+
+  // ── Footer (all pages) ──
+  const totalPages = doc.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(...C_LIGHT);
+    doc.text(
+      `BrewIdea Validator · ${projectName} — ${title}`,
+      MARGIN,
+      pageH - 8
+    );
+    doc.text(`Pág. ${i} / ${totalPages}`, PAGE_W - MARGIN, pageH - 8, { align: "right" });
+  }
+
+  // Return raw bytes (Buffer) so route handlers can stream it.
+  // jsPDF in Node outputs an ArrayBuffer; we copy it into a Node Buffer
+  // for the NextResponse contract.
+  const ab = doc.output("arraybuffer");
+  return Buffer.from(ab);
+}
