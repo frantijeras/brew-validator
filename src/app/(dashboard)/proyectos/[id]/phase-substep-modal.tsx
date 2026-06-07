@@ -16,6 +16,9 @@ import {
   Download,
   Type,
   Palette as PaletteIcon,
+  BookOpen,
+  Printer,
+  Hash,
 } from "lucide-react";
 import { renderMarkdown } from "@/components/markdown-renderer";
 import {
@@ -23,6 +26,12 @@ import {
   getVisualOption,
   type VisualStyleGuide,
 } from "@/lib/identity-visual";
+import {
+  buildBrandBook,
+  brandBookToMarkdown,
+  type BrandBook,
+  type BrandBookSection,
+} from "@/lib/identity-brandbook";
 
 /**
  * SubStep artifact shape (mirrors what the agent emits and the bridge stores
@@ -54,6 +63,17 @@ export interface PhaseSubstepModalProps {
   // After choose/iterate, the parent refetches the phase list. We refresh() to
   // pick up the new status (PROCESSING).
   onResolved?: () => void;
+  // ── Brand Book (final sub-step) data ──
+  /** Raw content from the naming sub-step artifact (used by brandbook). */
+  namingArtifactContent?: string | null;
+  /** Raw content from the voice sub-step artifact (used by brandbook). */
+  voiceArtifactContent?: string | null;
+  /** Raw JSON from the visual sub-step artifact (used by brandbook). */
+  visualArtifactJson?: string | null;
+  /** The variant the user chose in the visual sub-step ("A", "B" or "C"). */
+  visualChoice?: string | null;
+  /** Project description for the brandbook intro. */
+  projectDescription?: string | null;
 }
 
 /**
@@ -129,6 +149,11 @@ export function PhaseSubstepModal({
   subStepChoice,
   currentName,
   onResolved,
+  namingArtifactContent,
+  voiceArtifactContent,
+  visualArtifactJson,
+  visualChoice,
+  projectDescription,
 }: PhaseSubstepModalProps) {
   const router = useRouter();
   const [selectedOption, setSelectedOption] = useState<string | null>(
@@ -161,6 +186,39 @@ export function PhaseSubstepModal({
     if (!isVisualSubStep) return null;
     return getVisualOption(visualContent, visualVariant);
   }, [isVisualSubStep, visualContent, visualVariant]);
+
+  // ── Brand Book sub-step state (IDENTITY final only) ──
+  // The `final` sub-step shows a consolidated Brand Book generated
+  // from the naming, voice and visual outputs. We compute it once.
+  const isBrandBook = useMemo(
+    () => phaseType === "IDENTITY" && subStep === "final",
+    [phaseType, subStep]
+  );
+  const brandBook: BrandBook | null = useMemo(() => {
+    if (!isBrandBook) return null;
+    try {
+      return buildBrandBook({
+        projectName: currentName || "Proyecto sin nombre",
+        namingContent: namingArtifactContent ?? null,
+        voiceContent: voiceArtifactContent ?? null,
+        visualChoice: visualChoice ?? null,
+        visualArtifactJson: visualArtifactJson ?? null,
+        projectContext: { description: projectDescription },
+      });
+    } catch {
+      return null;
+    }
+  }, [
+    isBrandBook,
+    currentName,
+    namingArtifactContent,
+    voiceArtifactContent,
+    visualChoice,
+    visualArtifactJson,
+    projectDescription,
+  ]);
+  const [brandBookActiveSection, setBrandBookActiveSection] =
+    useState<string>("intro");
 
   // ── Rename preview / success state (IDENTITY naming only) ──
   const [pendingName, setPendingName] = useState<string | null>(null);
@@ -203,6 +261,7 @@ export function PhaseSubstepModal({
       // NOTE: we do NOT reset successBanner here — it lives outside the
       // modal lifecycle (rendered as a fixed banner) and should only
       // clear itself on its own timer or on a new rename.
+      setBrandBookActiveSection("intro");
     }
   }, [open, subStepChoice, subStepArtifact?.content, phaseType, subStep]);
 
@@ -494,6 +553,27 @@ export function PhaseSubstepModal({
   }
 
   /**
+   * Opens the Brand Book view in a new tab.
+   */
+  function handleBrandBookView() {
+    const url = `/api/projects/${projectId}/phases/${phaseId}/brandbook/view`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  /**
+   * Downloads the Brand Book as a PDF.
+   */
+  function handleBrandBookDownload() {
+    const url = `/api/projects/${projectId}/phases/${phaseId}/brandbook/download`;
+    const a = document.createElement("a");
+    a.href = url;
+    a.rel = "noopener noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  /**
    * Triggers a native browser download of the current visual variant.
    * The endpoint serves the HTML with `Content-Disposition: attachment`
    * so the browser saves it as `style-guide-{A|B|C}.html`.
@@ -631,7 +711,35 @@ export function PhaseSubstepModal({
             {/* Content: scrollable area with the artifact + choices */}
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
               {/* Artifact preview */}
-              {subStepArtifact ? (
+              {isBrandBook ? (
+                brandBook ? (
+                  <BrandBookFinalPreview
+                    brandBook={brandBook}
+                    activeSection={brandBookActiveSection}
+                    onSectionChange={setBrandBookActiveSection}
+                    projectId={projectId}
+                    phaseId={phaseId}
+                    currentName={currentName || "Proyecto sin nombre"}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center gap-3 py-12">
+                    <Loader2 className="size-8 animate-spin text-amber-400" />
+                    <p className="text-sm text-slate-400">
+                      Generando Brand Book…
+                    </p>
+                    <button
+                      onClick={() => {
+                        // Force a memo recalc by closing and reopening
+                        onClose();
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 transition-all hover:bg-slate-700/60 hover:border-slate-600"
+                    >
+                      <RefreshCw className="size-4" />
+                      Regenerar
+                    </button>
+                  </div>
+                )
+              ) : subStepArtifact ? (
                 isVisualSubStep && visualContent ? (
                   <VisualSubStepPreview
                     options={visualContent.options}
@@ -830,7 +938,26 @@ export function PhaseSubstepModal({
             {/* Footer actions */}
             {!showIterate && (
               <div className="border-t border-slate-800 px-5 py-3 flex items-center justify-end gap-2">
-                {isVisualSubStep ? (
+                {isBrandBook ? (
+                  <>
+                    <button
+                      onClick={() => handleBrandBookView()}
+                      disabled={submitting || !brandBook}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 transition-all hover:bg-slate-700/60 hover:border-slate-600 disabled:opacity-50"
+                    >
+                      <Eye className="size-4" />
+                      Ver
+                    </button>
+                    <button
+                      onClick={() => handleBrandBookDownload()}
+                      disabled={submitting || !brandBook}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 transition-all hover:bg-slate-700/60 hover:border-slate-600 disabled:opacity-50"
+                    >
+                      <Download className="size-4" />
+                      Descargar PDF
+                    </button>
+                  </>
+                ) : isVisualSubStep ? (
                   <>
                     <button
                       onClick={handleDownloadVisual}
@@ -1205,6 +1332,143 @@ function ColorSwatch({ label, hex }: { label: string; hex: string }) {
           {label}
         </p>
         <p className="font-mono text-xs text-slate-200">{hex}</p>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* BrandBookFinalPreview                                               */
+/* ------------------------------------------------------------------ */
+
+interface BrandBookFinalPreviewProps {
+  brandBook: BrandBook;
+  activeSection: string;
+  onSectionChange: (sectionId: string) => void;
+  projectId: string;
+  phaseId: string;
+  currentName: string;
+}
+
+/**
+ * Final sub-step renderer for the IDENTITY phase.
+ *
+ * Shows a two-panel layout:
+ *  - Left: sticky index sidebar with all Brand Book sections.
+ *  - Right: scrollable rendering of the selected section (markdown).
+ *
+ * Also renders a meta summary card at the top with the project name,
+ * voice summary, palette and typography extracted from the visual choice.
+ */
+function BrandBookFinalPreview({
+  brandBook,
+  activeSection,
+  onSectionChange,
+}: BrandBookFinalPreviewProps) {
+  const active = brandBook.sections.find((s) => s.id === activeSection);
+  const section = active || brandBook.sections[0];
+
+  const { visualMeta } = brandBook.meta;
+
+  return (
+    <div className="flex flex-col gap-4 sm:flex-row sm:gap-0">
+      {/* ── Left sidebar: index ── */}
+      <div className="sm:w-56 sm:shrink-0 sm:sticky sm:top-0 sm:self-start sm:max-h-[calc(90vh-200px)] sm:overflow-y-auto">
+        <div className="rounded-lg border border-slate-700 bg-slate-800/40 p-3 space-y-1">
+          <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            <BookOpen className="size-3" />
+            Secciones
+          </p>
+          {brandBook.sections
+            .sort((a, b) => a.order - b.order)
+            .map((s) => {
+              const isActive = s.id === activeSection;
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => onSectionChange(s.id)}
+                  className={`w-full text-left rounded-md px-2.5 py-1.5 text-xs transition-colors ${
+                    isActive
+                      ? "bg-amber-500/15 text-amber-200 font-medium border-l-2 border-amber-500"
+                      : "text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+                  }`}
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <Hash className="size-3 shrink-0 opacity-60" />
+                    <span className="truncate">{s.title}</span>
+                  </span>
+                </button>
+              );
+            })}
+        </div>
+
+        {/* Visual meta summary (compact) */}
+        {visualMeta && (
+          <div className="mt-3 rounded-lg border border-slate-700 bg-slate-800/30 p-3 space-y-2">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              Identidad visual
+            </p>
+            <div className="flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className="inline-block size-4 rounded-full border border-slate-600"
+                style={{ backgroundColor: visualMeta.primaryColor }}
+              />
+              <span className="text-[10px] text-slate-400">
+                {visualMeta.primaryColor}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className="inline-block size-4 rounded-full border border-slate-600"
+                style={{ backgroundColor: visualMeta.secondaryColor }}
+              />
+              <span className="text-[10px] text-slate-400">
+                {visualMeta.secondaryColor}
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-500 leading-relaxed">
+              {visualMeta.fontHeading} / {visualMeta.fontBody}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* ── Right: content ── */}
+      <div className="flex-1 min-w-0 sm:pl-5 sm:border-l border-slate-800">
+        {/* Project name header */}
+        <div className="mb-4 pb-3 border-b border-slate-800">
+          <h2 className="text-lg font-bold text-white">
+            {brandBook.projectName}
+          </h2>
+          <p className="mt-0.5 text-xs text-slate-400">
+            Brand Book ·{" "}
+            {new Date(brandBook.generatedAt).toLocaleDateString("es-ES", {
+              day: "2-digit",
+              month: "long",
+              year: "numeric",
+            })}
+          </p>
+          {brandBook.meta.voiceSummary && (
+            <p className="mt-2 text-xs text-slate-300 leading-relaxed line-clamp-2">
+              {brandBook.meta.voiceSummary}
+            </p>
+          )}
+        </div>
+
+        {/* Section title */}
+        <h3 className="mb-3 text-sm font-semibold text-amber-300 uppercase tracking-wide">
+          {section.title}
+        </h3>
+
+        {/* Section content rendered as markdown */}
+        <div
+          className="markdown-body prose prose-invert prose-sm max-w-none"
+          dangerouslySetInnerHTML={{
+            __html: renderMarkdown(section.content),
+          }}
+        />
       </div>
     </div>
   );

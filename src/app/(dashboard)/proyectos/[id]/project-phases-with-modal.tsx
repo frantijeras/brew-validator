@@ -595,26 +595,73 @@ export function ProjectPhasesWithModal({
       )}
 
       {/* Sub-step modal (SUBSTEP_READY state) */}
-      {substepModalPhase && (
-        <PhaseSubstepModal
-          open={!!substepModalPhase}
-          onClose={() => setSubstepModalPhase(null)}
-          projectId={projectId}
-          phaseId={substepModalPhase.id}
-          phaseType={substepModalPhase.type}
-          subStep={substepModalPhase.subStep || "final"}
-          subStepArtifact={substepModalPhase.subStepArtifact}
-          subStepChoice={substepModalPhase.subStepChoice}
-          currentName={projectName}
-          onResolved={() => {
-            // When the user confirms / iterates, the parent (page.tsx) will
-            // pick up the new PROCESSING status on the next router.refresh.
-            // We also clear the modal here so the polling effect kicks in
-            // and we don't keep the modal open on top of a stale phase.
-            setSubstepModalPhase(null);
-          }}
-        />
-      )}
+      {substepModalPhase && (() => {
+        // For IDENTITY "final" sub-step, extract artifacts from sibling
+        // sub-step states of the same phase. The IDENTITY phase is a single
+        // DB row that mutates through sub-steps, so when we're on "final",
+        // the current row's subStepArtifact/content may still contain the
+        // visual artifact JSON, while naming/voice content is in the
+        // subStepChoice field.
+        const identityPhase =
+          substepModalPhase.type === "IDENTITY"
+            ? phases.find((p) => p.type === "IDENTITY")
+            : null;
+        
+        // Naming: the chosen name is in subStepChoice; the actual artifact
+        // content (options + rationale) might already be gone by the time
+        // we reach `final`. We pass the choice as fallback.
+        const namingContent =
+          identityPhase?.subStep === "naming"
+            ? identityPhase.subStepArtifact?.content ?? null
+            : identityPhase?.subStepChoice
+              ? `**Nombre elegido:** ${identityPhase.subStepChoice}\n\nEl nombre fue seleccionado en la sub-fase de naming.`
+              : null;
+        
+        // Voice: if we're on voice sub-step, the artifact is current;
+        // otherwise it may be lost.
+        const voiceContent =
+          identityPhase?.subStep === "voice"
+            ? identityPhase.subStepArtifact?.content ?? null
+            : null;
+        
+        // Visual: if we're on visual, use the current artifact; if on final,
+        // the visual artifact JSON might still be in subStepArtifact.content.
+        const visualJson =
+          identityPhase?.subStepArtifact?.content ?? null;
+        
+        // Visual choice: the variant the user picked (A/B/C).
+        const chosenVariant =
+          identityPhase?.subStepChoice &&
+          ["A", "B", "C"].includes(identityPhase.subStepChoice)
+            ? identityPhase.subStepChoice
+            : null;
+
+        return (
+          <PhaseSubstepModal
+            open={!!substepModalPhase}
+            onClose={() => setSubstepModalPhase(null)}
+            projectId={projectId}
+            phaseId={substepModalPhase.id}
+            phaseType={substepModalPhase.type}
+            subStep={substepModalPhase.subStep || "final"}
+            subStepArtifact={substepModalPhase.subStepArtifact}
+            subStepChoice={substepModalPhase.subStepChoice}
+            currentName={projectName}
+            namingArtifactContent={namingContent}
+            voiceArtifactContent={voiceContent}
+            visualArtifactJson={visualJson}
+            visualChoice={chosenVariant}
+            projectDescription={null}
+            onResolved={() => {
+              // When the user confirms / iterates, the parent (page.tsx) will
+              // pick up the new PROCESSING status on the next router.refresh.
+              // We also clear the modal here so the polling effect kicks in
+              // and we don't keep the modal open on top of a stale phase.
+              setSubstepModalPhase(null);
+            }}
+          />
+        );
+      })()}
     </>
   );
 }
