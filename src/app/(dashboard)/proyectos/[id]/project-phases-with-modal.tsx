@@ -28,6 +28,10 @@ import { PhaseActionButton } from "./phase-action-button";
 import { PhaseQuestionsModal } from "./phase-questions-modal";
 import { PhaseSubstepModal, type SubStepArtifact } from "./phase-substep-modal";
 import { PhaseCard } from "./phase-card";
+import {
+  IDENTITY_SUBSTEP_ORDER,
+  getIdentitySubStepIndex,
+} from "@/lib/identity-substeps";
 
 interface PhaseData {
   id: string;
@@ -39,6 +43,7 @@ interface PhaseData {
   artifacts: Array<{ title: string; type: string }> | null;
   questions: Array<{ id: string; label: string; type: string }> | null;
   subStep: string | null;
+  subStepOrder: number | null;
   subStepArtifact: { type?: "html" | "markdown"; content?: string; options?: Array<{ value: string; label: string }> } | null;
   subStepChoice: string | null;
 }
@@ -276,12 +281,56 @@ export function ProjectPhasesWithModal({
           const reviewLabel =
             (phase.subStep && subStepReviewLabels[phase.subStep]) || "Revisar sub-paso";
 
+          // ── IDENTITY sub-progress ──
+          // For IDENTITY phases, build a 4-step progress bar that reflects
+          // which sub-step the user is currently on. The bar is suppressed
+          // when the phase is COMPLETED or LOCKED (the PhaseCard already
+          // hides it for those, but we also skip the computation here).
+          let subProgress:
+            | Array<{ label: string; status: "done" | "current" | "pending" }>
+            | undefined;
+          let phaseDescription = phase.description ?? undefined;
+          if (phase.type === "IDENTITY" && !isCompleted && !isLocked) {
+            // Determine the current sub-step index.
+            //  - If subStepOrder is set in DB, use it.
+            //  - Else fall back to the position of phase.subStep in the order.
+            //  - Else (no subStep yet, phase AVAILABLE), treat as step 0 (naming).
+            let currentIdx: number;
+            if (phase.subStepOrder !== null && phase.subStepOrder !== undefined) {
+              currentIdx = phase.subStepOrder;
+            } else if (phase.subStep) {
+              currentIdx = getIdentitySubStepIndex(phase.subStep);
+              if (currentIdx < 0) currentIdx = 0;
+            } else {
+              currentIdx = 0;
+            }
+            // Clamp to valid range, but if the phase is at "final" or beyond
+            // treat the last item as current.
+            const lastIdx = IDENTITY_SUBSTEP_ORDER.length - 1;
+            if (currentIdx < 0) currentIdx = 0;
+            if (currentIdx > lastIdx) currentIdx = lastIdx;
+
+            subProgress = IDENTITY_SUBSTEP_ORDER.map((s, i) => {
+              let stepStatus: "done" | "current" | "pending";
+              if (i < currentIdx) stepStatus = "done";
+              else if (i === currentIdx) stepStatus = "current";
+              else stepStatus = "pending";
+              return { label: s.label, status: stepStatus };
+            });
+
+            // Override the subtitle while in process: "Paso X de 4 — [label]".
+            const currentLabel =
+              IDENTITY_SUBSTEP_ORDER[currentIdx]?.label || "Nombre";
+            phaseDescription = `Paso ${currentIdx + 1} de 4 — ${currentLabel}`;
+          }
+
           return (
             <PhaseCard
               key={phase.id}
               number={phase.sortOrder}
               title={phase.label}
-              description={phase.description ?? undefined}
+              description={phaseDescription}
+              subProgress={subProgress}
               icon={(() => {
                 if (isCompleted) return <CheckCircle className="size-5" />;
                 if (isLocked) return <Lock className="size-5" />;

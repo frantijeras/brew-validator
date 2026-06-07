@@ -44,9 +44,9 @@ export interface PhaseSubstepModalProps {
 
 /**
  * Sub-step kinds that expose a free-text "custom" input. Other kinds
- * (compare/simulate/pilars) only allow choosing from options.
+ * (voice/compare/simulate/pilars) only allow choosing from options.
  */
-const FREE_INPUT_SUBSTEPS = new Set(["naming", "mockup", "final"]);
+const FREE_INPUT_SUBSTEPS = new Set(["naming", "visual", "mockup", "final"]);
 
 /**
  * Modal que muestra el artefacto intermedio de un sub-paso (mockup HTML,
@@ -222,6 +222,8 @@ export function PhaseSubstepModal({
 
   const subStepTitle: Record<string, string> = {
     naming: "Elige un nombre",
+    voice: "Revisa el tono de voz",
+    visual: "Elige un estilo visual",
     mockup: "Elige un estilo visual",
     compare: "Elige una opción técnica",
     simulate: "Elige un escenario",
@@ -369,7 +371,7 @@ export function PhaseSubstepModal({
                 placeholder={
                   subStep === "naming"
                     ? "Ej: Tallow & Glow"
-                    : subStep === "mockup"
+                    : subStep === "visual" || subStep === "mockup"
                       ? "Describe tu propio estilo..."
                       : "Escribe tu propuesta..."
                 }

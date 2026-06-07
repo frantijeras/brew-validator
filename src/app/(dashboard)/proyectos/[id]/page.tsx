@@ -76,6 +76,7 @@ export default async function ProjectDetailPage({ params }: Props) {
           artifacts: p.artifacts as Array<{ title: string; type: string }> | null,
           questions: p.questions as Array<{ id: string; label: string; type: string }> | null,
           subStep: p.subStep,
+          subStepOrder: p.subStepOrder,
           subStepArtifact: p.subStepArtifact as
             | { type?: "html" | "markdown"; content?: string; options?: Array<{ value: string; label: string }> }
             | null,

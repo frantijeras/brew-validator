@@ -185,6 +185,7 @@ model ProjectPhase {
   subStep         String?   // "quiz" | "naming" | "mockup" | "compare" | "simulate" | "pilars" | "final"
   subStepArtifact Json?     // Artefacto intermedio: {type: "html"|"markdown", content: string, options?: [{value,label}]}
   subStepChoice   String?   // Lo que eligió el usuario: "A" | "B" | "C" | "nombre personalizado" | etc.
+  subStepOrder    Int?      // 0, 1, 2, 3 — posición dentro de un flujo multi-sub-step (ej. IDENTITY: naming=0, voice=1, visual=2, final=3). Null en fases que no son multi-step.
   completedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

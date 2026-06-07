@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Download, FileText, Loader2 } from "lucide-react";
+import { Check, Download, FileText, Loader2 } from "lucide-react";
 
 /**
  * PhaseCard — Tarjeta rediseñada (v5: acciones responsive) para una fase
@@ -158,6 +158,13 @@ export interface PhaseCardProps {
   actions?: React.ReactNode;
   /** Etiqueta alternativa para el badge de estado (ej. "Información" para la fase 0). */
   statusLabel?: string;
+  /**
+   * Barra de sub-progreso (ej. IDENTITY: "1/4 Nombre", "2/4 Voz y Tono", ...).
+   * Cuando se pasa, se renderiza justo bajo el badge, mostrando checkmarks
+   * en los items "done" y resaltando el item "current". Solo se muestra si
+   * la fase NO está completed y locked.
+   */
+  subProgress?: Array<{ label: string; status: "done" | "current" | "pending" }>;
 }
 
 export function PhaseCard({
@@ -170,6 +177,7 @@ export function PhaseCard({
   artifacts,
   actions,
   statusLabel,
+  subProgress,
 }: PhaseCardProps) {
   const badge = statusBadgeStyles[status];
   const hasArtifacts = artifacts && artifacts.length > 0;
@@ -243,6 +251,42 @@ export function PhaseCard({
           {statusLabel || badge.label}
         </span>
       </div>
+
+      {/* Sub-progress (ej. IDENTITY 1/4 Nombre, 2/4 Voz y Tono, …). Solo
+          se muestra si la fase no está completada/locked y se ha pasado
+          el array `subProgress`. Cada item es un chip con check (done),
+          dot ámbar (current) o círculo vacío (pending). */}
+      {subProgress && subProgress.length > 0 && status !== "completed" && status !== "locked" && (
+        <div className="mt-2 ml-2 flex flex-wrap items-center gap-1.5">
+          {subProgress.map((step, i) => {
+            const isDone = step.status === "done";
+            const isCurrent = step.status === "current";
+            return (
+              <span
+                key={i}
+                className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${
+                  isCurrent
+                    ? "border-amber-500/40 bg-amber-500/15 text-amber-200"
+                    : isDone
+                      ? "border-green-500/30 bg-green-500/10 text-green-300"
+                      : "border-slate-700 bg-slate-800/60 text-slate-400"
+                }`}
+              >
+                {isDone ? (
+                  <Check className="size-3" />
+                ) : isCurrent ? (
+                  <span className="inline-block size-1.5 rounded-full bg-amber-400" />
+                ) : (
+                  <span className="inline-block size-1.5 rounded-full border border-slate-500" />
+                )}
+                <span>
+                  {i + 1}/{subProgress.length} {step.label}
+                </span>
+              </span>
+            );
+          })}
+        </div>
+      )}
 
       {/* Indicador de progreso: spinner + texto + ETA. Solo durante processing. */}
       {isProcessing && (
