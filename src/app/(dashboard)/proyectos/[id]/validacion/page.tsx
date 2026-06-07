@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Download, Loader2 } from "lucide-react";
-import { renderMarkdown } from "@/components/markdown-renderer";
+import { ReportViewer } from "@/components/report-viewer";
 
 interface ValidationReport {
   id: string;
@@ -12,6 +12,8 @@ interface ValidationReport {
   title: string;
   content: string;
   createdAt: string;
+  scorecard: string | null;
+  verdict: string | null;
 }
 
 interface ValidationData {
@@ -21,12 +23,6 @@ interface ValidationData {
   ideaTitle: string;
   projectName: string;
 }
-
-const AGENT_LABELS: Record<string, string> = {
-  advocate: "Defensor",
-  skeptic: "Escéptico",
-  judge: "Juez",
-};
 
 const AGENT_ORDER = ["advocate", "skeptic", "judge"];
 
@@ -172,40 +168,22 @@ export default function ValidationViewPage() {
         </div>
 
         {/* Card body: reports */}
-        <div className="px-6 py-6 space-y-6">
-          {sortedReports.map((report) => {
-            const label = AGENT_LABELS[report.agentName] || report.agentName;
-            const htmlContent = renderMarkdown(report.content, undefined, true);
-
-            return (
-              <div key={report.id}>
-                <h2 className="text-base font-semibold text-foreground mb-3 flex items-center gap-2">
-                  <span className="size-1.5 rounded-full bg-primary inline-block" />
-                  Reporte {label}
-                </h2>
-                <div
-                  className="prose prose-sm dark:prose-invert max-w-none
-                    prose-headings:text-foreground prose-p:text-foreground/85
-                    prose-strong:text-foreground prose-a:text-primary
-                    prose-li:text-foreground/85
-                    [&_table]:w-full [&_table]:border-collapse
-                    [&_th]:border [&_th]:border-border [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:bg-muted/50 [&_th]:text-xs [&_th]:font-semibold
-                    [&_td]:border [&_td]:border-border [&_td]:px-3 [&_td]:py-2 [&_td]:text-sm
-                    [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mt-8 [&_h1]:mb-4
-                    [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mt-6 [&_h2]:mb-3
-                    [&_h3]:text-base [&_h3]:font-medium [&_h3]:mt-4 [&_h3]:mb-2
-                    [&_p]:leading-relaxed [&_p]:mb-3
-                    [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-4
-                    [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-4
-                    [&_blockquote]:border-l-4 [&_blockquote]:border-primary/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted-foreground
-                    [&_hr]:my-6 [&_hr]:border-border
-                    [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_code]:font-mono
-                    [&_pre]:bg-muted [&_pre]:p-4 [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_pre]:text-sm"
-                  dangerouslySetInnerHTML={{ __html: htmlContent }}
-                />
-              </div>
-            );
-          })}
+        <div className="px-6 py-6 space-y-4">
+          {sortedReports.map((report) => (
+            <ReportViewer
+              key={report.id}
+              report={{
+                id: report.id,
+                title: report.title,
+                agentName: report.agentName,
+                content: report.content,
+                scorecard: report.scorecard,
+                verdict: report.verdict,
+                createdAt: report.createdAt,
+              }}
+              defaultOpen={report.agentName === "judge"}
+            />
+          ))}
         </div>
       </div>
     </div>

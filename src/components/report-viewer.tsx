@@ -16,10 +16,11 @@ interface ReportData {
 
 interface ReportViewerProps {
   report: ReportData;
+  defaultOpen?: boolean;
 }
 
-export function ReportViewer({ report }: ReportViewerProps) {
-  const [open, setOpen] = useState(true);
+export function ReportViewer({ report, defaultOpen }: ReportViewerProps) {
+  const [open, setOpen] = useState(defaultOpen ?? true);
 
   // Omit idea-generator reports — the original idea is already shown above
   if (report.agentName === "idea-generator" || report.agentName === "Generador de ideas") {
