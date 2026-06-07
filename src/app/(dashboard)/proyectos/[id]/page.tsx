@@ -55,7 +55,7 @@ export default async function ProjectDetailPage({ params }: Props) {
             {allCompleted ? "Completado" : "En progreso"}
           </span>
           <span className="text-xs text-slate-500">
-            {project.phases.filter((p) => p.status === "COMPLETED").length + 1}/6 fases
+            {project.phases.filter((p) => p.status === "COMPLETED").length + 1}/{project.phases.length + 1} fases
           </span>
 
         </div>
