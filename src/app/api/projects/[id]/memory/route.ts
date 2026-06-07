@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 import {
   mergeProjectMemory,
   type ProjectMemory,
@@ -103,7 +104,7 @@ export async function PATCH(
 
     const updated = await prisma.project.update({
       where: { id },
-      data: { memory: merged },
+      data: { memory: merged as unknown as Prisma.InputJsonValue },
       select: { id: true, memory: true },
     });
 
