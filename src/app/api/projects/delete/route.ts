@@ -8,9 +8,25 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing projectId" }, { status: 400 });
     }
 
-    // Delete all phases first, then the project
+    // 1. Get ideaId before deleting project
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { ideaId: true },
+    });
+
+    // 2. Delete all phases first, then the project
     await prisma.projectPhase.deleteMany({ where: { projectId } });
     await prisma.project.delete({ where: { id: projectId } });
+
+    // 3. If idea has no other projects, delete idea (cascades to reports)
+    if (project?.ideaId) {
+      const otherProjects = await prisma.project.count({
+        where: { ideaId: project.ideaId, id: { not: projectId } },
+      });
+      if (otherProjects === 0) {
+        await prisma.idea.delete({ where: { id: project.ideaId } });
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
