@@ -50,6 +50,14 @@ export async function GET(
       projectName: assembled.projectName,
     });
 
+    const safeProjectName = assembled.projectName
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40);
+
     const safeTitle = assembled.title
       .toLowerCase()
       .normalize("NFD")
@@ -58,7 +66,7 @@ export async function GET(
       .replace(/^-+|-+$/g, "")
       .slice(0, 60) || "validacion";
 
-    const filename = `${safeTitle}.pdf`;
+    const filename = `${safeProjectName}-${safeTitle}.pdf`;
 
     return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,
