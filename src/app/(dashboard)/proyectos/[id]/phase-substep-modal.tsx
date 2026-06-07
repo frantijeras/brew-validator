@@ -32,6 +32,7 @@ import {
   type BrandBook,
   type BrandBookSection,
 } from "@/lib/identity-brandbook";
+import { getNextIdentitySubStep } from "@/lib/identity-substeps";
 
 /**
  * SubStep artifact shape (mirrors what the agent emits and the bridge stores
@@ -305,11 +306,13 @@ export function PhaseSubstepModal({
   const artifactType: "html" | "markdown" = subStepArtifact?.type || "markdown";
   const artifactContent = subStepArtifact?.content || "";
 
-  // Determine the next sub-step after the user confirms. "final" is the only
-  // terminal value. The agent decides downstream what comes next — we just
-  // pass "final" and the bridge handles the rest (the agent emits the
-  // appropriate `subStep` in its output).
-  const nextSubStepValue = "final";
+  /**
+   * Determine the next sub-step after the user confirms.
+   * For IDENTITY phases, we use the canonical sub-step order (naming → voice →
+   * visual → final → null). For all other phases, "final" is the terminal value.
+   */
+  const nextSubStepValue =
+    phaseType === "IDENTITY" ? getNextIdentitySubStep(subStep) : "final";
 
   /**
    * IDENTITY `naming` interception: fetch the rename-impact preview

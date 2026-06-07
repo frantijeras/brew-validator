@@ -339,15 +339,13 @@ export function ProjectPhasesWithModal({
           tone="green"
           actions={
             <>
-              <a
-                href={`/api/projects/${projectId}/validation/view`}
-                target="_blank"
-                rel="noopener"
+              <Link
+                href={`/proyectos/${projectId}/validacion`}
                 className={`${btnStyles.secondary} shadow`}
               >
                 <Eye className="size-4" />
                 {PHASE4_VIEW_LABEL}
-              </a>
+              </Link>
               <a
                 href={`/api/projects/${projectId}/validation/download`}
                 className={`${btnStyles.download} shadow`}
@@ -476,6 +474,34 @@ export function ProjectPhasesWithModal({
             phaseDescription = `Paso ${currentIdx + 1} de 4 — ${currentLabel}`;
           }
 
+          // ── IDENTITY mini progress bar ──
+          // 4 horizontal segments showing naming → voice → visual → final.
+          let identityMiniBar: React.ReactNode = null;
+          if (phase.type === "IDENTITY" && !isCompleted && !isLocked && subProgress) {
+            const orderIds = IDENTITY_SUBSTEP_ORDER.map((s) => s.id);
+            const activeIdx = subProgress.findIndex((s) => s.status === "current");
+            identityMiniBar = (
+              <div className="flex items-center gap-1.5">
+                {orderIds.map((s, i) => {
+                  const isCompleted = subProgress[i]?.status === "done";
+                  const isActive = i === activeIdx || subProgress[i]?.status === "current";
+                  return (
+                    <div
+                      key={s}
+                      className={`flex-1 h-1.5 rounded-full ${
+                        isCompleted
+                          ? "bg-primary"
+                          : isActive
+                            ? "bg-primary/60 animate-pulse"
+                            : "bg-muted"
+                      }`}
+                    />
+                  );
+                })}
+              </div>
+            );
+          }
+
           return (
             <PhaseCard
               key={phase.id}
@@ -483,6 +509,7 @@ export function ProjectPhasesWithModal({
               title={phase.label}
               description={phaseDescription}
               subProgress={subProgress}
+              miniProgressBar={identityMiniBar}
               icon={(() => {
                 if (isCompleted) return <CheckCircle className="size-5" />;
                 if (isLocked) return <Lock className="size-5" />;

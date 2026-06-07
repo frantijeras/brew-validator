@@ -165,6 +165,12 @@ export interface PhaseCardProps {
    * la fase NO está completed y locked.
    */
   subProgress?: Array<{ label: string; status: "done" | "current" | "pending" }>;
+  /**
+   * Mini barra horizontal de progreso (ej. 4 segmentos para IDENTITY).
+   * Cuando se pasa, se renderiza encima del description (o debajo si no
+   * hay description), con una animación pulse en el segmento activo.
+   */
+  miniProgressBar?: React.ReactNode;
 }
 
 export function PhaseCard({
@@ -178,6 +184,7 @@ export function PhaseCard({
   actions,
   statusLabel,
   subProgress,
+  miniProgressBar,
 }: PhaseCardProps) {
   const badge = statusBadgeStyles[status];
   const hasArtifacts = artifacts && artifacts.length > 0;
@@ -298,6 +305,10 @@ export function PhaseCard({
           <span>Generando análisis...</span>
           <span className="text-amber-400/60">~2-3 min</span>
         </div>
+      )}
+
+      {miniProgressBar && (
+        <div className="mt-2">{miniProgressBar}</div>
       )}
 
       {description && (

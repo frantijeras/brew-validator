@@ -16,8 +16,12 @@
 
 const JUDGE_EMOJI_REGEX = /[📊⭐✅🎯🏆💪🔍❌📈📋✨🔥💡⚖️🛡️🚀💰]/g;
 
-function cleanJudgeReport(markdown: string, agentName?: string): string {
-  if (agentName !== "judge") return markdown;
+/**
+ * Cleans judge/skeptic/advocate report markdown.
+ * Removes scorecard sections, decorative emojis, verdict duplications,
+ * and loose scorecard tables. Only applied when skipClean is false (default).
+ */
+function cleanContent(markdown: string, agentName?: string): string {
 
   let clean = markdown;
 
@@ -92,11 +96,11 @@ function cleanJudgeReport(markdown: string, agentName?: string): string {
 
 // ── Main renderer ─────────────────────────────────────────────────────
 
-export function renderMarkdown(markdown: string, agentName?: string): string {
+export function renderMarkdown(markdown: string, agentName?: string, skipClean?: boolean): string {
   if (!markdown) return "";
 
-  // Clean reports before rendering
-  let html = cleanJudgeReport(markdown, agentName);
+  // Clean reports before rendering (only when skipClean is unset or false)
+  let html = skipClean ? markdown : cleanContent(markdown, agentName);
 
   // Remove emojis from ALL agent reports (they pollute the output)
   if (agentName && agentName !== "idea-generator") {

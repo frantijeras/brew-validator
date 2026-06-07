@@ -86,7 +86,7 @@ export default function PhaseViewPage() {
   }
 
   const htmlContent =
-    data.contentType === "html" ? data.content : renderMarkdown(data.content);
+    data.contentType === "html" ? data.content : renderMarkdown(data.content, undefined, true);
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
