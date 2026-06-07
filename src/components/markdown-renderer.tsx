@@ -216,6 +216,14 @@ export function renderMarkdown(markdown: string, agentName?: string, skipClean?:
     }
   );
 
+  // Before paragraph splitting: ensure list items that follow non-list content
+  // on the previous line get a paragraph break. Without this, bold headers
+  // like **Debilidades** get merged with the list below, causing items to vanish.
+  // We insert \n\n before list-starting lines when the preceding line is NOT blank
+  // and NOT a list item itself.
+  html = html.replace(/([^\n])\n([\t ]*[-*+]\s)/g, "$1\n\n$2");
+  html = html.replace(/([^\n])\n([\t ]*\d+\.\s)/g, "$1\n\n$2");
+
   // Now split into paragraphs (double newline)
   html = html.replace(/\n\n+/g, "\n<!--PARA-->\n");
   const blocks = html.split("\n<!--PARA-->\n");
