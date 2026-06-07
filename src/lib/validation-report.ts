@@ -40,6 +40,53 @@ const AGENT_LABELS: Record<string, string> = {
 };
 
 /**
+ * Convert a scorecard JSON (string) to a markdown table.
+ * Handles both array format [{k,v,d}] and object format {key:value}.
+ */
+function scorecardToMarkdownTable(scorecard: string | null): string {
+  if (!scorecard) return "";
+  try {
+    const parsed = JSON.parse(scorecard);
+    let entries: Array<{
+      k?: string;
+      key?: string;
+      v?: number;
+      value?: number;
+      d?: string;
+      description?: string;
+    }> = [];
+    if (Array.isArray(parsed)) {
+      entries = parsed;
+    } else if (typeof parsed === "object" && parsed !== null) {
+      entries = Object.entries(parsed).map(([k, v]) => ({ k, v: v as number }));
+    }
+    if (entries.length === 0) return "";
+
+    const hasDesc = entries.some((e) => e.d || e.description);
+    let md =
+      "\n| Dimensión | Puntuación |" +
+      (hasDesc ? " Justificación |" : "") +
+      "\n";
+    md += "|---|---|" + (hasDesc ? "---|" : "") + "\n";
+    for (const e of entries) {
+      const key = e.k || e.key || "";
+      const val =
+        typeof e.v === "number"
+          ? e.v.toFixed(1)
+          : typeof e.value === "number"
+            ? e.value.toFixed(1)
+            : "—";
+      const desc = e.d || e.description || "";
+      md +=
+        `| ${key} | ${val}/10 |` + (hasDesc ? ` ${desc} |` : "") + "\n";
+    }
+    return md;
+  } catch {
+    return "";
+  }
+}
+
+/**
  * Load the idea + reports for a project, and assemble a single
  * markdown document that consolidates all three validation reports.
  *
@@ -118,6 +165,17 @@ export async function buildValidationReport(
     const label = AGENT_LABELS[agent] || agent;
     lines.push(`## Reporte del ${label}`);
     lines.push("");
+
+    // For the judge, insert the scorecard table before the content
+    // so it appears in the PDF (buildReportPdf renders markdown only).
+    if (agent === "judge" && report.scorecard) {
+      const scorecardMd = scorecardToMarkdownTable(report.scorecard);
+      if (scorecardMd) {
+        lines.push(scorecardMd);
+        lines.push("");
+      }
+    }
+
     // The report.content is already cleaned by `cleanJudgeReport` in the
     // web UI; the PDF pipeline applies the same cleanup defensively. We
     // pass it through as-is.
