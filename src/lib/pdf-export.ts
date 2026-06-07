@@ -355,35 +355,91 @@ export function generatePdf(filename: string, data: ExportData): void {
           });
           y += 2;
           break;
-        case "table":
-          // Simple table rendering
+        case "table": {
+          // Table with proportional column widths and text wrapping
           if (block.headers.length === 0) break;
-          const colW = CONTENT_W / block.headers.length;
-          // Header row
+          const colCount = block.headers.length;
+          const tableWidth = CONTENT_W - 20;
+
+          // Calculate proportional column widths based on content length
+          let totalChars = 0;
+          const maxLens: number[] = [];
+          for (let ci = 0; ci < colCount; ci++) {
+            let maxLen = stripEmojis(block.headers[ci] || "").length;
+            for (const row of block.rows) {
+              const cellLen = stripEmojis(row[ci] || "").length;
+              if (cellLen > maxLen) maxLen = cellLen;
+            }
+            maxLens.push(maxLen);
+            totalChars += maxLen;
+          }
+
+          const colWidths: number[] = maxLens.map(
+            (len) => Math.max(20, (len / Math.max(totalChars, 1)) * tableWidth)
+          );
+          // Normalize to fit exact tableWidth
+          const sum = colWidths.reduce((a, b) => a + b, 0);
+          for (let ci = 0; ci < colCount; ci++) colWidths[ci] = (colWidths[ci] / sum) * tableWidth;
+
+          let x = MARGIN;
+
+          // Header row with background
           checkSpace(6);
           doc.setFillColor(...C_BG);
-          doc.rect(MARGIN, y - 4, CONTENT_W, 6, "F");
+          doc.rect(MARGIN, y - 4, tableWidth, 6, "F");
           doc.setFont("helvetica", "bold");
           doc.setFontSize(8);
           doc.setTextColor(...C_DARK);
-          block.headers.forEach((h, ci) => {
-            doc.text(h, MARGIN + ci * colW + 2, y);
-          });
-          y += 5;
-          // Body rows
-          doc.setFont("helvetica", "normal");
-          for (const row of block.rows) {
-            checkSpace(5);
-            row.forEach((cell, ci) => {
-              doc.text(cell, MARGIN + ci * colW + 2, y);
-            });
-            y += 5;
-            // Separator line
-            doc.setDrawColor(230, 230, 230);
-            doc.line(MARGIN, y - 2, PAGE_W - MARGIN, y - 2);
+          for (let ci = 0; ci < colCount; ci++) {
+            const cellLines = doc.splitTextToSize(
+              stripEmojis(block.headers[ci] || ""),
+              colWidths[ci] - 2
+            );
+            doc.text(cellLines, x + 1, y);
+            x += colWidths[ci];
           }
-          y += 3;
+
+          // Header bottom line
+          y += 6;
+          doc.setDrawColor(180, 180, 180);
+          doc.line(MARGIN, y, MARGIN + tableWidth, y);
+          doc.setFont("helvetica", "normal");
+
+          // Data rows
+          for (const row of block.rows) {
+            // Pre-calculate max row height
+            let maxRowHeight = 0;
+            const cellLinesPerCol: string[][] = [];
+            for (let ci = 0; ci < colCount; ci++) {
+              const cell = stripEmojis(row[ci] || "");
+              const lines = doc.splitTextToSize(cell, colWidths[ci] - 2);
+              cellLinesPerCol.push(lines);
+              if (lines.length > maxRowHeight) maxRowHeight = lines.length;
+            }
+
+            const rowHeight = maxRowHeight * 4 + 2;
+            if (y + rowHeight > pageH - MARGIN) {
+              doc.addPage();
+              y = MARGIN;
+              doc.setFont("helvetica", "normal");
+              doc.setFontSize(8);
+            }
+
+            x = MARGIN;
+            for (let ci = 0; ci < colCount; ci++) {
+              doc.text(cellLinesPerCol[ci], x + 1, y + 1);
+              x += colWidths[ci];
+            }
+
+            // Row separator
+            y += rowHeight;
+            doc.setDrawColor(230, 230, 230);
+            doc.line(MARGIN, y, MARGIN + tableWidth, y);
+          }
+
+          y += 4;
           break;
+        }
         case "hr":
           drawHr();
           break;
@@ -755,31 +811,90 @@ export function buildReportPdf(params: BuildReportPdfParams): Buffer {
           });
           y += 2;
           break;
-        case "table":
+        case "table": {
+          // Table with proportional column widths and text wrapping
           if (block.headers.length === 0) break;
-          const colW = localContentW / block.headers.length;
+          const colCount = block.headers.length;
+          const tableWidth = localContentW - 20;
+
+          // Calculate proportional column widths based on content length
+          let totalChars = 0;
+          const maxLens: number[] = [];
+          for (let ci = 0; ci < colCount; ci++) {
+            let maxLen = stripEmojis(block.headers[ci] || "").length;
+            for (const row of block.rows) {
+              const cellLen = stripEmojis(row[ci] || "").length;
+              if (cellLen > maxLen) maxLen = cellLen;
+            }
+            maxLens.push(maxLen);
+            totalChars += maxLen;
+          }
+
+          const colWidths: number[] = maxLens.map(
+            (len) => Math.max(20, (len / Math.max(totalChars, 1)) * tableWidth)
+          );
+          // Normalize to fit exact tableWidth
+          const sum = colWidths.reduce((a, b) => a + b, 0);
+          for (let ci = 0; ci < colCount; ci++) colWidths[ci] = (colWidths[ci] / sum) * tableWidth;
+
+          let x = MARGIN;
+
+          // Header row with background
           checkSpace(6);
           doc.setFillColor(...C_BG);
-          doc.rect(MARGIN, y - 4, localContentW, 6, "F");
+          doc.rect(MARGIN, y - 4, tableWidth, 6, "F");
           doc.setFont("helvetica", "bold");
           doc.setFontSize(8);
           doc.setTextColor(...C_DARK);
-          block.headers.forEach((h, ci) => {
-            doc.text(stripEmojis(h), MARGIN + ci * colW + 2, y);
-          });
-          y += 5;
-          doc.setFont("helvetica", "normal");
-          for (const row of block.rows) {
-            checkSpace(5);
-            row.forEach((cell, ci) => {
-              doc.text(stripEmojis(cell), MARGIN + ci * colW + 2, y);
-            });
-            y += 5;
-            doc.setDrawColor(230, 230, 230);
-            doc.line(MARGIN, y - 2, PAGE_W - MARGIN, y - 2);
+          for (let ci = 0; ci < colCount; ci++) {
+            const cellLines = doc.splitTextToSize(
+              stripEmojis(block.headers[ci] || ""),
+              colWidths[ci] - 2
+            );
+            doc.text(cellLines, x + 1, y);
+            x += colWidths[ci];
           }
-          y += 3;
+
+          // Header bottom line
+          y += 6;
+          doc.setDrawColor(180, 180, 180);
+          doc.line(MARGIN, y, MARGIN + tableWidth, y);
+          doc.setFont("helvetica", "normal");
+
+          // Data rows
+          for (const row of block.rows) {
+            // Pre-calculate max row height
+            let maxRowHeight = 0;
+            const cellLinesPerCol: string[][] = [];
+            for (let ci = 0; ci < colCount; ci++) {
+              const cell = stripEmojis(row[ci] || "");
+              const lines = doc.splitTextToSize(cell, colWidths[ci] - 2);
+              cellLinesPerCol.push(lines);
+              if (lines.length > maxRowHeight) maxRowHeight = lines.length;
+            }
+
+            const rowHeight = maxRowHeight * 4 + 2;
+            if (y + rowHeight > pageH - MARGIN) {
+              addPage();
+              doc.setFont("helvetica", "normal");
+              doc.setFontSize(8);
+            }
+
+            x = MARGIN;
+            for (let ci = 0; ci < colCount; ci++) {
+              doc.text(cellLinesPerCol[ci], x + 1, y + 1);
+              x += colWidths[ci];
+            }
+
+            // Row separator
+            y += rowHeight;
+            doc.setDrawColor(230, 230, 230);
+            doc.line(MARGIN, y, MARGIN + tableWidth, y);
+          }
+
+          y += 4;
           break;
+        }
         case "hr":
           drawHr();
           break;

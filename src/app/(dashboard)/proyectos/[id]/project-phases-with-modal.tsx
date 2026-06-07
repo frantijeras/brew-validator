@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   CheckCircle,
   Lock,
@@ -505,14 +506,10 @@ export function ProjectPhasesWithModal({
                 if (isSubstepReady) return "purple" as const;
                 return "blue" as const;
               })()}
-              artifacts={
-                hasArtifacts
-                  ? artifacts!.map((a) => ({
-                      title: a.title,
-                      href: `/api/projects/${projectId}/phases/${phase.id}/download`,
-                    }))
-                  : undefined
-              }
+              // FIX 1: No pasamos artifacts al PhaseCard para fases completadas
+              // porque las acciones "Ver" + "Descargar PDF" ya cubren la descarga.
+              // Así evitamos el enlace duplicado en forma de chip de artefacto.
+              artifacts={undefined}
               actions={(() => {
                 const list: React.ReactNode[] = [];
                 if (isAvailable) {
@@ -592,16 +589,14 @@ export function ProjectPhasesWithModal({
                   // The HTML view is opened in a new tab; the PDF triggers
                   // a download. Both labels are consistent across all phases.
                   list.push(
-                    <a
+                    <Link
                       key="view"
-                      href={`/api/projects/${projectId}/phases/${phase.id}/view`}
-                      target="_blank"
-                      rel="noopener"
+                      href={`/proyectos/${projectId}/fase/${phase.id}`}
                       className={btnStyles.secondary}
                     >
                       <Eye className="size-4" />
                       {PHASE4_VIEW_LABEL}
-                    </a>
+                    </Link>
                   );
                   list.push(
                     <a

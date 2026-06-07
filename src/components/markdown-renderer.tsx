@@ -318,7 +318,7 @@ function renderTables(markdown: string): string {
         );
 
       let tableHtml =
-        '<div class="my-4 overflow-x-auto rounded-lg border border-slate-700"><table class="w-full text-sm">';
+        '<div class="my-4 overflow-x-auto rounded-lg border border-slate-700" style="max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;margin:1rem 0;"><table class="w-full text-sm" style="min-width:100%;border-collapse:collapse;">';
 
       // Header
       tableHtml += '<thead><tr class="border-b border-slate-700 bg-slate-800/50">';
