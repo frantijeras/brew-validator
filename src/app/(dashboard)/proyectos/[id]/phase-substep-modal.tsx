@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   X,
@@ -13,8 +13,16 @@ import {
   ArrowRight,
   Loader2,
   Pencil,
+  Download,
+  Type,
+  Palette as PaletteIcon,
 } from "lucide-react";
 import { renderMarkdown } from "@/components/markdown-renderer";
+import {
+  parseVisualArtifactContent,
+  getVisualOption,
+  type VisualStyleGuide,
+} from "@/lib/identity-visual";
 
 /**
  * SubStep artifact shape (mirrors what the agent emits and the bridge stores
@@ -51,8 +59,13 @@ export interface PhaseSubstepModalProps {
 /**
  * Sub-step kinds that expose a free-text "custom" input. Other kinds
  * (voice/compare/simulate/pilars) only allow choosing from options.
+ *
+ * The `visual` sub-step used to be in this set (it had a free-text
+ * "describe tu propio estilo" field), but in Phase 3 it is now
+ * option-only (A/B/C). Custom styling is requested via the iterate
+ * feedback box instead.
  */
-const FREE_INPUT_SUBSTEPS = new Set(["naming", "visual", "mockup", "final"]);
+const FREE_INPUT_SUBSTEPS = new Set(["naming", "mockup", "final"]);
 
 // Shape of the response from /api/projects/[id]/rename/preview
 interface RenamePreviewResponse {
@@ -131,6 +144,24 @@ export function PhaseSubstepModal({
   );
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
+  // ── Visual sub-step state (IDENTITY visual only) ──
+  // The `visual` sub-step has its own rendering: 3 tabs (A/B/C), one
+  // iframe, a meta card with palette/typography/mood, and three
+  // actions (use this style / iterate / download HTML).
+  const [visualVariant, setVisualVariant] = useState<"A" | "B" | "C">("A");
+  const visualContent = useMemo(
+    () => parseVisualArtifactContent(subStepArtifact?.content),
+    [subStepArtifact?.content]
+  );
+  const isVisualSubStep = useMemo(
+    () => phaseType === "IDENTITY" && subStep === "visual",
+    [phaseType, subStep]
+  );
+  const currentVisualOption: VisualStyleGuide | null = useMemo(() => {
+    if (!isVisualSubStep) return null;
+    return getVisualOption(visualContent, visualVariant);
+  }, [isVisualSubStep, visualContent, visualVariant]);
+
   // ── Rename preview / success state (IDENTITY naming only) ──
   const [pendingName, setPendingName] = useState<string | null>(null);
   const [renamePreview, setRenamePreview] =
@@ -155,11 +186,25 @@ export function PhaseSubstepModal({
       setPendingName(null);
       setRenamePreview(null);
       setPreviewLoading(false);
+      // Sync the visual variant tab to the stored choice (or "A" by
+      // default). Keeps the modal consistent when reopening.
+      if (
+        phaseType === "IDENTITY" &&
+        subStep === "visual" &&
+        subStepChoice &&
+        (subStepChoice === "A" ||
+          subStepChoice === "B" ||
+          subStepChoice === "C")
+      ) {
+        setVisualVariant(subStepChoice);
+      } else {
+        setVisualVariant("A");
+      }
       // NOTE: we do NOT reset successBanner here — it lives outside the
       // modal lifecycle (rendered as a fixed banner) and should only
       // clear itself on its own timer or on a new rename.
     }
-  }, [open, subStepChoice, subStepArtifact?.content]);
+  }, [open, subStepChoice, subStepArtifact?.content, phaseType, subStep]);
 
   // Auto-dismiss the success banner after a few seconds
   useEffect(() => {
@@ -448,6 +493,60 @@ export function PhaseSubstepModal({
     }
   }
 
+  /**
+   * Triggers a native browser download of the current visual variant.
+   * The endpoint serves the HTML with `Content-Disposition: attachment`
+   * so the browser saves it as `style-guide-{A|B|C}.html`.
+   */
+  function handleDownloadVisual() {
+    if (!isVisualSubStep) return;
+    const url = `/api/projects/${projectId}/phases/${phaseId}/substep/visual-download?variant=${visualVariant}`;
+    // Use a hidden link so the iframe is not disturbed.
+    const a = document.createElement("a");
+    a.href = url;
+    a.rel = "noopener noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  /**
+   * "Usar este estilo" — visual sub-step flow.
+   * Calls /substep/choose with the current variant (A/B/C) and advances
+   * to the "final" sub-step. After confirming, the user lands on the
+   * brand-book step.
+   */
+  async function handleVisualChoose() {
+    if (!isVisualSubStep) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/phases/${phaseId}/substep/choose`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            choice: visualVariant,
+            nextSubStep: "final",
+          }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Error al confirmar el estilo");
+        setSubmitting(false);
+        return;
+      }
+      onResolved?.();
+      onClose();
+      router.refresh();
+    } catch {
+      setError("Error de conexión");
+      setSubmitting(false);
+    }
+  }
+
   if (!open && !successBanner) return null;
 
   const subStepTitle: Record<string, string> = {
@@ -533,70 +632,84 @@ export function PhaseSubstepModal({
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
               {/* Artifact preview */}
               {subStepArtifact ? (
-                <div>
-                  {/* Toolbar: switch between rendered preview and source */}
-                  {artifactType === "html" && (
-                    <div className="mb-2 flex items-center gap-2 text-xs">
-                      <button
-                        onClick={() => setPreviewMode("rendered")}
-                        className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1 transition-colors ${
-                          previewMode === "rendered"
-                            ? "border-amber-500 bg-amber-500/10 text-amber-300"
-                            : "border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-600"
-                        }`}
-                      >
-                        <Eye className="size-3" />
-                        Vista previa
-                      </button>
-                      <button
-                        onClick={() => setPreviewMode("source")}
-                        className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1 transition-colors ${
-                          previewMode === "source"
-                            ? "border-amber-500 bg-amber-500/10 text-amber-300"
-                            : "border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-600"
-                        }`}
-                      >
-                        <Code2 className="size-3" />
-                        HTML
-                      </button>
-                    </div>
-                  )}
+                isVisualSubStep && visualContent ? (
+                  <VisualSubStepPreview
+                    options={visualContent.options}
+                    current={visualVariant}
+                    onChange={setVisualVariant}
+                    iframeRef={iframeRef}
+                    previewMode={previewMode}
+                    onPreviewModeChange={setPreviewMode}
+                    projectId={projectId}
+                    phaseId={phaseId}
+                  />
+                ) : (
+                  <div>
+                    {/* Toolbar: switch between rendered preview and source */}
+                    {artifactType === "html" && (
+                      <div className="mb-2 flex items-center gap-2 text-xs">
+                        <button
+                          onClick={() => setPreviewMode("rendered")}
+                          className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1 transition-colors ${
+                            previewMode === "rendered"
+                              ? "border-amber-500 bg-amber-500/10 text-amber-300"
+                              : "border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-600"
+                          }`}
+                        >
+                          <Eye className="size-3" />
+                          Vista previa
+                        </button>
+                        <button
+                          onClick={() => setPreviewMode("source")}
+                          className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1 transition-colors ${
+                            previewMode === "source"
+                              ? "border-amber-500 bg-amber-500/10 text-amber-300"
+                              : "border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-600"
+                          }`}
+                        >
+                          <Code2 className="size-3" />
+                          HTML
+                        </button>
+                      </div>
+                    )}
 
-                  {artifactType === "html" && previewMode === "rendered" && (
-                    <div className="overflow-hidden rounded-lg border border-slate-700 bg-white">
-                      <iframe
-                        ref={iframeRef}
-                        srcDoc={artifactContent}
-                        title="Sub-step preview"
-                        className="w-full min-h-[320px] border-0"
-                        sandbox="allow-same-origin"
+                    {artifactType === "html" && previewMode === "rendered" && (
+                      <div className="overflow-hidden rounded-lg border border-slate-700 bg-white">
+                        <iframe
+                          ref={iframeRef}
+                          srcDoc={artifactContent}
+                          title="Sub-step preview"
+                          className="w-full min-h-[320px] border-0"
+                          sandbox="allow-same-origin"
+                        />
+                      </div>
+                    )}
+
+                    {artifactType === "html" && previewMode === "source" && (
+                      <pre className="overflow-auto max-h-96 rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs text-slate-300">
+                        <code>{artifactContent}</code>
+                      </pre>
+                    )}
+
+                    {artifactType === "markdown" && (
+                      <div
+                        className="markdown-body rounded-lg border border-slate-700 bg-slate-800/50 p-4"
+                        dangerouslySetInnerHTML={{
+                          __html: renderMarkdown(artifactContent),
+                        }}
                       />
-                    </div>
-                  )}
-
-                  {artifactType === "html" && previewMode === "source" && (
-                    <pre className="overflow-auto max-h-96 rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs text-slate-300">
-                      <code>{artifactContent}</code>
-                    </pre>
-                  )}
-
-                  {artifactType === "markdown" && (
-                    <div
-                      className="markdown-body rounded-lg border border-slate-700 bg-slate-800/50 p-4"
-                      dangerouslySetInnerHTML={{
-                        __html: renderMarkdown(artifactContent),
-                      }}
-                    />
-                  )}
-                </div>
+                    )}
+                  </div>
+                )
               ) : (
                 <p className="text-sm text-slate-400">
                   No hay artefacto disponible para este sub-paso.
                 </p>
               )}
 
-              {/* Options A/B/C */}
-              {options.length > 0 && (
+              {/* Options A/B/C — hidden for the visual sub-step, which has its
+                  own tab-based switcher inside the artifact preview. */}
+              {options.length > 0 && !isVisualSubStep && (
                 <div>
                   <p className="mb-2 text-sm font-medium text-white">
                     Elige una opción
@@ -633,8 +746,8 @@ export function PhaseSubstepModal({
                 </div>
               )}
 
-              {/* Free input for naming/mockup */}
-              {isFreeInput && (
+              {/* Free input for naming/mockup (visual sub-step is option-only) */}
+              {isFreeInput && !isVisualSubStep && (
                 <div>
                   <label className="block text-sm font-medium text-white mb-1.5">
                     O escribe tu propio valor
@@ -717,31 +830,71 @@ export function PhaseSubstepModal({
             {/* Footer actions */}
             {!showIterate && (
               <div className="border-t border-slate-800 px-5 py-3 flex items-center justify-end gap-2">
-                <button
-                  onClick={() => setShowIterate(true)}
-                  disabled={submitting || previewLoading}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 transition-all hover:bg-slate-700/60 hover:border-slate-600 disabled:opacity-50"
-                >
-                  <RefreshCw className="size-4" />
-                  Iterar
-                </button>
-                <button
-                  onClick={handleChoose}
-                  disabled={submitting || previewLoading}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-400 disabled:opacity-50"
-                >
-                  {submitting || previewLoading ? (
-                    <>
-                      <Loader2 className="size-4 animate-spin" />
-                      {previewLoading ? "Calculando impacto…" : "Enviando…"}
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="size-4" />
-                      Confirmar elección
-                    </>
-                  )}
-                </button>
+                {isVisualSubStep ? (
+                  <>
+                    <button
+                      onClick={handleDownloadVisual}
+                      disabled={submitting || !currentVisualOption}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 transition-all hover:bg-slate-700/60 hover:border-slate-600 disabled:opacity-50"
+                    >
+                      <Download className="size-4" />
+                      Descargar HTML
+                    </button>
+                    <button
+                      onClick={() => setShowIterate(true)}
+                      disabled={submitting}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 transition-all hover:bg-slate-700/60 hover:border-slate-600 disabled:opacity-50"
+                    >
+                      <RefreshCw className="size-4" />
+                      Iterar
+                    </button>
+                    <button
+                      onClick={handleVisualChoose}
+                      disabled={submitting || !currentVisualOption}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-400 disabled:opacity-50"
+                    >
+                      {submitting ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin" />
+                          Enviando…
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="size-4" />
+                          Usar este estilo
+                        </>
+                      )}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => setShowIterate(true)}
+                      disabled={submitting || previewLoading}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 transition-all hover:bg-slate-700/60 hover:border-slate-600 disabled:opacity-50"
+                    >
+                      <RefreshCw className="size-4" />
+                      Iterar
+                    </button>
+                    <button
+                      onClick={handleChoose}
+                      disabled={submitting || previewLoading}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-400 disabled:opacity-50"
+                    >
+                      {submitting || previewLoading ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin" />
+                          {previewLoading ? "Calculando impacto…" : "Enviando…"}
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="size-4" />
+                          Confirmar elección
+                        </>
+                      )}
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -856,5 +1009,203 @@ export function PhaseSubstepModal({
         </div>
       )}
     </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* VisualSubStepPreview                                                */
+/* ------------------------------------------------------------------ */
+
+interface VisualSubStepPreviewProps {
+  options: [VisualStyleGuide, VisualStyleGuide, VisualStyleGuide];
+  current: "A" | "B" | "C";
+  onChange: (v: "A" | "B" | "C") => void;
+  iframeRef: React.RefObject<HTMLIFrameElement | null>;
+  previewMode: "rendered" | "source";
+  onPreviewModeChange: (m: "rendered" | "source") => void;
+  projectId: string;
+  phaseId: string;
+}
+
+/**
+ * Dedicated renderer for the IDENTITY `visual` sub-step:
+ *   - Tabs A / B / C to switch between the 3 style-guide variants
+ *   - Toolbar: Vista previa / HTML
+ *   - Iframe (rendered) or <pre> (source) for the selected variant
+ *   - Meta card with palette swatches, fonts and mood tag
+ *
+ * Kept as a separate component for readability; receives only the
+ * data it needs and calls back via `onChange` for the active tab.
+ */
+function VisualSubStepPreview({
+  options,
+  current,
+  onChange,
+  iframeRef,
+  previewMode,
+  onPreviewModeChange,
+}: VisualSubStepPreviewProps) {
+  const currentOption =
+    options.find((o) => o.variant === current) || options[0];
+  const tabs: Array<"A" | "B" | "C"> = ["A", "B", "C"];
+
+  return (
+    <div className="space-y-3">
+      {/* Tabs A / B / C */}
+      <div
+        role="tablist"
+        aria-label="Variantes de estilo visual"
+        className="flex flex-wrap items-center gap-2"
+      >
+        {tabs.map((v) => {
+          const opt = options.find((o) => o.variant === v);
+          const selected = current === v;
+          return (
+            <button
+              key={v}
+              role="tab"
+              aria-selected={selected}
+              onClick={() => onChange(v)}
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+                selected
+                  ? "border-amber-500 bg-amber-500/15 text-amber-200"
+                  : "border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-600 hover:text-white"
+              }`}
+            >
+              <span
+                className={`inline-flex size-5 items-center justify-center rounded-full text-[11px] font-bold ${
+                  selected
+                    ? "bg-amber-500 text-slate-950"
+                    : "bg-slate-700 text-slate-200"
+                }`}
+              >
+                {v}
+              </span>
+              <span className="truncate max-w-[180px]">
+                {opt?.meta.name || `Estilo ${v}`}
+              </span>
+            </button>
+          );
+        })}
+
+        <div className="ml-auto flex items-center gap-2 text-xs">
+          <button
+            onClick={() => onPreviewModeChange("rendered")}
+            className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1 transition-colors ${
+              previewMode === "rendered"
+                ? "border-amber-500 bg-amber-500/10 text-amber-300"
+                : "border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-600"
+            }`}
+          >
+            <Eye className="size-3" />
+            Vista previa
+          </button>
+          <button
+            onClick={() => onPreviewModeChange("source")}
+            className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1 transition-colors ${
+              previewMode === "source"
+                ? "border-amber-500 bg-amber-500/10 text-amber-300"
+                : "border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-600"
+            }`}
+          >
+            <Code2 className="size-3" />
+            HTML
+          </button>
+        </div>
+      </div>
+
+      {/* Iframe / source */}
+      {previewMode === "rendered" ? (
+        <div className="overflow-hidden rounded-lg border border-slate-700 bg-white">
+          <iframe
+            ref={iframeRef}
+            srcDoc={currentOption.html}
+            title={`Vista previa estilo ${current}`}
+            className="w-full min-h-[360px] border-0"
+            sandbox="allow-same-origin"
+          />
+        </div>
+      ) : (
+        <pre className="overflow-auto max-h-[480px] rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs text-slate-300">
+          <code>{currentOption.html}</code>
+        </pre>
+      )}
+
+      {/* Meta card */}
+      <div className="rounded-lg border border-slate-700 bg-slate-800/40 p-4 space-y-3">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-white truncate">
+              {currentOption.meta.name}
+            </p>
+            {currentOption.meta.mood && (
+              <p className="mt-0.5 text-xs text-slate-400">
+                {currentOption.meta.mood}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {/* Palette */}
+          <div className="rounded-md border border-slate-700 bg-slate-900/50 p-3">
+            <p className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-slate-400">
+              <PaletteIcon className="size-3" />
+              Paleta
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <ColorSwatch
+                label="Primario"
+                hex={currentOption.meta.primaryColor}
+              />
+              <ColorSwatch
+                label="Secundario"
+                hex={currentOption.meta.secondaryColor}
+              />
+            </div>
+          </div>
+
+          {/* Typography */}
+          <div className="rounded-md border border-slate-700 bg-slate-900/50 p-3">
+            <p className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-slate-400">
+              <Type className="size-3" />
+              Tipografía
+            </p>
+            <dl className="space-y-1.5 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <dt className="text-slate-400">Heading</dt>
+                <dd className="text-slate-100 font-medium">
+                  {currentOption.meta.fontHeading}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <dt className="text-slate-400">Body</dt>
+                <dd className="text-slate-100 font-medium">
+                  {currentOption.meta.fontBody}
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ColorSwatch({ label, hex }: { label: string; hex: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        aria-hidden="true"
+        className="inline-block size-7 rounded-full border border-slate-600 shadow-inner"
+        style={{ backgroundColor: hex }}
+      />
+      <div className="leading-tight">
+        <p className="text-[10px] uppercase tracking-wide text-slate-500">
+          {label}
+        </p>
+        <p className="font-mono text-xs text-slate-200">{hex}</p>
+      </div>
+    </div>
   );
 }
