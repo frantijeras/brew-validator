@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/db";
 import { resolveModelForJobAgent } from "@/lib/agent-models";
+import {
+  getNextIdentitySubStep,
+  getIdentitySubStepIndex,
+} from "@/lib/identity-substeps";
 
 /**
  * Shared logic to enqueue a phase job. Used by:
@@ -31,6 +35,13 @@ export interface EnqueuePhaseJobParams {
   phaseType: string;
   mode: "questions" | "report";
   subStep?: string | null;
+  /**
+   * Optional override for IDENTITY phase sub-step auto-advance. If set, the
+   * helper will use this exact subStep instead of computing the next one
+   * from the IDENTITY_SUBSTEP_ORDER. Useful when the API wants to force a
+   * specific sub-step (e.g. restart from naming).
+   */
+  subStepHint?: string | null;
   answers?: Record<string, string>;
   modelOverride?: string;
   // Optional: keep the previous subStepArtifact as part of previousArtifacts for
@@ -54,6 +65,7 @@ export async function enqueuePhaseJob(
     phaseType,
     mode,
     subStep,
+    subStepHint,
     answers,
     modelOverride,
     includePreviousSubStepArtifact = true,
@@ -122,9 +134,42 @@ export async function enqueuePhaseJob(
   const agentName = PHASE_TO_AGENT[phaseType] || `project-${phaseType.toLowerCase()}`;
   const model = modelOverride || (await resolveModelForJobAgent(agentName));
 
+  // ── IDENTITY sub-step auto-advance ──
+  // The IDENTITY phase is presented to the user as 4 sequential sub-steps
+  // (naming → voice → visual → final). When the client launches the next
+  // job after a user confirmation, we auto-compute the next sub-step from
+  // the current one. The caller can override this with `subStepHint` (e.g.
+  // to restart from "naming" or to force a specific sub-step).
+  //
+  // For non-IDENTITY phases the explicit `subStep` argument wins as before.
+  let effectiveSubStep: string | null;
+  if (phaseType === "IDENTITY") {
+    if (subStepHint) {
+      effectiveSubStep = subStepHint;
+    } else {
+      // Start from the explicit `subStep` arg if provided, else fall back
+      // to whatever the phase is currently on, else null (fresh start).
+      const currentSubStep =
+        subStep ?? phase.subStep ?? null;
+      effectiveSubStep = getNextIdentitySubStep(currentSubStep);
+    }
+  } else {
+    effectiveSubStep = subStep ?? phase.subStep ?? null;
+  }
+
+  // Derive the 0-based order for the sub-step the agent is about to run.
+  // For IDENTITY: 0=naming, 1=voice, 2=visual, 3=final, null=null.
+  // For other phases with sub-step: keep it null (those flows are
+  // single-step from the user's perspective).
+  const subStepOrder =
+    phaseType === "IDENTITY"
+      ? getIdentitySubStepIndex(effectiveSubStep)
+      : null;
+
   const jobInput: Record<string, unknown> = {
     mode,
-    subStep: subStep ?? phase.subStep ?? null,
+    subStep: effectiveSubStep,
+    subStepOrder,
     projectId,
     phaseId,
     phaseType,
@@ -160,13 +205,16 @@ export async function enqueuePhaseJob(
     where: { id: phaseId },
     data: {
       status: "PROCESSING",
-      subStep: subStep ?? phase.subStep ?? null,
+      subStep: effectiveSubStep,
+      ...(phaseType === "IDENTITY" && subStepOrder !== null
+        ? { subStepOrder }
+        : {}),
     },
   });
 
   return {
     jobId: job.id,
-    subStep: subStep ?? phase.subStep ?? null,
+    subStep: effectiveSubStep,
     message:
       mode === "questions"
         ? "Generando preguntas personalizadas..."
