@@ -204,7 +204,7 @@ export function PhaseQuestionsModal({
     >
       <div
         ref={modalRef}
-        className="w-full max-w-lg max-h-[90vh] flex flex-col rounded-xl border border-slate-700 bg-slate-900 shadow-xl"
+        className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-xl border border-slate-700 bg-slate-900 shadow-xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="phase-questions-modal-title"

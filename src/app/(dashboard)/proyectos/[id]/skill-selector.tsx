@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Code,
   PenLine,
@@ -76,22 +76,6 @@ const ICON_OPTIONS = [
   { value: "DollarSign", label: "DollarSign" },
 ];
 
-// ── Helpers ───────────────────────────────────────────────────────────
-
-function confidenceBadge(confidence: number) {
-  if (confidence >= 0.7) {
-    return "bg-green-500/15 text-green-400 border-green-500/20";
-  }
-  if (confidence >= 0.4) {
-    return "bg-amber-500/15 text-amber-400 border-amber-500/20";
-  }
-  return "bg-slate-500/15 text-slate-400 border-slate-500/20";
-}
-
-function confidencePct(confidence: number) {
-  return `${Math.round(confidence * 100)}%`;
-}
-
 // ── Component ─────────────────────────────────────────────────────────
 
 export function SkillSelector({ projectId, initialSkills }: SkillSelectorProps) {
@@ -102,6 +86,7 @@ export function SkillSelector({ projectId, initialSkills }: SkillSelectorProps) 
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const initialSkillsRef = useRef(initialSkills);
 
   // Custom skill form state
   const [customName, setCustomName] = useState("");
@@ -122,8 +107,9 @@ export function SkillSelector({ projectId, initialSkills }: SkillSelectorProps) 
       const apiSkills: SkillData[] = data.skills ?? [];
 
       // Merge with existing selections if initialSkills provided
+      const capturedInitial = initialSkillsRef.current;
       const merged = apiSkills.map((s) => {
-        const existing = initialSkills?.find((es: { id: string }) => es.id === s.id);
+        const existing = capturedInitial?.find((es: { id: string }) => es.id === s.id);
         return {
           ...s,
           _localSelected: existing
@@ -138,7 +124,7 @@ export function SkillSelector({ projectId, initialSkills }: SkillSelectorProps) 
     } finally {
       setLoading(false);
     }
-  }, [projectId, initialSkills]);
+  }, [projectId]);
 
   useEffect(() => {
     fetchSkills();
@@ -360,8 +346,6 @@ export function SkillSelector({ projectId, initialSkills }: SkillSelectorProps) 
               selected={skill._localSelected}
               onToggle={() => toggleSkill(skill.id)}
               iconComponent={IconComponent}
-              confidenceBadge={confidenceBadge}
-              confidencePct={confidencePct}
             />
           ))}
           </div>
@@ -393,8 +377,6 @@ export function SkillSelector({ projectId, initialSkills }: SkillSelectorProps) 
                   selected={skill._localSelected}
                   onToggle={() => toggleSkill(skill.id)}
                   iconComponent={IconComponent}
-                  confidenceBadge={confidenceBadge}
-                  confidencePct={confidencePct}
                 />
               ))}
             </div>
@@ -420,8 +402,6 @@ interface SkillCardProps {
   selected: boolean;
   onToggle: () => void;
   iconComponent: (iconName: string, className?: string) => React.ReactNode;
-  confidenceBadge: (confidence: number) => string;
-  confidencePct: (confidence: number) => string;
 }
 
 function SkillCard({
@@ -429,8 +409,6 @@ function SkillCard({
   selected,
   onToggle,
   iconComponent,
-  confidenceBadge,
-  confidencePct,
 }: SkillCardProps) {
   const barWidth = Math.round(skill.confidence * 100);
   const barColor =
@@ -442,7 +420,7 @@ function SkillCard({
 
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-slate-800 bg-slate-900/40 p-3.5 transition-colors hover:border-slate-700">
-      {/* Fila 1: Icono + nombre + badge + toggle */}
+      {/* Fila 1: Icono + nombre + toggle */}
       <div className="flex items-center gap-2">
         <span className="text-slate-400">
           {iconComponent(skill.icon, "size-5")}
@@ -450,17 +428,15 @@ function SkillCard({
         <span className="text-sm font-semibold text-white flex-1 min-w-0 truncate">
           {skill.name}
         </span>
-        <span
-          className={`inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${confidenceBadge(skill.confidence)}`}
-        >
-          {confidencePct(skill.confidence)}
-        </span>
         {/* Toggle switch */}
         <label className="relative inline-flex cursor-pointer items-center shrink-0">
           <input
             type="checkbox"
             checked={selected}
-            onChange={onToggle}
+            onChange={(e) => {
+              e.stopPropagation();
+              onToggle();
+            }}
             className="peer sr-only"
           />
           <div
@@ -476,21 +452,14 @@ function SkillCard({
         </label>
       </div>
 
-      {/* Fila 2: Barra de confianza visual */}
-      <div className="flex items-center gap-2">
+      {/* Fila 2: Barra de confianza visual (sin texto) */}
+      <div className="flex items-center">
         <div className="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
           <div
             className={`h-full rounded-full transition-all ${barColor}`}
             style={{ width: `${barWidth}%` }}
           />
         </div>
-        <span className="text-[10px] text-slate-500 shrink-0">
-          {skill.confidence >= 0.7
-            ? "Alta"
-            : skill.confidence >= 0.4
-              ? "Media"
-              : "Baja"}
-        </span>
       </div>
 
       {/* Fila 3: Descripcion */}

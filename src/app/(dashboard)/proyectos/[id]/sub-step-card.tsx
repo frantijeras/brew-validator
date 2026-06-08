@@ -201,7 +201,7 @@ export function SubStepCard({
   const hasDesktopButton =
     status === "available" || status === "substep_ready";
   const showButton =
-    status === "available" || status === "substep_ready" || status === "locked";
+    status === "available" || status === "substep_ready";
   const buttonLabel =
     status === "available"
       ? executeLabel
@@ -290,49 +290,27 @@ export function SubStepCard({
           </span>
         )}
 
-        {status === "locked" && (
-          <button
-            aria-disabled="true"
-            disabled
-            className={`hidden md:inline-flex shrink-0 ${buttonStyles.locked}`}
-            aria-label={`${subStepMeta.label} — bloqueado`}
-          >
-            <Lock className="size-3" />
-            Bloqueado
-          </button>
-        )}
+
       </div>
 
       {showButton && (
         <div className="mt-3 w-full md:hidden">
-          {status === "locked" ? (
-            <button
-              aria-disabled="true"
-              disabled
-              className={`w-full ${buttonStyles.locked}`}
-              aria-label={`${subStepMeta.label} — bloqueado`}
-            >
-              <Lock className="size-3" />
-              Bloqueado
-            </button>
-          ) : (
-            <button
-              onClick={onAction}
-              className={`w-full ${status === "available" ? buttonStyles.available : buttonStyles.substep_ready}`}
-              aria-label={
-                status === "available"
-                  ? `${executeLabel} ${subStepMeta.label}`
-                  : `${reviewLabel} ${subStepMeta.label}`
-              }
-            >
-              {status === "available" ? (
-                <Play className="size-3.5" />
-              ) : (
-                <Sparkles className="size-3.5" />
-              )}
-              {buttonLabel}
-            </button>
-          )}
+          <button
+            onClick={onAction}
+            className={`w-full ${status === "available" ? buttonStyles.available : buttonStyles.substep_ready}`}
+            aria-label={
+              status === "available"
+                ? `${executeLabel} ${subStepMeta.label}`
+                : `${reviewLabel} ${subStepMeta.label}`
+            }
+          >
+            {status === "available" ? (
+              <Play className="size-3.5" />
+            ) : (
+              <Sparkles className="size-3.5" />
+            )}
+            {buttonLabel}
+          </button>
         </div>
       )}
 

@@ -96,9 +96,7 @@ export function ProjectTabs({
           `}
         >
           Skills del Proyecto
-          {!hasCompletedPhases && (
-            <span className="ml-2 text-[10px] text-slate-500">(bloqueado)</span>
-          )}
+
         </button>
       </div>
 
