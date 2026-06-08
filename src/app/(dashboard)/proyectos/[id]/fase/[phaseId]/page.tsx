@@ -85,61 +85,80 @@ export default function PhaseViewPage() {
     );
   }
 
-  const htmlContent =
-    data.contentType === "html" ? data.content : renderMarkdown(data.content, undefined, true);
+  // Process HTML content: add target="_blank" to links
+  const processHtml = (html: string) =>
+    html.replace(/<a\s/g, '<a target="_blank" rel="noopener noreferrer" ');
+
+  const rawHtml =
+    data.contentType === "html"
+      ? data.content
+      : renderMarkdown(data.content, undefined, true);
+  const htmlContent = processHtml(rawHtml);
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4">
-      {/* Header row: breadcrumb + download button */}
-      <div className="flex justify-between items-center mb-6">
-        <Link
-          href={`/proyectos/${params.id}`}
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group"
-        >
-          <ArrowLeft className="size-4 group-hover:-translate-x-0.5 transition-transform" />
-          Volver al proyecto
-        </Link>
+    <div className="flex flex-col h-[calc(100vh-4rem)]">
+      {/* Fixed header */}
+      <div className="sticky top-0 z-10 bg-background border-b px-4 py-3">
+        <div className="max-w-4xl mx-auto flex justify-between items-center">
+          <Link
+            href={`/proyectos/${params.id}`}
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group"
+          >
+            <ArrowLeft className="size-4 group-hover:-translate-x-0.5 transition-transform" />
+            Volver al proyecto
+          </Link>
 
-        <a
-          href={`/api/projects/${params.id}/phases/${params.phaseId}/download`}
-          className="inline-flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors font-medium"
-          download
-        >
-          <Download className="size-4" />
-          Descargar PDF
-        </a>
+          <a
+            href={`/api/projects/${params.id}/phases/${params.phaseId}/download`}
+            className="inline-flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors font-medium"
+            download
+          >
+            <Download className="size-4" />
+            Descargar PDF
+          </a>
+        </div>
       </div>
 
-      {/* Report content */}
-      <div className="bg-card border rounded-xl shadow-sm">
-        <div className="px-6 py-4 border-b">
-          <h1 className="text-xl font-semibold">{data.title}</h1>
-        </div>
-        <div className="px-6 py-6">
-          {data.contentType === "html" ? (
-            <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
-          ) : (
-            <div
-              className="prose prose-sm dark:prose-invert max-w-none
-                prose-headings:text-foreground prose-p:text-foreground/85
-                prose-strong:text-foreground prose-a:text-primary
-                prose-li:text-foreground/85
-                [&_table]:w-full [&_table]:border-collapse
-                [&_th]:border [&_th]:border-border [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:bg-muted/50 [&_th]:text-xs [&_th]:font-semibold
-                [&_td]:border [&_td]:border-border [&_td]:px-3 [&_td]:py-2 [&_td]:text-sm
-                [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mt-8 [&_h1]:mb-4
-                [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mt-6 [&_h2]:mb-3
-                [&_h3]:text-base [&_h3]:font-medium [&_h3]:mt-4 [&_h3]:mb-2
-                [&_p]:leading-relaxed [&_p]:mb-3
-                [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-4
-                [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-4
-                [&_blockquote]:border-l-4 [&_blockquote]:border-primary/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted-foreground
-                [&_hr]:my-6 [&_hr]:border-border
-                [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_code]:font-mono
-                [&_pre]:bg-muted [&_pre]:p-4 [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_pre]:text-sm"
-              dangerouslySetInnerHTML={{ __html: htmlContent }}
-            />
-          )}
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-4xl mx-auto py-6 px-4">
+          <div className="bg-card border rounded-xl shadow-sm">
+            <div className="px-6 py-4 border-b">
+              <h1 className="text-xl font-semibold">{data.title}</h1>
+            </div>
+            <div className="px-6 py-6">
+              {data.contentType === "html" ? (
+                <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
+              ) : (
+                <div className="relative">
+                  <div className="overflow-x-auto">
+                    <div
+                      className="prose prose-sm dark:prose-invert max-w-none
+                        prose-headings:text-foreground prose-p:text-foreground/85
+                        prose-strong:text-foreground prose-a:text-primary
+                        prose-li:text-foreground/85
+                        [&_table]:w-full [&_table]:border-collapse
+                        [&_th]:border [&_th]:border-border [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:bg-muted/50 [&_th]:text-xs [&_th]:font-semibold
+                        [&_td]:border [&_td]:border-border [&_td]:px-3 [&_td]:py-2 [&_td]:text-sm
+                        [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mt-8 [&_h1]:mb-4
+                        [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mt-6 [&_h2]:mb-3
+                        [&_h3]:text-base [&_h3]:font-medium [&_h3]:mt-4 [&_h3]:mb-2
+                        [&_p]:leading-relaxed [&_p]:mb-3
+                        [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-4
+                        [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-4
+                        [&_blockquote]:border-l-4 [&_blockquote]:border-primary/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted-foreground
+                        [&_hr]:my-6 [&_hr]:border-border
+                        [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_code]:font-mono
+                        [&_pre]:bg-muted [&_pre]:p-4 [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_pre]:text-sm"
+                      dangerouslySetInnerHTML={{ __html: htmlContent }}
+                    />
+                  </div>
+                  {/* Fade gradient on right edge */}
+                  <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent" />
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

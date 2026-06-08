@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { buildReportPdf } from "@/lib/pdf-export";
+import { jsPDF } from "jspdf";
 
 /**
  * GET /api/projects/[id]/phases/[phaseId]/download
@@ -148,9 +149,28 @@ export async function GET(
     });
   } catch (error) {
     console.error("[GET /api/projects/[id]/phases/[phaseId]/download]", error);
-    return NextResponse.json(
-      { error: "Internal error" },
-      { status: 500 }
-    );
+    // Generate a minimal error PDF instead of JSON so the browser downloads
+    // it instead of showing a raw JSON error page.
+    try {
+      const errorDoc = new jsPDF();
+      errorDoc.setFontSize(14);
+      errorDoc.text("Error al generar el PDF", 20, 30);
+      errorDoc.setFontSize(10);
+      errorDoc.text("Por favor, intenta de nuevo o contacta soporte.", 20, 40);
+      const errorBuffer = errorDoc.output("arraybuffer");
+      return new NextResponse(new Uint8Array(errorBuffer), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": 'attachment; filename="error.pdf"',
+        },
+      });
+    } catch {
+      // Fallback: if jsPDF itself fails, return plain text
+      return new NextResponse("Error al generar el PDF", {
+        status: 500,
+        headers: { "Content-Type": "text/plain" },
+      });
+    }
   }
 }

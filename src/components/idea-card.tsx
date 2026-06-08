@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Heart, Archive, Trash2, Undo2, MoreHorizontal, Pencil } from "lucide-react";
+import { Archive, Trash2, Undo2, MoreHorizontal, Pencil, Rocket } from "lucide-react";
 import { getScoreColor, STATUS_COLORS, STATUS_LABELS } from "@/lib/translations";
 import { ConfirmModal } from "@/components/confirm-modal";
 
@@ -20,7 +20,6 @@ interface IdeaCardProps {
     score: number | null;
     businessModel: string | null;
     currentVersionPhase?: string | null;
-    isFavorite: boolean;
     isArchived: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -37,7 +36,6 @@ export function IdeaCard({
   onDeleted,
 }: IdeaCardProps) {
   const router = useRouter();
-  const [isFavorite, setIsFavorite] = useState(idea.isFavorite);
   const [isArchived, setIsArchived] = useState(idea.isArchived);
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -56,21 +54,6 @@ export function IdeaCard({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showMenu]);
-
-  const toggleFavorite = useCallback(async () => {
-    const next = !isFavorite;
-    setIsFavorite(next);
-    try {
-      await fetch(`/api/ideas/${idea.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ isFavorite: next }),
-      });
-    } catch {
-      setIsFavorite(!next);
-    }
-  }, [idea.id, isFavorite]);
 
   const toggleArchive = useCallback(async () => {
     const next = !isArchived;
@@ -204,51 +187,33 @@ export function IdeaCard({
                     (menuUpward ? "bottom-full mb-1" : "top-full mt-1")
                   }
                 >
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      toggleFavorite();
-                      closeMenu();
-                    }}
-                    className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
-                  >
-                    <Heart
-                      className={`size-4 ${isFavorite ? "text-red-400" : "text-slate-400"}`}
-                      fill={isFavorite ? "currentColor" : "none"}
-                    />
-                    {isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
-                  </button>
-
-                  {!isFavorite && (
-                    isArchived ? (
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          toggleArchive();
-                          closeMenu();
-                        }}
-                        className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
-                      >
-                        <Undo2 className="size-4 text-slate-400" />
-                        Desarchivar
-                      </button>
-                    ) : showArchive ? (
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          toggleArchive();
-                          closeMenu();
-                        }}
-                        className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
-                      >
-                        <Archive className="size-4 text-slate-400" />
-                        Archivar
-                      </button>
-                    ) : null
-                  )}
+                  {isArchived ? (
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggleArchive();
+                        closeMenu();
+                      }}
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
+                    >
+                      <Undo2 className="size-4 text-slate-400" />
+                      Desarchivar
+                    </button>
+                  ) : showArchive ? (
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggleArchive();
+                        closeMenu();
+                      }}
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
+                    >
+                      <Archive className="size-4 text-slate-400" />
+                      Archivar
+                    </button>
+                  ) : null}
 
                   {/* Edit idea original — only when DRAFT */}
                   {idea.status === "DRAFT" && (
@@ -263,6 +228,34 @@ export function IdeaCard({
                     >
                       <Pencil className="size-4 text-slate-400" />
                       Editar idea original
+                    </button>
+                  )}
+
+                  {/* Convertir a proyecto — only when COMPLETED */}
+                  {idea.status === "COMPLETED" && (
+                    <button
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        closeMenu();
+                        try {
+                          const res = await fetch("/api/projects/create", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ ideaId: idea.id }),
+                          });
+                          const data = await res.json();
+                          if (res.ok || res.status === 409) {
+                            router.push(`/proyectos/${data.projectId}`);
+                          }
+                        } catch (err) {
+                          console.error("[Convert to project]", err);
+                        }
+                      }}
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
+                    >
+                      <Rocket className="size-4 text-amber-400" />
+                      Convertir a proyecto
                     </button>
                   )}
 
@@ -292,7 +285,7 @@ export function IdeaCard({
         <div className="mt-3 flex items-center gap-4 text-xs text-slate-500">
           <span className="inline-flex items-center gap-1.5">
             <span>Última actualización: {dateStr}</span>
-            {isFavorite && <Heart className="size-3 text-red-400 shrink-0" fill="currentColor" />}
+
             {isArchived && <Archive className="size-3 text-amber-400 shrink-0" fill="currentColor" />}
           </span>
           {/* Status badge with color */}

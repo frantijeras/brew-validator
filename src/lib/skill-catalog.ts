@@ -19,7 +19,7 @@ export const SKILL_CATALOG: SkillDefinition[] = [
   {
     id: "codebot-dev",
     name: "Desarrollo (CodeBot)",
-    description: "Implementa el MVP técnico según stack y especificaciones de la Fase 05",
+    description: "Implementa el MVP técnico según stack y especificaciones de la Fase 05. Incluye SaaS (Software as a Service / Software como Servicio).",
     icon: "Code",
     category: "desarrollo",
     conditions: [
@@ -121,7 +121,7 @@ export const SKILL_CATALOG: SkillDefinition[] = [
   {
     id: "analytics",
     name: "Analytics e Informes",
-    description: "Configura dashboards, KPIs y reportes periódicos de rendimiento",
+    description: "Configura dashboards, KPI (Key Performance Indicator / Indicador Clave de Rendimiento) y reportes periódicos de rendimiento",
     icon: "BarChart3",
     category: "operaciones",
     conditions: [
@@ -242,7 +242,7 @@ export const SKILL_CATALOG: SkillDefinition[] = [
   {
     id: "finance-contabilidad",
     name: "Finanzas y Contabilidad",
-    description: "Gestiona facturación, impuestos, cashflow y proyecciones financieras",
+    description: "Gestiona facturación, impuestos, cashflow y proyecciones financieras. Incluye ROI (Return on Investment / Retorno de Inversión).",
     icon: "DollarSign",
     category: "finanzas",
     conditions: [
