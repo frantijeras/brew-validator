@@ -101,6 +101,7 @@ export default async function ProjectDetailPage({ params }: Props) {
             | { type?: "html" | "markdown"; content?: string; options?: Array<{ value: string; label: string }> }
             | null,
           subStepChoice: p.subStepChoice,
+          lastError: p.lastError as import("@/lib/phase-errors").PhaseError | null,
         }))}
         memory={project.memory as import("@/lib/project-memory").ProjectMemory | null}
         hasCompletedPhases={hasCompletedPhases}

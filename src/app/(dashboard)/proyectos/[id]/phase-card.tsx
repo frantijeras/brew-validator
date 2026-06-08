@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { Check, Download, FileText, Loader2 } from "lucide-react";
+import { Check, Download, FileText, Loader2, AlertTriangle } from "lucide-react";
+import type { PhaseError } from "@/lib/phase-errors";
+import { errorLabels, formatErrorTimestamp } from "@/lib/phase-errors";
 
 /**
  * PhaseCard — Tarjeta rediseñada (v5: acciones responsive) para una fase
@@ -176,6 +178,8 @@ export interface PhaseCardProps {
    * acciones globales. Se renderizan en un contenedor con mt-4 space-y-2.
    */
   subSteps?: React.ReactNode;
+  /** Último error del agente, mostrado cuando la fase está disponible tras un fallo. */
+  lastError?: PhaseError | null;
 }
 
 export function PhaseCard({
@@ -191,6 +195,7 @@ export function PhaseCard({
   subProgress,
   miniProgressBar,
   subSteps,
+  lastError,
 }: PhaseCardProps) {
   const badge = statusBadgeStyles[status];
   const hasArtifacts = artifacts && artifacts.length > 0;
@@ -308,6 +313,24 @@ export function PhaseCard({
               </span>
             );
           })}
+        </div>
+      )}
+
+      {/* Error feedback: show when phase is available after a failure */}
+      {lastError && status === "available" && (
+        <div className="mt-2 ml-2 rounded-md border border-red-500/20 bg-red-500/5 px-3 py-2">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="size-3.5 text-red-400" />
+            <span className="text-xs font-medium text-red-300">
+              {errorLabels[lastError.category]}
+            </span>
+          </div>
+          <p className="mt-1 text-[11px] text-red-300/70">
+            {lastError.message}
+          </p>
+          <p className="mt-0.5 text-[10px] text-slate-500">
+            {formatErrorTimestamp(lastError.timestamp)}
+          </p>
         </div>
       )}
 

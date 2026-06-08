@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { enqueuePhaseJob } from "@/lib/bridge/phase-jobs";
 
@@ -49,6 +50,12 @@ export async function POST(req: Request) {
         { status: 409 }
       );
     }
+
+    // Clear any previous error before starting a new execution
+    await prisma.projectPhase.update({
+      where: { id: phaseId },
+      data: { lastError: Prisma.JsonNull },
+    });
 
     const result = await enqueuePhaseJob({
       projectId,

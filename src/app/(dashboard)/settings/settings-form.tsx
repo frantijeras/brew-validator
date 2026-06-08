@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { ChevronRight, RefreshCw } from "lucide-react";
 import { updateProfile, changePassword, addUser, saveAgentModels } from "./actions";
 
 interface UserData {
@@ -372,6 +373,8 @@ function AIModelSection() {
   const [config, setConfig] = useState<Record<string, string>>(DEFAULT_AGENT_MODELS);
   const [saved, setSaved] = useState(false);
   const [modelOptions, setModelOptions] = useState<ModelOption[]>([...MODEL_FALLBACK]);
+  const [ideasExpanded, setIdeasExpanded] = useState(false);
+  const [projectsExpanded, setProjectsExpanded] = useState(false);
 
   useEffect(() => {
     setConfig(loadModelConfig());
@@ -399,6 +402,15 @@ function AIModelSection() {
     setSaved(false);
   }
 
+  function handleBulkChange(agentIds: string[], model: string) {
+    setConfig((prev) => {
+      const next = { ...prev };
+      for (const id of agentIds) next[id] = model;
+      return next;
+    });
+    setSaved(false);
+  }
+
   function handleSave() {
     saveModelConfig(config);
     // Also persist to server for bridge daemon
@@ -407,33 +419,43 @@ function AIModelSection() {
     setTimeout(() => setSaved(false), 2500);
   }
 
+  const ideaModels = new Set(AGENT_INFO.map((a) => config[a.id])).size;
+  const projectModels = new Set(PROJECT_AGENT_INFO.map((a) => config[a.id])).size;
+
   return (
     <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
       <h2 className="text-lg font-semibold text-white">Modelos de IA</h2>
       <p className="mt-1 text-sm text-slate-400">
-        Asigna un modelo de lenguaje a cada agente del validador
+        Asigna un modelo de lenguaje a cada agente
       </p>
 
-      <div className="mt-6 space-y-4">
-        {AGENT_INFO.map((agent) => (
-          <AgentSelectRow key={agent.id} agent={agent} config={config} modelOptions={modelOptions} onChange={handleChange} />
-        ))}
-      </div>
+      {/* ── Bloque Ideas ── */}
+      <ModelBlock
+        title="Ideas"
+        description="Generación y validación de ideas"
+        agents={AGENT_INFO}
+        config={config}
+        modelOptions={modelOptions}
+        expanded={ideasExpanded}
+        onToggle={() => setIdeasExpanded(!ideasExpanded)}
+        onChange={handleChange}
+        onBulkChange={(model) => handleBulkChange(AGENT_INFO.map((a) => a.id), model)}
+        uniqueModelsCount={ideaModels}
+      />
 
-      {/* Project agents — visually separated */}
-      <div className="mt-8">
-        <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">
-          Proyectos
-        </h3>
-        <p className="mt-1 text-xs text-slate-500">
-          Modelos para las fases de ejecución de proyectos
-        </p>
-        <div className="mt-3 space-y-4">
-          {PROJECT_AGENT_INFO.map((agent) => (
-            <AgentSelectRow key={agent.id} agent={agent} config={config} modelOptions={modelOptions} onChange={handleChange} />
-          ))}
-        </div>
-      </div>
+      {/* ── Bloque Proyectos ── */}
+      <ModelBlock
+        title="Proyectos"
+        description="Fases de ejecución de proyectos"
+        agents={PROJECT_AGENT_INFO}
+        config={config}
+        modelOptions={modelOptions}
+        expanded={projectsExpanded}
+        onToggle={() => setProjectsExpanded(!projectsExpanded)}
+        onChange={handleChange}
+        onBulkChange={(model) => handleBulkChange(PROJECT_AGENT_INFO.map((a) => a.id), model)}
+        uniqueModelsCount={projectModels}
+      />
 
       <div className="mt-6 flex items-center gap-3">
         <button
@@ -601,6 +623,106 @@ function UsersSection({ users }: { users: ListedUser[] }) {
         </form>
       </div>
     </section>
+  );
+}
+
+/* ── Model block (collapsible group) ── */
+function ModelBlock({
+  title,
+  description,
+  agents,
+  config,
+  modelOptions,
+  expanded,
+  onToggle,
+  onChange,
+  onBulkChange,
+  uniqueModelsCount,
+}: {
+  title: string;
+  description: string;
+  agents: { id: string; name: string; description: string }[];
+  config: Record<string, string>;
+  modelOptions: ModelOption[];
+  expanded: boolean;
+  onToggle: () => void;
+  onChange: (id: string, model: string) => void;
+  onBulkChange: (model: string) => void;
+  uniqueModelsCount: number;
+}) {
+  return (
+    <div className="mt-4 rounded-lg border border-slate-800 bg-slate-900/30">
+      {/* Header colapsable */}
+      <button
+        onClick={onToggle}
+        className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-slate-800/30"
+      >
+        <div className="flex items-center gap-3">
+          <ChevronRight
+            className={`size-4 text-slate-400 transition-transform ${expanded ? "rotate-90" : ""}`}
+          />
+          <div>
+            <p className="text-sm font-medium text-white">{title}</p>
+            <p className="text-xs text-slate-500">{description}</p>
+          </div>
+        </div>
+        <span className="text-xs text-slate-400">
+          {uniqueModelsCount} modelo{uniqueModelsCount !== 1 ? "s" : ""}
+        </span>
+      </button>
+
+      {/* Contenido expandible */}
+      {expanded && (
+        <div className="border-t border-slate-800 px-4 py-4 space-y-3">
+          {/* Master selector */}
+          <div className="flex items-center gap-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3">
+            <RefreshCw className="size-4 shrink-0 text-amber-400" />
+            <span className="text-sm font-medium text-amber-300">Cambiar todos</span>
+            <select
+              onChange={(e) => {
+                if (e.target.value) onBulkChange(e.target.value);
+                e.target.value = "";
+              }}
+              defaultValue=""
+              className="ml-auto rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm text-white focus:border-amber-500 focus:outline-none"
+            >
+              <option value="" disabled>
+                Seleccionar modelo...
+              </option>
+              {(() => {
+                const providers = [...new Set(modelOptions.map((m) => m.provider))];
+                const providerLabels: Record<string, string> = {
+                  "opencode-zen-free": "OpenCode Zen Free",
+                  "opencode-go": "OpenCode Go",
+                };
+                return providers.map((provider) => (
+                  <optgroup key={provider} label={providerLabels[provider] ?? provider}>
+                    {modelOptions
+                      .filter((m) => m.provider === provider)
+                      .map((m) => (
+                        <option key={m.value} value={m.value}>
+                          {m.label}
+                        </option>
+                      ))}
+                  </optgroup>
+                ));
+              })()}
+            </select>
+          </div>
+
+          {/* Selectores individuales */}
+          {agents.map((agent) => (
+            <AgentSelectRow
+              key={agent.id}
+              agent={agent}
+              config={config}
+              modelOptions={modelOptions}
+              onChange={onChange}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -84,7 +84,7 @@ export default function DashboardLayout({
             </p>
             <div className="space-y-1">
               <Link
-                href="/ideas"
+                href="/ideas/new"
                 className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-amber-400 transition-colors hover:bg-amber-500/10"
               >
                 <PlusIcon />

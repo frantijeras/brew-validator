@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { classifyError } from "@/lib/phase-errors";
 
 /**
  * Sub-step artifact shape. The agent emits this JSON when a sub-step produces
@@ -223,9 +224,17 @@ export async function POST(req: Request) {
             phase.status === "PROCESSING" ||
             phase.status === "SUBSTEP_READY")
         ) {
+          const errorMessage = typeof body.error === "string" ? body.error : "Agent returned no output";
           await prisma.projectPhase.update({
             where: { id: phaseId },
-            data: { status: "AVAILABLE" },
+            data: {
+              status: "AVAILABLE",
+              lastError: {
+                message: errorMessage,
+                category: classifyError(errorMessage),
+                timestamp: new Date().toISOString(),
+              },
+            },
           });
         }
       }

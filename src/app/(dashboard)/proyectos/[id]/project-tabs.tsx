@@ -6,6 +6,8 @@ import { ProjectPhasesWithModal } from "./project-phases-with-modal";
 import { SkillSelector } from "./skill-selector";
 import type { ProjectMemory } from "@/lib/project-memory";
 
+import type { PhaseError } from "@/lib/phase-errors";
+
 interface PhaseData {
   id: string;
   type: string;
@@ -23,6 +25,7 @@ interface PhaseData {
     options?: Array<{ value: string; label: string }>;
   } | null;
   subStepChoice: string | null;
+  lastError?: PhaseError | null;
 }
 
 interface SkillData {

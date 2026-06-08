@@ -44,6 +44,7 @@ import {
   type MemoryEntry,
 } from "@/lib/project-memory";
 import { SubStepCard, type SubStepStatus } from "./sub-step-card";
+import type { PhaseError } from "@/lib/phase-errors";
 
 interface PhaseData {
   id: string;
@@ -58,6 +59,7 @@ interface PhaseData {
   subStepOrder: number | null;
   subStepArtifact: { type?: "html" | "markdown"; content?: string; options?: Array<{ value: string; label: string }> } | null;
   subStepChoice: string | null;
+  lastError?: PhaseError | null;
 }
 
 interface ProjectPhasesWithModalProps {
@@ -228,7 +230,7 @@ const btnStyles = {
   downloadDisabled:
     "inline-flex w-full cursor-not-allowed items-center justify-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/50 px-4 py-2 text-sm font-medium text-slate-600",
   cancel:
-    "inline-flex w-full items-center justify-center gap-1 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/20 hover:border-red-500/50 hover:text-red-300",
+    "inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/20 hover:border-red-500/50 hover:text-red-300",
 } as const;
 
 /**
@@ -579,6 +581,7 @@ export function ProjectPhasesWithModal({
               // porque las acciones "Ver" + "Descargar PDF" ya cubren la descarga.
               // Así evitamos el enlace duplicado en forma de chip de artefacto.
               artifacts={undefined}
+              lastError={phase.lastError}
               actions={(() => {
                 const list: React.ReactNode[] = [];
                 // Para fases CON sub-step cards, los botones "Ejecutar",
@@ -597,6 +600,21 @@ export function ProjectPhasesWithModal({
                     />
                   );
                 }
+                // Cancel a la izquierda (secundaria)
+                if (hasQuestions || isProcessing || isSubstepReady) {
+                  list.push(
+                    <button
+                      key="cancel"
+                      onClick={() => handleCancelPhase(phase.id)}
+                      className={btnStyles.cancel}
+                      title="Cancelar y volver a disponible"
+                    >
+                      <XCircle className="size-4" />
+                      Cancelar
+                    </button>
+                  );
+                }
+                // Primaria a la derecha
                 if (hasQuestions && showGlobalPrimary) {
                   list.push(
                     <button
@@ -606,20 +624,6 @@ export function ProjectPhasesWithModal({
                     >
                       <HelpCircle className="size-4" />
                       Responder
-                    </button>
-                  );
-                }
-                // Cancel siempre se muestra (incluso con sub-step cards)
-                if (hasQuestions || isProcessing || isSubstepReady) {
-                  list.push(
-                    <button
-                      key="cancel"
-                      onClick={() => handleCancelPhase(phase.id)}
-                      className={btnStyles.cancel}
-                      title="Cancelar y volver a disponible"
-                    >
-                      <XCircle className="size-3" />
-                      Cancelar
                     </button>
                   );
                 }
