@@ -171,6 +171,11 @@ export interface PhaseCardProps {
    * hay description), con una animación pulse en el segmento activo.
    */
   miniProgressBar?: React.ReactNode;
+  /**
+   * Sub-step cards a renderizar debajo de la descripción y antes de las
+   * acciones globales. Se renderizan en un contenedor con mt-4 space-y-2.
+   */
+  subSteps?: React.ReactNode;
 }
 
 export function PhaseCard({
@@ -185,6 +190,7 @@ export function PhaseCard({
   statusLabel,
   subProgress,
   miniProgressBar,
+  subSteps,
 }: PhaseCardProps) {
   const badge = statusBadgeStyles[status];
   const hasArtifacts = artifacts && artifacts.length > 0;
@@ -319,6 +325,14 @@ export function PhaseCard({
         >
           {description}
         </p>
+      )}
+
+      {/* Sub-step cards (nuevo) — renderizadas debajo de la descripción,
+          antes de los artefactos y las acciones globales. */}
+      {subSteps && (
+        <div className="mt-4 space-y-2">
+          {subSteps}
+        </div>
       )}
 
       {/* Artefactos: chips clickables (columna en móvil, fila en desktop) */}

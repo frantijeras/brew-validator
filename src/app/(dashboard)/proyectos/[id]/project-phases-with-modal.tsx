@@ -34,15 +34,18 @@ import { PhaseQuestionsModal } from "./phase-questions-modal";
 import { PhaseSubstepModal, type SubStepArtifact } from "./phase-substep-modal";
 import { PhaseCard } from "./phase-card";
 import {
-  IDENTITY_SUBSTEP_ORDER,
-  getIdentitySubStepIndex,
-} from "@/lib/identity-substeps";
+  PHASE_SUBSTEPS,
+  getSubStepIndex,
+  subStepToneMap,
+  type SubStepMeta,
+} from "@/lib/phase-substeps";
 import {
   formatMemoryValue,
   memoryKeyLabels,
   type ProjectMemory,
   type MemoryEntry,
 } from "@/lib/project-memory";
+import { SubStepCard, type SubStepStatus } from "./sub-step-card";
 
 interface PhaseData {
   id: string;
@@ -119,12 +122,87 @@ const PHASE4_DOWNLOAD_LABEL = "Descargar PDF";
  */
 const subStepReviewLabels: Record<string, string> = {
   naming: "Revisar nombres",
-  mockup: "Revisar mockup",
+  voice: "Revisar voz",
+  visual: "Revisar mockup",
   compare: "Revisar comparativa",
   simulate: "Revisar simulación",
   pilars: "Revisar pilares",
   final: "Revisar resultado",
 };
+
+const subStepExecuteLabels: Record<string, string> = {
+  quiz: "Responder",
+  naming: "Ejecutar",
+  voice: "Ejecutar",
+  visual: "Ejecutar",
+  pilars: "Ejecutar",
+  compare: "Ejecutar",
+  simulate: "Ejecutar",
+  final: "Ejecutar",
+};
+
+const subStepProcessingMessages: Record<string, string> = {
+  quiz: "Procesando respuestas...",
+  naming: "Generando opciones...",
+  voice: "Definiendo personalidad...",
+  visual: "Generando mockup...",
+  pilars: "Generando pilares...",
+  compare: "Comparando stacks...",
+  simulate: "Simulando escenarios...",
+  final: "Consolidando documento...",
+};
+
+/**
+ * Determina el estado visual de un sub-step card.
+ * Sigue el algoritmo de la sección 5.1 de la especificación.
+ */
+function getSubStepStatus(
+  phase: PhaseData,
+  subStepMeta: SubStepMeta,
+  phaseStatus: string
+): SubStepStatus {
+  if (phaseStatus === "COMPLETED") return "completed";
+  if (phaseStatus === "LOCKED") return "locked";
+
+  if (phaseStatus === "AVAILABLE") {
+    return subStepMeta.order === 0 ? "available" : "locked";
+  }
+
+  if (phaseStatus === "PROCESSING") {
+    const currentIdx =
+      phase.subStepOrder !== null && phase.subStepOrder !== undefined
+        ? phase.subStepOrder
+        : phase.subStep
+          ? getSubStepIndex(phase.subStep, phase.type)
+          : 0;
+
+    if (subStepMeta.order < currentIdx) return "completed";
+    if (subStepMeta.order === currentIdx) return "processing";
+    return "locked";
+  }
+
+  if (phaseStatus === "SUBSTEP_READY") {
+    const currentIdx =
+      phase.subStepOrder !== null && phase.subStepOrder !== undefined
+        ? phase.subStepOrder
+        : phase.subStep
+          ? getSubStepIndex(phase.subStep, phase.type)
+          : 0;
+
+    if (subStepMeta.order < currentIdx) return "completed";
+    if (subStepMeta.order === currentIdx) return "substep_ready";
+    return "locked";
+  }
+
+  if (phaseStatus === "QUESTIONING") {
+    const quizIndex = getSubStepIndex("quiz", phase.type);
+    if (subStepMeta.order < quizIndex) return "completed";
+    if (subStepMeta.order === quizIndex) return "processing";
+    return "locked";
+  }
+
+  return "locked";
+}
 
 /**
  * Estilos de los 4 tipos de botón que aparecen en cada tarjeta de fase.
@@ -431,75 +509,65 @@ export function ProjectPhasesWithModal({
           const reviewLabel =
             (phase.subStep && subStepReviewLabels[phase.subStep]) || "Revisar sub-paso";
 
-          // ── IDENTITY sub-progress ──
-          // For IDENTITY phases, build a 4-step progress bar that reflects
-          // which sub-step the user is currently on. The bar is suppressed
-          // when the phase is COMPLETED or LOCKED (the PhaseCard already
-          // hides it for those, but we also skip the computation here).
-          let subProgress:
-            | Array<{ label: string; status: "done" | "current" | "pending" }>
-            | undefined;
-          let phaseDescription = phase.description ?? undefined;
-          if (phase.type === "IDENTITY" && !isCompleted && !isLocked) {
-            // Determine the current sub-step index.
-            //  - If subStepOrder is set in DB, use it.
-            //  - Else fall back to the position of phase.subStep in the order.
-            //  - Else (no subStep yet, phase AVAILABLE), treat as step 0 (naming).
-            let currentIdx: number;
-            if (phase.subStepOrder !== null && phase.subStepOrder !== undefined) {
-              currentIdx = phase.subStepOrder;
-            } else if (phase.subStep) {
-              currentIdx = getIdentitySubStepIndex(phase.subStep);
-              if (currentIdx < 0) currentIdx = 0;
-            } else {
-              currentIdx = 0;
-            }
-            // Clamp to valid range, but if the phase is at "final" or beyond
-            // treat the last item as current.
-            const lastIdx = IDENTITY_SUBSTEP_ORDER.length - 1;
-            if (currentIdx < 0) currentIdx = 0;
-            if (currentIdx > lastIdx) currentIdx = lastIdx;
+          // ── Sub-step cards (nuevo: reemplaza subProgress y miniProgressBar) ──
+          // Solo para fases con definición en PHASE_SUBSTEPS (todas excepto ANALYSIS).
+          const phaseSubsteps = PHASE_SUBSTEPS[phase.type];
+          const hasSubSteps = phaseSubsteps && phaseSubsteps.length > 0;
 
-            subProgress = IDENTITY_SUBSTEP_ORDER.map((s, i) => {
-              let stepStatus: "done" | "current" | "pending";
-              if (i < currentIdx) stepStatus = "done";
-              else if (i === currentIdx) stepStatus = "current";
-              else stepStatus = "pending";
-              return { label: s.label, status: stepStatus };
+          const phaseTone = subStepToneMap[phase.type] || "blue";
+
+          let subStepCards: React.ReactNode = null;
+          if (hasSubSteps && !isLocked) {
+            subStepCards = phaseSubsteps!.map((meta) => {
+              const sStatus = getSubStepStatus(phase, meta, phase.status);
+              const executeLabel = subStepExecuteLabels[meta.id] || "Ejecutar";
+              const reviewLabel = subStepReviewLabels[meta.id] || "Revisar";
+              const processingMsg = subStepProcessingMessages[meta.id] || "Generando...";
+
+              // Determinar onAction según el estado y tipo de sub-step
+              let onAction: (() => void) | undefined;
+              if (sStatus === "available") {
+                // Si el sub-step actual tiene preguntas activas, abrir modal
+                if (hasQuestions && meta.id === "quiz") {
+                  onAction = () => setModalPhase(phase);
+                } else if (meta.order === 0) {
+                  // Solo el primer sub-step disponible ejecuta la fase
+                  onAction = () => {
+                    fetch("/api/projects/execute-phase", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        projectId,
+                        phaseId: phase.id,
+                        phaseType: phase.type,
+                      }),
+                    })
+                      .then((res) => {
+                        if (res.ok) router.refresh();
+                      })
+                      .catch(() => {});
+                  };
+                }
+              } else if (sStatus === "substep_ready") {
+                onAction = () =>
+                  setSubstepModalPhase({ ...phase, subStepArtifact });
+              }
+
+              return (
+                <SubStepCard
+                  key={meta.id}
+                  phaseType={phase.type}
+                  subStepMeta={meta}
+                  status={sStatus}
+                  number={meta.order + 1}
+                  tone={phaseTone}
+                  onAction={onAction}
+                  executeLabel={executeLabel}
+                  reviewLabel={reviewLabel}
+                  processingMessage={processingMsg}
+                />
+              );
             });
-
-            // Override the subtitle while in process: "Paso X de 4 — [label]".
-            const currentLabel =
-              IDENTITY_SUBSTEP_ORDER[currentIdx]?.label || "Nombre";
-            phaseDescription = `Paso ${currentIdx + 1} de 4 — ${currentLabel}`;
-          }
-
-          // ── IDENTITY mini progress bar ──
-          // 4 horizontal segments showing naming → voice → visual → final.
-          let identityMiniBar: React.ReactNode = null;
-          if (phase.type === "IDENTITY" && !isCompleted && !isLocked && subProgress) {
-            const orderIds = IDENTITY_SUBSTEP_ORDER.map((s) => s.id);
-            const activeIdx = subProgress.findIndex((s) => s.status === "current");
-            identityMiniBar = (
-              <div className="flex items-center gap-1.5">
-                {orderIds.map((s, i) => {
-                  const isCompleted = subProgress[i]?.status === "done";
-                  const isActive = i === activeIdx || subProgress[i]?.status === "current";
-                  return (
-                    <div
-                      key={s}
-                      className={`flex-1 h-1.5 rounded-full ${
-                        isCompleted
-                          ? "bg-primary"
-                          : isActive
-                            ? "bg-primary/60 animate-pulse"
-                            : "bg-muted"
-                      }`}
-                    />
-                  );
-                })}
-              </div>
-            );
           }
 
           return (
@@ -507,9 +575,8 @@ export function ProjectPhasesWithModal({
               key={phase.id}
               number={phase.sortOrder}
               title={phase.label}
-              description={phaseDescription}
-              subProgress={subProgress}
-              miniProgressBar={identityMiniBar}
+              description={phase.description ?? undefined}
+              subSteps={subStepCards}
               icon={(() => {
                 if (isCompleted) return <CheckCircle className="size-5" />;
                 if (isLocked) return <Lock className="size-5" />;
@@ -539,7 +606,12 @@ export function ProjectPhasesWithModal({
               artifacts={undefined}
               actions={(() => {
                 const list: React.ReactNode[] = [];
-                if (isAvailable) {
+                // Para fases CON sub-step cards, los botones "Ejecutar",
+                // "Responder" y "Revisar" ya están en cada SubStepCard.
+                // Solo mostramos el botón global si la fase NO tiene
+                // sub-step cards definidos (ej. ANALYSIS).
+                const showGlobalPrimary = !hasSubSteps;
+                if (isAvailable && showGlobalPrimary) {
                   list.push(
                     <PhaseActionButton
                       key="primary"
@@ -550,7 +622,7 @@ export function ProjectPhasesWithModal({
                     />
                   );
                 }
-                if (hasQuestions) {
+                if (hasQuestions && showGlobalPrimary) {
                   list.push(
                     <button
                       key="primary"
@@ -561,6 +633,9 @@ export function ProjectPhasesWithModal({
                       Responder
                     </button>
                   );
+                }
+                // Cancel siempre se muestra (incluso con sub-step cards)
+                if (hasQuestions || isProcessing || isSubstepReady) {
                   list.push(
                     <button
                       key="cancel"
@@ -573,20 +648,7 @@ export function ProjectPhasesWithModal({
                     </button>
                   );
                 }
-                if (isProcessing) {
-                  list.push(
-                    <button
-                      key="cancel"
-                      onClick={() => handleCancelPhase(phase.id)}
-                      className={btnStyles.cancel}
-                      title="Cancelar y volver a disponible"
-                    >
-                      <XCircle className="size-3" />
-                      Cancelar
-                    </button>
-                  );
-                }
-                if (isSubstepReady) {
+                if (isSubstepReady && showGlobalPrimary) {
                   list.push(
                     <button
                       key="primary"
@@ -597,17 +659,6 @@ export function ProjectPhasesWithModal({
                     >
                       <Sparkles className="size-4" />
                       {reviewLabel}
-                    </button>
-                  );
-                  list.push(
-                    <button
-                      key="cancel"
-                      onClick={() => handleCancelPhase(phase.id)}
-                      className={btnStyles.cancel}
-                      title="Cancelar y volver a disponible"
-                    >
-                      <XCircle className="size-3" />
-                      Cancelar
                     </button>
                   );
                 }

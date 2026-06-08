@@ -22,34 +22,33 @@
  * IMPORTANT: keep this list and the agent's expected subStep values in
  * sync. The agent `project-branding` reads `subStep` from the job input to
  * decide what to emit.
+ *
+ * Los metadatos de sub-steps se derivan de PHASE_SUBSTEPS.IDENTITY en
+ * phase-substeps.ts para evitar duplicación. Este archivo mantiene las
+ * funciones helper de transición (getNextIdentitySubStep, etc.) por
+ * compatibilidad con consumidores existentes.
  */
 
-export const IDENTITY_SUBSTEP_ORDER = [
-  {
-    id: "naming",
-    order: 0,
-    label: "Nombre",
-    description: "Elige el nombre de tu proyecto",
-  },
-  {
-    id: "voice",
-    order: 1,
-    label: "Voz y Tono",
-    description: "Define la personalidad de tu marca",
-  },
-  {
-    id: "visual",
-    order: 2,
-    label: "Estilo Visual",
-    description: "Fuentes, colores e identidad visual",
-  },
-  {
-    id: "final",
-    order: 3,
-    label: "Brand Book",
-    description: "Documento final con toda la identidad",
-  },
-] as const;
+import { PHASE_SUBSTEPS } from "./phase-substeps";
+
+/**
+ * IDENTITY sub-step order — derivado de PHASE_SUBSTEPS.IDENTITY.
+ * Mantiene la misma forma que antes para compatibilidad.
+ */
+export const IDENTITY_SUBSTEP_ORDER = PHASE_SUBSTEPS.IDENTITY.map((s) => ({
+  id: s.id,
+  order: s.order,
+  label: s.label,
+  description: s.description,
+})) as readonly {
+  id: string;
+  order: number;
+  label: string;
+  description: string;
+}[];
+
+// Re-assert read-only at runtime
+Object.freeze(IDENTITY_SUBSTEP_ORDER);
 
 export type IdentitySubStepId = (typeof IDENTITY_SUBSTEP_ORDER)[number]["id"];
 
@@ -69,12 +68,10 @@ const IDENTITY_BY_ID: Record<string, (typeof IDENTITY_SUBSTEP_ORDER)[number] | u
  */
 export function getNextIdentitySubStep(current: string | null | undefined): string | null {
   if (!current) {
-    // Fresh start: the phase has not begun a sub-step yet → naming.
     return "naming";
   }
   const idx = IDENTITY_SUBSTEP_ORDER.findIndex((s) => s.id === current);
   if (idx === -1) {
-    // Unknown id — safe fallback: restart from naming.
     return "naming";
   }
   const next = IDENTITY_SUBSTEP_ORDER[idx + 1];
@@ -107,4 +104,4 @@ export function getIdentitySubStepLabel(subStep: string | null | undefined): str
  * All sub-step ids in order. Useful for tests and for the UI sub-progress bar.
  */
 export const IDENTITY_SUBSTEP_IDS: readonly IdentitySubStepId[] =
-  IDENTITY_SUBSTEP_ORDER.map((s) => s.id);
+  IDENTITY_SUBSTEP_ORDER.map((s) => s.id) as readonly IdentitySubStepId[];
