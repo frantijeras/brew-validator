@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -104,10 +105,12 @@ export default async function ProjectDetailPage({ params }: Props) {
       {/* Skills del Proyecto — solo visible si hay al menos 1 fase completada */}
       {hasCompletedPhases && (
         <div className="mt-6">
-          <SkillSelector
-            projectId={project.id}
-            initialSkills={existingSkills && existingSkills.length > 0 ? existingSkills : undefined}
-          />
+          <Suspense fallback={<div className="animate-pulse bg-slate-800/50 rounded-xl h-48" />}>
+            <SkillSelector
+              projectId={project.id}
+              initialSkills={existingSkills && existingSkills.length > 0 ? existingSkills : undefined}
+            />
+          </Suspense>
         </div>
       )}
     </div>

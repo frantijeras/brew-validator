@@ -15,18 +15,39 @@ import {
   Scale,
   DollarSign,
   Plus,
-  Save,
+  X,
   ChevronDown,
   ChevronUp,
-  Check,
-  Sparkles,
-  Loader2,
-  X,
 } from "lucide-react";
 
-// ── Icon map ───────────────────────────────────────────────────────
+// ── Types ────────────────────────────────────────────────────────────
 
-const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+interface SkillData {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  category: string;
+  confidence: number;
+  reason: string;
+  recommended: boolean;
+  selected: boolean;
+  custom: boolean;
+}
+
+type SkillState = SkillData & {
+  _localSelected: boolean;
+};
+
+interface SkillSelectorProps {
+  projectId: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  initialSkills?: any[];
+}
+
+// ── Icon map (Lucide icons by name) ──────────────────────────────────
+
+const ICON_MAP: Record<string, React.ElementType> = {
   Code,
   PenLine,
   Search,
@@ -41,238 +62,183 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   DollarSign,
 };
 
-// ── Types ──────────────────────────────────────────────────────────
+const ICON_OPTIONS = [
+  { value: "Code", label: "Code" },
+  { value: "PenLine", label: "PenLine" },
+  { value: "Search", label: "Search" },
+  { value: "Mail", label: "Mail" },
+  { value: "Share2", label: "Share2" },
+  { value: "BarChart3", label: "BarChart3" },
+  { value: "HeartHandshake", label: "HeartHandshake" },
+  { value: "Target", label: "Target" },
+  { value: "Users", label: "Users" },
+  { value: "Palette", label: "Palette" },
+  { value: "Scale", label: "Scale" },
+  { value: "DollarSign", label: "DollarSign" },
+];
 
-interface SkillItem {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  category: string;
-  confidence: number;
-  reason: string;
-  recommended: boolean;
-  custom?: boolean;
+// ── Helpers ───────────────────────────────────────────────────────────
+
+function confidenceBadge(confidence: number) {
+  if (confidence >= 0.7) {
+    return "bg-green-500/15 text-green-400 border-green-500/20";
+  }
+  if (confidence >= 0.4) {
+    return "bg-amber-500/15 text-amber-400 border-amber-500/20";
+  }
+  return "bg-slate-500/15 text-slate-400 border-slate-500/20";
 }
 
-interface SavedSkill extends SkillItem {
-  selected: boolean;
-  custom: boolean;
+function confidencePct(confidence: number) {
+  return `${Math.round(confidence * 100)}%`;
 }
 
-interface SkillSelectorProps {
-  projectId: string;
-  initialSkills?: SkillItem[];
-  onSave?: (skills: SavedSkill[]) => void;
-}
+// ── Component ─────────────────────────────────────────────────────────
 
-// ── Category badge colors ──────────────────────────────────────────
-
-const categoryStyles: Record<string, string> = {
-  desarrollo: "bg-green-500/10 text-green-400 border-green-500/20",
-  marketing: "bg-purple-500/10 text-purple-400 border-purple-500/20",
-  operaciones: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-  legal: "bg-red-500/10 text-red-400 border-red-500/20",
-  finanzas: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-};
-
-const categoryLabels: Record<string, string> = {
-  desarrollo: "Desarrollo",
-  marketing: "Marketing",
-  operaciones: "Operaciones",
-  legal: "Legal",
-  finanzas: "Finanzas",
-};
-
-// ── Component ──────────────────────────────────────────────────────
-
-export function SkillSelector({
-  projectId,
-  initialSkills,
-  onSave,
-}: SkillSelectorProps) {
-  const [skills, setSkills] = useState<SkillItem[]>(initialSkills || []);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [customSkills, setCustomSkills] = useState<SavedSkill[]>([]);
+export function SkillSelector({ projectId, initialSkills }: SkillSelectorProps) {
+  const [skills, setSkills] = useState<SkillState[]>([]);
   const [loading, setLoading] = useState(!initialSkills);
+  const [error, setError] = useState<string | null>(null);
+  const [showExtra, setShowExtra] = useState(false);
+  const [showCustomForm, setShowCustomForm] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [showAll, setShowAll] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [showCustomModal, setShowCustomModal] = useState(false);
+
+  // Custom skill form state
   const [customName, setCustomName] = useState("");
-  const [customDesc, setCustomDesc] = useState("");
+  const [customDescription, setCustomDescription] = useState("");
   const [customIcon, setCustomIcon] = useState("Plus");
 
-  // Fetch skills on mount if not provided
-  useEffect(() => {
-    if (initialSkills && initialSkills.length > 0) {
-      setSkills(initialSkills);
-      // Pre-select recommended skills
-      const sel = new Set<string>();
-      initialSkills.forEach((s) => {
-        if (s.recommended) sel.add(s.id);
-      });
-      setSelectedIds(sel);
-      setLoading(false);
-      return;
-    }
+  // ── Fetch skills from API ────────────────────────────────────────
 
-    let cancelled = false;
-    async function load() {
-      try {
-        const res = await fetch(`/api/projects/${projectId}/skills`);
-        if (!res.ok) {
-          console.error("Failed to load skills:", res.status);
-          setLoading(false);
-          return;
-        }
-        const data = await res.json();
-        if (cancelled) return;
-        setSkills(data.skills || []);
-        const sel = new Set<string>();
-        (data.skills || []).forEach(
-          (s: SkillItem) => s.recommended && sel.add(s.id),
-        );
-        setSelectedIds(sel);
-      } catch (err) {
-        console.error("Error loading skills:", err);
-      } finally {
-        if (!cancelled) setLoading(false);
+  const fetchSkills = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await fetch(`/api/projects/${projectId}/skills`);
+      if (!res.ok) {
+        throw new Error(`Error ${res.status}`);
       }
+      const data = await res.json();
+      const apiSkills: SkillData[] = data.skills ?? [];
+
+      // Merge with existing selections if initialSkills provided
+      const merged = apiSkills.map((s) => {
+        const existing = initialSkills?.find((es: { id: string }) => es.id === s.id);
+        return {
+          ...s,
+          _localSelected: existing
+            ? (existing.selected as boolean | undefined) ?? (s.recommended && s.confidence >= 0.7)
+            : s.recommended && s.confidence >= 0.7,
+        };
+      });
+
+      setSkills(merged);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al cargar skills");
+    } finally {
+      setLoading(false);
     }
-    load();
-    return () => {
-      cancelled = true;
-    };
   }, [projectId, initialSkills]);
 
-  // Show toast
-  const showToast = useCallback((msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
-  }, []);
+  useEffect(() => {
+    fetchSkills();
+  }, [fetchSkills]);
 
-  // Toggle a skill
-  const toggleSkill = useCallback((id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
+  // ── Toggle skill selection ───────────────────────────────────────
 
-  // Add custom skill
-  const addCustomSkill = useCallback(() => {
-    const name = customName.trim();
-    const desc = customDesc.trim();
-    if (!name) return;
-    const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    const newSkill: SavedSkill = {
-      id,
-      name,
-      description: desc || "Skill personalizada",
+  const toggleSkill = (id: string) => {
+    setSkills((prev) =>
+      prev.map((s) =>
+        s.id === id ? { ...s, _localSelected: !s._localSelected } : s,
+      ),
+    );
+  };
+
+  // ── Add custom skill ─────────────────────────────────────────────
+
+  const addCustomSkill = () => {
+    const trimmedName = customName.trim();
+    if (!trimmedName) return;
+
+    const newSkill: SkillState = {
+      id: `custom-${Date.now()}`,
+      name: trimmedName,
+      description: customDescription.trim() || "Skill personalizada",
       icon: customIcon,
-      category: "operaciones",
-      confidence: 1,
-      reason: "Skill personalizada (definida por el usuario)",
+      category: "desarrollo",
+      confidence: 1.0,
+      reason: "Skill añadida manualmente",
       recommended: true,
       selected: true,
       custom: true,
+      _localSelected: true,
     };
-    setCustomSkills((prev) => [...prev, newSkill]);
-    setSelectedIds((prev) => new Set(prev).add(id));
+
+    setSkills((prev) => [...prev, newSkill]);
     setCustomName("");
-    setCustomDesc("");
+    setCustomDescription("");
     setCustomIcon("Plus");
-    setShowCustomModal(false);
-  }, [customName, customDesc, customIcon]);
+    setShowCustomForm(false);
+  };
 
-  // Remove custom skill
-  const removeCustomSkill = useCallback((id: string) => {
-    setCustomSkills((prev) => prev.filter((s) => s.id !== id));
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
-    });
-  }, []);
+  // ── Save selection ───────────────────────────────────────────────
 
-  // Save
-  const handleSave = useCallback(async () => {
-    setSaving(true);
+  const saveSkills = async () => {
     try {
-      const allSaved: SavedSkill[] = [
-        ...skills.map((s) => ({
-          id: s.id,
-          name: s.name,
-          description: s.description,
-          icon: s.icon,
-          category: s.category,
-          confidence: s.confidence,
-          reason: s.reason,
-          recommended: s.recommended,
-          selected: selectedIds.has(s.id),
-          custom: false,
-        })),
-        ...customSkills,
-      ];
+      setSaving(true);
+      const selected = skills
+        .filter((s) => s._localSelected)
+        .map(({ _localSelected, ...rest }) => ({
+          ...rest,
+          selected: true,
+        }));
 
       const res = await fetch(`/api/projects/${projectId}/skills`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ skills: allSaved }),
+        body: JSON.stringify({ skills: selected }),
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Error al guardar");
+        throw new Error(`Error ${res.status}`);
       }
 
-      showToast("Seleccion de skills guardada correctamente");
-      onSave?.(allSaved);
+      setToast("Skills guardadas");
+      setTimeout(() => setToast(null), 3000);
     } catch (err) {
-      console.error("Error saving skills:", err);
-      showToast(
-        err instanceof Error ? err.message : "Error al guardar skills",
-      );
+      setToast("Error al guardar skills");
+      setTimeout(() => setToast(null), 3000);
     } finally {
       setSaving(false);
     }
-  }, [projectId, skills, customSkills, selectedIds, showToast, onSave]);
+  };
 
-  // ── Split skills ──
-  const recommendedSkills = skills.filter((s) => s.recommended);
-  const notRecommendedSkills = skills.filter((s) => !s.recommended);
-  const totalSelected = selectedIds.size + customSkills.length;
+  // ── Split skills ─────────────────────────────────────────────────
 
-  // ── Confidence bar helper ──
-  function confidenceBar(pct: number) {
-    let color: string;
-    if (pct > 0.7) color = "bg-green-500";
-    else if (pct >= 0.4) color = "bg-amber-500";
-    else color = "bg-slate-500";
-    return (
-      <div className="h-1.5 w-full rounded-full bg-slate-800">
-        <div
-          className={`h-full rounded-full transition-all ${color}`}
-          style={{ width: `${Math.round(pct * 100)}%` }}
-        />
-      </div>
-    );
-  }
+  const recommendedSkills = skills.filter((s) => s.confidence >= 0.4);
+  const extraSkills = skills.filter((s) => s.confidence < 0.4);
 
-  // ── Loading skeleton ──
+  // ── Render ───────────────────────────────────────────────────────
+
+  const IconComponent = (iconName: string, className?: string) => {
+    const Icon = ICON_MAP[iconName] ?? Code;
+    return <Icon className={className} />;
+  };
+
+  // ── Loading skeleton ─────────────────────────────────────────────
+
   if (loading) {
     return (
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
-        <div className="mb-4 h-6 w-48 animate-pulse rounded bg-slate-800" />
-        <div className="mb-4 h-4 w-72 animate-pulse rounded bg-slate-800" />
-        <div className="space-y-3">
-          {[1, 2, 3, 4].map((i) => (
+      <div className="border border-slate-800 rounded-xl bg-slate-950/60 p-5">
+        <h2 className="text-lg font-semibold text-white mb-4">
+          Skills del Proyecto
+        </h2>
+        <div className="flex flex-col gap-3">
+          {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="h-20 animate-pulse rounded-xl border border-slate-800 bg-slate-900/60"
+              className="animate-pulse bg-slate-800 rounded h-16"
             />
           ))}
         </div>
@@ -280,284 +246,229 @@ export function SkillSelector({
     );
   }
 
-  // ── Empty state ──
-  if (skills.length === 0) {
+  // ── Error state ──────────────────────────────────────────────────
+
+  if (error && skills.length === 0) {
     return (
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
-        <div className="flex items-center gap-2.5 mb-3">
-          <Sparkles className="size-5 text-purple-400" />
-          <h3 className="text-lg font-bold text-white">Skills del Proyecto</h3>
-        </div>
-        <p className="text-sm text-slate-400">
-          Completa las fases del proyecto para ver recomendaciones de skills.
-        </p>
+      <div className="border border-slate-800 rounded-xl bg-slate-950/60 p-5">
+        <h2 className="text-lg font-semibold text-white mb-2">
+          Skills del Proyecto
+        </h2>
+        <p className="text-sm text-red-400">Error: {error}</p>
       </div>
     );
   }
 
-  // ── Skill card ──
-  function SkillCard({ skill, custom }: { skill: SkillItem | SavedSkill; custom?: boolean }) {
-    const isSelected = selectedIds.has(skill.id);
-    const IconComponent = iconMap[skill.icon] || Sparkles;
-
-    return (
-      <div
-        className={`rounded-xl border p-4 transition-all ${
-          isSelected
-            ? "border-purple-500/30 bg-purple-500/5"
-            : "border-slate-800 bg-slate-900/40"
-        }`}
-      >
-        <div className="flex items-start gap-3">
-          {/* Icon */}
-          <div
-            className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${
-              isSelected ? "bg-purple-500/20" : "bg-slate-800"
-            }`}
-          >
-            <IconComponent
-              className={`size-5 ${isSelected ? "text-purple-400" : "text-slate-400"}`}
-            />
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-semibold text-white">
-                {skill.name}
-              </span>
-              {"category" in skill && (
-                <span
-                  className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-medium ${
-                    categoryStyles[skill.category] || categoryStyles.operaciones
-                  }`}
-                >
-                  {categoryLabels[skill.category] || skill.category}
-                </span>
-              )}
-              {custom && (
-                <span className="inline-flex rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-400">
-                  Custom
-                </span>
-              )}
-            </div>
-            <p className="mt-0.5 text-xs text-slate-400">{skill.description}</p>
-
-            {/* Confidence bar */}
-            <div className="mt-2">{confidenceBar(skill.confidence)}</div>
-
-            {/* Reason */}
-            <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
-              {skill.reason}
-            </p>
-          </div>
-
-          {/* Toggle + Remove for custom */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            {custom && "id" in skill ? (
-              <button
-                onClick={() => removeCustomSkill(skill.id)}
-                className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-red-500/10 hover:text-red-400"
-                title="Eliminar skill personalizada"
-              >
-                <X className="size-3.5" />
-              </button>
-            ) : null}
-            <button
-              onClick={() => toggleSkill(skill.id)}
-              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 transition-colors ${
-                isSelected
-                  ? "border-purple-500 bg-purple-500"
-                  : "border-slate-600 bg-slate-700"
-              }`}
-              role="switch"
-              aria-checked={isSelected}
-            >
-              <span
-                className={`inline-block size-4 rounded-full bg-white shadow transition-transform ${
-                  isSelected ? "translate-x-5" : "translate-x-0.5"
-                }`}
-              />
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // ── Main render ──────────────────────────────────────────────────
 
   return (
-    <div>
-      {/* Toast */}
+    <div className="border border-slate-800 rounded-xl bg-slate-950/60 p-5">
+      {/* Toast notification */}
       {toast && (
-        <div className="fixed bottom-6 right-6 z-50 animate-in fade-in slide-in-from-bottom-2">
-          <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-slate-900 px-4 py-3 shadow-xl">
-            <Check className="size-4 text-green-400" />
-            <span className="text-sm text-slate-200">{toast}</span>
-          </div>
+        <div className="fixed bottom-6 right-6 z-50 rounded-lg bg-slate-800 border border-slate-700 px-4 py-3 text-sm text-white shadow-lg animate-in slide-in-from-bottom-2">
+          {toast}
         </div>
       )}
 
-      {/* Main card */}
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4 mb-1">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <Sparkles className="size-5 text-purple-400" />
-              <h3 className="text-lg font-bold text-white">
-                Skills del Proyecto
-              </h3>
-            </div>
-            <p className="mt-1 text-sm text-slate-400 leading-relaxed">
-              El sistema recomienda estas {skills.length} skills basadas en tu
-              proyecto. Selecciona las que quieras incluir en el ZIP de handoff.
-            </p>
-          </div>
-          <span className="shrink-0 text-xs font-medium text-slate-500">
-            {totalSelected} seleccionadas
-          </span>
-        </div>
-
-        {/* Recommended skills (always visible) */}
-        <div className="mt-4 space-y-2">
-          {recommendedSkills.map((skill) => (
-            <SkillCard key={skill.id} skill={skill} />
-          ))}
-        </div>
-
-        {/* Not recommended — collapsible */}
-        {notRecommendedSkills.length > 0 && (
-          <div className="mt-3">
-            <button
-              onClick={() => setShowAll(!showAll)}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 transition-colors hover:text-slate-300"
-            >
-              {showAll ? (
-                <>
-                  <ChevronUp className="size-3.5" />
-                  Ocultar skills no recomendadas
-                </>
-              ) : (
-                <>
-                  <ChevronDown className="size-3.5" />
-                  Ver skills no recomendadas ({notRecommendedSkills.length})
-                </>
-              )}
-            </button>
-
-            {showAll && (
-              <div className="mt-2 space-y-2">
-                {notRecommendedSkills.map((skill) => (
-                  <SkillCard key={skill.id} skill={skill} />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Custom skills */}
-        {customSkills.length > 0 && (
-          <div className="mt-2 space-y-2">
-            {customSkills.map((skill) => (
-              <SkillCard key={skill.id} skill={skill} custom />
-            ))}
-          </div>
-        )}
-
-        {/* Add custom skill button */}
-        <button
-          onClick={() => setShowCustomModal(true)}
-          className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-dashed border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-400 transition-colors hover:border-slate-500 hover:text-slate-300"
-        >
-          <Plus className="size-3.5" />
-          Anadir skill personalizada
-        </button>
-
-        {/* Save button */}
-        <div className="mt-5 flex justify-end">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold text-white">
+          Skills del Proyecto
+        </h2>
+        <div className="flex items-center gap-2">
           <button
-            onClick={handleSave}
-            disabled={saving}
-            className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-purple-500 active:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-500/20"
+            type="button"
+            onClick={() => setShowCustomForm(!showCustomForm)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:border-slate-600 hover:text-white"
           >
-            {saving ? (
-              <>
-                <Loader2 className="size-4 animate-spin" />
-                Guardando...
-              </>
-            ) : (
-              <>
-                <Save className="size-4" />
-                Guardar seleccion
-              </>
-            )}
+            <Plus className="size-3.5" />
+            Anadir skill personalizada
+          </button>
+          <button
+            type="button"
+            onClick={saveSkills}
+            disabled={saving}
+            className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-500 disabled:opacity-50"
+          >
+            {saving ? "Guardando..." : "Guardar seleccion"}
           </button>
         </div>
       </div>
 
-      {/* Custom skill modal */}
-      {showCustomModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm rounded-xl border border-slate-700 bg-slate-900 shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
-              <h3 className="text-base font-semibold text-white">
-                Skill personalizada
-              </h3>
-              <button
-                onClick={() => setShowCustomModal(false)}
-                className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
-              >
-                <X className="size-4" />
-              </button>
-            </div>
-
-            <div className="px-5 py-4 space-y-4">
-              <div className="space-y-1.5">
-                <label className="block text-xs font-medium text-slate-300">
-                  Nombre de la skill
-                </label>
-                <input
-                  type="text"
-                  value={customName}
-                  onChange={(e) => setCustomName(e.target.value)}
-                  placeholder="Ej: CRM Manager"
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                  autoFocus
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-xs font-medium text-slate-300">
-                  Descripcion
-                </label>
-                <input
-                  type="text"
-                  value={customDesc}
-                  onChange={(e) => setCustomDesc(e.target.value)}
-                  placeholder="Que hace esta skill?"
-                  className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  onClick={addCustomSkill}
-                  disabled={!customName.trim()}
-                  className="flex-1 rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Anadir
-                </button>
-                <button
-                  onClick={() => setShowCustomModal(false)}
-                  className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
+      {/* Custom skill form */}
+      {showCustomForm && (
+        <div className="mb-4 rounded-lg border border-slate-700 bg-slate-900/60 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium text-slate-300">
+              Nueva skill personalizada
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowCustomForm(false)}
+              className="text-slate-500 hover:text-slate-300 transition-colors"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+          <div className="flex flex-col gap-3">
+            <input
+              type="text"
+              placeholder="Nombre de la skill"
+              value={customName}
+              onChange={(e) => setCustomName(e.target.value)}
+              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-amber-500 focus:outline-none"
+            />
+            <input
+              type="text"
+              placeholder="Descripcion"
+              value={customDescription}
+              onChange={(e) => setCustomDescription(e.target.value)}
+              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-amber-500 focus:outline-none"
+            />
+            <select
+              value={customIcon}
+              onChange={(e) => setCustomIcon(e.target.value)}
+              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none"
+            >
+              {ICON_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={addCustomSkill}
+              disabled={!customName.trim()}
+              className="self-end rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-500 disabled:opacity-50"
+            >
+              Anadir
+            </button>
           </div>
         </div>
       )}
+
+      {/* Recommended skills */}
+      {recommendedSkills.length > 0 && (
+        <div className="flex flex-col gap-2 mb-3">
+          {recommendedSkills.map((skill) => (
+            <SkillCard
+              key={skill.id}
+              skill={skill}
+              selected={skill._localSelected}
+              onToggle={() => toggleSkill(skill.id)}
+              iconComponent={IconComponent}
+              confidenceBadge={confidenceBadge}
+              confidencePct={confidencePct}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Extra skills (collapsed) */}
+      {extraSkills.length > 0 && (
+        <div className="border-t border-slate-800 pt-3 mt-3">
+          <button
+            type="button"
+            onClick={() => setShowExtra(!showExtra)}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 transition-colors"
+          >
+            {showExtra ? (
+              <ChevronUp className="size-3.5" />
+            ) : (
+              <ChevronDown className="size-3.5" />
+            )}
+            Ver {extraSkills.length} skills adicionales
+          </button>
+
+          {showExtra && (
+            <div className="flex flex-col gap-2 mt-3">
+              {extraSkills.map((skill) => (
+                <SkillCard
+                  key={skill.id}
+                  skill={skill}
+                  selected={skill._localSelected}
+                  onToggle={() => toggleSkill(skill.id)}
+                  iconComponent={IconComponent}
+                  confidenceBadge={confidenceBadge}
+                  confidencePct={confidencePct}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {skills.length === 0 && !loading && (
+        <p className="text-sm text-slate-500 py-4">
+          No se detectaron skills para este proyecto. Completa mas fases para
+          obtener recomendaciones.
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ── Skill Card ────────────────────────────────────────────────────────
+
+interface SkillCardProps {
+  skill: SkillState;
+  selected: boolean;
+  onToggle: () => void;
+  iconComponent: (iconName: string, className?: string) => React.ReactNode;
+  confidenceBadge: (confidence: number) => string;
+  confidencePct: (confidence: number) => string;
+}
+
+function SkillCard({
+  skill,
+  selected,
+  onToggle,
+  iconComponent,
+  confidenceBadge,
+  confidencePct,
+}: SkillCardProps) {
+  return (
+    <div className="flex flex-col gap-1.5 rounded-lg border border-slate-800 bg-slate-900/40 p-3.5 transition-colors hover:border-slate-700">
+      {/* Fila 1: Icono + nombre + badge + toggle */}
+      <div className="flex items-center gap-2">
+        <span className="text-slate-400">
+          {iconComponent(skill.icon, "size-5")}
+        </span>
+        <span className="text-sm font-semibold text-white flex-1">
+          {skill.name}
+        </span>
+        <span
+          className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${confidenceBadge(skill.confidence)}`}
+        >
+          {confidencePct(skill.confidence)}
+        </span>
+        {/* Toggle switch */}
+        <label className="relative inline-flex cursor-pointer items-center">
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggle}
+            className="peer sr-only"
+          />
+          <div
+            className={`h-5 w-9 rounded-full transition-colors peer-focus:outline-none ${
+              selected ? "bg-amber-600" : "bg-slate-700"
+            }`}
+          />
+          <div
+            className={`absolute left-0.5 top-0.5 size-4 rounded-full bg-white transition-transform ${
+              selected ? "translate-x-4" : "translate-x-0"
+            }`}
+          />
+        </label>
+      </div>
+
+      {/* Fila 2: Descripcion */}
+      <p className="text-xs text-slate-500">{skill.description}</p>
+
+      {/* Fila 3: Razon */}
+      <p className="text-xs text-slate-600 italic">{skill.reason}</p>
     </div>
   );
 }
