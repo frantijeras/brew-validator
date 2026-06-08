@@ -41,8 +41,7 @@ type SkillState = SkillData & {
 
 interface SkillSelectorProps {
   projectId: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  initialSkills?: any[];
+  initialSkills?: { id: string; selected?: boolean; custom?: boolean }[];
 }
 
 // ── Icon map (Lucide icons by name) ──────────────────────────────────
