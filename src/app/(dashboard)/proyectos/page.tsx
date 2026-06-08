@@ -55,15 +55,7 @@ export default async function ProyectosPage() {
               : `${projects.length} proyecto${projects.length === 1 ? "" : "s"}`}
           </p>
         </div>
-        {projects.length > 0 && (
-          <Link
-            href="/ideas"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 transition-all hover:bg-amber-400"
-          >
-            <Plus className="size-4" />
-            Nuevo proyecto
-          </Link>
-        )}
+
       </div>
 
       {projects.length === 0 ? (
