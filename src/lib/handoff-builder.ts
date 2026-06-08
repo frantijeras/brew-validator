@@ -207,7 +207,7 @@ function buildIdentityDocs(ctx: HandoffOptions): { [path: string]: string } | nu
   const files: { [path: string]: string } = {};
 
   // brand-book.md — full consolidated brand book
-  files["03-identidad/brand-book.md"] = [
+  files["04-identidad/brand-book.md"] = [
     `# Brand Book — ${ctx.projectName}`,
     "",
     `Generado: ${brandBook.generatedAt}`,
@@ -220,7 +220,7 @@ function buildIdentityDocs(ctx: HandoffOptions): { [path: string]: string } | nu
     (p) => p.type === "IDENTITY" && p.subStep === "visual" && p.subStepArtifact?.content
   );
   if (visualPhase?.subStepArtifact?.content) {
-    files["03-identidad/style-guide-A.html"] = visualPhase.subStepArtifact.content;
+    files["04-identidad/style-guide-A.html"] = visualPhase.subStepArtifact.content;
   }
 
   // voice-and-tone.md
@@ -228,7 +228,7 @@ function buildIdentityDocs(ctx: HandoffOptions): { [path: string]: string } | nu
     (p) => p.type === "IDENTITY" && p.subStep === "voice" && p.subStepArtifact?.content
   );
   if (voicePhase?.subStepArtifact?.content) {
-    files["03-identidad/voice-and-tone.md"] = [
+    files["04-identidad/voice-and-tone.md"] = [
       `# Voz y Tono — ${ctx.projectName}`,
       "",
       voicePhase.subStepArtifact.content,
@@ -240,7 +240,7 @@ function buildIdentityDocs(ctx: HandoffOptions): { [path: string]: string } | nu
     (p) => p.type === "IDENTITY" && p.subStep === "naming"
   );
   if (namingPhase?.subStepArtifact?.content || namingPhase?.subStepChoice) {
-    files["03-identidad/naming-rationale.md"] = [
+    files["04-identidad/naming-rationale.md"] = [
       `# Nombre y Rationale — ${ctx.projectName}`,
       "",
       `**Nombre elegido:** ${namingPhase.subStepChoice || ctx.projectName}`,
@@ -279,21 +279,33 @@ function buildLandingPage(ctx: HandoffOptions, assets: PhaseAsset[]): string | n
   ].join("\n");
 }
 
+/**
+ * Genera el documento de Estrategia de Negocio desde la fase BUSINESS (sortOrder 2).
+ * Incluye Lean Canvas, modelo de ingresos y propuesta de valor estratégica.
+ */
 function buildBusinessPlan(ctx: HandoffOptions, assets: PhaseAsset[]): string | null {
   const biz = assets.find((a) => a.phaseType === "BUSINESS");
   if (!biz) return null;
   return [
-    `# Plan de Negocio — ${ctx.projectName}`,
+    `# Estrategia de Negocio — ${ctx.projectName}`,
+    "",
+    "## Lean Canvas · Modelo de Ingresos · Propuesta de Valor Estratégica",
     "",
     ...biz.contents.map((c, i) => `### ${biz.titles[i] || "Documento"}\n\n${c}`),
   ].join("\n");
 }
 
+/**
+ * Genera el documento de Roadmap desde la fase EXECUTION (sortOrder 6).
+ * Incluye OKRs a 30/60/90 días, plan financiero detallado y próximos pasos.
+ */
 function buildRoadmap(ctx: HandoffOptions, assets: PhaseAsset[]): string | null {
   const exec = assets.find((a) => a.phaseType === "EXECUTION");
   if (!exec) return null;
   return [
     `# Roadmap 30-60-90 — ${ctx.projectName}`,
+    "",
+    "## OKRs · Plan Financiero · Próximos Pasos",
     "",
     ...exec.contents.map((c, i) => `### ${exec.titles[i] || "Documento"}\n\n${c}`),
   ].join("\n");
@@ -637,11 +649,11 @@ function buildProjectHandoffSkill(ctx: HandoffOptions): string {
     "| `README.md` | Resumen general del proyecto |",
     "| `01-validacion.md` | Informe de validación original |",
     "| `02-analisis-mercado.md` | Análisis de mercado y competencia |",
-    "| `03-identidad/` | Brand book, guía de estilo, voz y tono |",
-    "| `04-estrategia-distribucion.md` | Canales y estrategia de contenido |",
-    "| `05-landing-page.md` | Prompt y estructura de la landing page |",
-    "| `06-plan-negocio.md` | Plan de negocio y pricing |",
-    "| `07-roadmap-30-60-90.md` | Roadmap de ejecución |",
+    "| `03-estrategia-negocio.md` | Lean Canvas, modelo de ingresos y propuesta de valor |",
+    "| `04-identidad/` | Brand book, guía de estilo, voz y tono |",
+    "| `05-estrategia-distribucion.md` | Canales y estrategia de contenido |",
+    "| `06-landing-page.md` | Prompt y estructura de la landing page |",
+    "| `07-roadmap-30-60-90.md` | OKRs, plan financiero y próximos pasos |",
     "| `skills/` | Skills ejecutables para agentes AI |",
     "",
     "---",
@@ -725,7 +737,15 @@ export async function buildHandoffZip(options: HandoffOptions): Promise<Buffer> 
       });
     }
 
-    // ── 03-identidad/ ──
+    // ── 03-estrategia-negocio.md ──
+    const businessPlan = buildBusinessPlan(options, assets);
+    if (businessPlan) {
+      archive.append(businessPlan, {
+        name: `${prefix}03-estrategia-negocio.md`,
+      });
+    }
+
+    // ── 04-identidad/ ──
     const identityDocs = buildIdentityDocs(options);
     if (identityDocs) {
       for (const [path, content] of Object.entries(identityDocs)) {
@@ -733,27 +753,19 @@ export async function buildHandoffZip(options: HandoffOptions): Promise<Buffer> 
       }
     }
 
-    // ── 04-estrategia-distribucion.md ──
+    // ── 05-estrategia-distribucion.md ──
     const distStrategy = buildDistributionStrategy(options, assets);
     if (distStrategy) {
       archive.append(distStrategy, {
-        name: `${prefix}04-estrategia-distribucion.md`,
+        name: `${prefix}05-estrategia-distribucion.md`,
       });
     }
 
-    // ── 05-landing-page.md ──
+    // ── 06-landing-page.md ──
     const landingContent = buildLandingPage(options, assets);
     if (landingContent) {
       archive.append(landingContent, {
-        name: `${prefix}05-landing-page.md`,
-      });
-    }
-
-    // ── 06-plan-negocio.md ──
-    const businessPlan = buildBusinessPlan(options, assets);
-    if (businessPlan) {
-      archive.append(businessPlan, {
-        name: `${prefix}06-plan-negocio.md`,
+        name: `${prefix}06-landing-page.md`,
       });
     }
 

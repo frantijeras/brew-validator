@@ -98,13 +98,12 @@ const updated = mergeProjectMemory(currentMemory, {
 
 | Código | Fase |
 |--------|------|
-| `"01"` | Análisis (project-analyst) |
-| `"02"` | Identidad / Branding (project-branding) |
-| `"03"` | Contenido (project-content) |
-| `"04"` | Desarrollo / Producto (project-dev) |
-| `"05"` | Dossier (project-dossier) |
-| `"06"` | Negocio (project-business) |
-| `"07"` | Ejecución (project-execution) |
+| `"01"` | Análisis de Mercado |
+| `"02"` | Estrategia de Negocio |
+| `"03"` | Identidad de Marca |
+| `"04"` | Estrategia de Distribución |
+| `"05"` | Landing Page |
+| `"06"` | Roadmap 30/60/90 |
 | `"user"` | Override manual del usuario |
 
 ---
