@@ -199,8 +199,18 @@ function getSubStepStatus(
 
   if (phaseStatus === "QUESTIONING") {
     // Quiz sub-step shows as available (clickable to open questions modal)
-    // Other sub-steps remain locked until quiz is answered
+    // For IDENTITY phases, the current sub-step should also be available
+    // (to allow restarting with mode "report" after a previous failed attempt)
     if (subStepMeta.id === "quiz") return "available";
+    if (phase.type === "IDENTITY") {
+      const currentIdx =
+        phase.subStepOrder !== null && phase.subStepOrder !== undefined
+          ? phase.subStepOrder
+          : phase.subStep
+            ? getSubStepIndex(phase.subStep, phase.type)
+            : 0;
+      if (subStepMeta.order === currentIdx) return "available";
+    }
     return "locked";
   }
 
@@ -508,7 +518,10 @@ export function ProjectPhasesWithModal({
                 if ((hasQuestions || (isQuestioning && meta.id === "quiz")) && meta.id === "quiz") {
                   onAction = () => setModalPhase(phase);
                 } else if (meta.order === 0) {
-                  // Solo el primer sub-step disponible ejecuta la fase
+                  // IDENTITY sub-steps use "report" mode (generate intermediate artifacts)
+                  // Other phases use "questions" mode (generate quiz)
+                  const isIdentitySubStep = ["naming", "voice", "visual"].includes(meta.id);
+                  const executeMode = isIdentitySubStep ? "report" : "questions";
                   onAction = () => {
                     fetch("/api/projects/execute-phase", {
                       method: "POST",
@@ -517,6 +530,7 @@ export function ProjectPhasesWithModal({
                         projectId,
                         phaseId: phase.id,
                         phaseType: phase.type,
+                        mode: executeMode,
                       }),
                     })
                       .then((res) => {

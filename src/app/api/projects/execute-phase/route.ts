@@ -37,13 +37,18 @@ export async function POST(req: Request) {
     }
 
     // Validate phase status based on mode
+    // IDENTITY sub-steps use "report" mode from AVAILABLE state (they generate
+    // intermediate artifacts, not quiz questions). Other phases use "questions" mode.
+    // Also allow mode "report" from QUESTIONING status (e.g., when restarting a sub-step).
+    const isIdentityPhase = phaseType === "IDENTITY";
     if (mode === "questions" && phase.status !== "AVAILABLE") {
       return NextResponse.json({ error: "Phase is not available for questions" }, { status: 409 });
     }
     if (
       mode === "report" &&
       phase.status !== "QUESTIONING" &&
-      phase.status !== "SUBSTEP_READY"
+      phase.status !== "SUBSTEP_READY" &&
+      !(isIdentityPhase && phase.status === "AVAILABLE")
     ) {
       return NextResponse.json(
         { error: "Phase must be in QUESTIONING or SUBSTEP_READY state to submit answers" },
