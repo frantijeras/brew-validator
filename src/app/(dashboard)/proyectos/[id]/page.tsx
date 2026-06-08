@@ -59,7 +59,7 @@ export default async function ProjectDetailPage({ params }: Props) {
           {project.name}
         </h1>
         {project.description && (
-          <p className="mt-2 text-sm text-slate-400 line-clamp-2">
+          <p className="mt-2 text-sm text-slate-400">
             {project.description}
           </p>
         )}
