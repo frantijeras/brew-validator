@@ -216,7 +216,7 @@ export function SubStepCard({
     <div
       role="region"
       aria-label={`Sub-paso ${number}: ${subStepMeta.label}`}
-      className={`${cardContainerStyles[status]} p-4 md:p-3 lg:p-4`}
+      className={`${cardContainerStyles[status]} p-4 md:p-3 lg:p-4 overflow-hidden`}
     >
       {/* Header: número + icono + título + badge + botón (desktop) */}
       <div className="flex items-center gap-3">

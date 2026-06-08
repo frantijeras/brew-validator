@@ -349,8 +349,12 @@ export function SkillSelector({ projectId, initialSkills }: SkillSelectorProps) 
 
       {/* Recommended skills */}
       {recommendedSkills.length > 0 && (
-        <div className="flex flex-col gap-2 mb-3">
-          {recommendedSkills.map((skill) => (
+        <>
+          <p className="text-xs text-slate-500 mb-2">
+            Skills recomendadas en base a las fases completadas, tipo de negocio y respuestas del cuestionario. La barra indica el nivel de confianza de la recomendación.
+          </p>
+          <div className="flex flex-col gap-2 mb-3">
+            {recommendedSkills.map((skill) => (
             <SkillCard
               key={skill.id}
               skill={skill}
@@ -361,7 +365,8 @@ export function SkillSelector({ projectId, initialSkills }: SkillSelectorProps) 
               confidencePct={confidencePct}
             />
           ))}
-        </div>
+          </div>
+        </>
       )}
 
       {/* Extra skills (collapsed) */}
@@ -428,23 +433,31 @@ function SkillCard({
   confidenceBadge,
   confidencePct,
 }: SkillCardProps) {
+  const barWidth = Math.round(skill.confidence * 100);
+  const barColor =
+    skill.confidence >= 0.7
+      ? "bg-green-500"
+      : skill.confidence >= 0.4
+        ? "bg-amber-500"
+        : "bg-slate-600";
+
   return (
-    <div className="flex flex-col gap-1.5 rounded-lg border border-slate-800 bg-slate-900/40 p-3.5 transition-colors hover:border-slate-700">
+    <div className="flex flex-col gap-2 rounded-lg border border-slate-800 bg-slate-900/40 p-3.5 transition-colors hover:border-slate-700">
       {/* Fila 1: Icono + nombre + badge + toggle */}
       <div className="flex items-center gap-2">
         <span className="text-slate-400">
           {iconComponent(skill.icon, "size-5")}
         </span>
-        <span className="text-sm font-semibold text-white flex-1">
+        <span className="text-sm font-semibold text-white flex-1 min-w-0 truncate">
           {skill.name}
         </span>
         <span
-          className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${confidenceBadge(skill.confidence)}`}
+          className={`inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${confidenceBadge(skill.confidence)}`}
         >
           {confidencePct(skill.confidence)}
         </span>
         {/* Toggle switch */}
-        <label className="relative inline-flex cursor-pointer items-center">
+        <label className="relative inline-flex cursor-pointer items-center shrink-0">
           <input
             type="checkbox"
             checked={selected}
@@ -464,10 +477,27 @@ function SkillCard({
         </label>
       </div>
 
-      {/* Fila 2: Descripcion */}
+      {/* Fila 2: Barra de confianza visual */}
+      <div className="flex items-center gap-2">
+        <div className="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all ${barColor}`}
+            style={{ width: `${barWidth}%` }}
+          />
+        </div>
+        <span className="text-[10px] text-slate-500 shrink-0">
+          {skill.confidence >= 0.7
+            ? "Alta"
+            : skill.confidence >= 0.4
+              ? "Media"
+              : "Baja"}
+        </span>
+      </div>
+
+      {/* Fila 3: Descripcion */}
       <p className="text-xs text-slate-500">{skill.description}</p>
 
-      {/* Fila 3: Razon */}
+      {/* Fila 4: Razon */}
       <p className="text-xs text-slate-600 italic">{skill.reason}</p>
     </div>
   );

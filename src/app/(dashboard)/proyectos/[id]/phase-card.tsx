@@ -224,7 +224,7 @@ export function PhaseCard({
 
   return (
     <div
-      className={`rounded-xl border p-6 transition-all hover:border-slate-600 md:p-5 lg:p-6 ${
+      className={`overflow-hidden rounded-xl border p-6 transition-all hover:border-slate-600 md:p-5 lg:p-6 ${
         isProcessing ? "border-amber-500/40" : toneBorderStyles[tone]
       } ${toneBgStyles[tone]} ${
         isInactive ? "opacity-60" : ""
@@ -255,15 +255,25 @@ export function PhaseCard({
 
       </div>
 
-      {/* Badge de estado (v5): movido FUERA del flex-row del header a su
-          propia línea, indentado con `ml-2` para alinearse bajo el título. */}
-      <div className="mt-1 ml-2">
-        <span
-          className={`inline-flex w-fit shrink-0 items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${badge.className}`}
-        >
-          {statusLabel || badge.label}
-        </span>
-      </div>
+      {/* Badge de estado: solo para estados no-locked.
+          Processing: spinner + texto dinámico.
+          Otros estados: badge estático con label. */}
+      {status !== "locked" && (
+        <div className="mt-1 ml-2">
+          {isProcessing ? (
+            <span className="inline-flex w-fit items-center gap-1.5 text-[11px] font-medium text-amber-400">
+              <Loader2 className="size-3 shrink-0 animate-spin" />
+              <span>{statusLabel || "Generando análisis..."}</span>
+            </span>
+          ) : (
+            <span
+              className={`inline-flex w-fit shrink-0 items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${badge.className}`}
+            >
+              {statusLabel || badge.label}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Sub-progress (ej. IDENTITY 1/4 Nombre, 2/4 Voz y Tono, …). Solo
           se muestra si la fase no está completada/locked y se ha pasado
@@ -298,18 +308,6 @@ export function PhaseCard({
               </span>
             );
           })}
-        </div>
-      )}
-
-      {/* Indicador de progreso: spinner + texto + ETA. Solo durante processing. */}
-      {isProcessing && (
-        <div className="mt-2 flex items-center gap-2 text-xs text-amber-400/80">
-          <Loader2
-            className="size-3 shrink-0 animate-spin"
-            aria-hidden="true"
-          />
-          <span>Generando análisis...</span>
-          <span className="text-amber-400/60">~2-3 min</span>
         </div>
       )}
 

@@ -195,9 +195,9 @@ function getSubStepStatus(
   }
 
   if (phaseStatus === "QUESTIONING") {
-    const quizIndex = getSubStepIndex("quiz", phase.type);
-    if (subStepMeta.order < quizIndex) return "completed";
-    if (subStepMeta.order === quizIndex) return "processing";
+    // Quiz sub-step shows as available (clickable to open questions modal)
+    // Other sub-steps remain locked until quiz is answered
+    if (subStepMeta.id === "quiz") return "available";
     return "locked";
   }
 
@@ -520,7 +520,7 @@ export function ProjectPhasesWithModal({
           if (hasSubSteps && !isLocked) {
             subStepCards = phaseSubsteps!.map((meta) => {
               const sStatus = getSubStepStatus(phase, meta, phase.status);
-              const executeLabel = subStepExecuteLabels[meta.id] || "Ejecutar";
+              const executeLabel = meta.id === "quiz" && isQuestioning ? "Responder" : (subStepExecuteLabels[meta.id] || "Ejecutar");
               const reviewLabel = subStepReviewLabels[meta.id] || "Revisar";
               const processingMsg = subStepProcessingMessages[meta.id] || "Generando...";
 
@@ -528,7 +528,7 @@ export function ProjectPhasesWithModal({
               let onAction: (() => void) | undefined;
               if (sStatus === "available") {
                 // Si el sub-step actual tiene preguntas activas, abrir modal
-                if (hasQuestions && meta.id === "quiz") {
+                if ((hasQuestions || (isQuestioning && meta.id === "quiz")) && meta.id === "quiz") {
                   onAction = () => setModalPhase(phase);
                 } else if (meta.order === 0) {
                   // Solo el primer sub-step disponible ejecuta la fase
