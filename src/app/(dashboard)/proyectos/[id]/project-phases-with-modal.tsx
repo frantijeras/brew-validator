@@ -127,6 +127,7 @@ const subStepReviewLabels: Record<string, string> = {
   compare: "Revisar comparativa",
   simulate: "Revisar simulación",
   pilars: "Revisar pilares",
+  generate: "Revisar preguntas",
   final: "Revisar resultado",
 };
 
@@ -138,6 +139,7 @@ const subStepExecuteLabels: Record<string, string> = {
   pilars: "Ejecutar",
   compare: "Ejecutar",
   simulate: "Ejecutar",
+  generate: "Ejecutar",
   final: "Ejecutar",
 };
 
@@ -149,6 +151,7 @@ const subStepProcessingMessages: Record<string, string> = {
   pilars: "Generando pilares...",
   compare: "Comparando stacks...",
   simulate: "Simulando escenarios...",
+  generate: "Generando preguntas...",
   final: "Consolidando documento...",
 };
 

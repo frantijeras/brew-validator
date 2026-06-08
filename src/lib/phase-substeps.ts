@@ -54,15 +54,22 @@ export const PHASE_SUBSTEPS: Record<string, SubStepMeta[]> = {
   ],
   BUSINESS: [
     {
-      id: "quiz",
+      id: "generate",
       order: 0,
+      label: "Generar preguntas",
+      description: "La IA crea preguntas basadas en fases anteriores",
+      icon: "Sparkles",
+    },
+    {
+      id: "quiz",
+      order: 1,
       label: "Cuestionario",
       description: "Responde preguntas clave de negocio",
       icon: "HelpCircle",
     },
     {
       id: "final",
-      order: 1,
+      order: 2,
       label: "Plan de Negocio",
       description: "Documento final consolidado",
       icon: "BriefcaseBusiness",
