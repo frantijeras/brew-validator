@@ -1,10 +1,9 @@
-import { Suspense } from "react";
 import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { notFound } from "next/navigation";
-import { ProjectPhasesWithModal } from "./project-phases-with-modal";
-import { SkillSelector } from "./skill-selector";
+import { ProjectTabs } from "./project-tabs";
+import { ProjectHeaderMenu } from "./project-header-menu";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -53,37 +52,40 @@ export default async function ProjectDetailPage({ params }: Props) {
         Volver a proyectos
       </Link>
 
-      {/* Cabecera del proyecto */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight text-white">
-          {project.name}
-        </h1>
-        {project.description && (
-          <p className="mt-2 text-sm text-slate-400">
-            {project.description}
-          </p>
-        )}
-        <div className="mt-2 flex items-center gap-3">
-          <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
-            allCompleted
-              ? "bg-green-500/10 text-green-400"
-              : "bg-amber-500/10 text-amber-400"
-          }`}>
-            {allCompleted ? "Completado" : "En progreso"}
-          </span>
-          <span className="text-xs text-slate-500">
-            {project.phases.filter((p) => p.status === "COMPLETED").length + 1}/{project.phases.length + 1} fases
-          </span>
-
+      {/* Cabecera del proyecto con menú ⋮ */}
+      <div className="mb-8 flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-3xl font-bold tracking-tight text-white">
+            {project.name}
+          </h1>
+          {project.description && (
+            <p className="mt-2 text-sm text-slate-400">
+              {project.description}
+            </p>
+          )}
+          <div className="mt-2 flex items-center gap-3">
+            <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
+              allCompleted
+                ? "bg-green-500/10 text-green-400"
+                : "bg-amber-500/10 text-amber-400"
+            }`}>
+              {allCompleted ? "Completado" : "En progreso"}
+            </span>
+            <span className="text-xs text-slate-500">
+              {project.phases.filter((p) => p.status === "COMPLETED").length + 1}/{project.phases.length + 1} fases
+            </span>
+          </div>
         </div>
+
+        {/* ⋮ Menú de 3 puntos */}
+        <ProjectHeaderMenu projectId={project.id} projectName={project.name} />
       </div>
 
-      {/* Fases */}
-      <ProjectPhasesWithModal
+      {/* Tabs: Fases del Proyecto / Skills del Proyecto */}
+      <ProjectTabs
         projectId={project.id}
         ideaId={project.ideaId}
         projectName={project.name}
-        memory={project.memory as import("@/lib/project-memory").ProjectMemory | null}
         phases={project.phases.map((p) => ({
           id: p.id,
           type: p.type,
@@ -100,19 +102,10 @@ export default async function ProjectDetailPage({ params }: Props) {
             | null,
           subStepChoice: p.subStepChoice,
         }))}
+        memory={project.memory as import("@/lib/project-memory").ProjectMemory | null}
+        hasCompletedPhases={hasCompletedPhases}
+        existingSkills={existingSkills}
       />
-
-      {/* Skills del Proyecto — solo visible si hay al menos 1 fase completada */}
-      {hasCompletedPhases && (
-        <div className="mt-6">
-          <Suspense fallback={<div className="animate-pulse bg-slate-800/50 rounded-xl h-48" />}>
-            <SkillSelector
-              projectId={project.id}
-              initialSkills={existingSkills && existingSkills.length > 0 ? existingSkills : undefined}
-            />
-          </Suspense>
-        </div>
-      )}
     </div>
   );
 }
