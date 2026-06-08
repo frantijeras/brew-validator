@@ -22,6 +22,15 @@ interface ValidationData {
   verdict: string | null;
   ideaTitle: string;
   projectName: string;
+  idea: {
+    title: string;
+    description: string;
+    problem: string | null;
+    valueProposition: string | null;
+    targetUser: string;
+    monetization: string;
+    businessModel: string | null;
+  } | null;
 }
 
 const AGENT_ORDER = ["advocate", "skeptic", "judge"];
@@ -167,8 +176,47 @@ export default function ValidationViewPage() {
           </div>
         </div>
 
-        {/* Card body: reports */}
-        <div className="px-6 py-6 space-y-4">
+        {/* Card body: idea summary + reports */}
+        <div className="px-6 py-6 space-y-6">
+          {/* Idea summary */}
+          {data.idea && (
+            <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-5 space-y-3">
+              <h2 className="text-sm font-semibold text-white">Idea original</h2>
+              <p className="text-sm text-slate-400 leading-relaxed">
+                {data.idea.description}
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                {data.idea.problem && (
+                  <div>
+                    <span className="text-[11px] font-medium uppercase tracking-wider text-slate-500">Problema</span>
+                    <p className="text-sm text-slate-300 mt-0.5">{data.idea.problem}</p>
+                  </div>
+                )}
+                {data.idea.valueProposition && (
+                  <div>
+                    <span className="text-[11px] font-medium uppercase tracking-wider text-slate-500">Propuesta de valor</span>
+                    <p className="text-sm text-slate-300 mt-0.5">{data.idea.valueProposition}</p>
+                  </div>
+                )}
+                <div>
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-slate-500">Target</span>
+                  <p className="text-sm text-slate-300 mt-0.5">{data.idea.targetUser}</p>
+                </div>
+                <div>
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-slate-500">Monetización</span>
+                  <p className="text-sm text-slate-300 mt-0.5">{data.idea.monetization}</p>
+                </div>
+                {data.idea.businessModel && (
+                  <div>
+                    <span className="text-[11px] font-medium uppercase tracking-wider text-slate-500">Modelo de negocio</span>
+                    <p className="text-sm text-slate-300 mt-0.5">{data.idea.businessModel}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Reports */}
           {sortedReports.map((report) => (
             <ReportViewer
               key={report.id}

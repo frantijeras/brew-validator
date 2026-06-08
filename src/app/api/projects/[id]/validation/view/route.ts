@@ -89,6 +89,15 @@ export async function GET(
           verdict: project.idea.verdict ?? null,
           ideaTitle: project.idea.title,
           projectName: project.name,
+          idea: {
+            title: project.idea.title,
+            description: project.idea.description,
+            problem: project.idea.problem ?? null,
+            valueProposition: project.idea.valueProposition ?? null,
+            targetUser: project.idea.targetUser,
+            monetization: project.idea.monetization,
+            businessModel: project.idea.businessModel ?? null,
+          },
         },
         {
           status: 200,
