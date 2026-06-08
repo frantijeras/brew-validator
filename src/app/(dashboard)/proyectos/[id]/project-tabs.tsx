@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, Suspense } from "react";
+import { Lock } from "lucide-react";
 import { ProjectPhasesWithModal } from "./project-phases-with-modal";
 import { SkillSelector } from "./skill-selector";
 import type { ProjectMemory } from "@/lib/project-memory";
@@ -84,9 +85,10 @@ export function ProjectTabs({
             if (hasCompletedPhases) setActiveTab("skills");
           }}
           disabled={!hasCompletedPhases}
+          title={!hasCompletedPhases ? "Disponible al completar todas las fases del proyecto" : ""}
           className={`
             relative shrink-0 px-4 py-3 text-sm font-medium transition-colors
-            whitespace-nowrap
+            whitespace-nowrap inline-flex items-center gap-1.5
             ${
               activeTab === "skills"
                 ? "text-white after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-amber-500"
@@ -95,8 +97,8 @@ export function ProjectTabs({
             ${!hasCompletedPhases ? "opacity-40 cursor-not-allowed hover:text-slate-400" : ""}
           `}
         >
+          {!hasCompletedPhases && <Lock className="size-3.5 shrink-0" />}
           Skills del Proyecto
-
         </button>
       </div>
 
