@@ -1,4 +1,5 @@
 import { jsPDF } from "jspdf";
+import { ROBOTO_REGULAR_BASE64, ROBOTO_BOLD_BASE64 } from "@/fonts/roboto";
 
 /* ── Judge content cleanup ──────────────────────────────────────────── */
 // Matches the same cleanup the web UI does (markdown-renderer.tsx) so the
@@ -240,6 +241,12 @@ function parseMarkdownBlocks(md: string): MdBlock[] {
 
 export function generatePdf(filename: string, data: ExportData): void {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
+  // Register Roboto font
+  doc.addFileToVFS("Roboto-Regular.ttf", ROBOTO_REGULAR_BASE64);
+  doc.addFont("Roboto-Regular.ttf", "Roboto", "normal");
+  doc.addFileToVFS("Roboto-Bold.ttf", ROBOTO_BOLD_BASE64);
+  doc.addFont("Roboto-Bold.ttf", "Roboto", "bold");
+
   let y = MARGIN;
   const pageH = doc.internal.pageSize.getHeight();
 
@@ -259,7 +266,7 @@ export function generatePdf(filename: string, data: ExportData): void {
   }
 
   function writeText(text: string, size: number, color: [number, number, number], style: "normal" | "bold" = "normal", indent = 0): void {
-    doc.setFont("helvetica", style);
+    doc.setFont("Roboto", style);
     doc.setFontSize(size);
     doc.setTextColor(...color);
     const lines = doc.splitTextToSize(text, CONTENT_W - indent);
@@ -302,12 +309,12 @@ export function generatePdf(filename: string, data: ExportData): void {
           break;
         case "bold-line":
           checkSpace(5);
-          doc.setFont("helvetica", "bold");
+          doc.setFont("Roboto", "bold");
           doc.setFontSize(9);
           doc.setTextColor(...C_DARK);
           doc.text(`${block.label}:`, MARGIN, y);
           const labelW = doc.getTextWidth(`${block.label}: `);
-          doc.setFont("helvetica", "normal");
+          doc.setFont("Roboto", "normal");
           doc.setTextColor(...C_DARK);
           const restLines = doc.splitTextToSize(block.rest, CONTENT_W - labelW - 2);
           doc.text(restLines[0] || "", MARGIN + labelW, y);
@@ -322,7 +329,7 @@ export function generatePdf(filename: string, data: ExportData): void {
         case "ul":
           for (const item of block.items) {
             checkSpace(5);
-            doc.setFont("helvetica", "normal");
+            doc.setFont("Roboto", "normal");
             doc.setFontSize(9);
             doc.setTextColor(...C_DARK);
             doc.text("•", MARGIN + 2, y);
@@ -340,7 +347,7 @@ export function generatePdf(filename: string, data: ExportData): void {
         case "ol":
           block.items.forEach((item, idx) => {
             checkSpace(5);
-            doc.setFont("helvetica", "normal");
+            doc.setFont("Roboto", "normal");
             doc.setFontSize(9);
             doc.setTextColor(...C_DARK);
             doc.text(`${idx + 1}.`, MARGIN + 1, y);
@@ -387,7 +394,7 @@ export function generatePdf(filename: string, data: ExportData): void {
           checkSpace(6);
           doc.setFillColor(...C_BG);
           doc.rect(MARGIN, y - 4, tableWidth, 6, "F");
-          doc.setFont("helvetica", "bold");
+          doc.setFont("Roboto", "bold");
           doc.setFontSize(8);
           doc.setTextColor(...C_DARK);
           for (let ci = 0; ci < colCount; ci++) {
@@ -403,7 +410,7 @@ export function generatePdf(filename: string, data: ExportData): void {
           y += 6;
           doc.setDrawColor(180, 180, 180);
           doc.line(MARGIN, y, MARGIN + tableWidth, y);
-          doc.setFont("helvetica", "normal");
+          doc.setFont("Roboto", "normal");
 
           // Data rows
           for (const row of block.rows) {
@@ -421,7 +428,7 @@ export function generatePdf(filename: string, data: ExportData): void {
             if (y + rowHeight > pageH - MARGIN) {
               doc.addPage();
               y = MARGIN;
-              doc.setFont("helvetica", "normal");
+              doc.setFont("Roboto", "normal");
               doc.setFontSize(8);
             }
 
@@ -448,7 +455,7 @@ export function generatePdf(filename: string, data: ExportData): void {
   }
 
   // ── Title ──
-  doc.setFont("helvetica", "bold");
+  doc.setFont("Roboto", "bold");
   doc.setFontSize(20);
   doc.setTextColor(...C_BLACK);
   const cleanTitle = stripEmojis(data.title);
@@ -476,7 +483,7 @@ export function generatePdf(filename: string, data: ExportData): void {
 
   // ── Section: Descripción ──
   checkSpace(12);
-  doc.setFont("helvetica", "bold");
+  doc.setFont("Roboto", "bold");
   doc.setFontSize(12);
   doc.setTextColor(...C_BLACK);
   doc.text("Descripción", MARGIN, y);
@@ -495,7 +502,7 @@ export function generatePdf(filename: string, data: ExportData): void {
 
   for (const section of detailSections) {
     checkSpace(12);
-    doc.setFont("helvetica", "bold");
+    doc.setFont("Roboto", "bold");
     doc.setFontSize(10);
     doc.setTextColor(...C_BLACK);
     doc.text(section.label, MARGIN, y);
@@ -509,7 +516,7 @@ export function generatePdf(filename: string, data: ExportData): void {
 
   // ── Section: Reportes ──
   checkSpace(10);
-  doc.setFont("helvetica", "bold");
+  doc.setFont("Roboto", "bold");
   doc.setFontSize(14);
   doc.setTextColor(...C_BLACK);
   doc.text("Reportes de validación", MARGIN, y);
@@ -521,7 +528,7 @@ export function generatePdf(filename: string, data: ExportData): void {
     checkSpace(20);
 
     // Report header
-    doc.setFont("helvetica", "bold");
+    doc.setFont("Roboto", "bold");
     doc.setFontSize(11);
     doc.setTextColor(...C_BLACK);
     const reportHeader = `${label} — ${stripEmojis(report.title)}`;
@@ -533,7 +540,7 @@ export function generatePdf(filename: string, data: ExportData): void {
     }
 
     // Meta line
-    doc.setFont("helvetica", "normal");
+    doc.setFont("Roboto", "normal");
     doc.setFontSize(8);
     doc.setTextColor(...C_LIGHT);
     const meta = `${report.createdAt}${report.verdict ? `  ·  Veredicto: ${stripEmojis(report.verdict)}` : ""}`;
@@ -578,12 +585,12 @@ export function generatePdf(filename: string, data: ExportData): void {
         }
         if (entries.length > 0) {
           checkSpace(8);
-          doc.setFont("helvetica", "bold");
+          doc.setFont("Roboto", "bold");
           doc.setFontSize(9);
           doc.setTextColor(...C_ACCENT);
           doc.text("Puntuación:", MARGIN, y);
           y += 5;
-          doc.setFont("helvetica", "normal");
+          doc.setFont("Roboto", "normal");
           doc.setFontSize(8);
           doc.setTextColor(...C_DARK);
           for (const [key, val, desc] of entries) {
@@ -624,7 +631,7 @@ export function generatePdf(filename: string, data: ExportData): void {
   const totalPages = doc.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
-    doc.setFont("helvetica", "normal");
+    doc.setFont("Roboto", "normal");
     doc.setFontSize(7);
     doc.setTextColor(...C_LIGHT);
     doc.text(
@@ -679,6 +686,12 @@ export function buildReportPdf(params: BuildReportPdfParams): Buffer {
   const generatedAt = params.generatedAt ?? new Date();
 
   const doc = new jsPDF({ unit: "mm", format: "a4" });
+  // Register Roboto font
+  doc.addFileToVFS("Roboto-Regular.ttf", ROBOTO_REGULAR_BASE64);
+  doc.addFont("Roboto-Regular.ttf", "Roboto", "normal");
+  doc.addFileToVFS("Roboto-Bold.ttf", ROBOTO_BOLD_BASE64);
+  doc.addFont("Roboto-Bold.ttf", "Roboto", "bold");
+
   let y = MARGIN;
   const pageH = doc.internal.pageSize.getHeight();
   const pageW = doc.internal.pageSize.getWidth();
@@ -716,7 +729,7 @@ export function buildReportPdf(params: BuildReportPdfParams): Buffer {
     style: "normal" | "bold" = "normal",
     indent = 0
   ): void {
-    doc.setFont("helvetica", style);
+    doc.setFont("Roboto", style);
     doc.setFontSize(size);
     doc.setTextColor(...color);
     const lines = doc.splitTextToSize(text, localContentW - indent);
@@ -759,12 +772,12 @@ export function buildReportPdf(params: BuildReportPdfParams): Buffer {
           break;
         case "bold-line":
           checkSpace(5);
-          doc.setFont("helvetica", "bold");
+          doc.setFont("Roboto", "bold");
           doc.setFontSize(9);
           doc.setTextColor(...C_DARK);
           doc.text(`${stripEmojis(block.label)}:`, MARGIN, y);
           const labelW = doc.getTextWidth(`${stripEmojis(block.label)}: `);
-          doc.setFont("helvetica", "normal");
+          doc.setFont("Roboto", "normal");
           doc.setTextColor(...C_DARK);
           const restLines = doc.splitTextToSize(stripEmojis(block.rest), localContentW - labelW - 2);
           doc.text(restLines[0] || "", MARGIN + labelW, y);
@@ -778,7 +791,7 @@ export function buildReportPdf(params: BuildReportPdfParams): Buffer {
         case "ul":
           for (const item of block.items) {
             checkSpace(5);
-            doc.setFont("helvetica", "normal");
+            doc.setFont("Roboto", "normal");
             doc.setFontSize(9);
             doc.setTextColor(...C_DARK);
             doc.text("•", MARGIN + 2, y);
@@ -796,7 +809,7 @@ export function buildReportPdf(params: BuildReportPdfParams): Buffer {
         case "ol":
           block.items.forEach((item, idx) => {
             checkSpace(5);
-            doc.setFont("helvetica", "normal");
+            doc.setFont("Roboto", "normal");
             doc.setFontSize(9);
             doc.setTextColor(...C_DARK);
             doc.text(`${idx + 1}.`, MARGIN + 1, y);
@@ -843,7 +856,7 @@ export function buildReportPdf(params: BuildReportPdfParams): Buffer {
           checkSpace(6);
           doc.setFillColor(...C_BG);
           doc.rect(MARGIN, y - 4, tableWidth, 6, "F");
-          doc.setFont("helvetica", "bold");
+          doc.setFont("Roboto", "bold");
           doc.setFontSize(8);
           doc.setTextColor(...C_DARK);
           for (let ci = 0; ci < colCount; ci++) {
@@ -859,7 +872,7 @@ export function buildReportPdf(params: BuildReportPdfParams): Buffer {
           y += 6;
           doc.setDrawColor(180, 180, 180);
           doc.line(MARGIN, y, MARGIN + tableWidth, y);
-          doc.setFont("helvetica", "normal");
+          doc.setFont("Roboto", "normal");
 
           // Data rows
           for (const row of block.rows) {
@@ -876,7 +889,7 @@ export function buildReportPdf(params: BuildReportPdfParams): Buffer {
             const rowHeight = maxRowHeight * 4 + 2;
             if (y + rowHeight > pageH - MARGIN) {
               addPage();
-              doc.setFont("helvetica", "normal");
+              doc.setFont("Roboto", "normal");
               doc.setFontSize(8);
             }
 
@@ -905,13 +918,13 @@ export function buildReportPdf(params: BuildReportPdfParams): Buffer {
   // ── Header (first page only) ──
   // projectName — title
   // Phase: <phaseType>    Date: <DD/MM/YYYY>
-  doc.setFont("helvetica", "bold");
+  doc.setFont("Roboto", "bold");
   doc.setFontSize(9);
   doc.setTextColor(...C_GREY);
   const headerLine = `${projectName} — ${title}`;
   doc.text(doc.splitTextToSize(headerLine, localContentW), MARGIN, y);
   y += 5;
-  doc.setFont("helvetica", "normal");
+  doc.setFont("Roboto", "normal");
   doc.setFontSize(8);
   doc.setTextColor(...C_LIGHT);
   const dateStr = generatedAt.toLocaleDateString("es-ES", {
@@ -934,7 +947,7 @@ export function buildReportPdf(params: BuildReportPdfParams): Buffer {
 
   if (!alreadyHasTitle) {
     checkSpace(15);
-    doc.setFont("helvetica", "bold");
+    doc.setFont("Roboto", "bold");
     doc.setFontSize(20);
     doc.setTextColor(...C_BLACK);
     const cleanTitle = stripEmojis(title);
@@ -952,7 +965,7 @@ export function buildReportPdf(params: BuildReportPdfParams): Buffer {
   const totalPages = doc.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
-    doc.setFont("helvetica", "normal");
+    doc.setFont("Roboto", "normal");
     doc.setFontSize(7);
     doc.setTextColor(...C_LIGHT);
     doc.text(
