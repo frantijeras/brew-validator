@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/db";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle, Lock, Sparkles, FileText } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { notFound } from "next/navigation";
 import { ProjectPhasesWithModal } from "./project-phases-with-modal";
+import { SkillSelector } from "./skill-selector";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -25,6 +26,21 @@ export default async function ProjectDetailPage({ params }: Props) {
   if (!project) notFound();
 
   const allCompleted = project.phases.every((p) => p.status === "COMPLETED");
+  const hasCompletedPhases = project.phases.some((p) => p.status === "COMPLETED");
+
+  // Load existing skills selection from project
+  const existingSkills = project.skills as Array<{
+    id: string;
+    name: string;
+    description: string;
+    icon: string;
+    category: string;
+    confidence: number;
+    reason: string;
+    recommended: boolean;
+    selected?: boolean;
+    custom?: boolean;
+  }> | null;
 
   return (
     <div>
@@ -84,6 +100,16 @@ export default async function ProjectDetailPage({ params }: Props) {
           subStepChoice: p.subStepChoice,
         }))}
       />
+
+      {/* Skills del Proyecto — solo visible si hay al menos 1 fase completada */}
+      {hasCompletedPhases && (
+        <div className="mt-6">
+          <SkillSelector
+            projectId={project.id}
+            initialSkills={existingSkills && existingSkills.length > 0 ? existingSkills : undefined}
+          />
+        </div>
+      )}
     </div>
   );
 }

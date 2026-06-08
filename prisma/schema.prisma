@@ -156,6 +156,7 @@ model Project {
   description String?
   status      String   @default("ACTIVE") // ACTIVE, ARCHIVED
   memory      Json?    // ProjectMemory — JSON acumulativo de decisiones (última prevalece)
+  skills      Json?    // Array de { id, name, description, icon, category, confidence, reason, selected, custom }
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

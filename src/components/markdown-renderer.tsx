@@ -189,6 +189,17 @@ export function renderMarkdown(markdown: string, agentName?: string, skipClean?:
   // ── List processing ──
   // We process lists in a dedicated pass to properly wrap <ol>/<ul>.
 
+  // Before paragraph splitting: ensure list items that follow non-list content
+  // on the previous line get a paragraph break. Without this, bold headers
+  // like **Debilidades** get merged with the list below, causing items to vanish.
+  // We insert \n\n before list-starting lines when the preceding line is NOT blank
+  // and NOT a list item itself.
+  //
+  // IMPORTANT: must run BEFORE list collection below, or the regex won't match
+  // (list items will have been replaced by placeholders).
+  html = html.replace(/([^\n])\n([\t ]*[-*+]\s)/g, "$1\n\n$2");
+  html = html.replace(/([^\n])\n([\t ]*\d+\.\s)/g, "$1\n\n$2");
+
   // Ordered list items: "1. text" or "  1. text"
   // Use a placeholder to protect them from the paragraph split
   const OL_PLACEHOLDER = "%%OL_ITEM_";
@@ -215,14 +226,6 @@ export function renderMarkdown(markdown: string, agentName?: string, skipClean?:
       return `${UL_PLACEHOLDER}${idx}%%`;
     }
   );
-
-  // Before paragraph splitting: ensure list items that follow non-list content
-  // on the previous line get a paragraph break. Without this, bold headers
-  // like **Debilidades** get merged with the list below, causing items to vanish.
-  // We insert \n\n before list-starting lines when the preceding line is NOT blank
-  // and NOT a list item itself.
-  html = html.replace(/([^\n])\n([\t ]*[-*+]\s)/g, "$1\n\n$2");
-  html = html.replace(/([^\n])\n([\t ]*\d+\.\s)/g, "$1\n\n$2");
 
   // Now split into paragraphs (double newline)
   html = html.replace(/\n\n+/g, "\n<!--PARA-->\n");
