@@ -58,7 +58,7 @@ export async function GET(
     let rawContent = "";
     let contentIsHtml = false;
 
-    if (phase.type === "IDENTITY" && phase.subStep === "final") {
+    if (phase.type === "IDENTITY" && (phase.subStep === "final" || phase.subStep === "visual")) {
       const subArtifact = phase.subStepArtifact as
         | { type?: "html" | "markdown"; content?: string; title?: string }
         | null;

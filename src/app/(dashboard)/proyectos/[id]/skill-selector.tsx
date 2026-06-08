@@ -128,7 +128,8 @@ export function SkillSelector({ projectId, initialSkills }: SkillSelectorProps) 
 
   useEffect(() => {
     fetchSkills();
-  }, [fetchSkills]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Toggle skill selection ───────────────────────────────────────
 
@@ -425,7 +426,7 @@ function SkillCard({
         <span className="text-slate-400">
           {iconComponent(skill.icon, "size-5")}
         </span>
-        <span className="text-sm font-semibold text-white flex-1 min-w-0 truncate">
+        <span className="text-base font-bold text-white flex-1 min-w-0 truncate">
           {skill.name}
         </span>
         {/* Toggle switch */}
@@ -452,8 +453,15 @@ function SkillCard({
         </label>
       </div>
 
-      {/* Fila 2: Barra de confianza visual (sin texto) */}
-      <div className="flex items-center">
+      {/* Fila 2: Razon — subida justo debajo del nombre */}
+      <p className="text-xs text-slate-400 italic">{skill.reason}</p>
+
+      {/* Fila 3: Descripcion */}
+      <p className="text-xs text-slate-500">{skill.description}</p>
+
+      {/* Fila 4: Barra de confianza con etiqueta */}
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] text-slate-500 shrink-0">Confianza</span>
         <div className="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
           <div
             className={`h-full rounded-full transition-all ${barColor}`}
@@ -461,12 +469,6 @@ function SkillCard({
           />
         </div>
       </div>
-
-      {/* Fila 3: Descripcion */}
-      <p className="text-xs text-slate-500">{skill.description}</p>
-
-      {/* Fila 4: Razon */}
-      <p className="text-xs text-slate-600 italic">{skill.reason}</p>
     </div>
   );
 }

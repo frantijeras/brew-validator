@@ -45,9 +45,9 @@ export async function GET(
       );
     }
 
-    if (phase.subStep !== "final") {
+    if (phase.subStep !== "final" && phase.subStep !== "visual") {
       return NextResponse.json(
-        { error: "Brand Book only available on the `final` sub-step" },
+        { error: "Brand Book only available on the `final` or `visual` sub-step" },
         { status: 409 }
       );
     }

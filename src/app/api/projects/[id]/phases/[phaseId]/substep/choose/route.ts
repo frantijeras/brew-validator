@@ -55,7 +55,7 @@ export async function POST(
       phaseId,
       phaseType: phase.type,
       mode: "report",
-      subStep: nextSubStep || "final",
+      subStep: nextSubStep || (phase.type === "IDENTITY" ? "visual" : "final"),
       answers: { subStepChoice: choice },
       includePreviousSubStepArtifact: true,
     });

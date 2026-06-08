@@ -26,7 +26,7 @@ export default async function ProjectDetailPage({ params }: Props) {
   if (!project) notFound();
 
   const allCompleted = project.phases.every((p) => p.status === "COMPLETED");
-  const hasCompletedPhases = project.phases.some((p) => p.status === "COMPLETED");
+  const hasCompletedPhases = project.phases.every((p) => p.status === "COMPLETED");
 
   // Load existing skills selection from project
   const existingSkills = project.skills as Array<{
