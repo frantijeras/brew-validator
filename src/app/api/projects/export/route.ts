@@ -1,0 +1,378 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { buildBrandBook, brandBookToMarkdown } from "@/lib/identity-brandbook";
+import { ZipArchive } from "archiver";
+import type { ProjectMemory } from "@/lib/project-memory";
+
+/**
+ * GET /api/projects/export?projectId=xxx
+ *
+ * Generates a full-project export ZIP containing:
+ *   - /contexto/ — Phase reports as markdown files
+ *   - /identidad/ — Brand book if the IDENTITY phase is completed
+ *   - /skills/ — Selected skills as markdown files
+ *   - README.md — Project summary
+ *
+ * Uses archiver (same as handoff-builder).
+ */
+
+interface PhaseExportData {
+  type: string;
+  label: string;
+  sortOrder: number;
+  status: string;
+  artifacts: Array<{ title: string; content: string; type: string }> | null;
+  subStepArtifact: {
+    type?: "html" | "markdown";
+    content?: string;
+    title?: string;
+  } | null;
+  subStepChoice: string | null;
+  subStep: string | null;
+}
+
+interface SkillExportData {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  category: string;
+  confidence: number;
+  reason: string;
+  recommended: boolean;
+  selected?: boolean;
+  custom?: boolean;
+}
+
+function sanitizeFilename(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60) || "proyecto";
+}
+
+function getPhaseContent(phase: PhaseExportData): string | null {
+  // IDENTITY with subStep final → use subStepArtifact
+  if (phase.type === "IDENTITY" && (phase.subStep === "final" || phase.subStep === "visual")) {
+    if (phase.subStepArtifact?.content) {
+      return phase.subStepArtifact.content;
+    }
+  }
+
+  // Otherwise, first artifact
+  if (phase.artifacts && phase.artifacts.length > 0) {
+    const first = phase.artifacts[0];
+    if (first.content) return first.content;
+  }
+
+  return null;
+}
+
+function buildReadme(
+  projectName: string,
+  idea: {
+    title: string;
+    description: string;
+    problem: string | null;
+    valueProposition: string | null;
+    targetUser: string;
+    monetization: string;
+    businessModel: string | null;
+  },
+  phases: PhaseExportData[],
+  skills: SkillExportData[],
+  memory: ProjectMemory | null,
+): string {
+  const completedPhases = phases.filter((p) => p.status === "COMPLETED");
+  const selectedSkills = skills.filter((s) => s.selected);
+
+  return [
+    `# ${projectName}`,
+    "",
+    "> Paquete de exportación completo generado por **BrewValidator**.",
+    "",
+    `**Fecha:** ${new Date().toISOString().split("T")[0]}`,
+    "",
+    "---",
+    "",
+    "## 📋 Idea",
+    "",
+    `- **Título:** ${idea.title}`,
+    `- **Descripción:** ${idea.description}`,
+    `- **Problema:** ${idea.problem || "—"}`,
+    `- **Propuesta de valor:** ${idea.valueProposition || "—"}`,
+    `- **Target:** ${idea.targetUser}`,
+    `- **Monetización:** ${idea.monetization}`,
+    `- **Modelo de negocio:** ${idea.businessModel || "—"}`,
+    "",
+    "---",
+    "",
+    "## 📦 Contenido del paquete",
+    "",
+    "| Carpeta | Contenido |",
+    "|---------|-----------|",
+    "| `contexto/` | Reportes de cada fase completada (markdown) |",
+    "| `identidad/` | Brand book, voz y tono, naming (si disponible) |",
+    "| `skills/` | Skills seleccionadas para este proyecto |",
+    "",
+    "---",
+    "",
+    "## ✅ Fases completadas",
+    "",
+    ...completedPhases.map(
+      (p) => `- **Fase ${p.sortOrder} — ${p.label}**`,
+    ),
+    "",
+    completedPhases.length === 0
+      ? "⚠️ Ninguna fase completada aún."
+      : "",
+    "",
+    "---",
+    "",
+    "## 🛠️ Skills seleccionadas",
+    "",
+    ...selectedSkills.map(
+      (s) => `- **${s.name}** — ${s.description}`,
+    ),
+    "",
+    selectedSkills.length === 0
+      ? "No hay skills seleccionadas."
+      : "",
+    "",
+    "---",
+    "",
+    `_Generado por BrewValidator el ${new Date().toISOString()}_`,
+  ].join("\n");
+}
+
+export async function GET(req: Request) {
+  try {
+    const url = new URL(req.url);
+    const projectId = url.searchParams.get("projectId");
+
+    if (!projectId) {
+      return NextResponse.json(
+        { error: "Se requiere projectId" },
+        { status: 400 },
+      );
+    }
+
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        idea: true,
+        phases: { orderBy: { sortOrder: "asc" } },
+      },
+    });
+
+    if (!project) {
+      return NextResponse.json(
+        { error: "Proyecto no encontrado" },
+        { status: 404 },
+      );
+    }
+
+    const idea = project.idea;
+    if (!idea) {
+      return NextResponse.json(
+        { error: "El proyecto no tiene una idea asociada" },
+        { status: 404 },
+      );
+    }
+
+    const phases: PhaseExportData[] = project.phases.map((p) => ({
+      type: p.type,
+      label: p.label,
+      sortOrder: p.sortOrder,
+      status: p.status,
+      artifacts: p.artifacts as Array<{
+        title: string;
+        content: string;
+        type: string;
+      }> | null,
+      subStepArtifact: p.subStepArtifact as {
+        type?: "html" | "markdown";
+        content?: string;
+        title?: string;
+      } | null,
+      subStepChoice: p.subStepChoice,
+      subStep: p.subStep,
+    }));
+
+    const skills: SkillExportData[] =
+      ((project.skills as unknown as SkillExportData[]) ?? []);
+    const memory = project.memory as ProjectMemory | null;
+
+    // ── Build ZIP with archiver ──
+    const zipBuffer = await new Promise<Buffer>((resolve, reject) => {
+      const archive = new ZipArchive({ zlib: { level: 9 } });
+      const chunks: Buffer[] = [];
+
+      archive.on("data", (chunk: Buffer) => chunks.push(chunk));
+      archive.on("end", () => resolve(Buffer.concat(chunks)));
+      archive.on("error", (err: Error) => reject(err));
+
+      const prefix = `${sanitizeFilename(project.name)}/`;
+
+      // ── README.md ──
+      archive.append(
+        buildReadme(project.name, idea, phases, skills, memory),
+        { name: `${prefix}README.md` },
+      );
+
+      // ── /contexto/ — Phase reports ──
+      const completedPhases = phases.filter(
+        (p) => p.status === "COMPLETED",
+      );
+      for (const phase of completedPhases) {
+        const content = getPhaseContent(phase);
+        if (!content) continue;
+
+        const filename = `${String(phase.sortOrder).padStart(2, "0")}-${sanitizeFilename(phase.label)}.md`;
+        archive.append(
+          `# ${phase.label}\n\n${content}`,
+          { name: `${prefix}contexto/${filename}` },
+        );
+      }
+
+      // ── /identidad/ — Brand book if IDENTITY phase completed ──
+      const identityPhase = phases.find(
+        (p) => p.type === "IDENTITY" && p.status === "COMPLETED",
+      );
+      if (identityPhase) {
+        // Build brand book
+        const namingContent = identityPhase.subStepChoice
+          ? `**Nombre elegido:** ${identityPhase.subStepChoice}\n\nSeleccionado en la sub-fase de naming.`
+          : null;
+
+        const voiceContent =
+          identityPhase.subStepArtifact &&
+          typeof identityPhase.subStepArtifact === "object" &&
+          (identityPhase.subStepArtifact as { content?: string }).content
+            ? (identityPhase.subStepArtifact as { content: string }).content
+            : null;
+
+        const firstArtifact =
+          identityPhase.artifacts &&
+          Array.isArray(identityPhase.artifacts)
+            ? (identityPhase.artifacts as Array<{ content?: string }>)[0]
+            : null;
+        const visualJson =
+          identityPhase.subStepArtifact &&
+          typeof identityPhase.subStepArtifact === "object"
+            ? JSON.stringify(identityPhase.subStepArtifact)
+            : firstArtifact?.content ?? null;
+
+        const visualChoice = identityPhase.subStepChoice || null;
+
+        try {
+          const brandBook = buildBrandBook({
+            projectName: project.name,
+            namingContent,
+            voiceContent,
+            visualChoice,
+            visualArtifactJson: visualJson,
+            projectContext: {
+              description: project.description,
+            },
+          });
+
+          archive.append(
+            brandBookToMarkdown(brandBook),
+            { name: `${prefix}identidad/brand-book.md` },
+          );
+
+          // Voice and tone
+          if (voiceContent) {
+            archive.append(
+              `# Voz y Tono — ${project.name}\n\n${voiceContent}`,
+              { name: `${prefix}identidad/voice-and-tone.md` },
+            );
+          }
+
+          // Naming rationale
+          if (identityPhase.subStepChoice || identityPhase.subStepArtifact?.content) {
+            archive.append(
+              [
+                `# Nombre y Rationale — ${project.name}`,
+                "",
+                `**Nombre elegido:** ${identityPhase.subStepChoice || project.name}`,
+                "",
+                identityPhase.subStepArtifact?.content || "PENDIENTE.",
+              ].join("\n"),
+              { name: `${prefix}identidad/naming-rationale.md` },
+            );
+          }
+
+          // Style guide (visual HTML)
+          const visualPhase = phases.find(
+            (p) =>
+              p.type === "IDENTITY" &&
+              p.subStep === "visual" &&
+              p.subStepArtifact?.content,
+          );
+          if (visualPhase?.subStepArtifact?.content) {
+            archive.append(visualPhase.subStepArtifact.content, {
+              name: `${prefix}identidad/style-guide.html`,
+            });
+          }
+        } catch (err) {
+          console.error("[export] BrandBook build failed:", err);
+        }
+      }
+
+      // ── /skills/ — Selected skills ──
+      const selectedSkills = skills.filter((s) => s.selected);
+      for (const skill of selectedSkills) {
+        const filename = `${sanitizeFilename(skill.name)}.md`;
+        const content = [
+          `# ${skill.name}`,
+          "",
+          `> ${skill.description}`,
+          "",
+          `- **Categoría:** ${skill.category}`,
+          `- **Confianza:** ${(skill.confidence * 100).toFixed(0)}%`,
+          `- **Razón:** ${skill.reason}`,
+          skill.custom ? "- **Tipo:** Personalizada" : "",
+        ]
+          .filter(Boolean)
+          .join("\n");
+
+        archive.append(content, { name: `${prefix}skills/${filename}` });
+      }
+
+      // If no selected skills, add a placeholder
+      if (selectedSkills.length === 0) {
+        archive.append(
+          `# Skills — ${project.name}\n\nNo hay skills seleccionadas para este proyecto.`,
+          { name: `${prefix}skills/README.md` },
+        );
+      }
+
+      void archive.finalize();
+    });
+
+    // ── Response ──
+    const safeName = sanitizeFilename(project.name);
+    const filename = `${safeName}-export.zip`;
+
+    return new NextResponse(new Uint8Array(zipBuffer), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/zip",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Length": zipBuffer.length.toString(),
+        "Cache-Control": "no-store",
+      },
+    });
+  } catch (error) {
+    console.error("[GET /api/projects/export]", error);
+    return NextResponse.json(
+      { error: "Internal error" },
+      { status: 500 },
+    );
+  }
+}

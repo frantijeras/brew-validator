@@ -106,6 +106,18 @@ export default async function ProjectDetailPage({ params }: Props) {
         memory={project.memory as import("@/lib/project-memory").ProjectMemory | null}
         hasCompletedPhases={hasCompletedPhases}
         existingSkills={existingSkills}
+        idea={project.idea ? {
+          title: project.idea.title,
+          description: project.idea.description,
+          problem: project.idea.problem,
+          valueProposition: project.idea.valueProposition,
+          targetUser: project.idea.targetUser,
+          monetization: project.idea.monetization,
+          businessModel: project.idea.businessModel,
+          score: project.idea.score,
+          verdict: project.idea.verdict,
+          status: project.idea.status,
+        } : null}
       />
     </div>
   );
