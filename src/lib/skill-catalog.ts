@@ -15,6 +15,33 @@ export type SkillCondition =
   | { type: "quiz_answer_matches"; phaseType: string; questionId: string; values: string[] }
   | { type: "always" };
 
+/**
+ * GLOSARIO DE TÉRMINOS (usar siempre en descriptions con la explicación entre paréntesis):
+ * - TAM: Total Addressable Market (Mercado Total Direccionable)
+ * - SAM: Serviceable Addressable Market (Mercado Servible Direccionable)
+ * - SOM: Serviceable Obtainable Market (Mercado Obtenible)
+ * - CAC: Coste de Adquisición de Cliente
+ * - LTV: Lifetime Value (Valor de Vida del Cliente)
+ * - ROI: Return on Investment (Retorno de Inversión)
+ * - KPI: Key Performance Indicator (Indicador Clave de Rendimiento)
+ * - OKR: Objectives and Key Results (Objetivos y Resultados Clave)
+ * - B2B: Business to Business
+ * - B2C: Business to Consumer
+ * - SaaS: Software as a Service (Software como Servicio)
+ * - ARR: Annual Recurring Revenue (Ingresos Recurrentes Anuales)
+ * - MRR: Monthly Recurring Revenue (Ingresos Recurrentes Mensuales)
+ * - Churn: Tasa de cancelación de clientes
+ * - Upsell: Venta adicional de productos/servicios premium
+ * - CTR: Click-Through Rate (Tasa de Clics)
+ * - CPC: Cost Per Click (Coste por Clic)
+ * - CPA: Cost Per Action (Coste por Acción)
+ * - ROAS: Return on Ad Spend (Retorno sobre Inversión Publicitaria)
+ * - UGC: User-Generated Content (Contenido Generado por el Usuario)
+ * - MQL: Marketing Qualified Lead (Lead Calificado por Marketing)
+ * - SQL: Sales Qualified Lead (Lead Calificado por Ventas)
+ * - CRO: Conversion Rate Optimization (Optimización de Tasa de Conversión)
+ */
+
 export const SKILL_CATALOG: SkillDefinition[] = [
   {
     id: "codebot-dev",

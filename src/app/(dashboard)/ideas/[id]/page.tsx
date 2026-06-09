@@ -514,8 +514,8 @@ export default function IdeaDetailPage() {
         </Link>
       )}
 
-      {/* Header */}
-      <div className="mb-8">
+      {/* Header — sticky para que los botones de acción siempre sean visibles */}
+      <div className="sticky top-0 z-10 -mx-4 px-4 py-3 mb-6 bg-[#0B0E1E] border-b border-slate-800/60 md:-mx-0 md:px-0 md:py-0 md:mb-8 md:border-0 md:bg-transparent">
         {/* Title row */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">

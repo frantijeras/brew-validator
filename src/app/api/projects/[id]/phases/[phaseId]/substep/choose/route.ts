@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { enqueuePhaseJob } from "@/lib/bridge/phase-jobs";
+import { PHASE_SUBSTEPS } from "@/lib/phase-substeps";
 
 /**
  * POST /api/projects/[id]/phases/[phaseId]/substep/choose
@@ -50,12 +51,27 @@ export async function POST(
       data: { subStepChoice: choice },
     });
 
+    // Determine the next sub-step based on current position in PHASE_SUBSTEPS
+    let nextSubStepName = nextSubStep;
+    if (!nextSubStepName) {
+      const substeps = PHASE_SUBSTEPS[phase.type];
+      if (substeps && phase.subStep) {
+        const currentIdx = substeps.findIndex((s) => s.id === phase.subStep);
+        if (currentIdx >= 0 && currentIdx < substeps.length - 1) {
+          nextSubStepName = substeps[currentIdx + 1].id;
+        }
+        // If currentIdx is the last one, nextSubStepName stays undefined → phase completes
+      } else {
+        nextSubStepName = phase.type === "IDENTITY" ? "naming" : "final";
+      }
+    }
+
     const result = await enqueuePhaseJob({
       projectId,
       phaseId,
       phaseType: phase.type,
       mode: "report",
-      subStep: nextSubStep || (phase.type === "IDENTITY" ? "visual" : "final"),
+      subStep: nextSubStepName,
       answers: { subStepChoice: choice },
       includePreviousSubStepArtifact: true,
     });

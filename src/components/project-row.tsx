@@ -5,11 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowRight,
-  CheckCircle,
-  Clock,
-  HelpCircle,
-  Play,
-  Eye,
   MoreHorizontal,
   Trash2,
   AlertTriangle,
@@ -33,13 +28,6 @@ interface ProjectRowProps {
   total: number;
   currentPhaseLabel: string | null;
 }
-
-const CTA_ICONS: Record<string, React.ElementType> = {
-  completed: Eye,
-  processing: Clock,
-  questioning: HelpCircle,
-  default: Play,
-};
 
 function timeAgo(date: Date): string {
   const diff = Date.now() - date.getTime();
@@ -71,15 +59,6 @@ export function ProjectRow({
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-
-  const statusKey = allDone
-    ? "completed"
-    : statusText === "Procesando…"
-      ? "processing"
-      : statusText === "Esperando respuestas"
-        ? "questioning"
-        : "default";
-  const CTAIcon = CTA_ICONS[statusKey] || Play;
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -117,53 +96,60 @@ export function ProjectRow({
 
   return (
     <>
-      {/* Desktop: horizontal row */}
-      <div className="hidden md:block group rounded-xl border border-slate-700 bg-slate-900/50 p-4 transition-all hover:border-slate-600">
-        <div className="flex items-center gap-4">
+      {/* ── Desktop: fila horizontal ── */}
+      <div className="hidden md:block group rounded-xl border border-slate-700/60 bg-slate-900/40 transition-all hover:border-slate-600 hover:bg-slate-900/60">
+        <div className="flex items-center gap-4 p-4">
           {/* Avatar */}
           <div
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-base font-bold ${avatarStyle.bg} ${avatarStyle.text}`}
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-base font-bold ${avatarStyle.bg} ${avatarStyle.text}`}
           >
             {project.name.charAt(0).toUpperCase()}
           </div>
 
-          {/* Name + idea + current phase */}
+          {/* Info principal */}
           <div className="min-w-0 flex-1">
-            <Link
-              href={`/proyectos/${project.id}`}
-              className="text-base font-semibold text-white group-hover:text-amber-400 transition-colors truncate block"
-            >
-              {project.name}
-            </Link>
-            <p className="mt-0.5 text-xs text-slate-500 truncate">
-              Idea: {project.idea.title || project.idea.description?.slice(0, 60) || "Sin descripción"}
-            </p>
-            {currentPhaseLabel && (
-              <p className="mt-0.5 text-xs text-slate-500">
-                Fase actual: <span className="text-slate-300">{currentPhaseLabel}</span>
-              </p>
-            )}
+            <div className="flex items-baseline gap-2">
+              <Link
+                href={`/proyectos/${project.id}`}
+                className="text-[15px] font-semibold text-white group-hover:text-amber-400 transition-colors truncate"
+              >
+                {project.name}
+              </Link>
+              <span className={`shrink-0 inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${statusBadgeClass}`}>
+                {statusText}
+              </span>
+            </div>
+            <div className="mt-1 flex items-center gap-3 text-xs text-slate-500">
+              {currentPhaseLabel && (
+                <span>
+                  Fase: <span className="text-slate-400">{currentPhaseLabel}</span>
+                </span>
+              )}
+              <span>{completed}/{total} fases</span>
+              <span>{timeAgo(project.updatedAt)}</span>
+            </div>
           </div>
 
-          {/* Status + progress */}
-          <div className="shrink-0 flex flex-col items-end gap-1.5">
-            <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${statusBadgeClass}`}>
-              {statusText} {completed}/{total}
-            </span>
-            <div className="flex items-center gap-2 w-28">
-              <div className="flex-1 h-1 rounded-full bg-slate-800 overflow-hidden">
+          {/* Barra de progreso + CTA */}
+          <div className="shrink-0 flex items-center gap-4">
+            {/* Progreso */}
+            <div className="flex items-center gap-2.5 w-32">
+              <div className="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all ${allDone ? "bg-green-500" : "bg-amber-500"}`}
                   style={{ width: `${progressPct}%` }}
                 />
               </div>
-              <span className="text-xs font-medium text-slate-400">{progressPct}%</span>
+              <span className="text-xs font-medium text-slate-400 w-8 text-right">{progressPct}%</span>
             </div>
+
+            {/* CTA con bordes */}
             <Link
               href={`/proyectos/${project.id}`}
-              className="inline-flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 transition-colors font-medium"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-800/50 px-3.5 py-1.5 text-xs font-medium text-slate-200 transition-all hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-300"
             >
-              {CTALabel} <ArrowRight className="size-3" />
+              {CTALabel}
+              <ArrowRight className="size-3.5" />
             </Link>
           </div>
 
@@ -171,7 +157,7 @@ export function ProjectRow({
           <div ref={menuRef} className="relative shrink-0">
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+              className="rounded-lg p-2 text-slate-500 hover:bg-slate-800 hover:text-slate-300 transition-colors"
               aria-label="Menú del proyecto"
             >
               <MoreHorizontal className="size-4" />
@@ -196,38 +182,46 @@ export function ProjectRow({
         </div>
       </div>
 
-      {/* Mobile: compact card */}
-      <div className="md:hidden rounded-xl border border-slate-700 bg-slate-900/50 p-4 transition-all">
+      {/* ── Móvil: card compacta ── */}
+      <div className="md:hidden rounded-xl border border-slate-700/60 bg-slate-900/40 p-4 transition-all">
         <div className="flex items-start gap-3">
           <div
-            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${avatarStyle.bg} ${avatarStyle.text}`}
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${avatarStyle.bg} ${avatarStyle.text}`}
           >
             {project.name.charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
-            <Link
-              href={`/proyectos/${project.id}`}
-              className="text-sm font-semibold text-white truncate block"
-            >
-              {project.name}
-            </Link>
-            <p className="text-xs text-slate-500 truncate">
-              {project.idea.title || project.idea.description?.slice(0, 50) || "Sin descripción"}
-            </p>
-            <div className="mt-1.5 flex items-center gap-2 text-xs">
-              <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 font-medium ${statusBadgeClass}`}>
-                {statusText}
-              </span>
-              <span className="text-slate-500">{completed}/{total}</span>
-              <span className="text-slate-600">{timeAgo(project.updatedAt)}</span>
-              <span className="font-medium text-slate-400">{progressPct}%</span>
-            </div>
-            <div className="mt-2">
+            <div className="flex items-center justify-between gap-2">
               <Link
                 href={`/proyectos/${project.id}`}
-                className="inline-flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 transition-colors font-medium"
+                className="text-sm font-semibold text-white truncate"
               >
-                <CTAIcon className="size-3" />
+                {project.name}
+              </Link>
+              <span className={`shrink-0 inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${statusBadgeClass}`}>
+                {statusText}
+              </span>
+            </div>
+            {currentPhaseLabel && (
+              <p className="mt-0.5 text-xs text-slate-500 truncate">
+                {currentPhaseLabel}
+              </p>
+            )}
+            <div className="mt-2 flex items-center gap-3">
+              <div className="flex-1 h-1 rounded-full bg-slate-800 overflow-hidden">
+                <div
+                  className={`h-full rounded-full ${allDone ? "bg-green-500" : "bg-amber-500"}`}
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+              <span className="text-[11px] font-medium text-slate-400">{completed}/{total}</span>
+              <span className="text-[11px] text-slate-600">{timeAgo(project.updatedAt)}</span>
+            </div>
+            <div className="mt-2.5">
+              <Link
+                href={`/proyectos/${project.id}`}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-800/50 px-3 py-1.5 text-xs font-medium text-slate-200 transition-all hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-300"
+              >
                 {CTALabel}
                 <ArrowRight className="size-3" />
               </Link>
@@ -236,7 +230,7 @@ export function ProjectRow({
         </div>
       </div>
 
-      {/* Delete confirmation modal */}
+      {/* ── Modal confirmar borrado ── */}
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-md rounded-xl border border-red-500/20 bg-slate-900 shadow-xl">
