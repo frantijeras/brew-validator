@@ -26,6 +26,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Job no encontrado" }, { status: 404 });
     }
 
+    // Idempotencia: si el job ya fue procesado, ignorar callback duplicado
+    if (job.status === "COMPLETED") {
+      return NextResponse.json({ success: true, skipped: true });
+    }
+
     const isValidationAgent = VALIDATION_AGENTS.includes(job.agentName);
     const isGeneratorAgent = job.agentName === GENERATOR_AGENT;
     const isRefinerAgent = job.agentName === REFINER_AGENT;
@@ -82,6 +87,11 @@ export async function POST(req: NextRequest) {
 
     // ── Idea Generator callback ──
     if (isGeneratorAgent) {
+      // Si el job ya estaba COMPLETED antes de esta actualización, ignorar
+      if (job.status === "COMPLETED") {
+        return NextResponse.json({ success: true, skipped: true });
+      }
+
       const title = (output.title as string) || "";
       const description = (output.description as string) || "";
       const problem = (output.problem as string) || "";

@@ -27,7 +27,7 @@ export async function POST(req: Request) {
 
     // Create the project with its phases
     // Phase 0 (VALIDATION) is read-only on the frontend and points to /ideas/[id],
-    // so it is NOT a ProjectPhase here. The 6 phases below are the agent-driven ones.
+    // so it is NOT a ProjectPhase here. The 5 phases below are the agent-driven ones.
     const project = await prisma.project.create({
       data: {
         ideaId: idea.id,
@@ -39,35 +39,35 @@ export async function POST(req: Request) {
             {
               type: "ANALYSIS",
               label: "Análisis de Mercado",
-              description: "Investigación de mercado, competencia, TAM/SAM/SOM y canales recomendados según el target",
+              description: "Investigación de mercado, DAFO, 5 Fuerzas de Porter, TAM/SAM/SOM y canales recomendados según el target",
               status: "AVAILABLE",
               sortOrder: 1,
             },
             {
               type: "BUSINESS",
               label: "Estrategia de Negocio",
-              description: "Lean Canvas, modelo de ingresos y propuesta de valor estratégica",
+              description: "Lean Canvas, modelo de ingresos, pricing, segmentos de cliente y propuesta de valor estratégica",
               status: "LOCKED",
               sortOrder: 2,
             },
             {
               type: "IDENTITY",
               label: "Identidad de Marca",
-              description: "Naming, voz y tono, estilo visual (style guide HTML) y brand book final",
+              description: "Naming, voz y tono (12 Arquetipos de Jung), estilo visual (paletas de color, tipografías, style guide HTML) y brand book final",
               status: "LOCKED",
               sortOrder: 3,
             },
             {
               type: "CONTENT",
               label: "Estrategia de Distribución",
-              description: "Canales prioritarios, tipo de contenido, calendario editorial, plan de ads y estrategia de lanzamiento en redes",
+              description: "Matriz Bullseye, canales prioritarios, tipo de contenido, calendario editorial, pilares de contenido y estrategia de lanzamiento",
               status: "LOCKED",
               sortOrder: 4,
             },
             {
               type: "EXECUTION",
               label: "Roadmap 30/60/90",
-              description: "OKRs a 30/60/90 días, plan financiero detallado y próximos pasos",
+              description: "OKRs 30/60/90, simulador financiero con unit economics y 3 escenarios, y plan financiero detallado",
               status: "LOCKED",
               sortOrder: 5,
             },
