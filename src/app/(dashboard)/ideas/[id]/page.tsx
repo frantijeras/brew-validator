@@ -1184,11 +1184,13 @@ function ConvertToProjectButton({ ideaId }: { ideaId: string }) {
       const data = await res.json();
       if (!res.ok) {
         if (res.status === 409 && data.projectId) {
+          window.dispatchEvent(new CustomEvent("project-changed"));
           router.push(`/proyectos/${data.projectId}`);
           return;
         }
         setError(data.error || "Error al crear proyecto");
       } else {
+        window.dispatchEvent(new CustomEvent("project-changed"));
         router.push(`/proyectos/${data.project.id}`);
       }
     } catch {

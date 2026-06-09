@@ -338,6 +338,15 @@ export function PhaseSubstepModal({
         await performRename(choice, { suppressErrors: true });
         return;
       }
+
+      // If no replacements needed, skip the confirmation dialog entirely
+      if (data.totalReplacements === 0) {
+        setRenamePreview(null);
+        setPendingName(null);
+        await performRename(choice);
+        return;
+      }
+
       setPendingName(choice);
       setRenamePreview(data);
     } catch (err) {
@@ -407,6 +416,7 @@ export function PhaseSubstepModal({
       });
       onResolved?.();
       onClose();
+      window.dispatchEvent(new CustomEvent("project-changed"));
       router.refresh();
     } catch (err) {
       if (!options.suppressErrors) {
@@ -471,6 +481,7 @@ export function PhaseSubstepModal({
         });
         onResolved?.();
         onClose();
+        window.dispatchEvent(new CustomEvent("project-changed"));
         router.refresh();
       } catch {
         setError("Error de conexión");
@@ -503,6 +514,7 @@ export function PhaseSubstepModal({
       }
       onResolved?.();
       onClose();
+      window.dispatchEvent(new CustomEvent("project-changed"));
       router.refresh();
     } catch {
       setError("Error de conexión");
@@ -556,6 +568,7 @@ export function PhaseSubstepModal({
       }
       onResolved?.();
       onClose();
+      window.dispatchEvent(new CustomEvent("project-changed"));
       router.refresh();
     } catch {
       setError("Error de conexión");
@@ -631,6 +644,7 @@ export function PhaseSubstepModal({
       }
       onResolved?.();
       onClose();
+      window.dispatchEvent(new CustomEvent("project-changed"));
       router.refresh();
     } catch {
       setError("Error de conexión");
@@ -1065,42 +1079,23 @@ export function PhaseSubstepModal({
               </p>
 
               {renamePreview.totalReplacements > 0 ? (
-                <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 space-y-1">
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3">
                   <p className="text-sm font-medium text-amber-200">
-                    Se actualizarán{" "}
+                    Se modificarán{" "}
                     <strong>{renamePreview.totalReplacements}</strong>{" "}
                     {renamePreview.totalReplacements === 1
-                      ? "mención"
-                      : "menciones"}{" "}
+                      ? "referencia"
+                      : "referencias"}{" "}
                     en{" "}
                     <strong>{renamePreview.totalDocuments}</strong>{" "}
                     {renamePreview.totalDocuments === 1
                       ? "documento"
                       : "documentos"}.
                   </p>
-                  {renamePreview.occurrencesByLocation.length > 0 && (
-                    <ul className="mt-2 space-y-1 text-xs text-slate-300 max-h-40 overflow-y-auto">
-                      {renamePreview.occurrencesByLocation.map((loc) => (
-                        <li
-                          key={`${loc.kind}-${loc.id}`}
-                          className="flex items-center justify-between gap-2"
-                        >
-                          <span className="truncate text-slate-400">
-                            {loc.title}
-                          </span>
-                          <span className="text-slate-500 tabular-nums shrink-0">
-                            {loc.count}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
                 </div>
               ) : (
                 <p className="text-sm text-slate-400">
-                  No hay documentos previos que contengan el nombre
-                  actual, así que solo se actualizará el nombre del
-                  proyecto.
+                  No hay referencias que modificar.
                 </p>
               )}
 

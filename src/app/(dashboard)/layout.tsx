@@ -184,12 +184,25 @@ function RecentProjects({ onClick }: { onClick: () => void }) {
     status: string;
   }> | null>(null);
 
-  useEffect(() => {
+  const fetchRecent = useCallback(() => {
     fetch("/api/projects/recent")
       .then((r) => r.ok ? r.json() : [])
       .then((data) => setProjects(data))
       .catch(() => setProjects([]));
   }, []);
+
+  useEffect(() => {
+    fetchRecent();
+  }, [fetchRecent]);
+
+  // Refresh sidebar when a project is created or modified
+  useEffect(() => {
+    function handleProjectChanged() {
+      fetchRecent();
+    }
+    window.addEventListener("project-changed", handleProjectChanged);
+    return () => window.removeEventListener("project-changed", handleProjectChanged);
+  }, [fetchRecent]);
 
   if (!projects || projects.length === 0) return null;
 

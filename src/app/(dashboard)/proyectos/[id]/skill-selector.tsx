@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
   Code,
   PenLine,
@@ -19,6 +20,7 @@ import {
   X,
   ChevronDown,
   ChevronUp,
+  Sparkles,
 } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -81,8 +83,10 @@ const ICON_OPTIONS = [
 // ── Component ─────────────────────────────────────────────────────────
 
 export function SkillSelector({ projectId, initialSkills }: SkillSelectorProps) {
+  const router = useRouter();
   const [skills, setSkills] = useState<SkillState[]>([]);
-  const [loading, setLoading] = useState(!initialSkills);
+  const [loading, setLoading] = useState(false);
+  const [generated, setGenerated] = useState(!!(initialSkills && initialSkills.length > 0));
   const [error, setError] = useState<string | null>(null);
   const [showExtra, setShowExtra] = useState(false);
   const [showCustomForm, setShowCustomForm] = useState(false);
@@ -95,7 +99,7 @@ export function SkillSelector({ projectId, initialSkills }: SkillSelectorProps) 
   const [customDescription, setCustomDescription] = useState("");
   const [customIcon, setCustomIcon] = useState("Plus");
 
-  // ── Fetch skills from API ────────────────────────────────────────
+  // ── Fetch skills from API (on demand, not automatic) ─────────────
 
   const fetchSkills = useCallback(async () => {
     try {
@@ -121,6 +125,11 @@ export function SkillSelector({ projectId, initialSkills }: SkillSelectorProps) 
       });
 
       setSkills(merged);
+      setGenerated(true);
+
+      // Notify other tabs (Export) that skills data may have changed
+      window.dispatchEvent(new CustomEvent("project-changed"));
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar skills");
     } finally {
@@ -128,8 +137,17 @@ export function SkillSelector({ projectId, initialSkills }: SkillSelectorProps) 
     }
   }, [projectId]);
 
+  // If there are no initial skills, show a button to generate them.
+  // If there ARE initial skills, they've been pre-loaded server-side.
   useEffect(() => {
-    fetchSkills();
+    if (initialSkills && initialSkills.length > 0) {
+      // Pre-populate from server-rendered data
+      const merged = (initialSkills as SkillData[]).map((s) => ({
+        ...s,
+        _localSelected: (s.selected as boolean | undefined) ?? (s.recommended && s.confidence >= 0.7),
+      }));
+      setSkills(merged);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -194,6 +212,10 @@ export function SkillSelector({ projectId, initialSkills }: SkillSelectorProps) 
 
       setToast("Skills guardadas");
       setTimeout(() => setToast(null), 3000);
+
+      // Notify sidebar and other tabs
+      window.dispatchEvent(new CustomEvent("project-changed"));
+      router.refresh();
     } catch (err) {
       setToast("Error al guardar skills");
       setTimeout(() => setToast(null), 3000);
@@ -387,10 +409,28 @@ export function SkillSelector({ projectId, initialSkills }: SkillSelectorProps) 
         </div>
       )}
 
-      {/* Empty state */}
-      {skills.length === 0 && !loading && (
+      {/* Generate button — shown when skills haven't been generated yet */}
+      {!generated && skills.length === 0 && !loading && (
+        <div className="rounded-xl border border-slate-700 bg-slate-900/40 p-8 text-center">
+          <p className="text-sm text-slate-400 mb-4">
+            Genera recomendaciones de skills en base a las fases completadas,
+            tipo de negocio y respuestas del cuestionario.
+          </p>
+          <button
+            type="button"
+            onClick={fetchSkills}
+            className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-amber-500"
+          >
+            <Sparkles className="size-4" />
+            Generar recomendaciones
+          </button>
+        </div>
+      )}
+
+      {/* Empty state — after generation returned nothing */}
+      {generated && skills.length === 0 && !loading && (
         <p className="text-sm text-slate-500 py-4">
-          No se detectaron skills para este proyecto. Completa mas fases para
+          No se detectaron skills para este proyecto. Completa m&aacute;s fases para
           obtener recomendaciones.
         </p>
       )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { Lock, Download, FileText, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 import { ProjectPhasesWithModal } from "./project-phases-with-modal";
 import { SkillSelector } from "./skill-selector";
@@ -92,6 +92,15 @@ export function ProjectTabs({
 }: ProjectTabsProps) {
   const [activeTab, setActiveTab] = useState<Tab>("phases");
 
+  // Auto-switch to Skills tab when all phases are completed
+  const prevCompletedRef = useRef(hasCompletedPhases);
+  useEffect(() => {
+    if (hasCompletedPhases && !prevCompletedRef.current && activeTab === "phases") {
+      setActiveTab("skills");
+    }
+    prevCompletedRef.current = hasCompletedPhases;
+  }, [hasCompletedPhases, activeTab]);
+
   return (
     <div>
       {/* Barra de pestañas — underline style */}
@@ -148,17 +157,23 @@ export function ProjectTabs({
         </button>
 
         <button
-          onClick={() => setActiveTab("export")}
+          onClick={() => {
+            if (hasCompletedPhases) setActiveTab("export");
+          }}
+          disabled={!hasCompletedPhases}
+          title={!hasCompletedPhases ? "Disponible al completar todas las fases del proyecto" : ""}
           className={`
             relative shrink-0 px-4 py-3 text-sm font-medium transition-colors
-            whitespace-nowrap
+            whitespace-nowrap inline-flex items-center gap-1.5
             ${
               activeTab === "export"
                 ? "text-white after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-amber-500"
                 : "text-slate-400 hover:text-slate-200"
             }
+            ${!hasCompletedPhases ? "opacity-40 cursor-not-allowed hover:text-slate-400" : ""}
           `}
         >
+          {!hasCompletedPhases && <Lock className="size-3.5 shrink-0" />}
           4. Exportación
         </button>
       </div>

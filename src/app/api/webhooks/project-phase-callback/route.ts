@@ -87,7 +87,15 @@ export async function POST(req: Request) {
         // Detect if this is a sub-step intermediate output (naming/mockup/compare/...)
         // or the final sub-step ("final"). The agent emits `subStep` in its output,
         // but the bridge can also infer it from the job input.
-        const outputSubStep = (parsedOutput.subStep as string | undefined) ?? subStep ?? null;
+        const outputSubStepClaim = parsedOutput.subStep as string | undefined;
+        // If the agent claims a different subStep than expected, trust the
+        // job input (the expected one). This prevents agents from skipping
+        // sub-steps (e.g. jumping from "naming" directly to "visual" without
+        // going through "voice").
+        const outputSubStep =
+          outputSubStepClaim && subStep && outputSubStepClaim !== subStep
+            ? subStep
+            : (outputSubStepClaim ?? subStep ?? null);
         const isIntermediate = outputSubStep && outputSubStep !== "final";
         // The agent may emit the intermediate artifact as `subStepArtifact` OR as
         // `reportMarkdown`/`content` + `options`. We accept both shapes.
