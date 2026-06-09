@@ -11,8 +11,9 @@ const MONITORED_AGENTS = [
 /**
  * GET /api/jobs/pending
  *
- * Returns PENDING or RUNNING jobs for the bridge daemon to process.
+ * Returns PENDING jobs for the bridge daemon to process.
  * The bridge polls this endpoint every 10s.
+ * Jobs already in RUNNING state are excluded to prevent double-processing.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
     const ideaId = searchParams.get("ideaId");
 
     const where: Record<string, unknown> = {
-      status: { in: ["PENDING", "RUNNING"] },
+      status: "PENDING",  // solo PENDING, no más RUNNING
       agentName: { in: MONITORED_AGENTS },
     };
 

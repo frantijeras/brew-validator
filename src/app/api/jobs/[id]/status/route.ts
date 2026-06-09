@@ -22,10 +22,22 @@ export async function POST(
     const body = await req.json();
     const { status, error: errorMsg } = statusSchema.parse(body);
 
-    const update: Record<string, unknown> = { status };
     if (status === "RUNNING") {
-      update.startedAt = new Date();
+      // Optimistic lock: solo marcar como RUNNING si sigue PENDING
+      const result = await prisma.job.updateMany({
+        where: { id, status: "PENDING" },
+        data: { status: "RUNNING", startedAt: new Date() },
+      });
+      if (result.count === 0) {
+        return NextResponse.json(
+          { error: "Job ya no está PENDING" },
+          { status: 409 }
+        );
+      }
+      return NextResponse.json({ success: true });
     }
+
+    const update: Record<string, unknown> = { status };
     if (status === "FAILED" && errorMsg) {
       update.error = errorMsg;
       update.finishedAt = new Date();
