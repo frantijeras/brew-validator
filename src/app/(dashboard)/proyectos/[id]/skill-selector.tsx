@@ -14,6 +14,7 @@ import {
   Palette,
   Scale,
   DollarSign,
+  Globe,
   Plus,
   X,
   ChevronDown,
@@ -59,6 +60,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   Palette,
   Scale,
   DollarSign,
+  Globe,
 };
 
 const ICON_OPTIONS = [
@@ -421,7 +423,7 @@ function SkillCard({
 
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-slate-800 bg-slate-900/40 p-3.5 transition-colors hover:border-slate-700">
-      {/* Fila 1: Icono + nombre + toggle */}
+      {/* Row 1: SVG icon + Name + Toggle */}
       <div className="flex items-center gap-2">
         <span className="text-slate-400">
           {iconComponent(skill.icon, "size-5")}
@@ -453,15 +455,13 @@ function SkillCard({
         </label>
       </div>
 
-      {/* Fila 2: Razon — subida justo debajo del nombre */}
-      <p className="text-xs text-slate-400 italic">{skill.reason}</p>
-
-      {/* Fila 3: Descripcion */}
+      {/* Row 2: Description (what the skill does) */}
       <p className="text-xs text-slate-500">{skill.description}</p>
 
-      {/* Fila 4: Barra de confianza con etiqueta */}
+      {/* Row 3: Confidence bar with label */}
       <div className="flex items-center gap-2">
         <span className="text-[10px] text-slate-500 shrink-0">Confianza</span>
+        <span className="text-[10px] text-slate-500 shrink-0">{barWidth}%</span>
         <div className="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
           <div
             className={`h-full rounded-full transition-all ${barColor}`}
@@ -469,6 +469,12 @@ function SkillCard({
           />
         </div>
       </div>
+
+      {/* Row 4: "Por qué está recomendada" text */}
+      <p className="text-xs text-slate-400">
+        <span className="text-slate-500">Por qué está recomendada: </span>
+        {skill.reason}
+      </p>
     </div>
   );
 }

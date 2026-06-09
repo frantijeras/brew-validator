@@ -90,7 +90,7 @@ export function ProjectTabs({
   existingSkills,
   idea,
 }: ProjectTabsProps) {
-  const [activeTab, setActiveTab] = useState<Tab>("validation");
+  const [activeTab, setActiveTab] = useState<Tab>("phases");
 
   return (
     <div>
@@ -108,7 +108,7 @@ export function ProjectTabs({
             }
           `}
         >
-          Validación
+          1. Validación
         </button>
 
         <button
@@ -123,7 +123,7 @@ export function ProjectTabs({
             }
           `}
         >
-          Fases del Proyecto
+          2. Fases
         </button>
 
         <button
@@ -144,7 +144,7 @@ export function ProjectTabs({
           `}
         >
           {!hasCompletedPhases && <Lock className="size-3.5 shrink-0" />}
-          Skills del Proyecto
+          3. Skills
         </button>
 
         <button
@@ -159,7 +159,7 @@ export function ProjectTabs({
             }
           `}
         >
-          Exportación
+          4. Exportación
         </button>
       </div>
 

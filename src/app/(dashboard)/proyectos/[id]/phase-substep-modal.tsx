@@ -360,7 +360,28 @@ export function PhaseSubstepModal({
     setSubmitting(true);
     setError(null);
     try {
-      // 1) Advance the sub-step
+      // 1) First do RENAME — the endpoint verifies we're still in "naming" sub-step
+      const renameRes = await fetch(`/api/projects/${projectId}/rename`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newName: choice, phaseId }),
+      });
+      const renameData: RenameResponse = await renameRes.json();
+
+      // If rename fails, STOP here — do NOT advance the sub-step (rollback natural)
+      if (!renameRes.ok) {
+        if (!options.suppressErrors) {
+          setError(renameData.error || "Error al renombrar el proyecto");
+          setSubmitting(false);
+          return;
+        }
+        // Even with suppressErrors, if the error is about not being in "naming" or "final"
+        // we should still block the sub-step advance
+        setSubmitting(false);
+        return;
+      }
+
+      // 2) Rename succeeded — now advance the sub-step
       const chooseRes = await fetch(
         `/api/projects/${projectId}/phases/${phaseId}/substep/choose`,
         {
@@ -374,24 +395,11 @@ export function PhaseSubstepModal({
       );
       const chooseData = await chooseRes.json();
       if (!chooseRes.ok) {
-        setError(chooseData.error || "Error al confirmar la elección");
-        setSubmitting(false);
-        return;
+        // Even if the sub-step advance fails, the rename was already applied.
+        // Show partial success.
+        console.warn("Rename succeeded but sub-step advance failed:", chooseData.error);
       }
-      // 2) Apply the rename + propagation
-      const renameRes = await fetch(`/api/projects/${projectId}/rename`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ newName: choice, phaseId }),
-      });
-      const renameData: RenameResponse = await renameRes.json();
-      if (!renameRes.ok) {
-        if (!options.suppressErrors) {
-          setError(renameData.error || "Error al renombrar el proyecto");
-        }
-        // Still consider the choose step done — show the success banner
-        // with zeros so the user gets visual feedback.
-      }
+
       setSuccessBanner({
         newName: choice,
         totalReplacements: renameData.stats?.totalReplacements ?? 0,
@@ -430,6 +438,19 @@ export function PhaseSubstepModal({
       setSubmitting(true);
       setError(null);
       try {
+        // 1) First apply the rename
+        const renameRes = await fetch(`/api/projects/${projectId}/rename`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ newName: choice, phaseId }),
+        });
+        const renameData: RenameResponse = await renameRes.json();
+        if (!renameRes.ok) {
+          setError(renameData.error || "Error al renombrar el proyecto");
+          setSubmitting(false);
+          return;
+        }
+        // 2) Rename succeeded — now advance the sub-step
         const res = await fetch(
           `/api/projects/${projectId}/phases/${phaseId}/substep/choose`,
           {
@@ -440,27 +461,14 @@ export function PhaseSubstepModal({
         );
         const data = await res.json();
         if (!res.ok) {
-          setError(data.error || "Error al confirmar la elección");
-          setSubmitting(false);
-          return;
+          console.warn("Rename succeeded but sub-step advance failed:", data.error);
         }
-        // Best-effort rename — fire and forget
-        try {
-          const renameRes = await fetch(`/api/projects/${projectId}/rename`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ newName: choice, phaseId }),
-          });
-          const renameData: RenameResponse = await renameRes.json();
-          setSuccessBanner({
-            newName: choice,
-            totalReplacements: renameData.stats?.totalReplacements ?? 0,
-            totalDocuments:
-              renameData.stats?.occurrencesByLocation?.length ?? 0,
-          });
-        } catch {
-          /* non-blocking */
-        }
+        setSuccessBanner({
+          newName: choice,
+          totalReplacements: renameData.stats?.totalReplacements ?? 0,
+          totalDocuments:
+            renameData.stats?.occurrencesByLocation?.length ?? 0,
+        });
         onResolved?.();
         onClose();
         router.refresh();

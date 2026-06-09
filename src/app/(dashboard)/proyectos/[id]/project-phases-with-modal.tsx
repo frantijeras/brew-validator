@@ -381,44 +381,7 @@ export function ProjectPhasesWithModal({
           consecutivas, incluida la pareja Fase 0 → Fase 1. Antes la Fase 0
           estaba fuera de este contenedor y por eso se pegaba a la Fase 1. */}
       <div className="space-y-3">
-        {/* Fase 00 — Validación de Idea (heredada de la fase de ideas).
-            Siempre se muestra como completada porque la validación ya se
-            realizó en la fase de ideas.
-
-            Phase 4 refactor: en lugar del antiguo "Ver detalles" que
-            abría la página de la idea en modo read-only (con UI
-            sobrecargada de elementos de edición), ahora seguimos el
-            mismo patrón simétrico que las fases reales del proyecto:
-              - "Ver" → abre el HTML consolidado en una pestaña nueva
-              - "Descargar PDF" → descarga el PDF consolidado
-            Las URLs apuntan a /api/projects/[id]/validation/{view,download}. */}
-        <PhaseCard
-          number={0}
-          title="Validación de Idea"
-          description="Datos originales de la validación: problema, propuesta de valor, target, veredicto y reporte del juez"
-          icon={<FileText className="size-5" />}
-          status="completed"
-          tone="green"
-          actions={
-            <>
-              <Link
-                href={`/proyectos/${projectId}/validacion`}
-                className={`${btnStyles.secondary} shadow`}
-              >
-                <Eye className="size-4" />
-                {PHASE4_VIEW_LABEL}
-              </Link>
-              <a
-                href={`/api/projects/${projectId}/validation/download`}
-                className={`${btnStyles.download} shadow`}
-                download
-              >
-                <Download className="size-4" />
-                {PHASE4_DOWNLOAD_LABEL}
-              </a>
-            </>
-          }
-        />
+{/* Fase 00 — Validación de Idea eliminada: ahora tiene su propia pestaña independiente (tab 1). */}
 
         {/* 📌 Memory banner — decisiones vigentes */}
         {memoryEntries.length > 0 && (
