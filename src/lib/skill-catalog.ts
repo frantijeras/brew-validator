@@ -44,6 +44,16 @@ export type SkillCondition =
 
 export const SKILL_CATALOG: SkillDefinition[] = [
   {
+    id: "web-creator",
+    name: "Web Creator",
+    description: "Crea una landing page profesional con copy persuasivo, diseño responsive y llamada a la acción optimizada para conversión.",
+    icon: "Globe",
+    category: "desarrollo",
+    conditions: [
+      { type: "always" },
+    ],
+  },
+  {
     id: "codebot-dev",
     name: "Desarrollo (CodeBot)",
     description: "Implementa el MVP técnico según stack y especificaciones de la Fase 05. Incluye SaaS (Software as a Service / Software como Servicio).",

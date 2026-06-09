@@ -244,7 +244,7 @@ export function PhaseCard({
         <span
           className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-base font-semibold tracking-wider md:h-6 md:w-6 md:rounded-md md:text-[10px] ${toneNumberStyles[tone]}`}
         >
-          {String(number).padStart(2, "0")}
+          {String(number)}
         </span>
         <h3
           className={`min-w-0 flex-1 truncate text-lg font-medium leading-snug md:text-base md:font-semibold md:leading-tight ${

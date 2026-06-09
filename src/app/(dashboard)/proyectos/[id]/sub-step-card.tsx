@@ -183,7 +183,7 @@ const buttonStyles: Record<string, string> = {
 };
 
 export function SubStepCard({
-  phaseType: _phaseType,
+  phaseType,
   subStepMeta,
   status,
   number,
@@ -224,7 +224,7 @@ export function SubStepCard({
           className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${getNumberStyles(status, tone)}`}
           aria-hidden="true"
         >
-          {number}
+          {phaseType === "IDENTITY" ? subStepMeta.id.replace("naming", "3A").replace("voice", "3B").replace("visual", "3C") : String(number)}
         </span>
 
         {SubStepIcon && (

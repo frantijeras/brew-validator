@@ -96,18 +96,18 @@ export function ProjectRow({
 
   return (
     <>
-      {/* ── Desktop: fila horizontal ── */}
+      {/* ── Desktop: layout con grid 3 columnas ── */}
       <div className="hidden md:block group rounded-xl border border-slate-700/60 bg-slate-900/40 transition-all hover:border-slate-600 hover:bg-slate-900/60">
-        <div className="flex items-center gap-4 p-4">
-          {/* Avatar */}
+        <div className="grid grid-cols-[auto_1fr_auto] gap-4 p-4">
+          {/* Col 1: Avatar */}
           <div
-            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-base font-bold ${avatarStyle.bg} ${avatarStyle.text}`}
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-base font-bold self-start ${avatarStyle.bg} ${avatarStyle.text}`}
           >
             {project.name.charAt(0).toUpperCase()}
           </div>
 
-          {/* Info principal */}
-          <div className="min-w-0 flex-1">
+          {/* Col 2: Info principal */}
+          <div className="min-w-0">
             <div className="flex items-baseline gap-2">
               <Link
                 href={`/proyectos/${project.id}`}
@@ -130,9 +130,36 @@ export function ProjectRow({
             </div>
           </div>
 
-          {/* Barra de progreso + CTA */}
-          <div className="shrink-0 flex items-center gap-4">
-            {/* Progreso */}
+          {/* Col 3: ⋮ arriba + progreso centrado + CTA abajo */}
+          <div className="flex flex-col items-end gap-2 shrink-0">
+            {/* ⋮ Menú arriba a la derecha */}
+            <div ref={menuRef} className="relative">
+              <button
+                onClick={() => setMenuOpen(!menuOpen)}
+                className="rounded-lg p-2 text-slate-500 hover:bg-slate-800 hover:text-slate-300 transition-colors"
+                aria-label="Menú del proyecto"
+              >
+                <MoreHorizontal className="size-4" />
+              </button>
+              {menuOpen && (
+                <div className="absolute right-0 top-full mt-1 z-40 w-48 rounded-lg border border-slate-700 bg-slate-800 py-1 shadow-xl">
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setShowDeleteModal(true);
+                      setDeleteConfirm("");
+                      setDeleteError(null);
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-slate-700 transition-colors"
+                  >
+                    <Trash2 className="size-4" />
+                    Eliminar proyecto
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Progreso centrado */}
             <div className="flex items-center gap-2.5 w-32">
               <div className="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
                 <div
@@ -143,7 +170,7 @@ export function ProjectRow({
               <span className="text-xs font-medium text-slate-400 w-8 text-right">{progressPct}%</span>
             </div>
 
-            {/* CTA con bordes */}
+            {/* CTA abajo a la derecha con bordes */}
             <Link
               href={`/proyectos/${project.id}`}
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-800/50 px-3.5 py-1.5 text-xs font-medium text-slate-200 transition-all hover:border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-300"
@@ -151,33 +178,6 @@ export function ProjectRow({
               {CTALabel}
               <ArrowRight className="size-3.5" />
             </Link>
-          </div>
-
-          {/* Menu ⋮ */}
-          <div ref={menuRef} className="relative shrink-0">
-            <button
-              onClick={() => setMenuOpen(!menuOpen)}
-              className="rounded-lg p-2 text-slate-500 hover:bg-slate-800 hover:text-slate-300 transition-colors"
-              aria-label="Menú del proyecto"
-            >
-              <MoreHorizontal className="size-4" />
-            </button>
-            {menuOpen && (
-              <div className="absolute right-0 top-full mt-1 z-40 w-48 rounded-lg border border-slate-700 bg-slate-800 py-1 shadow-xl">
-                <button
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setShowDeleteModal(true);
-                    setDeleteConfirm("");
-                    setDeleteError(null);
-                  }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-slate-700 transition-colors"
-                >
-                  <Trash2 className="size-4" />
-                  Eliminar proyecto
-                </button>
-              </div>
-            )}
           </div>
         </div>
       </div>

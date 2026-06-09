@@ -1,7 +1,7 @@
 /**
  * Definición de sub-steps por fase — metadatos de UI.
  *
- * Cada fase del proyecto (excepto ANALYSIS) tiene sub-steps con nombre,
+ * Solo IDENTITY y EXECUTION tienen sub-steps con nombre,
  * descripción e icono que se muestran como cards anidadas dentro de la
  * PhaseCard principal.
  *
@@ -26,69 +26,23 @@ export const PHASE_SUBSTEPS: Record<string, SubStepMeta[]> = {
     {
       id: "naming",
       order: 0,
-      label: "03.A Naming",
+      label: "Naming",
       description: "Elige el nombre de tu proyecto",
       icon: "Type",
     },
     {
       id: "voice",
       order: 1,
-      label: "03.B Voz y Tono",
+      label: "Voz y Tono",
       description: "Define la personalidad de tu marca",
       icon: "MessageSquare",
     },
     {
       id: "visual",
       order: 2,
-      label: "03.C Estilo Visual",
+      label: "Estilo Visual",
       description: "Fuentes, colores e identidad visual. Al completar se genera el Brand Book automáticamente.",
       icon: "Palette",
-    },
-  ],
-  CONTENT: [
-    {
-      id: "quiz",
-      order: 0,
-      label: "Cuestionario",
-      description: "Estrategia de contenido",
-      icon: "HelpCircle",
-    },
-    {
-      id: "pilars",
-      order: 1,
-      label: "Pilares de Contenido",
-      description: "Temas y calendario editorial",
-      icon: "LayoutGrid",
-    },
-    {
-      id: "final",
-      order: 2,
-      label: "Estrategia Final",
-      description: "Plan de contenido completo",
-      icon: "FileText",
-    },
-  ],
-  DEVELOPMENT: [
-    {
-      id: "quiz",
-      order: 0,
-      label: "Cuestionario",
-      description: "Requisitos técnicos",
-      icon: "HelpCircle",
-    },
-    {
-      id: "compare",
-      order: 1,
-      label: "Comparativa",
-      description: "Comparación de stacks y arquitecturas",
-      icon: "GitCompare",
-    },
-    {
-      id: "final",
-      order: 2,
-      label: "Especificación Técnica",
-      description: "Documento de desarrollo",
-      icon: "Code",
     },
   ],
   EXECUTION: [
@@ -145,6 +99,5 @@ export const subStepToneMap: Record<string, string> = {
   IDENTITY: "purple",
   BUSINESS: "blue", // blue en lugar de cyan para consistencia con toneNumberStyles
   CONTENT: "amber",
-  DEVELOPMENT: "green",
   EXECUTION: "amber", // amber en lugar de orange
 };

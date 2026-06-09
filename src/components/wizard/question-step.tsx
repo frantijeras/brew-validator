@@ -119,7 +119,7 @@ export function QuestionStep({
             return (
               <label
                 key={opt.value}
-                className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
+                className={`relative flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
                   selected
                     ? "border-amber-500 bg-amber-500/10 text-white"
                     : "border-slate-700 bg-slate-800 text-slate-200 hover:border-slate-600"
@@ -131,7 +131,7 @@ export function QuestionStep({
                   value={opt.value}
                   checked={selected}
                   onChange={() => onChange(opt.value)}
-                  className="size-4 cursor-pointer accent-amber-500"
+                  className="size-4 cursor-pointer accent-amber-500 relative z-10"
                 />
                 <span>{opt.label}</span>
               </label>
@@ -152,7 +152,7 @@ export function QuestionStep({
             return (
               <label
                 key={opt.value}
-                className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
+                className={`relative flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
                   selected
                     ? "border-amber-500 bg-amber-500/10 text-white"
                     : "border-slate-700 bg-slate-800 text-slate-200 hover:border-slate-600"
@@ -162,7 +162,7 @@ export function QuestionStep({
                   type="checkbox"
                   checked={selected}
                   onChange={() => handleMultiToggle(opt.value)}
-                  className="size-4 cursor-pointer accent-amber-500"
+                  className="size-4 cursor-pointer accent-amber-500 relative z-10"
                 />
                 <span>{opt.label}</span>
               </label>

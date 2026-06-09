@@ -71,13 +71,7 @@ export async function POST(req: Request) {
               status: "LOCKED",
               sortOrder: 5,
             },
-            {
-              type: "DEVELOPMENT",
-              label: "Landing Page",
-              description: "Genera la estructura, copy y CTA de la landing inicial a partir de la estrategia de distribución y la identidad de marca",
-              status: "LOCKED",
-              sortOrder: 6,
-            },
+
           ],
         },
       },
