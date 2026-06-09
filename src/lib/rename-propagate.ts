@@ -300,6 +300,7 @@ export async function propagateRename(
       select: {
         id: true,
         label: true,
+        type: true,
         artifacts: true,
         questions: true,
         subStepArtifact: true,
@@ -334,7 +335,9 @@ export async function propagateRename(
           phaseCount += count;
         }
       }
-      if (phase.subStepArtifact != null) {
+      // Skip naming artifact for IDENTITY phase — contains the exact name
+      // the user just chose, so replacing it would overwrite their selection.
+      if (phase.subStepArtifact != null && phase.type !== "IDENTITY") {
         const { value, count } = deepReplaceInJson(
           phase.subStepArtifact,
           cleanOld,
@@ -539,6 +542,7 @@ export async function previewRename(params: {
     select: {
       id: true,
       label: true,
+      type: true,
       artifacts: true,
       questions: true,
       subStepArtifact: true,
@@ -546,9 +550,13 @@ export async function previewRename(params: {
   });
   for (const phase of phases) {
     let count = 0;
-    for (const col of [phase.artifacts, phase.questions, phase.subStepArtifact]) {
+    for (const col of [phase.artifacts, phase.questions]) {
       if (col == null) continue;
       count += deepCountInJson(col, cleanOld);
+    }
+    // Skip naming artifact for IDENTITY phase — see propagateRename.
+    if (phase.subStepArtifact != null && phase.type !== "IDENTITY") {
+      count += deepCountInJson(phase.subStepArtifact, cleanOld);
     }
     if (count > 0) {
       total += count;

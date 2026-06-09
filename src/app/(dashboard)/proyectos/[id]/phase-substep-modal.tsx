@@ -432,7 +432,11 @@ export function PhaseSubstepModal({
       setError("Selecciona una opción o escribe un valor");
       return;
     }
-    const choice = customValue.trim() || selectedOption || "";
+    const selectedOpt = selectedOption
+      ? options.find((o) => o.value === selectedOption)
+      : null;
+    const choice =
+      customValue.trim() || selectedOpt?.label || selectedOption || "";
 
     // ── IDENTITY naming: intercept with preview ──
     if (phaseType === "IDENTITY" && subStep === "naming" && choice) {
