@@ -465,7 +465,7 @@ export function ProjectPhasesWithModal({
           if (hasSubSteps && !isLocked) {
             subStepCards = phaseSubsteps!.map((meta) => {
               const sStatus = getSubStepStatus(phase, meta, phase.status);
-              const executeLabel = meta.id === "quiz" && isQuestioning ? "Responder" : (subStepExecuteLabels[meta.id] || "Ejecutar");
+              const executeLabel = meta.id === "quiz" && isQuestioning ? "Responder" : (subStepExecuteLabels[meta.id] || "Iniciar");
               const reviewLabel = subStepReviewLabels[meta.id] || "Revisar";
               const processingMsg = subStepProcessingMessages[meta.id] || "Generando...";
 

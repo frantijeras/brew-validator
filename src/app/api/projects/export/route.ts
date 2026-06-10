@@ -9,7 +9,7 @@ import type { ProjectMemory } from "@/lib/project-memory";
  *
  * Generates a full-project export ZIP containing:
  *   - /contexto/ — Phase reports as markdown files
- *   - /identidad/ — Brand book if the IDENTITY phase is completed
+ *   - /identidad-marca.md — Brand book (single file) if the IDENTITY phase is completed
  *   - /skills/ — Selected skills as markdown files
  *   - README.md — Project summary
  *
@@ -112,10 +112,14 @@ function buildReadme(
     "",
     "## 📦 Contenido del paquete",
     "",
-    "| Carpeta | Contenido |",
+    "| Archivo | Contenido |",
     "|---------|-----------|",
-    "| `contexto/` | Reportes de cada fase completada (markdown) |",
-    "| `identidad/` | Brand book, voz y tono, naming (si disponible) |",
+    "| `README.md` | Resumen general del proyecto |",
+    "| `01-analisis-mercado.md` | Análisis de mercado |",
+    "| `02-estrategia-negocio.md` | Estrategia de negocio |",
+    "| `03-identidad-marca.md` | Brand book y identidad |",
+    "| `04-estrategia-distribucion.md` | Estrategia de distribución |",
+    "| `05-roadmap.md` | Roadmap de ejecución |",
     "| `skills/` | Skills seleccionadas para este proyecto |",
     "",
     "---",
@@ -223,7 +227,7 @@ export async function GET(req: Request) {
         { name: `${prefix}README.md` },
       );
 
-      // ── /contexto/ — Phase reports ──
+      // ── Phase reports (at root level) ──
       const completedPhases = phases.filter(
         (p) => p.status === "COMPLETED",
       );
@@ -234,16 +238,16 @@ export async function GET(req: Request) {
         const filename = `${String(phase.sortOrder).padStart(2, "0")}-${sanitizeFilename(phase.label)}.md`;
         archive.append(
           `# ${phase.label}\n\n${content}`,
-          { name: `${prefix}contexto/${filename}` },
+          { name: `${prefix}${filename}` },
         );
       }
 
-      // ── /identidad/ — Brand book if IDENTITY phase completed ──
+      // ── Identity: single file at root (03-identidad-marca.md) ──
       const identityPhase = phases.find(
         (p) => p.type === "IDENTITY" && p.status === "COMPLETED",
       );
       if (identityPhase) {
-        // Build brand book
+        // Build brand book as single markdown file
         const namingContent = identityPhase.subStepChoice
           ? `**Nombre elegido:** ${identityPhase.subStepChoice}\n\nSeleccionado en la sub-fase de naming.`
           : null;
@@ -282,43 +286,9 @@ export async function GET(req: Request) {
 
           archive.append(
             brandBookToMarkdown(brandBook),
-            { name: `${prefix}identidad/brand-book.md` },
+            { name: `${prefix}03-identidad-marca.md` },
           );
 
-          // Voice and tone
-          if (voiceContent) {
-            archive.append(
-              `# Voz y Tono — ${project.name}\n\n${voiceContent}`,
-              { name: `${prefix}identidad/voice-and-tone.md` },
-            );
-          }
-
-          // Naming rationale
-          if (identityPhase.subStepChoice || identityPhase.subStepArtifact?.content) {
-            archive.append(
-              [
-                `# Nombre y Rationale — ${project.name}`,
-                "",
-                `**Nombre elegido:** ${identityPhase.subStepChoice || project.name}`,
-                "",
-                identityPhase.subStepArtifact?.content || "PENDIENTE.",
-              ].join("\n"),
-              { name: `${prefix}identidad/naming-rationale.md` },
-            );
-          }
-
-          // Style guide (visual HTML)
-          const visualPhase = phases.find(
-            (p) =>
-              p.type === "IDENTITY" &&
-              p.subStep === "visual" &&
-              p.subStepArtifact?.content,
-          );
-          if (visualPhase?.subStepArtifact?.content) {
-            archive.append(visualPhase.subStepArtifact.content, {
-              name: `${prefix}identidad/style-guide.html`,
-            });
-          }
         } catch (err) {
           console.error("[export] BrandBook build failed:", err);
         }

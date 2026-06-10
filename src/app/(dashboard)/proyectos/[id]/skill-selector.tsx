@@ -21,6 +21,8 @@ import {
   ChevronDown,
   ChevronUp,
   Sparkles,
+  Loader2,
+  ArrowRight,
 } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -45,6 +47,7 @@ type SkillState = SkillData & {
 interface SkillSelectorProps {
   projectId: string;
   initialSkills?: { id: string; selected?: boolean; custom?: boolean }[];
+  onHandoffReady?: () => void;
 }
 
 // ── Icon map (Lucide icons by name) ──────────────────────────────────
@@ -82,15 +85,15 @@ const ICON_OPTIONS = [
 
 // ── Component ─────────────────────────────────────────────────────────
 
-export function SkillSelector({ projectId, initialSkills }: SkillSelectorProps) {
+export function SkillSelector({ projectId, initialSkills, onHandoffReady }: SkillSelectorProps) {
   const router = useRouter();
   const [skills, setSkills] = useState<SkillState[]>([]);
   const [loading, setLoading] = useState(false);
-  const [generated, setGenerated] = useState(!!(initialSkills && initialSkills.length > 0));
   const [error, setError] = useState<string | null>(null);
   const [showExtra, setShowExtra] = useState(false);
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const initialSkillsRef = useRef(initialSkills);
 
@@ -99,7 +102,7 @@ export function SkillSelector({ projectId, initialSkills }: SkillSelectorProps) 
   const [customDescription, setCustomDescription] = useState("");
   const [customIcon, setCustomIcon] = useState("Plus");
 
-  // ── Fetch skills from API (on demand, not automatic) ─────────────
+  // ── Fetch skills from API ─────────────────────────────────────────
 
   const fetchSkills = useCallback(async () => {
     try {
@@ -125,7 +128,6 @@ export function SkillSelector({ projectId, initialSkills }: SkillSelectorProps) 
       });
 
       setSkills(merged);
-      setGenerated(true);
 
       // Notify other tabs (Export) that skills data may have changed
       window.dispatchEvent(new CustomEvent("project-changed"));
@@ -137,8 +139,7 @@ export function SkillSelector({ projectId, initialSkills }: SkillSelectorProps) 
     }
   }, [projectId]);
 
-  // If there are no initial skills, show a button to generate them.
-  // If there ARE initial skills, they've been pre-loaded server-side.
+  // Auto-load skills on mount
   useEffect(() => {
     if (initialSkills && initialSkills.length > 0) {
       // Pre-populate from server-rendered data
@@ -147,6 +148,9 @@ export function SkillSelector({ projectId, initialSkills }: SkillSelectorProps) 
         _localSelected: (s.selected as boolean | undefined) ?? (s.recommended && s.confidence >= 0.7),
       }));
       setSkills(merged);
+    } else {
+      // Auto-fetch skills from API
+      fetchSkills();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -224,6 +228,83 @@ export function SkillSelector({ projectId, initialSkills }: SkillSelectorProps) 
     }
   };
 
+  // ── Generate skills (POST /skills/generate) ──────────────────────
+
+  const generateSkills = async () => {
+    try {
+      setGenerating(true);
+      const selectedIds = skills.filter((s) => s._localSelected).map((s) => s.id);
+
+      if (selectedIds.length === 0) {
+        setToast("Selecciona al menos una skill");
+        setTimeout(() => setToast(null), 3000);
+        setGenerating(false);
+        return;
+      }
+
+      const res = await fetch(`/api/projects/${projectId}/skills/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ skillIds: selectedIds, mode: "all" }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || `Error ${res.status}`);
+      }
+
+      const data = await res.json();
+
+      // Save the skills selection too
+      await saveSkills();
+
+      setToast(`Skills generadas: ${data.skills?.length ?? 0}`);
+      setTimeout(() => setToast(null), 3000);
+
+      // Unlock handoff tab
+      onHandoffReady?.();
+
+      // Notify other tabs
+      window.dispatchEvent(new CustomEvent("project-changed"));
+      router.refresh();
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : "Error al generar skills");
+      setTimeout(() => setToast(null), 3000);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  // ── Skip skills (mark handoffReady) ──────────────────────────────
+
+  const skipSkills = async () => {
+    try {
+      setGenerating(true);
+      const res = await fetch(`/api/projects/${projectId}/skills/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ skillIds: [], mode: "all" }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || `Error ${res.status}`);
+      }
+
+      setToast("Skills saltadas — Hand-off desbloqueado");
+      setTimeout(() => setToast(null), 3000);
+
+      onHandoffReady?.();
+      window.dispatchEvent(new CustomEvent("project-changed"));
+      router.refresh();
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : "Error");
+      setTimeout(() => setToast(null), 3000);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   // ── Split skills ─────────────────────────────────────────────────
 
   const recommendedSkills = skills.filter((s) => s.confidence >= 0.4);
@@ -291,15 +372,7 @@ export function SkillSelector({ projectId, initialSkills }: SkillSelectorProps) 
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:border-slate-600 hover:text-white"
           >
             <Plus className="size-3.5" />
-            Anadir skill personalizada
-          </button>
-          <button
-            type="button"
-            onClick={saveSkills}
-            disabled={saving}
-            className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-500 disabled:opacity-50"
-          >
-            {saving ? "Guardando..." : "Guardar seleccion"}
+            Añadir skill personalizada
           </button>
         </div>
       </div>
@@ -329,7 +402,7 @@ export function SkillSelector({ projectId, initialSkills }: SkillSelectorProps) 
             />
             <input
               type="text"
-              placeholder="Descripcion"
+              placeholder="Descripción"
               value={customDescription}
               onChange={(e) => setCustomDescription(e.target.value)}
               className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-amber-500 focus:outline-none"
@@ -351,7 +424,7 @@ export function SkillSelector({ projectId, initialSkills }: SkillSelectorProps) 
               disabled={!customName.trim()}
               className="self-end rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-500 disabled:opacity-50"
             >
-              Anadir
+              Añadir
             </button>
           </div>
         </div>
@@ -409,30 +482,42 @@ export function SkillSelector({ projectId, initialSkills }: SkillSelectorProps) 
         </div>
       )}
 
-      {/* Generate button — shown when skills haven't been generated yet */}
-      {!generated && skills.length === 0 && !loading && (
+      {/* Empty state — no skills yet */}
+      {skills.length === 0 && !loading && (
         <div className="rounded-xl border border-slate-700 bg-slate-900/40 p-8 text-center">
           <p className="text-sm text-slate-400 mb-4">
-            Genera recomendaciones de skills en base a las fases completadas,
-            tipo de negocio y respuestas del cuestionario.
+            Cargando skills recomendadas...
           </p>
-          <button
-            type="button"
-            onClick={fetchSkills}
-            className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-amber-500"
-          >
-            <Sparkles className="size-4" />
-            Generar recomendaciones
-          </button>
         </div>
       )}
 
-      {/* Empty state — after generation returned nothing */}
-      {generated && skills.length === 0 && !loading && (
-        <p className="text-sm text-slate-500 py-4">
-          No se detectaron skills para este proyecto. Completa m&aacute;s fases para
-          obtener recomendaciones.
-        </p>
+      {/* Action buttons */}
+      {skills.length > 0 && (
+        <div className="mt-4 pt-4 border-t border-slate-800 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={generateSkills}
+            disabled={generating}
+            className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-amber-500 disabled:opacity-50"
+          >
+            {generating ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Sparkles className="size-4" />
+            )}
+            {generating ? "Generando..." : "Crear Skills"}
+          </button>
+
+          <button
+            type="button"
+            onClick={skipSkills}
+            disabled={generating}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-5 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:border-slate-600 hover:text-white disabled:opacity-50"
+          >
+            Saltar
+            <ArrowRight className="size-4" />
+          </button>
+        </div>
       )}
     </div>
   );
@@ -463,42 +548,29 @@ function SkillCard({
 
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-slate-800 bg-slate-900/40 p-3.5 transition-colors hover:border-slate-700">
-      {/* Row 1: SVG icon + Name + Toggle */}
+      {/* Row 1: checkbox + icon + name */}
       <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={(e) => {
+            e.stopPropagation();
+            onToggle();
+          }}
+          className="size-4 shrink-0 rounded border-slate-600 bg-slate-800 text-amber-500 focus:ring-amber-500 focus:ring-offset-0 cursor-pointer"
+        />
         <span className="text-slate-400">
           {iconComponent(skill.icon, "size-5")}
         </span>
         <span className="text-base font-bold text-white flex-1 min-w-0 truncate">
           {skill.name}
         </span>
-        {/* Toggle switch */}
-        <label className="relative inline-flex cursor-pointer items-center shrink-0">
-          <input
-            type="checkbox"
-            checked={selected}
-            onChange={(e) => {
-              e.stopPropagation();
-              onToggle();
-            }}
-            className="peer sr-only"
-          />
-          <div
-            className={`h-5 w-9 rounded-full transition-colors peer-focus:outline-none ${
-              selected ? "bg-amber-600" : "bg-slate-700"
-            }`}
-          />
-          <div
-            className={`absolute left-0.5 top-0.5 size-4 rounded-full bg-white transition-transform ${
-              selected ? "translate-x-4" : "translate-x-0"
-            }`}
-          />
-        </label>
       </div>
 
-      {/* Row 2: Description (what the skill does) */}
+      {/* Row 2: Description */}
       <p className="text-xs text-slate-500">{skill.description}</p>
 
-      {/* Row 3: Confidence bar with label */}
+      {/* Row 3: Confidence bar */}
       <div className="flex items-center gap-2">
         <span className="text-[10px] text-slate-500 shrink-0">Confianza</span>
         <span className="text-[10px] text-slate-500 shrink-0">{barWidth}%</span>
@@ -510,7 +582,7 @@ function SkillCard({
         </div>
       </div>
 
-      {/* Row 4: "Por qué está recomendada" text */}
+      {/* Row 4: Reason */}
       <p className="text-xs text-slate-400">
         <span className="text-slate-500">Por qué está recomendada: </span>
         {skill.reason}

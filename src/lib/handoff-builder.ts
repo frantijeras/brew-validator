@@ -199,57 +199,48 @@ function buildMarketAnalysis(ctx: HandoffOptions, assets: PhaseAsset[]): string 
   ].join("\n");
 }
 
-function buildIdentityDocs(ctx: HandoffOptions): { [path: string]: string } | null {
+function buildIdentityDocs(ctx: HandoffOptions): string | null {
   if (!ctx.brandBook) return null;
   const brandBook = ctx.brandBook;
-  const visualMeta = brandBook.meta.visualMeta;
 
-  const files: { [path: string]: string } = {};
+  const sections: string[] = [];
 
-  // brand-book.md — full consolidated brand book
-  files["04-identidad/brand-book.md"] = [
+  // Brand book content
+  sections.push([
     `# Brand Book — ${ctx.projectName}`,
     "",
     `Generado: ${brandBook.generatedAt}`,
     "",
     brandBookToMarkdown(brandBook),
-  ].join("\n");
+  ].join("\n"));
 
-  // style-guide-A.html — visual style guide in HTML (if available)
-  const visualPhase = ctx.phases.find(
-    (p) => p.type === "IDENTITY" && p.subStep === "visual" && p.subStepArtifact?.content
-  );
-  if (visualPhase?.subStepArtifact?.content) {
-    files["04-identidad/style-guide-A.html"] = visualPhase.subStepArtifact.content;
-  }
-
-  // voice-and-tone.md
+  // Voice and tone
   const voicePhase = ctx.phases.find(
     (p) => p.type === "IDENTITY" && p.subStep === "voice" && p.subStepArtifact?.content
   );
   if (voicePhase?.subStepArtifact?.content) {
-    files["04-identidad/voice-and-tone.md"] = [
+    sections.push([
       `# Voz y Tono — ${ctx.projectName}`,
       "",
       voicePhase.subStepArtifact.content,
-    ].join("\n");
+    ].join("\n"));
   }
 
-  // naming-rationale.md
+  // Naming rationale
   const namingPhase = ctx.phases.find(
     (p) => p.type === "IDENTITY" && p.subStep === "naming"
   );
   if (namingPhase?.subStepArtifact?.content || namingPhase?.subStepChoice) {
-    files["04-identidad/naming-rationale.md"] = [
+    sections.push([
       `# Nombre y Rationale — ${ctx.projectName}`,
       "",
       `**Nombre elegido:** ${namingPhase.subStepChoice || ctx.projectName}`,
       "",
       namingPhase.subStepArtifact?.content || "PENDIENTE: completar sub-fase naming.",
-    ].join("\n");
+    ].join("\n"));
   }
 
-  return Object.keys(files).length > 0 ? files : null;
+  return sections.length > 0 ? sections.join("\n\n---\n\n") : null;
 }
 
 function buildDistributionStrategy(ctx: HandoffOptions, assets: PhaseAsset[]): string | null {
@@ -650,7 +641,7 @@ function buildProjectHandoffSkill(ctx: HandoffOptions): string {
     "| `01-validacion.md` | Informe de validación original |",
     "| `02-analisis-mercado.md` | Análisis de mercado y competencia |",
     "| `03-estrategia-negocio.md` | Lean Canvas, modelo de ingresos y propuesta de valor |",
-    "| `04-identidad/` | Brand book, guía de estilo, voz y tono |",
+    "| `03-identidad-marca.md` | Brand book y identidad de marca |",
     "| `05-estrategia-distribucion.md` | Canales y estrategia de contenido |",
     "| `06-landing-page.md` | Prompt y estructura de la landing page |",
     "| `07-roadmap-30-60-90.md` | OKRs, plan financiero y próximos pasos |",
@@ -746,11 +737,12 @@ export async function buildHandoffZip(options: HandoffOptions): Promise<Buffer> 
     }
 
     // ── 04-identidad/ ──
-    const identityDocs = buildIdentityDocs(options);
-    if (identityDocs) {
-      for (const [path, content] of Object.entries(identityDocs)) {
-        archive.append(content, { name: `${prefix}${path}` });
-      }
+    // ── 03-identidad-marca.md (single file) ──
+    const identityContent = buildIdentityDocs(options);
+    if (identityContent) {
+      archive.append(identityContent, {
+        name: `${prefix}03-identidad-marca.md`,
+      });
     }
 
     // ── 05-estrategia-distribucion.md ──

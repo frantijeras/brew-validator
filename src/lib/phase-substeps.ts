@@ -1,11 +1,11 @@
 /**
  * Definición de sub-steps por fase — metadatos de UI.
  *
- * Solo IDENTITY y EXECUTION tienen sub-steps con nombre,
+ * Solo IDENTITY tiene sub-steps con nombre,
  * descripción e icono que se muestran como cards anidadas dentro de la
  * PhaseCard principal.
  *
- * ANALYSIS (Fase 01) no renderiza sub-cards; solo tiene quiz → report
+ * ANALYSIS y EXECUTION no renderizan sub-cards; solo tienen quiz → report
  * implícito.
  *
  * Los metadatos están ordenados por `order` (0-based) y deben coincidir

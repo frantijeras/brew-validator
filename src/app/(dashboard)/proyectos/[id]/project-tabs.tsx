@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, Suspense } from "react";
+import { useRouter } from "next/navigation";
 import { Lock, Download, FileText, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 import { ProjectPhasesWithModal } from "./project-phases-with-modal";
 import { SkillSelector } from "./skill-selector";
@@ -93,6 +94,7 @@ export function ProjectTabs({
   idea,
 }: ProjectTabsProps) {
   const [activeTab, setActiveTab] = useState<Tab>("phases");
+  const router = useRouter();
 
   // Auto-switch to Skills tab when all phases are completed
   const prevCompletedRef = useRef(hasCompletedPhases);
@@ -200,6 +202,9 @@ export function ProjectTabs({
           <SkillSelector
             projectId={projectId}
             initialSkills={existingSkills && existingSkills.length > 0 ? existingSkills : undefined}
+            onHandoffReady={() => {
+              router.refresh();
+            }}
           />
         </Suspense>
       )}
@@ -650,20 +655,11 @@ function HandoffTab({
             {projectName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}/
           </div>
           <div className="pl-3">├── README.md</div>
-          <div className="pl-3">├── contexto/</div>
           {completedPhases.map((phase, i) => (
-            <div key={phase.id} className="pl-6">
-              {i === completedPhases.length - 1 ? "└──" : "├──"}{' '}{String(phase.sortOrder).padStart(2, "0")}-{phase.label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}.md
+            <div key={phase.id} className="pl-3">
+              {i === completedPhases.length - 1 && selectedSkills.length === 0 ? "└──" : "├──"}{' '}{String(phase.sortOrder).padStart(2, "0")}-{phase.label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}.md
             </div>
           ))}
-          <div className="pl-3">├── identidad/</div>
-          {completedPhases.some((p) => p.type === "IDENTITY") && (
-            <>
-              <div className="pl-6">├── brand-book.md</div>
-              <div className="pl-6">├── voice-and-tone.md</div>
-              <div className="pl-6">└── naming-rationale.md</div>
-            </>
-          )}
           <div className="pl-3">└── skills/</div>
           {selectedSkills.length > 0 ? (
             selectedSkills.map((skill, i) => (
