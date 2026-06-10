@@ -435,8 +435,17 @@ export function PhaseSubstepModal({
     const selectedOpt = selectedOption
       ? options.find((o) => o.value === selectedOption)
       : null;
-    const choice =
+    let choice =
       customValue.trim() || selectedOpt?.label || selectedOption || "";
+
+    // Para naming: limpiar prefijo "Opción X: " para que el nombre
+    // elegido sea solo el texto real, no "Opción A: MeetScribe..."
+    if (phaseType === "IDENTITY" && subStep === "naming") {
+      const match = choice.match(/^Opci[oó]n\s+\w+:\s*(.*)/i);
+      if (match) {
+        choice = match[1].trim();
+      }
+    }
 
     // ── IDENTITY naming: intercept with preview ──
     if (phaseType === "IDENTITY" && subStep === "naming" && choice) {
