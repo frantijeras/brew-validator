@@ -96,7 +96,13 @@ export async function POST(req: Request) {
           outputSubStepClaim && subStep && outputSubStepClaim !== subStep
             ? subStep
             : (outputSubStepClaim ?? subStep ?? null);
-        const isIntermediate = outputSubStep && outputSubStep !== "final";
+        // Query phase early so phaseType is available for intermediate check
+        const phase = await prisma.projectPhase.findUnique({ where: { id: phaseId } });
+        const phaseType = phase?.type;
+        const EXECUTION_INTERMEDIATE_SUBSTEPS = ["plan_30_60_90"];
+        const isIntermediate =
+          (outputSubStep && outputSubStep !== "final") ||
+          (phaseType === "EXECUTION" && EXECUTION_INTERMEDIATE_SUBSTEPS.includes(outputSubStep ?? ""));
         // The agent may emit the intermediate artifact as `subStepArtifact` OR as
         // `reportMarkdown`/`content` + `options`. We accept both shapes.
         const artifact: SubStepArtifact | null =
@@ -141,60 +147,110 @@ export async function POST(req: Request) {
             data,
           });
         } else {
-          // ── FINAL REPORT (or fallback when artifact shape is unexpected) ──
-          // Store in artifacts and complete the phase.
-          const reportMarkdown =
-            typeof parsedOutput.reportMarkdown === "string"
-              ? parsedOutput.reportMarkdown
-              : typeof parsedOutput.content === "string"
-                ? parsedOutput.content
-                : String(output);
+          // ── FINAL REPORT, SUBSTEP WITHOUT ARTIFACT FALLBACK, or unexpected shape ──
+          // For IDENTITY phases with intermediate sub-steps, we must NEVER complete
+          // the phase without going through all sub-steps (naming → voice → visual → final).
+          const IDENTITY_INTERMEDIATE_SUBSTEPS = ["naming", "voice", "visual"];
+          const EXECUTION_INTERMEDIATE_SUBSTEPS_FALLBACK = ["plan_30_60_90"];
+          const allIntermediateSubsteps = [...IDENTITY_INTERMEDIATE_SUBSTEPS, ...EXECUTION_INTERMEDIATE_SUBSTEPS_FALLBACK];
 
-          const extraFields: Record<string, string> = {};
-          for (const [k, v] of Object.entries(parsedOutput)) {
-            if (
-              k !== "reportMarkdown" &&
-              k !== "mode" &&
-              k !== "subStep" &&
-              k !== "subStepArtifact" &&
-              k !== "subStepArtifactJson" &&
-              k !== "type" &&
-              k !== "content" &&
-              k !== "options" &&
-              typeof v === "string"
-            ) {
-              extraFields[k] = v;
-            }
-          }
+          if (
+            (phaseType === "IDENTITY" || phaseType === "EXECUTION") &&
+            allIntermediateSubsteps.includes(outputSubStep ?? "")
+          ) {
+            // Intermediate IDENTITY sub-step but no proper artifact shape.
+            // Try to build an artifact from available content before giving up.
+            const fallbackContent =
+              typeof parsedOutput.reportMarkdown === "string"
+                ? parsedOutput.reportMarkdown
+                : typeof parsedOutput.content === "string"
+                  ? parsedOutput.content
+                  : null;
 
-          const phase = await prisma.projectPhase.findUnique({ where: { id: phaseId } });
-          if (phase) {
-            const artifactEntry = {
-              title: phase.label,
-              content: reportMarkdown,
-              type: phase.type,
-              ...extraFields,
-            };
-
-            await prisma.projectPhase.update({
-              where: { id: phaseId },
-              data: {
-                status: "COMPLETED",
-                completedAt: new Date(),
-                subStep: outputSubStep,
-                artifacts: [artifactEntry],
-              },
-            });
-
-            // Unlock the next phase
-            const nextPhase = await prisma.projectPhase.findFirst({
-              where: { projectId, sortOrder: phase.sortOrder + 1 },
-            });
-            if (nextPhase) {
+            if (fallbackContent) {
+              // We have content but no proper options — create a minimal artifact
+              // so the user can at least see the generated content and type a custom choice.
+              const fallbackArtifact: Prisma.InputJsonValue = {
+                type: parsedOutput.type === "html" ? "html" : "markdown",
+                content: fallbackContent,
+              };
               await prisma.projectPhase.update({
-                where: { id: nextPhase.id },
-                data: { status: "AVAILABLE" },
+                where: { id: phaseId },
+                data: {
+                  status: "SUBSTEP_READY",
+                  subStep: outputSubStep,
+                  subStepArtifact: fallbackArtifact,
+                },
               });
+            } else {
+              // No content at all — mark error and reset to AVAILABLE so user can retry
+              await prisma.projectPhase.update({
+                where: { id: phaseId },
+                data: {
+                  status: "AVAILABLE",
+                  lastError: {
+                    message: `El agente no generó artefacto para el sub-paso "${outputSubStep}". Inténtalo de nuevo.`,
+                    category: "agent_error",
+                    timestamp: new Date().toISOString(),
+                  },
+                },
+              });
+            }
+          } else {
+            // ── Genuine final report (or non-IDENTITY phase) ──
+            // Store in artifacts and complete the phase.
+            const reportMarkdown =
+              typeof parsedOutput.reportMarkdown === "string"
+                ? parsedOutput.reportMarkdown
+                : typeof parsedOutput.content === "string"
+                  ? parsedOutput.content
+                  : String(output);
+
+            const extraFields: Record<string, string> = {};
+            for (const [k, v] of Object.entries(parsedOutput)) {
+              if (
+                k !== "reportMarkdown" &&
+                k !== "mode" &&
+                k !== "subStep" &&
+                k !== "subStepArtifact" &&
+                k !== "subStepArtifactJson" &&
+                k !== "type" &&
+                k !== "content" &&
+                k !== "options" &&
+                typeof v === "string"
+              ) {
+                extraFields[k] = v;
+              }
+            }
+
+            if (phase) {
+              const artifactEntry = {
+                title: phase.label,
+                content: reportMarkdown,
+                type: phase.type,
+                ...extraFields,
+              };
+
+              await prisma.projectPhase.update({
+                where: { id: phaseId },
+                data: {
+                  status: "COMPLETED",
+                  completedAt: new Date(),
+                  subStep: outputSubStep,
+                  artifacts: [artifactEntry],
+                },
+              });
+
+              // Unlock the next phase
+              const nextPhase = await prisma.projectPhase.findFirst({
+                where: { projectId, sortOrder: phase.sortOrder + 1 },
+              });
+              if (nextPhase) {
+                await prisma.projectPhase.update({
+                  where: { id: nextPhase.id },
+                  data: { status: "AVAILABLE" },
+                });
+              }
             }
           }
         }
