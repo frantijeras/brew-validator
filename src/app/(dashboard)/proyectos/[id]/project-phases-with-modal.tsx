@@ -493,6 +493,7 @@ export function ProjectPhasesWithModal({
                         phaseId: phase.id,
                         phaseType: phase.type,
                         mode: executeMode,
+                        subStep: meta.id,
                       }),
                     })
                       .then((res) => {
