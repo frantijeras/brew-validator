@@ -303,6 +303,40 @@ export function PhaseSubstepModal({
 
   const isFreeInput = FREE_INPUT_SUBSTEPS.has(subStep);
   const options = subStepArtifact?.options ?? [];
+
+  // ── Domain verification for naming sub-step ──
+  type DomainResult = { domain: string; available: boolean | null };
+  const [domainResults, setDomainResults] = useState<DomainResult[]>([]);
+  const [domainChecking, setDomainChecking] = useState(false);
+
+  useEffect(() => {
+    if (!open || phaseType !== "IDENTITY" || subStep !== "naming") return;
+    if (options.length === 0) return;
+
+    // Extract names from option labels: "Opci\u00f3n A: MeetScribe" → "MeetScribe"
+    const names = options.map((opt) => {
+      const cleaned = opt.label.replace(/^Opci[o\u00f3]n\s+\w+:\s*/i, "").split(/[\u2014\u2013-]/)[0].trim();
+      return cleaned || opt.label;
+    });
+
+    if (names.length === 0) return;
+
+    setDomainChecking(true);
+    fetch("/api/domains/check", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ names }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.results) setDomainResults(data.results);
+      })
+      .catch(() => {
+        // Domain check is non-blocking
+      })
+      .finally(() => setDomainChecking(false));
+  }, [open, phaseType, subStep, options]);
+
   const artifactType: "html" | "markdown" = subStepArtifact?.type || "markdown";
   const artifactContent = subStepArtifact?.content || "";
 
@@ -863,6 +897,8 @@ export function PhaseSubstepModal({
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                     {options.map((opt) => {
                       const selected = selectedOption === opt.value;
+                      // Extraer solo el nombre del label ("Opción A: Nombre — desc" → "Nombre")
+                      const displayName = opt.label.replace(/^Opci[oó]n\s+\w+:\s*/i, '').split(/[—–-]/)[0].trim() || opt.label;
                       return (
                         <button
                           key={opt.value}
@@ -871,20 +907,39 @@ export function PhaseSubstepModal({
                             setCustomValue("");
                           }}
                           disabled={submitting}
-                          className={`rounded-lg border px-3 py-3 text-left text-sm transition-colors disabled:opacity-50 ${
+                          className={`border px-3 py-3 text-left text-sm transition-all disabled:opacity-50 ${
                             selected
                               ? "border-amber-500 bg-amber-500/10 text-white"
-                              : "border-slate-700 bg-slate-800 text-slate-200 hover:border-slate-600"
+                              : "border-slate-700 bg-slate-800 text-slate-200 hover:border-slate-500 hover:bg-slate-700/50 active:bg-slate-700"
                           }`}
                         >
-                          <span className="flex items-center gap-2">
-                            {selected ? (
-                              <CheckCircle2 className="size-4 text-amber-400" />
-                            ) : (
-                              <span className="inline-block size-4 rounded-full border border-slate-600" />
-                            )}
-                            <span className="font-medium">{opt.label}</span>
-                          </span>
+                          <span className="font-medium">{displayName}</span>
+                          {/* Domain badges for naming sub-step */}
+                          {phaseType === "IDENTITY" && subStep === "naming" && domainResults.length > 0 && (
+                            <span className="mt-1 flex flex-wrap gap-1">
+                              {[".es", ".com", ".io"].map((suffix) => {
+                                const slug = displayName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "").trim();
+                                const domain = `${slug}${suffix}`;
+                                const result = domainResults.find((r) => r.domain === domain);
+                                const isAvailable = result?.available;
+                                return (
+                                  <span
+                                    key={suffix}
+                                    className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                                      isAvailable === true
+                                        ? "bg-emerald-500/15 text-emerald-400"
+                                        : isAvailable === false
+                                          ? "bg-red-500/15 text-red-400"
+                                          : "bg-slate-700/50 text-slate-400"
+                                    }`}
+                                  >
+                                    {suffix}
+                                    {isAvailable === true ? " \u2713" : isAvailable === false ? " \u2717" : domainChecking ? " ..." : " ?"}
+                                  </span>
+                                );
+                              })}
+                            </span>
+                          )}
                         </button>
                       );
                     })}
