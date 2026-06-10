@@ -472,13 +472,17 @@ export function PhaseSubstepModal({
     let choice =
       customValue.trim() || selectedOpt?.label || selectedOption || "";
 
-    // Para naming: limpiar prefijo "Opción X: " para que el nombre
-    // elegido sea solo el texto real, no "Opción A: MeetScribe..."
+    // Para naming: limpiar prefijo "Opción X: " y sufijos como "(recomendado)"
+    // para que el nombre elegido sea solo el texto real.
     if (phaseType === "IDENTITY" && subStep === "naming") {
       const match = choice.match(/^Opci[oó]n\s+\w+:\s*(.*)/i);
       if (match) {
         choice = match[1].trim();
       }
+      // Remove common suffixes like "(recomendado)", "(recommended)", "(sugerido)", etc.
+      choice = choice.replace(/\s*\((recomendad[oa]|recommended|sugerid[oa]|suggested|preferid[oa]|top)\)\s*/gi, "").trim();
+      // Remove trailing dashes or separators like " — ..." or " - ..."
+      choice = choice.split(/\s+[\u2014\u2013-]+\s+/)[0].trim();
     }
 
     // ── IDENTITY naming: intercept with preview ──
