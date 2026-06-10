@@ -208,7 +208,7 @@ export function QuestionStep({
               onChange={() => handleChoiceChange(CUSTOM_VALUE)}
               className="size-4 cursor-pointer accent-amber-500 relative z-10"
             />
-            <span>Otro:</span>
+            <span>Respuesta personalizada</span>
           </label>
           {choiceCustomSelected && (
             <textarea
@@ -264,7 +264,7 @@ export function QuestionStep({
               onChange={() => handleMultiToggle(CUSTOM_VALUE)}
               className="size-4 cursor-pointer accent-amber-500 relative z-10"
             />
-            <span>Otro:</span>
+            <span>Respuesta personalizada</span>
           </label>
           {multiCustomSelected && (
             <textarea
