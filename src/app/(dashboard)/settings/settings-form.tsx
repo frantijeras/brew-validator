@@ -291,6 +291,9 @@ const DEFAULT_AGENT_MODELS: Record<string, string> = {
   "project-content": "opencode-zen-free/deepseek-v4-flash-free",
   "project-dev": "opencode-zen-free/deepseek-v4-flash-free",
   "project-dossier": "opencode-zen-free/deepseek-v4-flash-free",
+  "project-business": "opencode-zen-free/deepseek-v4-flash-free",
+  "project-execution": "opencode-zen-free/deepseek-v4-flash-free",
+  "project-skills": "opencode-zen-free/deepseek-v4-flash-free",
 };
 
 const AGENT_INFO: { id: string; name: string; description: string }[] = [
@@ -346,6 +349,21 @@ const PROJECT_AGENT_INFO: { id: string; name: string; description: string }[] = 
     id: "project-dossier",
     name: "Dossier Completo",
     description: "Compila todo el proyecto en un documento único y ejecutable.",
+  },
+  {
+    id: "project-business",
+    name: "Estrategia de Negocio",
+    description: "Lean Canvas, modelo de ingresos, pricing y propuesta de valor estratégica.",
+  },
+  {
+    id: "project-execution",
+    name: "Roadmap y Ejecución",
+    description: "OKRs 30/60/90, plan financiero y próximos pasos.",
+  },
+  {
+    id: "project-skills",
+    name: "Generador de Skills",
+    description: "Genera skills ejecutables para el proyecto basadas en las fases completadas.",
   },
 ];
 

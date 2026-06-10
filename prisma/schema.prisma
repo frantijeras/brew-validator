@@ -7,16 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum IdeaStatus {
-  DRAFT
-  GENERATING
-  VALIDATING
-  REFINING
-  COMPLETED
-  POLISHING
-  FAILED
-}
-
 model User {
   id            String    @id @default(cuid())
   name          String?
@@ -27,8 +17,8 @@ model User {
   isAdmin       Boolean   @default(false)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
-  sessions      Session[]
   accounts      Account[]
+  sessions      Session[]
   settings      Setting[]
 }
 
@@ -36,16 +26,15 @@ model Session {
   id           String   @id @default(cuid())
   sessionToken String   @unique
   userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expires      DateTime
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Account {
   id                String  @id @default(cuid())
   userId            String
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   type              String
   provider          String
   providerAccountId String
@@ -56,6 +45,7 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -69,37 +59,35 @@ model VerificationToken {
 }
 
 model Idea {
-  id               String     @id @default(cuid())
+  id               String        @id @default(cuid())
   title            String
   description      String
   problem          String?
   valueProposition String?
   targetUser       String
   monetization     String
-  status           IdeaStatus @default(DRAFT)
-  validationStatus String     @default("PENDING")
+  status           IdeaStatus    @default(DRAFT)
+  validationStatus String        @default("PENDING")
   verdict          String?
   score            Float?
-  businessModel    String? // SaaS, Marketplace, E-commerce, App móvil, Plataforma, Negocio local, Servicios, Contenido/Media, Hardware/IoT, API/Infra, Impacto social, Otro
+  businessModel    String?
   originalIdea     String?
   metadata         Json?
-  isArchived       Boolean    @default(false)
-  isFavorite       Boolean    @default(false)
+  isArchived       Boolean       @default(false)
+  isFavorite       Boolean       @default(false)
   currentVersionId String?
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
-
-  currentVersion IdeaVersion?  @relation("CurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
-  jobs           Job[]
-  reports        Report[]
-  versions       IdeaVersion[]
-  project        Project?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  currentVersion   IdeaVersion?  @relation("CurrentVersion", fields: [currentVersionId], references: [id])
+  versions         IdeaVersion[]
+  jobs             Job[]
+  project          Project?
+  reports          Report[]
 }
 
 model Job {
   id         String    @id @default(cuid())
   ideaId     String
-  idea       Idea      @relation(fields: [ideaId], references: [id], onDelete: Cascade)
   agentName  String
   status     String    @default("PENDING")
   input      String?
@@ -110,14 +98,13 @@ model Job {
   finishedAt DateTime?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
+  idea       Idea      @relation(fields: [ideaId], references: [id], onDelete: Cascade)
 }
 
 model Report {
   id            String       @id @default(cuid())
   ideaId        String
-  idea          Idea         @relation(fields: [ideaId], references: [id], onDelete: Cascade)
   ideaVersionId String?
-  ideaVersion   IdeaVersion? @relation(fields: [ideaVersionId], references: [id], onDelete: SetNull)
   agentName     String
   title         String
   content       String
@@ -126,12 +113,13 @@ model Report {
   score         Float?
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
+  idea          Idea         @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  ideaVersion   IdeaVersion? @relation(fields: [ideaVersionId], references: [id])
 }
 
 model IdeaVersion {
   id               String   @id @default(cuid())
   ideaId           String
-  idea             Idea     @relation(fields: [ideaId], references: [id], onDelete: Cascade)
   title            String
   description      String
   problem          String?
@@ -143,58 +131,47 @@ model IdeaVersion {
   verdict          String?
   reportsSnapshot  Json?
   createdAt        DateTime @default(now())
-
-  currentOf Idea[]   @relation("CurrentVersion")
-  reports   Report[]
+  currentOf        Idea[]   @relation("CurrentVersion")
+  idea             Idea     @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  reports          Report[]
 }
 
 model Project {
-  id          String   @id @default(cuid())
-  ideaId      String   @unique
-  idea        Idea     @relation(fields: [ideaId], references: [id], onDelete: Cascade)
-  name        String
-  description String?
-  status      String   @default("ACTIVE") // ACTIVE, ARCHIVED
-  memory          Json?    // ProjectMemory — JSON acumulativo de decisiones (última prevalece)
-  skills          Json?    // Array de { id, name, description, icon, category, confidence, reason, selected, custom }
-  handoffReady    Boolean  @default(false)
-  generatedSkills Json?    // Skills generadas por IA: Array<{id, name, content}>
-  buyerPersona  Json?    // Buyer persona del proyecto
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  phases ProjectPhase[]
-}
-
-enum PhaseType {
-  IDENTITY
-  ANALYSIS
-  CONTENT
-  DEVELOPMENT
-  DOSSIER
-  BUSINESS
-  EXECUTION
+  id              String         @id @default(cuid())
+  ideaId          String         @unique
+  name            String
+  description     String?
+  status          String         @default("ACTIVE")
+  memory          Json?
+  skills          Json?
+  handoffReady    Boolean        @default(false)
+  generatedSkills Json?
+  buyerPersona    Json?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  idea            Idea           @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  phases          ProjectPhase[]
 }
 
 model ProjectPhase {
-  id          String    @id @default(cuid())
-  projectId   String
-  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  type        PhaseType
-  label       String
-  description String?
-  status      String    @default("LOCKED") // LOCKED, AVAILABLE, PROCESSING, QUESTIONING, SUBSTEP_READY, COMPLETED, FAILED
-  sortOrder   Int       @default(0)
-  artifacts   Json?     // Array de { title, content, type }
-  questions   Json?     // Array de preguntas interactivas: { id, label, type }
-  subStep         String?   // "quiz" | "naming" | "mockup" | "compare" | "simulate" | "pilars" | "final"
-  subStepArtifact Json?     // Artefacto intermedio: {type: "html"|"markdown", content: string, options?: [{value,label}]}
-  subStepChoice   String?   // Lo que eligió el usuario: "A" | "B" | "C" | "nombre personalizado" | etc.
-  subStepOrder    Int?      // 0, 1, 2, 3 — posición dentro de un flujo multi-sub-step (ej. IDENTITY: naming=0, voice=1, visual=2, final=3). Null en fases que no son multi-step.
-  lastError   Json?     // Último error del agente: { message, category, timestamp, agentName?, model? }
-  completedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id              String    @id @default(cuid())
+  projectId       String
+  type            PhaseType
+  label           String
+  description     String?
+  status          String    @default("LOCKED")
+  sortOrder       Int       @default(0)
+  artifacts       Json?
+  questions       Json?
+  subStep         String?
+  subStepArtifact Json?
+  subStepChoice   String?
+  subStepOrder    Int?
+  lastError       Json?
+  completedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  project         Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
 }
 
 model Setting {
@@ -205,4 +182,24 @@ model Setting {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([key, userId])
+}
+
+enum IdeaStatus {
+  DRAFT
+  GENERATING
+  VALIDATING
+  REFINING
+  COMPLETED
+  POLISHING
+  FAILED
+}
+
+enum PhaseType {
+  IDENTITY
+  ANALYSIS
+  CONTENT
+  DEVELOPMENT
+  DOSSIER
+  BUSINESS
+  EXECUTION
 }

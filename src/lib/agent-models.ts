@@ -13,6 +13,7 @@ const AGENT_DEFAULTS: Record<string, string> = {
   "project-dossier": "opencode-go/deepseek-v4-flash",
   "project-business": "opencode-go/deepseek-v4-flash",
   "project-execution": "opencode-go/deepseek-v4-flash",
+  "project-skills": "opencode-go/deepseek-v4-flash",
 };
 
 const JOB_AGENT_TO_SETTINGS_KEY: Record<string, string> = {
@@ -29,6 +30,7 @@ const JOB_AGENT_TO_SETTINGS_KEY: Record<string, string> = {
   "project-dossier": "project-dossier",
   "project-business": "project-business",
   "project-execution": "project-execution",
+  "project-skills": "project-skills",
 };
 
 export const PROJECT_AGENTS = [
@@ -39,6 +41,7 @@ export const PROJECT_AGENTS = [
   "project-dossier",
   "project-business",
   "project-execution",
+  "project-skills",
 ];
 
 export function isProjectAgent(agentName: string): boolean {
