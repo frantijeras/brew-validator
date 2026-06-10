@@ -45,6 +45,22 @@ export const PHASE_SUBSTEPS: Record<string, SubStepMeta[]> = {
       icon: "Palette",
     },
   ],
+  EXECUTION: [
+    {
+      id: "plan_30_60_90",
+      order: 0,
+      label: "Plan 30/60/90",
+      description: "Plan de acción con hitos concretos para los primeros 30, 60 y 90 días",
+      icon: "Rocket",
+    },
+    {
+      id: "final",
+      order: 1,
+      label: "Simulación Económica",
+      description: "Proyección financiera y simulación de escenarios",
+      icon: "BriefcaseBusiness",
+    },
+  ],
   // ANALYSIS: no tiene sub-steps con sub-cards (solo quiz → report implícito).
 };
 
