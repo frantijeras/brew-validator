@@ -105,6 +105,7 @@ export default async function ProjectDetailPage({ params }: Props) {
         }))}
         memory={project.memory as import("@/lib/project-memory").ProjectMemory | null}
         hasCompletedPhases={hasCompletedPhases}
+        handoffReady={project.handoffReady ?? false}
         existingSkills={existingSkills}
         idea={project.idea ? {
           title: project.idea.title,

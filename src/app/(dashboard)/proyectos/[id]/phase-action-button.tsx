@@ -68,7 +68,7 @@ export function PhaseActionButton({
         ) : (
           <>
             <Sparkles className="size-4" />
-            Ejecutar
+            Iniciar fase
           </>
         )}
       </button>

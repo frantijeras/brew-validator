@@ -25,7 +25,6 @@ import {
   Save,
   Info,
   Edit3,
-  Package,
 } from "lucide-react";
 import { PhaseActionButton } from "./phase-action-button";
 import { PhaseQuestionsModal } from "./phase-questions-modal";
@@ -130,14 +129,14 @@ const subStepReviewLabels: Record<string, string> = {
 
 const subStepExecuteLabels: Record<string, string> = {
   quiz: "Responder",
-  naming: "Ejecutar",
-  voice: "Ejecutar",
-  visual: "Ejecutar",
-  pilars: "Ejecutar",
-  compare: "Ejecutar",
-  simulate: "Ejecutar",
-  generate: "Ejecutar",
-  final: "Ejecutar",
+  naming: "Iniciar",
+  voice: "Iniciar",
+  visual: "Iniciar",
+  pilars: "Iniciar",
+  compare: "Iniciar",
+  simulate: "Iniciar",
+  generate: "Iniciar",
+  final: "Iniciar",
 };
 
 const subStepProcessingMessages: Record<string, string> = {
@@ -275,8 +274,7 @@ export function ProjectPhasesWithModal({
     setLocalMemory(memory);
   }, [memory]);
 
-  const completedCount = phases.filter((p) => p.status === "COMPLETED").length;
-  const showHandoffBox = completedCount >= 4;
+
 
   // Auto-poll: refresh when a phase is PROCESSING / QUESTIONING / SUBSTEP_READY
   // so cancel/refresh is visible. We also poll when the sub-step modal is
@@ -648,34 +646,7 @@ export function ProjectPhasesWithModal({
         })}
       </div>
 
-      {/* 🎯 Handoff Package — shown when ≥4 phases completed */}
-      {showHandoffBox && (
-        <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 p-6 mt-6">
-          <div className="flex items-start gap-4">
-            <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10">
-              <Package className="size-6 text-emerald-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="text-lg font-bold text-white">
-                🎯 Proyecto completado
-              </h3>
-              <p className="mt-1 text-sm text-slate-400 leading-relaxed">
-                Descarga el <strong className="text-emerald-300">Handoff Package</strong> con todo el proyecto organizado más skills ejecutables listas para usar con Cline, Cursor o Copilot.
-              </p>
-              <div className="mt-4 flex flex-wrap gap-3">
-                <a
-                  href={`/api/projects/${projectId}/handoff`}
-                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-slate-950 transition-all hover:bg-emerald-400 active:bg-emerald-600 shadow-lg shadow-emerald-500/20"
-                  download
-                >
-                  <Package className="size-4" />
-                  Descargar Handoff ZIP
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Questions modal */}
 

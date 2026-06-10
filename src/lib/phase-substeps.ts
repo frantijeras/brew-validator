@@ -45,29 +45,6 @@ export const PHASE_SUBSTEPS: Record<string, SubStepMeta[]> = {
       icon: "Palette",
     },
   ],
-  EXECUTION: [
-    {
-      id: "quiz",
-      order: 0,
-      label: "Cuestionario",
-      description: "Plan de lanzamiento",
-      icon: "HelpCircle",
-    },
-    {
-      id: "simulate",
-      order: 1,
-      label: "Simulación",
-      description: "Escenarios y riesgos",
-      icon: "PlayCircle",
-    },
-    {
-      id: "final",
-      order: 2,
-      label: "Plan de Ejecución",
-      description: "Roadmap de lanzamiento",
-      icon: "Rocket",
-    },
-  ],
   // ANALYSIS: no tiene sub-steps con sub-cards (solo quiz → report implícito).
 };
 
@@ -99,5 +76,5 @@ export const subStepToneMap: Record<string, string> = {
   IDENTITY: "purple",
   BUSINESS: "blue", // blue en lugar de cyan para consistencia con toneNumberStyles
   CONTENT: "amber",
-  EXECUTION: "amber", // amber en lugar de orange
+
 };

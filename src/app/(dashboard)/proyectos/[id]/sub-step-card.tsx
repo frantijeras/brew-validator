@@ -190,7 +190,7 @@ export function SubStepCard({
   onAction,
   tone = "blue",
   reviewLabel = "Revisar",
-  executeLabel = "Ejecutar",
+  executeLabel = "Iniciar",
   processingMessage = "Generando...",
   processingEta = "~2-3 min",
 }: SubStepCardProps) {

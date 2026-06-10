@@ -72,11 +72,12 @@ interface ProjectTabsProps {
   phases: PhaseData[];
   memory: ProjectMemory | null;
   hasCompletedPhases: boolean;
+  handoffReady: boolean;
   existingSkills: SkillData[] | null;
   idea: IdeaData | null;
 }
 
-type Tab = "validation" | "phases" | "skills" | "export";
+type Tab = "validation" | "phases" | "skills" | "handoff";
 
 const AGENT_ORDER = ["advocate", "skeptic", "judge"];
 
@@ -87,6 +88,7 @@ export function ProjectTabs({
   phases,
   memory,
   hasCompletedPhases,
+  handoffReady,
   existingSkills,
   idea,
 }: ProjectTabsProps) {
@@ -158,23 +160,23 @@ export function ProjectTabs({
 
         <button
           onClick={() => {
-            if (hasCompletedPhases) setActiveTab("export");
+            if (handoffReady) setActiveTab("handoff");
           }}
-          disabled={!hasCompletedPhases}
-          title={!hasCompletedPhases ? "Disponible al completar todas las fases del proyecto" : ""}
+          disabled={!handoffReady}
+          title={!handoffReady ? "Disponible cuando el proyecto esté listo para hand-off" : ""}
           className={`
             relative shrink-0 px-4 py-3 text-sm font-medium transition-colors
             whitespace-nowrap inline-flex items-center gap-1.5
             ${
-              activeTab === "export"
+              activeTab === "handoff"
                 ? "text-white after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-full after:bg-amber-500"
                 : "text-slate-400 hover:text-slate-200"
             }
-            ${!hasCompletedPhases ? "opacity-40 cursor-not-allowed hover:text-slate-400" : ""}
+            ${!handoffReady ? "opacity-40 cursor-not-allowed hover:text-slate-400" : ""}
           `}
         >
-          {!hasCompletedPhases && <Lock className="size-3.5 shrink-0" />}
-          4. Exportación
+          {!handoffReady && <Lock className="size-3.5 shrink-0" />}
+          4. Hand-off
         </button>
       </div>
 
@@ -202,8 +204,8 @@ export function ProjectTabs({
         </Suspense>
       )}
 
-      {activeTab === "export" && (
-        <ExportTab
+      {activeTab === "handoff" && (
+        <HandoffTab
           projectId={projectId}
           projectName={projectName}
           phases={phases}
@@ -497,7 +499,7 @@ function ValidationReportCard({ report }: { report: ValidationReport }) {
    Export Tab
    ══════════════════════════════════════════════════════════════════════ */
 
-function ExportTab({
+function HandoffTab({
   projectId,
   projectName,
   phases,
