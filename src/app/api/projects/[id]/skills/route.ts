@@ -187,7 +187,7 @@ export async function PUT(
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Datos invalidos", details: parsed.error.flatten() },
+        { error: "Datos inválidos", details: parsed.error.flatten().fieldErrors },
         { status: 400 },
       );
     }

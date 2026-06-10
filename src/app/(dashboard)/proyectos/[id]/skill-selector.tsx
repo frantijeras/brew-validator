@@ -211,7 +211,8 @@ export function SkillSelector({ projectId, initialSkills, onHandoffReady }: Skil
       });
 
       if (!res.ok) {
-        throw new Error(`Error ${res.status}`);
+        const data = await res.json();
+        throw new Error(data.error || `Error ${res.status}` + (data.details ? `: ${JSON.stringify(data.details)}` : ''));
       }
 
       setToast("Skills guardadas");
@@ -221,7 +222,7 @@ export function SkillSelector({ projectId, initialSkills, onHandoffReady }: Skil
       window.dispatchEvent(new CustomEvent("project-changed"));
       router.refresh();
     } catch (err) {
-      setToast("Error al guardar skills");
+      setToast(err instanceof Error ? err.message : "Error al guardar skills");
       setTimeout(() => setToast(null), 3000);
     } finally {
       setSaving(false);
@@ -582,9 +583,9 @@ function SkillCard({
         </div>
       </div>
 
-      {/* Row 4: Reason */}
-      <p className="text-xs text-slate-400">
-        <span className="text-slate-500">Por qué está recomendada: </span>
+      {/* Row 4: Reason — make it more prominent */}
+      <p className="text-xs text-slate-300">
+        <span className="text-amber-400 font-medium">💡 </span>
         {skill.reason}
       </p>
     </div>
