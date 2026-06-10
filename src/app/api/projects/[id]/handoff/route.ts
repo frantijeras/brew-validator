@@ -118,6 +118,26 @@ export async function GET(
       }
     }
 
+    // ── Load selected skills from project ──
+    const selectedSkills = (project.skills as Array<{
+      id: string;
+      name: string;
+      description: string;
+      icon: string;
+      category: string;
+      confidence: number;
+      reason: string;
+      recommended: boolean;
+      selected?: boolean;
+      custom?: boolean;
+    }> | null)?.filter(s => s.selected !== false) ?? null;
+
+    const generatedSkills = (project.generatedSkills as Array<{
+      id: string;
+      name: string;
+      content: string;
+    }> | null) ?? null;
+
     // ── Build HandoffOptions ──
     const handoffOptions: HandoffOptions = {
       projectId: project.id,
@@ -152,6 +172,8 @@ export async function GET(
       })),
       memory: project.memory as ProjectMemory | null,
       brandBook,
+      selectedSkills,
+      generatedSkills,
     };
 
     // ── Build ZIP ──

@@ -45,8 +45,8 @@ export type SkillCondition =
 export const SKILL_CATALOG: SkillDefinition[] = [
   {
     id: "web-creator",
-    name: "Web Creator",
-    description: "Crea una landing page profesional con copy persuasivo, diseño responsive y llamada a la acción optimizada para conversión.",
+    name: "Landing Page",
+    description: "Crea una landing page profesional con copy persuasivo, diseño responsive y CTA optimizada para conversión.",
     icon: "Globe",
     category: "desarrollo",
     conditions: [
@@ -55,8 +55,8 @@ export const SKILL_CATALOG: SkillDefinition[] = [
   },
   {
     id: "codebot-dev",
-    name: "Desarrollo (CodeBot)",
-    description: "Implementa el MVP técnico según stack y especificaciones de la Fase 05. Incluye SaaS (Software as a Service / Software como Servicio).",
+    name: "MVP Técnico",
+    description: "Implementa el producto mínimo viable: stack técnico, arquitectura, base de código y despliegue.",
     icon: "Code",
     category: "desarrollo",
     conditions: [
@@ -68,8 +68,8 @@ export const SKILL_CATALOG: SkillDefinition[] = [
   },
   {
     id: "contenido-publicaciones",
-    name: "Creador de Contenido",
-    description: "Genera posts, artículos y contenido editorial según la estrategia de la Fase 04",
+    name: "Contenido Editorial",
+    description: "Genera posts, artículos y contenido editorial según la estrategia de distribución.",
     icon: "PenLine",
     category: "marketing",
     conditions: [
@@ -82,8 +82,8 @@ export const SKILL_CATALOG: SkillDefinition[] = [
   },
   {
     id: "seo-aso",
-    name: "SEO / ASO",
-    description: "Optimiza presencia orgánica en buscadores y tiendas de apps",
+    name: "SEO & ASO",
+    description: "Estrategia de posicionamiento orgánico en buscadores y tiendas de apps.",
     icon: "Search",
     category: "marketing",
     conditions: [
@@ -101,7 +101,7 @@ export const SKILL_CATALOG: SkillDefinition[] = [
   {
     id: "email-marketing",
     name: "Email Marketing",
-    description: "Diseña secuencias de email, newsletters y automatizaciones de captación",
+    description: "Secuencias de email, newsletters y automatizaciones de captación y nurturing.",
     icon: "Mail",
     category: "marketing",
     conditions: [
@@ -124,23 +124,15 @@ export const SKILL_CATALOG: SkillDefinition[] = [
   },
   {
     id: "social-media",
-    name: "Social Media Manager",
-    description: "Gestiona presencia en redes sociales según canales de la Matriz Bullseye",
+    name: "Social Media",
+    description: "Estrategia y calendario editorial para redes sociales según canales priorizados.",
     icon: "Share2",
     category: "marketing",
     conditions: [
       {
         type: "has_channel_in_bullseye",
         channelKeywords: [
-          "Instagram",
-          "TikTok",
-          "Twitter",
-          "X",
-          "LinkedIn",
-          "Facebook",
-          "YouTube",
-          "social",
-          "redes",
+          "Instagram", "TikTok", "Twitter", "X", "LinkedIn", "Facebook", "YouTube", "social", "redes",
         ],
       },
       {
@@ -152,9 +144,9 @@ export const SKILL_CATALOG: SkillDefinition[] = [
   },
   {
     id: "analytics",
-    name: "Analytics e Informes",
-    description: "Configura dashboards, KPI (Key Performance Indicator / Indicador Clave de Rendimiento) y reportes periódicos de rendimiento",
-    icon: "BarChart3",
+    name: "Analytics & KPIs",
+    description: "Dashboards, métricas clave y reportes periódicos de rendimiento.",
+    icon: "LineChart",
     category: "operaciones",
     conditions: [
       {
@@ -172,7 +164,7 @@ export const SKILL_CATALOG: SkillDefinition[] = [
   {
     id: "customer-success",
     name: "Customer Success",
-    description: "Gestiona onboarding, retención y satisfacción de clientes",
+    description: "Onboarding, retención y satisfacción de clientes con playbooks y automatizaciones.",
     icon: "HeartHandshake",
     category: "operaciones",
     conditions: [
@@ -190,22 +182,14 @@ export const SKILL_CATALOG: SkillDefinition[] = [
   },
   {
     id: "ads-manager",
-    name: "Ads Manager",
-    description: "Crea y optimiza campañas de publicidad digital (Meta, Google, TikTok)",
+    name: "Ads & Paid Media",
+    description: "Campañas de publicidad digital en Meta, Google y TikTok con presupuestos y creativos.",
     icon: "Target",
     category: "marketing",
     conditions: [
       {
         type: "has_channel_in_bullseye",
-        channelKeywords: [
-          "ads",
-          "paid",
-          "anuncios",
-          "Meta Ads",
-          "Google Ads",
-          "TikTok Ads",
-          "publicidad",
-        ],
+        channelKeywords: ["ads", "paid", "anuncios", "Meta Ads", "Google Ads", "TikTok Ads", "publicidad"],
       },
       {
         type: "quiz_answer_matches",
@@ -218,7 +202,7 @@ export const SKILL_CATALOG: SkillDefinition[] = [
   {
     id: "community-manager",
     name: "Community Manager",
-    description: "Construye y modera una comunidad alrededor de tu marca o producto",
+    description: "Construye y modera una comunidad alrededor de tu marca en Discord, Telegram, etc.",
     icon: "Users",
     category: "marketing",
     conditions: [
@@ -236,7 +220,7 @@ export const SKILL_CATALOG: SkillDefinition[] = [
   {
     id: "design-system",
     name: "Design System",
-    description: "Crea un sistema de diseño completo basado en la identidad visual de la Fase 03",
+    description: "Sistema de diseño completo basado en la identidad visual: tokens, componentes y guías.",
     icon: "Palette",
     category: "desarrollo",
     conditions: [
@@ -254,7 +238,7 @@ export const SKILL_CATALOG: SkillDefinition[] = [
   {
     id: "legal-compliance",
     name: "Legal & Compliance",
-    description: "Revisa requisitos legales, protección de datos y términos de servicio",
+    description: "Revisa requisitos legales, protección de datos RGPD y términos de servicio.",
     icon: "Scale",
     category: "legal",
     conditions: [
@@ -273,8 +257,8 @@ export const SKILL_CATALOG: SkillDefinition[] = [
   },
   {
     id: "finance-contabilidad",
-    name: "Finanzas y Contabilidad",
-    description: "Gestiona facturación, impuestos, cashflow y proyecciones financieras. Incluye ROI (Return on Investment / Retorno de Inversión).",
+    name: "Finanzas & Cashflow",
+    description: "Facturación, impuestos, cashflow, proyecciones financieras y modelo de ingresos.",
     icon: "DollarSign",
     category: "finanzas",
     conditions: [

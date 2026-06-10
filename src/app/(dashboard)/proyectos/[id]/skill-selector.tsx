@@ -23,6 +23,20 @@ import {
   Sparkles,
   Loader2,
   ArrowRight,
+  Rocket,
+  Briefcase,
+  Shield,
+  Megaphone,
+  FileText,
+  Layout,
+  TrendingUp,
+  Handshake,
+  ShoppingCart,
+  LineChart,
+  MonitorSmartphone,
+  Wrench,
+  Blocks,
+  Zap,
 } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -66,21 +80,41 @@ const ICON_MAP: Record<string, React.ElementType> = {
   Scale,
   DollarSign,
   Globe,
+  Rocket,
+  Briefcase,
+  Shield,
+  Megaphone,
+  FileText,
+  Layout,
+  TrendingUp,
+  Handshake,
+  ShoppingCart,
+  LineChart,
+  MonitorSmartphone,
+  Wrench,
+  Blocks,
+  Zap,
 };
 
 const ICON_OPTIONS = [
-  { value: "Code", label: "Code" },
-  { value: "PenLine", label: "PenLine" },
-  { value: "Search", label: "Search" },
-  { value: "Mail", label: "Mail" },
-  { value: "Share2", label: "Share2" },
-  { value: "BarChart3", label: "BarChart3" },
-  { value: "HeartHandshake", label: "HeartHandshake" },
-  { value: "Target", label: "Target" },
-  { value: "Users", label: "Users" },
-  { value: "Palette", label: "Palette" },
-  { value: "Scale", label: "Scale" },
-  { value: "DollarSign", label: "DollarSign" },
+  { value: "Code", label: "Código (Code)" },
+  { value: "PenLine", label: "Escritura (PenLine)" },
+  { value: "Search", label: "Búsqueda (Search)" },
+  { value: "Mail", label: "Email (Mail)" },
+  { value: "Share2", label: "Social (Share2)" },
+  { value: "BarChart3", label: "Analytics (BarChart)" },
+  { value: "HeartHandshake", label: "Soporte (HeartHandshake)" },
+  { value: "Target", label: "Ads (Target)" },
+  { value: "Users", label: "Comunidad (Users)" },
+  { value: "Palette", label: "Diseño (Palette)" },
+  { value: "Scale", label: "Legal (Scale)" },
+  { value: "DollarSign", label: "Finanzas (DollarSign)" },
+  { value: "Globe", label: "Web (Globe)" },
+  { value: "Rocket", label: "Lanzamiento (Rocket)" },
+  { value: "Briefcase", label: "Negocio (Briefcase)" },
+  { value: "Megaphone", label: "Marketing (Megaphone)" },
+  { value: "LineChart", label: "Métricas (LineChart)" },
+  { value: "Zap", label: "Productividad (Zap)" },
 ];
 
 // ── Component ─────────────────────────────────────────────────────────
@@ -547,10 +581,22 @@ function SkillCard({
         ? "bg-amber-500"
         : "bg-slate-600";
 
+  const categoryLabel: Record<string, string> = {
+    desarrollo: "Desarrollo",
+    marketing: "Marketing",
+    operaciones: "Operaciones",
+    legal: "Legal",
+    finanzas: "Finanzas",
+  };
+
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-slate-800 bg-slate-900/40 p-3.5 transition-colors hover:border-slate-700">
-      {/* Row 1: checkbox + icon + name */}
-      <div className="flex items-center gap-2">
+    <div className={`flex flex-col gap-2 rounded-lg border p-3.5 transition-colors ${
+      selected
+        ? "border-amber-500/40 bg-amber-500/5 hover:border-amber-500/60"
+        : "border-slate-800 bg-slate-900/40 hover:border-slate-700"
+    }`}>
+      {/* Row 1: checkbox + icon + name + category badge */}
+      <div className="flex items-center gap-2.5">
         <input
           type="checkbox"
           checked={selected}
@@ -560,32 +606,43 @@ function SkillCard({
           }}
           className="size-4 shrink-0 rounded border-slate-600 bg-slate-800 text-amber-500 focus:ring-amber-500 focus:ring-offset-0 cursor-pointer"
         />
-        <span className="text-slate-400">
+        <div className={`shrink-0 flex items-center justify-center rounded-lg p-1.5 ${
+          selected ? "bg-amber-500/15 text-amber-400" : "bg-slate-800 text-slate-400"
+        }`}>
           {iconComponent(skill.icon, "size-5")}
-        </span>
-        <span className="text-base font-bold text-white flex-1 min-w-0 truncate">
-          {skill.name}
-        </span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <span className="text-sm font-bold text-white block leading-tight truncate">
+            {skill.name}
+          </span>
+          <span className="text-[10px] text-slate-500">
+            {categoryLabel[skill.category] || skill.category}
+          </span>
+        </div>
+        {skill.confidence >= 0.7 && (
+          <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-medium text-green-400">
+            ★ Recomendada
+          </span>
+        )}
       </div>
 
       {/* Row 2: Description */}
-      <p className="text-xs text-slate-500">{skill.description}</p>
+      <p className="text-xs text-slate-400 leading-relaxed">{skill.description}</p>
 
       {/* Row 3: Confidence bar */}
       <div className="flex items-center gap-2">
-        <span className="text-[10px] text-slate-500 shrink-0">Confianza</span>
-        <span className="text-[10px] text-slate-500 shrink-0">{barWidth}%</span>
         <div className="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
           <div
             className={`h-full rounded-full transition-all ${barColor}`}
             style={{ width: `${barWidth}%` }}
           />
         </div>
+        <span className="text-[10px] text-slate-500 shrink-0 tabular-nums">{barWidth}%</span>
       </div>
 
-      {/* Row 4: Reason — make it more prominent */}
-      <p className="text-xs text-slate-300">
-        <span className="text-amber-400 font-medium">💡 </span>
+      {/* Row 4: Reason */}
+      <p className="text-xs text-slate-300 leading-relaxed">
+        <span className="text-amber-400 font-medium">💡</span>{" "}
         {skill.reason}
       </p>
     </div>
