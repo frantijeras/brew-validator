@@ -155,12 +155,13 @@ export async function enqueuePhaseJob(
   if (phaseType === "IDENTITY") {
     if (subStepHint) {
       effectiveSubStep = subStepHint;
+    } else if (subStep) {
+      // Explicit subStep provided by caller (e.g. "voice" from /substep/choose)
+      // — use it directly, do NOT auto-advance
+      effectiveSubStep = subStep;
     } else {
-      // Start from the explicit `subStep` arg if provided, else fall back
-      // to whatever the phase is currently on, else null (fresh start).
-      const currentSubStep =
-        subStep ?? phase.subStep ?? null;
-      effectiveSubStep = getNextIdentitySubStep(currentSubStep);
+      // No subStep — auto-advance from current position
+      effectiveSubStep = getNextIdentitySubStep(phase.subStep ?? null);
     }
   } else {
     effectiveSubStep = subStep ?? phase.subStep ?? null;
