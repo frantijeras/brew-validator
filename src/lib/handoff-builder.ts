@@ -255,19 +255,9 @@ function buildDistributionStrategy(ctx: HandoffOptions, assets: PhaseAsset[]): s
   ].join("\n");
 }
 
-function buildLandingPage(ctx: HandoffOptions, assets: PhaseAsset[]): string | null {
-  const dev = assets.find((a) => a.phaseType === "DEVELOPMENT");
-  if (!dev) return null;
-  return [
-    `# Landing Page — ${ctx.projectName}`,
-    "",
-    "## Prompt de desarrollo",
-    "",
-    "El siguiente contenido fue generado por el agente de desarrollo.",
-    "Úsalo como especificación para construir la landing page.",
-    "",
-    ...dev.contents.map((c, i) => `### ${dev.titles[i] || "Especificación"}\n\n${c}`),
-  ].join("\n");
+function buildLandingPage(_ctx: HandoffOptions, _assets: PhaseAsset[]): string | null {
+  // DEVELOPMENT phase was removed — this builder is now a no-op.
+  return null;
 }
 
 /**

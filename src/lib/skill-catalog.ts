@@ -64,11 +64,6 @@ export const SKILL_CATALOG: SkillDefinition[] = [
         type: "business_model_is",
         values: ["SaaS", "App móvil", "Plataforma", "Marketplace", "API/Infra", "E-commerce"],
       },
-      {
-        type: "phase_artifact_contains",
-        phaseType: "DEVELOPMENT",
-        keywords: ["stack", "tecnología", "arquitectura", "MVP"],
-      },
     ],
   },
   {

@@ -25,8 +25,6 @@ export const PHASE_TO_AGENT: Record<string, string> = {
   ANALYSIS: "project-analyst",
   IDENTITY: "project-branding",
   CONTENT: "project-content",
-  DEVELOPMENT: "project-dev",
-  DOSSIER: "project-dossier",
   BUSINESS: "project-business",
   EXECUTION: "project-execution",
 };

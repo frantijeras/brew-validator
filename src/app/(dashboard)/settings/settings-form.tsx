@@ -289,8 +289,6 @@ const DEFAULT_AGENT_MODELS: Record<string, string> = {
   "project-analyst": "opencode-zen-free/deepseek-v4-flash-free",
   "project-branding": "opencode-zen-free/deepseek-v4-flash-free",
   "project-content": "opencode-zen-free/deepseek-v4-flash-free",
-  "project-dev": "opencode-zen-free/deepseek-v4-flash-free",
-  "project-dossier": "opencode-zen-free/deepseek-v4-flash-free",
   "project-business": "opencode-zen-free/deepseek-v4-flash-free",
   "project-execution": "opencode-zen-free/deepseek-v4-flash-free",
   "project-skills": "opencode-zen-free/deepseek-v4-flash-free",
@@ -331,6 +329,11 @@ const PROJECT_AGENT_INFO: { id: string; name: string; description: string }[] = 
     description: "Analiza el mercado, competencia, TAM/SAM/SOM y genera estrategia de entrada.",
   },
   {
+    id: "project-business",
+    name: "Estrategia de Negocio",
+    description: "Lean Canvas, modelo de ingresos, pricing y propuesta de valor estratégica.",
+  },
+  {
     id: "project-branding",
     name: "Branding / Identidad",
     description: "Define naming, tono de voz, personalidad y estilo visual del proyecto.",
@@ -339,21 +342,6 @@ const PROJECT_AGENT_INFO: { id: string; name: string; description: string }[] = 
     id: "project-content",
     name: "Contenido y Publicación",
     description: "Genera estrategia de contenido, skill de publicación y landing promocional.",
-  },
-  {
-    id: "project-dev",
-    name: "Desarrollo Técnico",
-    description: "Plan técnico, stack, arquitectura y skill de desarrollo con contexto completo.",
-  },
-  {
-    id: "project-dossier",
-    name: "Dossier Completo",
-    description: "Compila todo el proyecto en un documento único y ejecutable.",
-  },
-  {
-    id: "project-business",
-    name: "Estrategia de Negocio",
-    description: "Lean Canvas, modelo de ingresos, pricing y propuesta de valor estratégica.",
   },
   {
     id: "project-execution",

@@ -194,31 +194,33 @@ export function QuestionStep({
           })}
           {/* Opcion "Otro" con campo de texto */}
           <label
-            className={`relative flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
+            className={`relative flex cursor-pointer flex-col rounded-lg border px-3 py-2.5 text-sm transition-colors ${
               choiceCustomSelected
                 ? "border-amber-500 bg-amber-500/10 text-white"
                 : "border-slate-700 bg-slate-800 text-slate-200 hover:border-slate-600"
             }`}
           >
-            <input
-              type="radio"
-              name={question.id}
-              value={CUSTOM_VALUE}
-              checked={choiceCustomSelected}
-              onChange={() => handleChoiceChange(CUSTOM_VALUE)}
-              className="size-4 cursor-pointer accent-amber-500 relative z-10"
-            />
-            <span>Respuesta personalizada</span>
+            <div className="flex items-center gap-2.5">
+              <input
+                type="radio"
+                name={question.id}
+                value={CUSTOM_VALUE}
+                checked={choiceCustomSelected}
+                onChange={() => handleChoiceChange(CUSTOM_VALUE)}
+                className="size-4 cursor-pointer accent-amber-500 relative z-10"
+              />
+              <span>Respuesta personalizada</span>
+            </div>
+            {choiceCustomSelected && (
+              <textarea
+                value={customText}
+                onChange={(e) => handleCustomTextChange(e.target.value)}
+                placeholder="Escribe tu respuesta..."
+                rows={3}
+                className="mt-2 w-full rounded-lg border border-amber-500/40 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"
+              />
+            )}
           </label>
-          {choiceCustomSelected && (
-            <textarea
-              value={customText}
-              onChange={(e) => handleCustomTextChange(e.target.value)}
-              placeholder="Escribe tu respuesta..."
-              rows={3}
-              className="ml-8 w-[calc(100%-2rem)] rounded-lg border border-amber-500/40 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"
-            />
-          )}
         </div>
       )}
 
@@ -252,29 +254,31 @@ export function QuestionStep({
           })}
           {/* Opcion "Otro" con campo de texto */}
           <label
-            className={`relative flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition-colors ${
+            className={`relative flex cursor-pointer flex-col rounded-lg border px-3 py-2.5 text-sm transition-colors ${
               multiCustomSelected
                 ? "border-amber-500 bg-amber-500/10 text-white"
                 : "border-slate-700 bg-slate-800 text-slate-200 hover:border-slate-600"
             }`}
           >
-            <input
-              type="checkbox"
-              checked={multiCustomSelected}
-              onChange={() => handleMultiToggle(CUSTOM_VALUE)}
-              className="size-4 cursor-pointer accent-amber-500 relative z-10"
-            />
-            <span>Respuesta personalizada</span>
+            <div className="flex items-center gap-2.5">
+              <input
+                type="checkbox"
+                checked={multiCustomSelected}
+                onChange={() => handleMultiToggle(CUSTOM_VALUE)}
+                className="size-4 cursor-pointer accent-amber-500 relative z-10"
+              />
+              <span>Respuesta personalizada</span>
+            </div>
+            {multiCustomSelected && (
+              <textarea
+                value={multiCustomText}
+                onChange={(e) => handleMultiCustomTextChange(e.target.value)}
+                placeholder="Escribe tu respuesta..."
+                rows={3}
+                className="mt-2 w-full rounded-lg border border-amber-500/40 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"
+              />
+            )}
           </label>
-          {multiCustomSelected && (
-            <textarea
-              value={multiCustomText}
-              onChange={(e) => handleMultiCustomTextChange(e.target.value)}
-              placeholder="Escribe tu respuesta..."
-              rows={3}
-              className="ml-8 w-[calc(100%-2rem)] rounded-lg border border-amber-500/40 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"
-            />
-          )}
         </div>
       )}
     </div>

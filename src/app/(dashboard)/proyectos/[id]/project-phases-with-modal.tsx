@@ -12,7 +12,6 @@ import {
   Palette,
   TrendingUp,
   Code,
-  FileDown,
   RefreshCw,
   HelpCircle,
   X,
@@ -73,7 +72,6 @@ const phaseIcons: Record<string, React.ReactNode> = {
   IDENTITY: <Palette className="size-5" />,
   ANALYSIS: <TrendingUp className="size-5" />,
   CONTENT: <FileText className="size-5" />,
-  DOSSIER: <FileDown className="size-5" />,
   BUSINESS: <BriefcaseBusiness className="size-5" />,
   EXECUTION: <Rocket className="size-5" />,
 };
@@ -82,7 +80,6 @@ const phaseColors: Record<string, string> = {
   IDENTITY: "text-purple-400 border-purple-500/30",
   ANALYSIS: "text-blue-400 border-blue-500/30",
   CONTENT: "text-amber-400 border-amber-500/30",
-  DOSSIER: "text-rose-400 border-rose-500/30",
   BUSINESS: "text-cyan-400 border-cyan-500/30",
   EXECUTION: "text-orange-400 border-orange-500/30",
 };
@@ -91,7 +88,6 @@ const phaseBgColors: Record<string, string> = {
   IDENTITY: "bg-purple-500/10",
   ANALYSIS: "bg-blue-500/10",
   CONTENT: "bg-amber-500/10",
-  DOSSIER: "bg-rose-500/10",
   BUSINESS: "bg-cyan-500/10",
   EXECUTION: "bg-orange-500/10",
 };

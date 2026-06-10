@@ -23,9 +23,7 @@ const DEFAULT_MODELS: Record<string, string> = {
   "project-analyst": "opencode-go/deepseek-v4-flash",
   "project-branding": "opencode-go/deepseek-v4-flash",
   "project-content": "opencode-go/deepseek-v4-flash",
-  "project-dev": "opencode-go/deepseek-v4-flash",
-  "project-dossier": "opencode-go/deepseek-v4-flash",
-};
+}
 
 async function readConfigFromFile(): Promise<Record<string, string> | null> {
   try {
