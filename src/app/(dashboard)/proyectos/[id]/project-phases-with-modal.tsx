@@ -451,6 +451,14 @@ export function ProjectPhasesWithModal({
           const hasQuestions = isQuestioning && questions && questions.length > 0;
           const hasArtifacts = isCompleted && artifacts && artifacts.length > 0;
 
+          // Label contextual para el spinner de procesamiento.
+          // Si la fase ya tiene preguntas generadas -> "Generando informe..."
+          // Si esta arrancando (no hay preguntas) -> "Generando preguntas..."
+          const processingLabel =
+            phase.questions && Array.isArray(phase.questions) && phase.questions.length > 0
+              ? "Generando informe..."
+              : "Generando preguntas...";
+
           const reviewLabel =
             (phase.subStep && subStepReviewLabels[phase.subStep]) || "Revisar sub-paso";
 
@@ -552,6 +560,7 @@ export function ProjectPhasesWithModal({
               // FIX 1: No pasamos artifacts al PhaseCard para fases completadas
               // porque las acciones "Ver" + "Descargar PDF" ya cubren la descarga.
               // Así evitamos el enlace duplicado en forma de chip de artefacto.
+              statusLabel={isProcessing ? processingLabel : undefined}
               artifacts={undefined}
               lastError={phase.lastError}
               actions={(() => {
