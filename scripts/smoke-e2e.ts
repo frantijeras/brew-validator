@@ -1010,6 +1010,125 @@ async function testHandoffBuilder() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// MODULE 11: phase-context-parser.ts — densidad de contexto
+// ═══════════════════════════════════════════════════════════════════════
+section("11. phase-context-parser.ts — densidad de contexto (U8)");
+
+async function testPhaseContextParser() {
+  const {
+    stripNoiseSections,
+    truncatePreservingHeadings,
+    parsePhaseArtifact,
+    parsePreviousPhaseArtifacts,
+    buildConsolidatedContext,
+    DEFAULT_MAX_CHARS_PER_PHASE,
+  } = await import("../src/lib/phase-context-parser");
+
+  // ── stripNoiseSections: descarta quiz/preguntas/debates ──
+  const withNoise = [
+    "## Resumen ejecutivo",
+    "Este es el resultado consolidado de la fase.",
+    "",
+    "## Quiz de validación",
+    "1. ¿Pregunta uno? a) sí b) no",
+    "2. ¿Pregunta dos? a) sí b) no",
+    "",
+    "## Conclusiones",
+    "Las conclusiones finales del análisis.",
+    "",
+    "## Debate interno",
+    "Argumento a favor vs argumento en contra.",
+  ].join("\n");
+
+  const stripped = stripNoiseSections(withNoise);
+  assert(stripped.includes("Resumen ejecutivo"), tc("strip: conserva 'Resumen ejecutivo'"));
+  assert(stripped.includes("Conclusiones"), tc("strip: conserva 'Conclusiones'"));
+  assert(!stripped.includes("Quiz de validación"), tc("strip: elimina encabezado 'Quiz'"));
+  assert(!stripped.includes("¿Pregunta uno?"), tc("strip: elimina cuerpo del quiz"));
+  assert(!stripped.includes("Debate interno"), tc("strip: elimina sección 'Debate'"));
+  assert(!stripped.includes("Argumento a favor"), tc("strip: elimina cuerpo del debate"));
+
+  // Contenido sin encabezados markdown → se devuelve intacto
+  const plain = "Texto plano sin encabezados, debe conservarse tal cual.";
+  assert(stripNoiseSections(plain) === plain, tc("strip: texto sin encabezados intacto"));
+
+  // ── truncatePreservingHeadings: recorta y conserva encabezados ──
+  const longSections = [
+    "## Sección A",
+    "x".repeat(2000),
+    "## Sección B",
+    "y".repeat(2000),
+    "## Sección C",
+    "z".repeat(2000),
+  ].join("\n");
+
+  const truncated = truncatePreservingHeadings(longSections, 1500);
+  assert(truncated.length <= 1500, tc("truncate: respeta el máximo de caracteres"));
+  assert(truncated.includes("## Sección A"), tc("truncate: conserva el primer encabezado"));
+  assert(truncated.includes("…"), tc("truncate: añade marcador de recorte"));
+
+  // Contenido corto → sin recorte ni marcador
+  const shortMd = "## Título\n\nContenido breve.";
+  const notTruncated = truncatePreservingHeadings(shortMd, DEFAULT_MAX_CHARS_PER_PHASE);
+  assert(notTruncated === shortMd, tc("truncate: contenido corto se devuelve igual"));
+  assert(!notTruncated.includes("…"), tc("truncate: sin marcador si no hubo recorte"));
+
+  // Recorte sin encabezados (corte por longitud)
+  const longPlain = "palabra ".repeat(1000);
+  const cutPlain = truncatePreservingHeadings(longPlain, 200);
+  assert(cutPlain.length <= 200, tc("truncate: corte por longitud sin encabezados"));
+  assert(cutPlain.includes("…"), tc("truncate: marcador en corte plano"));
+
+  // ── parsePhaseArtifact: limpia + acota un artefacto ──
+  const artifact = {
+    title: "Informe de Análisis",
+    content: [
+      "## Mercado",
+      "z".repeat(3000),
+      "## Preguntas del quiz",
+      "¿Cuál es tu target? a) X b) Y",
+    ].join("\n"),
+  };
+  const parsed = parsePhaseArtifact(artifact, { maxCharsPerPhase: 1000 });
+  assert(parsed !== null, tc("parsePhaseArtifact: devuelve resumen no nulo"));
+  assert(parsed!.title === "Informe de Análisis", tc("parsePhaseArtifact: conserva el título"));
+  assert(parsed!.summary.length <= 1000, tc("parsePhaseArtifact: acota a maxChars"));
+  assert(parsed!.summary.includes("## Mercado"), tc("parsePhaseArtifact: conserva encabezado clave"));
+  assert(!parsed!.summary.includes("quiz"), tc("parsePhaseArtifact: descarta sección de quiz"));
+
+  // Artefacto vacío tras limpiar → null
+  const emptyArtifact = parsePhaseArtifact({ title: "Vacío", content: "## Quiz\nsolo ruido" });
+  assert(emptyArtifact === null, tc("parsePhaseArtifact: solo ruido → null"));
+
+  // ── parsePreviousPhaseArtifacts: lista completa ──
+  const list = parsePreviousPhaseArtifacts([
+    { title: "Fase 1", content: "## Resultado\nConsolidado uno." },
+    { title: "Fase 2", content: "## Quiz\n¿pregunta?" }, // solo ruido → descartada
+    { title: "Fase 3", content: "## Resultado\nConsolidado tres." },
+  ]);
+  assert(list.length === 2, tc("parsePrevious: descarta fases vacías tras limpiar"));
+  assert(list[0].title === "Fase 1", tc("parsePrevious: mantiene el orden"));
+  assert(list[1].title === "Fase 3", tc("parsePrevious: salta la fase de solo ruido"));
+
+  // Entrada no-array → []
+  assert(
+    parsePreviousPhaseArtifacts(undefined as unknown as []).length === 0,
+    tc("parsePrevious: entrada inválida → []")
+  );
+
+  // ── Determinismo: mismo input → mismo output ──
+  const a = parsePreviousPhaseArtifacts([{ title: "X", content: longSections }], { maxCharsPerPhase: 1200 });
+  const b = parsePreviousPhaseArtifacts([{ title: "X", content: longSections }], { maxCharsPerPhase: 1200 });
+  assert(JSON.stringify(a) === JSON.stringify(b), tc("parser: es determinista"));
+
+  // ── buildConsolidatedContext: string inyectable ──
+  const consolidated = buildConsolidatedContext(list);
+  assert(consolidated.includes("## Fase 1"), tc("consolidate: incluye título de fase"));
+  assert(consolidated.includes("---"), tc("consolidate: separa fases con ---"));
+  assert(consolidated.includes("Consolidado uno"), tc("consolidate: incluye contenido"));
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // MAIN
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -1031,6 +1150,7 @@ async function main() {
     await testBrandBook();
     await testProjectMemory();
     await testAgentContextRules();
+    await testPhaseContextParser();
     await testHandoffBuilder();
   } catch (err) {
     console.log(`\n  ❌ FATAL ERROR: ${err}`);
