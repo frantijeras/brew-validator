@@ -21,6 +21,7 @@ model User {
   sessions      Session[]
   settings      Setting[]
   ideas         Idea[]
+  notifications Notification[]
 }
 
 model Session {
@@ -214,10 +215,34 @@ model BridgeLog {
   tokensIn         Int?
   tokensOut        Int?
   latencyMs        Int?
+  schemaVersion    String? // versión del esquema esperado (evolución futura)
 
   @@index([createdAt])
   @@index([projectId])
   @@index([jobId])
+}
+
+/// Notificación in-app para el usuario. La usa la capa 4 del feedback del
+/// Bridge (Puente con las APIs de IA): ante un error crítico (3+ reintentos
+/// fallidos) se crea una fila aquí y la campanita del dashboard la muestra.
+/// Sin clave foránea dura a Project/Phase (referencias sueltas) para no
+/// acoplar la notificación al ciclo de vida de esas entidades.
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  projectId String?
+  phaseId   String?
+  level     String   @default("error") // "error" | "warning" | "info"
+  title     String
+  body      String
+  errorType String? // categoría estable (ver lib/phase-errors.ts ErrorCategory)
+  actionUrl String? // enlace recomendado de acción (p. ej. a la fase afectada)
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([createdAt])
 }
 
 enum IdeaStatus {
