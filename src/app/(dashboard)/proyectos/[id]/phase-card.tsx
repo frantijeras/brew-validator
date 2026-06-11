@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Check, Download, FileText, Loader2, AlertTriangle } from "lucide-react";
 import type { PhaseError } from "@/lib/phase-errors";
-import { errorLabels, formatErrorTimestamp } from "@/lib/phase-errors";
+import { errorLabel, formatErrorTimestamp } from "@/lib/phase-errors";
 
 /**
  * PhaseCard — Tarjeta rediseñada (v5: acciones responsive) para una fase
@@ -322,7 +322,7 @@ export function PhaseCard({
           <div className="flex items-center gap-2">
             <AlertTriangle className="size-3.5 text-red-400" />
             <span className="text-xs font-medium text-red-300">
-              {errorLabels[lastError.category]}
+              {errorLabel(lastError.category)}
             </span>
           </div>
           <p className="mt-1 text-[11px] text-red-300/70">

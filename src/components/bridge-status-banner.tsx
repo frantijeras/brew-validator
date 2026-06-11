@@ -3,6 +3,7 @@
 import { AlertCircle, WifiOff, X } from "lucide-react";
 import { useBridgeStatus } from "@/hooks/use-bridge-status";
 import { useState, useEffect } from "react";
+import { classifyError, getErrorMeta, type ErrorMeta } from "@/lib/phase-errors";
 
 /**
  * Banner that shows bridge status with real feedback:
@@ -13,143 +14,24 @@ import { useState, useEffect } from "react";
  * The banner is dismissible with the X button. When dismissed, the banner
  * stays hidden for the rest of the session. Reloading the page re-evaluates
  * the bridge status.
+ *
+ * La clasificación del error vive en `@/lib/phase-errors` (fuente única,
+ * compartida con los callbacks y el resto de la UI).
  */
-
-type ErrorCategory = {
-  label: string;
-  description: string;
-  hint?: string;
-};
 
 /**
- * Parsea el `lastError` y devuelve una categoría legible. La heurística
- * mira palabras clave en el mensaje crudo del bridge. Si no encaja con
- * ninguna, devuelve "Error desconocido" con el mensaje tal cual.
+ * Deriva los metadatos legibles a partir del `lastError` crudo del bridge.
+ * Usa la heurística unificada de `phase-errors`. Si no hay mensaje, muestra
+ * un texto neutro de "sin detalle".
  */
-function classifyError(raw: string | null | undefined): ErrorCategory {
-  const text = (raw ?? "").toLowerCase();
-
-  if (!text) {
+function classifyBannerError(raw: string | null | undefined): ErrorMeta {
+  if (!raw) {
     return {
       label: "Error sin detalle",
       description: "El agente falló sin devolver un mensaje concreto.",
     };
   }
-
-  // Timeout
-  if (text.includes("timeout") || text.includes("timed out")) {
-    return {
-      label: "Timeout",
-      description: "El agente tardó más del límite permitido y fue cancelado.",
-      hint: "Suele pasar con tareas largas (análisis con búsqueda web, generación de informes extensos). Puedes reintentar la fase o aumentar el timeout del job.",
-    };
-  }
-
-  // Rate limit
-  if (
-    text.includes("rate limit") ||
-    text.includes("rate_limit") ||
-    text.includes("429") ||
-    text.includes("too many requests")
-  ) {
-    return {
-      label: "Rate limit",
-      description: "El proveedor de IA rechazó la petición por exceso de llamadas.",
-      hint: "Espera unos minutos y reintenta. Si persiste, reduce la frecuencia de jobs concurrentes.",
-    };
-  }
-
-  // Sin tokens / créditos
-  if (
-    text.includes("insufficient_quota") ||
-    text.includes("quota exceeded") ||
-    text.includes("credit") ||
-    text.includes("billing") ||
-    text.includes("payment required") ||
-    text.includes("402") ||
-    text.includes("no credits")
-  ) {
-    return {
-      label: "Sin créditos",
-      description: "La cuenta del proveedor de IA no tiene saldo suficiente.",
-      hint: "Revisa la consola de tu proveedor (OpenRouter, OpenAI, etc.) y recarga saldo o cambia de modelo.",
-    };
-  }
-
-  // API key inválida
-  if (
-    text.includes("invalid api key") ||
-    text.includes("unauthorized") ||
-    text.includes("401") ||
-    text.includes("403") ||
-    text.includes("forbidden")
-  ) {
-    return {
-      label: "API key inválida",
-      description: "El bridge no pudo autenticarse con el proveedor de IA.",
-      hint: "Comprueba que las API keys del bridge están bien configuradas y tienen los scopes correctos.",
-    };
-  }
-
-  // Modelo no disponible
-  if (
-    text.includes("model not found") ||
-    text.includes("model_not_found") ||
-    text.includes("model does not exist") ||
-    text.includes("invalid model")
-  ) {
-    return {
-      label: "Modelo no disponible",
-      description: "El modelo de IA configurado no existe o no es accesible.",
-      hint: "Cambia el modelo en la configuración del agente (en /settings o en agent-models).",
-    };
-  }
-
-  // Error de servidor upstream
-  if (
-    text.includes("500") ||
-    text.includes("502") ||
-    text.includes("503") ||
-    text.includes("504") ||
-    text.includes("internal server error") ||
-    text.includes("bad gateway") ||
-    text.includes("service unavailable") ||
-    text.includes("upstream")
-  ) {
-    return {
-      label: "Error del servidor",
-      description: "El proveedor de IA devolvió un error 5xx. Es un fallo del proveedor, no tuyo.",
-      hint: "Reintenta en unos minutos. Si persiste, prueba con otro modelo o proveedor.",
-    };
-  }
-
-  // JSON inválido / respuesta mal formada
-  if (
-    text.includes("json") ||
-    text.includes("parse") ||
-    text.includes("unexpected token") ||
-    text.includes("invalid response")
-  ) {
-    return {
-      label: "Respuesta inválida",
-      description: "El agente devolvió una respuesta que el bridge no pudo procesar.",
-      hint: "Reintenta. Si persiste, el prompt de la skill puede estar generando respuestas inconsistentes.",
-    };
-  }
-
-  // Cancelado por el usuario
-  if (text.includes("cancel")) {
-    return {
-      label: "Cancelado",
-      description: "El job fue cancelado antes de terminar.",
-    };
-  }
-
-  // Genérico
-  return {
-    label: "Error del agente",
-    description: raw ?? "Error desconocido.",
-  };
+  return getErrorMeta(classifyError(raw));
 }
 
 export function BridgeStatusBanner() {
@@ -200,7 +82,7 @@ export function BridgeStatusBanner() {
     return null;
   }
 
-  const err = classifyError(status.lastError);
+  const err = classifyBannerError(status.lastError);
 
   // ── Bridge reachable but last job had an error ──
   if (status.reachable && status.state === "error") {
