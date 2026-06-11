@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -280,7 +280,57 @@ export function ProjectPhasesWithModal({
   const [showMemoryModal, setShowMemoryModal] = useState(false);
   const [savingMemory, setSavingMemory] = useState(false);
   const [editFields, setEditFields] = useState<Record<string, string>>({});
+  // Error message per sub-step launch, keyed by `${phaseId}:${subStepId}`.
+  const [subStepErrors, setSubStepErrors] = useState<Record<string, string>>({});
+  // In-flight guard so a double-click can't fire two execute-phase jobs.
+  const inFlightSubSteps = useRef<Set<string>>(new Set());
   const router = useRouter();
+
+  // Launch an IDENTITY/quiz sub-step. Guards against double-submission and
+  // surfaces network/API errors instead of swallowing them (previously a
+  // bare `.catch(() => {})` left the UI stale on failure).
+  const runSubStep = useCallback(
+    async (
+      phaseId: string,
+      phaseType: string,
+      subStepId: string,
+      mode: "report" | "questions"
+    ) => {
+      const key = `${phaseId}:${subStepId}`;
+      if (inFlightSubSteps.current.has(key)) return;
+      inFlightSubSteps.current.add(key);
+      setSubStepErrors((prev) => {
+        if (!prev[key]) return prev;
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      try {
+        const res = await fetch("/api/projects/execute-phase", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectId, phaseId, phaseType, mode, subStep: subStepId }),
+        });
+        if (res.ok) {
+          router.refresh();
+        } else {
+          const data = await res.json().catch(() => ({}));
+          setSubStepErrors((prev) => ({
+            ...prev,
+            [key]: data?.error || "No se pudo iniciar el sub-paso. Inténtalo de nuevo.",
+          }));
+        }
+      } catch {
+        setSubStepErrors((prev) => ({
+          ...prev,
+          [key]: "Error de conexión. Inténtalo de nuevo.",
+        }));
+      } finally {
+        inFlightSubSteps.current.delete(key);
+      }
+    },
+    [projectId, router]
+  );
 
   // Sync localMemory when parent memory changes
   useEffect(() => {
@@ -500,23 +550,8 @@ export function ProjectPhasesWithModal({
                   const isIdentitySubStep = ["naming", "voice", "visual"].includes(meta.id);
                   if (isIdentitySubStep || meta.order === 0) {
                     const executeMode = isIdentitySubStep ? "report" : "questions";
-                    onAction = () => {
-                      fetch("/api/projects/execute-phase", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          projectId,
-                          phaseId: phase.id,
-                          phaseType: phase.type,
-                          mode: executeMode,
-                          subStep: meta.id,
-                        }),
-                      })
-                        .then((res) => {
-                          if (res.ok) router.refresh();
-                        })
-                        .catch(() => {});
-                    };
+                    onAction = () =>
+                      runSubStep(phase.id, phase.type, meta.id, executeMode);
                   }
                 }
               } else if (sStatus === "substep_ready") {
@@ -524,6 +559,7 @@ export function ProjectPhasesWithModal({
                   setSubstepModalPhase({ ...phase, subStepArtifact });
               }
 
+              const subStepErrorKey = `${phase.id}:${meta.id}`;
               return (
                 <SubStepCard
                   key={meta.id}
@@ -536,6 +572,7 @@ export function ProjectPhasesWithModal({
                   executeLabel={executeLabel}
                   reviewLabel={reviewLabel}
                   processingMessage={processingMsg}
+                  errorMessage={subStepErrors[subStepErrorKey]}
                 />
               );
             });

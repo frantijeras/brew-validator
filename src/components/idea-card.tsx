@@ -39,6 +39,7 @@ export function IdeaCard({
   const [isArchived, setIsArchived] = useState(idea.isArchived);
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [converting, setConverting] = useState(false);
 
   const menuRef = useRef<HTMLDivElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -234,9 +235,12 @@ export function IdeaCard({
                   {/* Convertir a proyecto — only when COMPLETED */}
                   {idea.status === "COMPLETED" && (
                     <button
+                      disabled={converting}
                       onClick={async (e) => {
                         e.preventDefault();
                         e.stopPropagation();
+                        if (converting) return;
+                        setConverting(true);
                         closeMenu();
                         try {
                           const res = await fetch("/api/projects/create", {
@@ -245,17 +249,21 @@ export function IdeaCard({
                             body: JSON.stringify({ ideaId: idea.id }),
                           });
                           const data = await res.json();
-                          if (res.ok || res.status === 409) {
+                          if ((res.ok || res.status === 409) && data.projectId) {
                             router.push(`/proyectos/${data.projectId}`);
+                            return; // navigating away — keep button disabled
                           }
+                          console.error("[Convert to project]", data?.error || res.status);
+                          setConverting(false);
                         } catch (err) {
                           console.error("[Convert to project]", err);
+                          setConverting(false);
                         }
                       }}
-                      className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Rocket className="size-4 text-amber-400" />
-                      Convertir a proyecto
+                      {converting ? "Convirtiendo…" : "Convertir a proyecto"}
                     </button>
                   )}
 

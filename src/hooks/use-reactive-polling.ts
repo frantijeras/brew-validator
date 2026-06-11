@@ -21,7 +21,12 @@ export function useReactivePolling(active: boolean, intervalMs = 3000) {
   useEffect(() => {
     if (!active) return;
 
-    const refresh = () => router.refresh();
+    // Guard against firing router.refresh() after the component unmounts (e.g.
+    // the user navigates away between a queued tick and cleanup).
+    let mounted = true;
+    const refresh = () => {
+      if (mounted) router.refresh();
+    };
     const onVisibility = () => {
       if (document.visibilityState === "visible") refresh();
     };
@@ -31,6 +36,7 @@ export function useReactivePolling(active: boolean, intervalMs = 3000) {
     document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
+      mounted = false;
       clearInterval(interval);
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", onVisibility);

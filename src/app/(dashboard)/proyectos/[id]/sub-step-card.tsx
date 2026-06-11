@@ -19,6 +19,7 @@ import {
   Code as CodeIcon,
   PlayCircle,
   Rocket,
+  AlertTriangle,
   type LucideIcon,
 } from "lucide-react";
 import { type SubStepMeta } from "@/lib/phase-substeps";
@@ -42,6 +43,8 @@ export interface SubStepCardProps {
   executeLabel?: string;
   processingMessage?: string;
   processingEta?: string;
+  /** Mensaje de error de la última acción fallida; muestra un banner + reintento. */
+  errorMessage?: string;
 }
 
 /** Mapa estático de nombres de iconos a componentes Lucide. */
@@ -193,6 +196,7 @@ export function SubStepCard({
   executeLabel = "Iniciar",
   processingMessage = "Generando...",
   processingEta = "~2-3 min",
+  errorMessage,
 }: SubStepCardProps) {
   const badge = statusBadgeConfig[status];
   const StatusIcon = badge.Icon;
@@ -326,6 +330,26 @@ export function SubStepCard({
         <div className="mt-3 w-full md:hidden flex items-center gap-1 text-xs font-medium text-green-400">
           <CheckCircle className="size-4" />
           Hecho
+        </div>
+      )}
+
+      {errorMessage && (
+        <div
+          role="alert"
+          className="mt-3 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300"
+        >
+          <AlertTriangle className="size-3.5 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p>{errorMessage}</p>
+            {onAction && (
+              <button
+                onClick={onAction}
+                className="mt-1 font-medium text-red-200 underline underline-offset-2 hover:text-white"
+              >
+                Reintentar
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

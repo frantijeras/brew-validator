@@ -169,6 +169,12 @@ export function PhaseSubstepModal({
     "rendered"
   );
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  // Aborts in-flight rename/preview requests when the modal unmounts, so we
+  // never call setState on an unmounted component or act on a stale response.
+  const renameAbortRef = useRef<AbortController | null>(null);
+  useEffect(() => {
+    return () => renameAbortRef.current?.abort();
+  }, []);
 
   // ── Visual sub-step state (IDENTITY visual only) ──
   // The `visual` sub-step has its own rendering: 3 tabs (A/B/C), one
@@ -357,10 +363,11 @@ export function PhaseSubstepModal({
   async function fetchRenamePreview(choice: string) {
     setPreviewLoading(true);
     setError(null);
+    renameAbortRef.current = new AbortController();
     try {
       const res = await fetch(
         `/api/projects/${projectId}/rename/preview?newName=${encodeURIComponent(choice)}`,
-        { method: "GET" }
+        { method: "GET", signal: renameAbortRef.current.signal }
       );
       const data: RenamePreviewResponse = await res.json();
       if (!res.ok) {
@@ -384,6 +391,8 @@ export function PhaseSubstepModal({
       setPendingName(choice);
       setRenamePreview(data);
     } catch (err) {
+      // Modal closed mid-request — drop silently, don't touch state.
+      if (err instanceof DOMException && err.name === "AbortError") return;
       console.warn("[rename/preview] network error, falling through:", err);
       await performRename(choice, { suppressErrors: true });
     } finally {
@@ -402,12 +411,14 @@ export function PhaseSubstepModal({
   ) {
     setSubmitting(true);
     setError(null);
+    renameAbortRef.current = new AbortController();
     try {
       // 1) First do RENAME — the endpoint verifies we're still in "naming" sub-step
       const renameRes = await fetch(`/api/projects/${projectId}/rename`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ newName: choice, phaseId }),
+        signal: renameAbortRef.current.signal,
       });
       const renameData: RenameResponse = await renameRes.json();
 
@@ -453,6 +464,8 @@ export function PhaseSubstepModal({
       window.dispatchEvent(new CustomEvent("project-changed"));
       router.refresh();
     } catch (err) {
+      // Modal closed mid-request — drop silently.
+      if (err instanceof DOMException && err.name === "AbortError") return;
       if (!options.suppressErrors) {
         setError(err instanceof Error ? err.message : "Error de conexión");
       }
