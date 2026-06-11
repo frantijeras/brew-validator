@@ -6,6 +6,10 @@ import type { NextAuthConfig } from "next-auth";
  * The providers array is empty here; Credentials provider is added in auth.ts.
  */
 export const authConfig: NextAuthConfig = {
+  // Self-hosted (next start tras build de producción): Auth.js no confía en el
+  // host por defecto fuera de `next dev`, lo que provoca UntrustedHost al
+  // servir por localhost o por la IP de la LAN. Confiamos en el host del deploy.
+  trustHost: true,
   session: { strategy: "jwt" },
   pages: {
     signIn: "/login",

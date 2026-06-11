@@ -18,13 +18,13 @@ const CONFIG_PATH = path.resolve(
 const BRIDGE_URL = process.env.BRIDGE_API_URL ?? "http://127.0.0.1:9090";
 
 // Default models used as fallback when nothing is configured.
-// big-pickle is currently the only free model that still works (as of 2026-06).
+// Se usan modelos gratuitos (-free) presentes en la lista de modelos disponibles.
 const DEFAULT_MODELS: Record<string, string> = {
-  generator: "opencode-zen-free/big-pickle",
-  skeptic: "opencode-zen-free/big-pickle",
-  defender: "opencode-zen-free/big-pickle",
-  judge: "opencode-zen-free/big-pickle",
-  refiner: "opencode-zen-free/big-pickle",
+  generator: "opencode-zen-free/deepseek-v4-flash-free",
+  skeptic: "opencode-zen-free/deepseek-v4-flash-free",
+  defender: "opencode-zen-free/deepseek-v4-flash-free",
+  judge: "opencode-zen-free/minimax-m3-free",
+  refiner: "opencode-zen-free/deepseek-v4-flash-free",
   "project-analyst": "opencode-go/deepseek-v4-flash",
   "project-branding": "opencode-go/deepseek-v4-flash",
   "project-content": "opencode-go/deepseek-v4-flash",

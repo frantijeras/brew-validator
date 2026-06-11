@@ -1,11 +1,11 @@
 import { prisma } from "./db";
 
 const AGENT_DEFAULTS: Record<string, string> = {
-  generator: "opencode-zen-free/big-pickle",
-  skeptic: "opencode-zen-free/big-pickle",
-  defender: "opencode-zen-free/big-pickle",
-  judge: "opencode-zen-free/big-pickle",
-  refiner: "opencode-zen-free/big-pickle",
+  generator: "opencode-zen-free/deepseek-v4-flash-free",
+  skeptic: "opencode-zen-free/deepseek-v4-flash-free",
+  defender: "opencode-zen-free/deepseek-v4-flash-free",
+  judge: "opencode-zen-free/minimax-m3-free",
+  refiner: "opencode-zen-free/deepseek-v4-flash-free",
   "project-analyst": "opencode-go/deepseek-v4-flash",
   "project-branding": "opencode-go/deepseek-v4-flash",
   "project-content": "opencode-go/deepseek-v4-flash",

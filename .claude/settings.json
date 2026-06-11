@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Edit",
+      "Read",
+      "Glob",
+      "Grep",
+      "WebFetch",
+      "Bash(git *)",
+      "Bash(npm:*)",
+      "Bash(npm run *)",
+      "Bash(npx tsc *)",
+      "PowerShell(\"--- archivos ---\")",
+      "PowerShell(git reset -q HEAD .claude/settings.json .mcp.json)",
+      "PowerShell(\"Quitados del stage. Quedan staged:\")",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Skill(deep-research)",
+      "Skill(deep-research:*)",
+      "Workflow(deep-research)",
+      "WebSearch",
+      "Bash(cat /tmp/mcp-server-neon/CLAUDE.md 2>&1 | head -100)",
+      "Read(//tmp/mcp-server-neon/**)",
+      "Read(//tmp/**)",
+      "Bash(xargs grep -l \"OAuth\\\\|Keyv\")",
+      "Bash(grep -r \"OAuth 2.0\" /tmp/mcp-server-neon/CLAUDE.md)",
+      "Bash(find /tmp -name \"CLAUDE.md\" -type f 2>/dev/null | head -5)",
+      "Read(//c/tmp/**)",
+      "Bash(grep -r \"Keyv\\\\|keyv\" /tmp/mcp-server-neon/landing --include=\"*.ts\" --include=\"*.js\" | head -20)",
+      "Bash(cat \"/tmp/mcp-server-neon/CLAUDE.md\" | grep -A 20 -B 5 \"scope\" | head -60)",
+      "Bash(curl -s \"https://raw.githubusercontent.com/neondatabase/mcp-server-neon/main/CLAUDE.md\")",
+      "Bash(powershell -Command \"Write-Host 'Starting verification of MCP OAuth 2.1 claim'\")"
+    ],
+    "additionalDirectories": [
+      "C:\\proyectos\\brew-validator\\.git"
+    ]
+  }
+}

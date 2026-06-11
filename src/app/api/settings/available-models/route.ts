@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 
+// La lista se sirve siempre fresca: se consulta en vivo a opencode.ai en cada
+// petición (sin caché de Next), de modo que al abrir Ajustes —o pulsar el botón
+// "Actualizar"— se reflejan los modelos disponibles del momento.
+export const dynamic = "force-dynamic";
+
 // ── OpenClaw Zen free + OpenCode Go model catalog ─────────────────
 
 interface ModelOption {
@@ -15,6 +20,18 @@ interface RawModel {
   object?: string;
   created?: number;
   owned_by?: string;
+  deprecated?: boolean;
+  deprecation?: unknown;
+  status?: string;
+}
+
+// Un modelo está "en desuso" si la API lo marca con cualquiera de estos campos.
+function isDeprecated(m: RawModel): boolean {
+  return (
+    m.deprecated === true ||
+    m.deprecation != null ||
+    m.status === "deprecated"
+  );
 }
 
 // Labels for models where the auto-generated label from the ID is suboptimal
@@ -32,7 +49,8 @@ const MODEL_LABELS: Record<string, string> = {
   "minimax-m3": "MiniMax M3",
   "minimax-m2.5": "MiniMax M2.5",
   "minimax-m2.7": "MiniMax M2.7",
-  "nemotron-3-super-free": "Nemotron 3 Super (free)",
+  "nemotron-3-ultra-free": "Nemotron 3 Ultra (free)",
+  "north-mini-code-free": "North Mini Code (free)",
   "qwen3.6-plus-free": "Qwen 3.6 Plus (free)",
   "qwen3.6-plus": "Qwen 3.6 Plus",
   "qwen3.5-plus": "Qwen 3.5 Plus",
@@ -68,8 +86,13 @@ const ZEN_FREE_MODELS: ModelOption[] = [
     provider: "opencode-zen-free",
   },
   {
-    value: "opencode-zen-free/nemotron-3-super-free",
-    label: "Nemotron 3 Super (free)",
+    value: "opencode-zen-free/nemotron-3-ultra-free",
+    label: "Nemotron 3 Ultra (free)",
+    provider: "opencode-zen-free",
+  },
+  {
+    value: "opencode-zen-free/north-mini-code-free",
+    label: "North Mini Code (free)",
     provider: "opencode-zen-free",
   },
   {
@@ -139,17 +162,18 @@ function readAvailableModels(): ModelOption[] | null {
   }
 }
 
-async function fetchGoModels(): Promise<ModelOption[] | null> {
+// Descarga la lista cruda de modelos de un endpoint de opencode.ai.
+// El endpoint es público; se envía el Bearer solo si hay API key disponible.
+async function fetchRawModels(url: string): Promise<RawModel[] | null> {
   try {
     const apiKey = process.env.OPENCODE_API_KEY;
-    if (!apiKey) return null;
-
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
 
-    const res = await fetch("https://opencode.ai/zen/go/v1/models", {
-      headers: { Authorization: `Bearer ${apiKey}` },
+    const res = await fetch(url, {
+      headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
       signal: controller.signal,
+      cache: "no-store",
     });
     clearTimeout(timeout);
 
@@ -157,45 +181,64 @@ async function fetchGoModels(): Promise<ModelOption[] | null> {
 
     const data = await res.json();
     if (!data?.data || !Array.isArray(data.data)) return null;
-
-    return data.data
-      .filter((m: RawModel) => m.id)
-      .map((m: RawModel) => ({
-        value: `opencode-go/${m.id}`,
-        label: humanizeModelId(m.id),
-        provider: "opencode-go",
-      }));
+    return data.data as RawModel[];
   } catch {
     return null;
   }
 }
 
+// Lista completa de opencode-go (todos los modelos no deprecados).
+async function fetchGoModels(): Promise<ModelOption[] | null> {
+  const raw = await fetchRawModels("https://opencode.ai/zen/go/v1/models");
+  if (!raw) return null;
+  return raw
+    .filter((m) => m.id && !isDeprecated(m))
+    .map((m) => ({
+      value: `opencode-go/${m.id}`,
+      label: humanizeModelId(m.id),
+      provider: "opencode-go",
+    }));
+}
+
+// Modelos gratuitos cuyo id no acaba en "-free" pero sí lo son (excepciones).
+const ZEN_FREE_EXTRA_IDS = new Set(["big-pickle"]);
+
+// Modelos gratuitos de opencode-zen: id que acaba en "-free" (o excepción) y no deprecado.
+async function fetchZenFreeModels(): Promise<ModelOption[] | null> {
+  const raw = await fetchRawModels("https://opencode.ai/zen/v1/models");
+  if (!raw) return null;
+  const free = raw.filter(
+    (m) =>
+      m.id &&
+      (m.id.endsWith("-free") || ZEN_FREE_EXTRA_IDS.has(m.id)) &&
+      !isDeprecated(m)
+  );
+  if (free.length === 0) return null;
+  return free.map((m) => ({
+    value: `opencode-zen-free/${m.id}`,
+    label: humanizeModelId(m.id),
+    provider: "opencode-zen-free",
+  }));
+}
+
 // GET /api/settings/available-models — public, no auth required
 // Returns the list of available AI models (zen-free + opencode-go).
 export async function GET() {
-  const zenModels = readAvailableModels();
+  // zen-free: archivo local (VPS) > endpoint en vivo > lista fija de respaldo
+  const zenModels =
+    readAvailableModels() ?? (await fetchZenFreeModels()) ?? ZEN_FREE_MODELS;
 
-  // Fetch opencode-go models from live endpoint, fall back to hardcoded list
+  // opencode-go: endpoint en vivo > lista fija de respaldo
   const goModels = (await fetchGoModels()) ?? GO_MODELS_FALLBACK;
 
   const seen = new Set<string>();
   const merged: ModelOption[] = [];
 
-  // File models first (live from system — zen-free)
-  if (zenModels && zenModels.length > 0) {
-    for (const m of zenModels) {
-      if (!seen.has(m.value)) {
-        seen.add(m.value);
-        merged.push(m);
-      }
-    }
-  } else {
-    // No file available: use hardcoded zen-free list
-    for (const m of ZEN_FREE_MODELS) {
-      if (!seen.has(m.value)) {
-        seen.add(m.value);
-        merged.push(m);
-      }
+  // zen-free primero
+  for (const m of zenModels) {
+    if (!seen.has(m.value)) {
+      seen.add(m.value);
+      merged.push(m);
     }
   }
 

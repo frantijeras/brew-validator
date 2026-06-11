@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { ChevronRight, RefreshCw } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { ChevronRight, RefreshCw, Pencil, X, Plus } from "lucide-react";
 import { updateProfile, changePassword, addUser, saveAgentModels } from "./actions";
 
 interface UserData {
@@ -27,21 +28,56 @@ interface Props {
   isAdmin: boolean;
 }
 
+type ModelOption = { value: string; label: string; provider: string };
+type Message = { type: "success" | "error"; text: string } | null;
+
+const PROVIDER_LABELS: Record<string, string> = {
+  "opencode-zen-free": "OpenCode Zen Free",
+  "opencode-go": "OpenCode Go",
+};
+
 export function SettingsForm({ user, users, isAdmin }: Props) {
   return (
     <div className="space-y-8">
       <ProfileSection user={user} />
-      <PasswordSection />
       <AIModelSection />
       {isAdmin && <UsersSection users={users} />}
     </div>
   );
 }
 
-/* ── Profile Section ── */
+/* ── Shared UI ── */
+
+function Banner({ message }: { message: Message }) {
+  if (!message) return null;
+  return (
+    <div
+      className={`rounded-lg px-4 py-2.5 text-sm ${
+        message.type === "success"
+          ? "border border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+          : "border border-red-500/20 bg-red-500/10 text-red-400"
+      }`}
+    >
+      {message.text}
+    </div>
+  );
+}
+
+function initialsOf(name: string | null, email: string) {
+  return name
+    ? name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
+    : email.charAt(0).toUpperCase();
+}
+
+const inputClass =
+  "w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500";
+
+/* ── Profile Section (view / edit) ── */
 
 function ProfileSection({ user }: { user: UserData | null }) {
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [message, setMessage] = useState<Message>(null);
   const [pending, setPending] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -50,25 +86,45 @@ function ProfileSection({ user }: { user: UserData | null }) {
     setMessage(null);
     const formData = new FormData(e.currentTarget);
     const result = await updateProfile(formData);
-    setMessage(result.error
-      ? { type: "error", text: result.error }
-      : { type: "success", text: result.success ?? "Actualizado" });
+    if (result.error) {
+      setMessage({ type: "error", text: result.error });
+    } else {
+      setMessage({ type: "success", text: result.success ?? "Actualizado" });
+      setEditing(false);
+      router.refresh();
+    }
     setPending(false);
   }
 
-  const initials = user?.name
-    ? user.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
-    : user?.email?.charAt(0).toUpperCase() ?? "?";
+  const initials = user ? initialsOf(user.name, user.email) : "?";
 
   return (
     <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
-      <h2 className="text-lg font-semibold text-white">Mi cuenta</h2>
-      <p className="mt-1 text-sm text-slate-400">Tu información personal</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold text-white">Mi cuenta</h2>
+          <p className="mt-1 text-sm text-slate-400">Tu información personal</p>
+        </div>
+        {!editing && (
+          <button
+            type="button"
+            onClick={() => {
+              setMessage(null);
+              setEditing(true);
+            }}
+            className="flex shrink-0 items-center gap-2 rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-300 transition-colors hover:bg-slate-800"
+          >
+            <Pencil className="h-4 w-4" />
+            Editar
+          </button>
+        )}
+      </div>
 
-      <form onSubmit={handleSubmit} className="mt-6 space-y-5">
-        {/* Avatar preview */}
-        <div className="flex items-center gap-4">
+      {/* Vista de solo lectura */}
+      {!editing && (
+        <div className="mt-6 flex items-center gap-4">
           {user?.image ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={user.image}
               alt="Avatar"
@@ -79,213 +135,196 @@ function ProfileSection({ user }: { user: UserData | null }) {
               {initials}
             </div>
           )}
-          <div className="flex-1">
-            <label
-              htmlFor="image"
-              className="mb-1 block text-xs font-medium text-slate-400"
-            >
-              URL de avatar (opcional)
-            </label>
-            <input
-              id="image"
-              name="image"
-              type="url"
-              defaultValue={user?.image ?? ""}
-              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-              placeholder="https://..."
-            />
+          <div className="min-w-0">
+            <p className="truncate text-base font-medium text-white">
+              {user?.name ?? "Sin nombre"}
+            </p>
+            <p className="truncate text-sm text-slate-400">{user?.email}</p>
           </div>
         </div>
+      )}
 
-        <div>
-          <label
-            htmlFor="name"
-            className="mb-1 block text-xs font-medium text-slate-400"
-          >
-            Nombre
-          </label>
-          <input
-            id="name"
-            name="name"
-            type="text"
-            required
-            defaultValue={user?.name ?? ""}
-            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-          />
+      {!editing && message && <div className="mt-4">{<Banner message={message} />}</div>}
+
+      {/* Modo edición */}
+      {editing && (
+        <div className="mt-6 space-y-8">
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="flex items-center gap-4">
+              {user?.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={user.image}
+                  alt="Avatar"
+                  className="size-14 rounded-full object-cover ring-2 ring-slate-700"
+                />
+              ) : (
+                <div className="flex size-14 items-center justify-center rounded-full bg-amber-500/20 text-lg font-bold text-amber-400 ring-2 ring-amber-500/30">
+                  {initials}
+                </div>
+              )}
+              <div className="flex-1">
+                <label htmlFor="image" className="mb-1 block text-xs font-medium text-slate-400">
+                  URL de avatar (opcional)
+                </label>
+                <input
+                  id="image"
+                  name="image"
+                  type="url"
+                  defaultValue={user?.image ?? ""}
+                  className={inputClass}
+                  placeholder="https://..."
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="name" className="mb-1 block text-xs font-medium text-slate-400">
+                Nombre
+              </label>
+              <input id="name" name="name" type="text" required defaultValue={user?.name ?? ""} className={inputClass} />
+            </div>
+
+            <div>
+              <label htmlFor="email" className="mb-1 block text-xs font-medium text-slate-400">
+                Email
+              </label>
+              <input id="email" name="email" type="email" required defaultValue={user?.email ?? ""} className={inputClass} />
+            </div>
+
+            <Banner message={message} />
+
+            <div className="flex items-center gap-3">
+              <button
+                type="submit"
+                disabled={pending}
+                className="rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-400 disabled:opacity-50"
+              >
+                {pending ? "Guardando..." : "Guardar cambios"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditing(false);
+                  setMessage(null);
+                }}
+                className="rounded-lg border border-slate-700 px-5 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800"
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+
+          {/* Cambiar contraseña (solo visible al editar) */}
+          <PasswordForm />
         </div>
-
-        <div>
-          <label
-            htmlFor="email"
-            className="mb-1 block text-xs font-medium text-slate-400"
-          >
-            Email
-          </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            required
-            defaultValue={user?.email ?? ""}
-            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-          />
-        </div>
-
-        {message && (
-          <div
-            className={`rounded-lg px-4 py-2.5 text-sm ${
-              message.type === "success"
-                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                : "bg-red-500/10 text-red-400 border border-red-500/20"
-            }`}
-          >
-            {message.text}
-          </div>
-        )}
-
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-400 disabled:opacity-50"
-        >
-          {pending ? "Guardando..." : "Guardar cambios"}
-        </button>
-      </form>
+      )}
     </section>
   );
 }
 
-/* ── Password Section ── */
+/* ── Password form (embedded in profile edit) ── */
 
-function PasswordSection() {
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+function PasswordForm() {
+  const [message, setMessage] = useState<Message>(null);
   const [pending, setPending] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setPending(true);
     setMessage(null);
-    const formData = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+    const formData = new FormData(form);
     const result = await changePassword(formData);
-    setMessage(result.error
-      ? { type: "error", text: result.error }
-      : { type: "success", text: result.success ?? "Contraseña cambiada" });
-    if (!result.error) {
-      e.currentTarget.reset();
+    if (result.error) {
+      setMessage({ type: "error", text: result.error });
+    } else {
+      setMessage({ type: "success", text: result.success ?? "Contraseña cambiada" });
+      form.reset();
     }
     setPending(false);
   }
 
   return (
-    <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
-      <h2 className="text-lg font-semibold text-white">Cambiar contraseña</h2>
-      <p className="mt-1 text-sm text-slate-400">
-        Usa al menos 6 caracteres
-      </p>
+    <div className="border-t border-slate-800 pt-6">
+      <h3 className="text-sm font-semibold text-slate-300">Cambiar contraseña</h3>
+      <p className="mt-1 text-xs text-slate-500">Usa al menos 6 caracteres. Déjalo en blanco si no quieres cambiarla.</p>
 
-      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+      <form onSubmit={handleSubmit} className="mt-4 space-y-4">
         <div>
-          <label
-            htmlFor="currentPassword"
-            className="mb-1 block text-xs font-medium text-slate-400"
-          >
+          <label htmlFor="currentPassword" className="mb-1 block text-xs font-medium text-slate-400">
             Contraseña actual
           </label>
-          <input
-            id="currentPassword"
-            name="currentPassword"
-            type="password"
-            required
-            autoComplete="current-password"
-            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-          />
+          <input id="currentPassword" name="currentPassword" type="password" required autoComplete="current-password" className={inputClass} />
         </div>
-
         <div>
-          <label
-            htmlFor="newPassword"
-            className="mb-1 block text-xs font-medium text-slate-400"
-          >
+          <label htmlFor="newPassword" className="mb-1 block text-xs font-medium text-slate-400">
             Nueva contraseña
           </label>
-          <input
-            id="newPassword"
-            name="newPassword"
-            type="password"
-            required
-            autoComplete="new-password"
-            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-          />
+          <input id="newPassword" name="newPassword" type="password" required autoComplete="new-password" className={inputClass} />
         </div>
-
         <div>
-          <label
-            htmlFor="confirmPassword"
-            className="mb-1 block text-xs font-medium text-slate-400"
-          >
+          <label htmlFor="confirmPassword" className="mb-1 block text-xs font-medium text-slate-400">
             Confirmar nueva contraseña
           </label>
-          <input
-            id="confirmPassword"
-            name="confirmPassword"
-            type="password"
-            required
-            autoComplete="new-password"
-            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-          />
+          <input id="confirmPassword" name="confirmPassword" type="password" required autoComplete="new-password" className={inputClass} />
         </div>
 
-        {message && (
-          <div
-            className={`rounded-lg px-4 py-2.5 text-sm ${
-              message.type === "success"
-                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                : "bg-red-500/10 text-red-400 border border-red-500/20"
-            }`}
-          >
-            {message.text}
-          </div>
-        )}
+        <Banner message={message} />
 
         <button
           type="submit"
           disabled={pending}
-          className="rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-400 disabled:opacity-50"
+          className="rounded-lg border border-slate-700 px-5 py-2 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-800 disabled:opacity-50"
         >
           {pending ? "Cambiando..." : "Cambiar contraseña"}
         </button>
       </form>
-    </section>
+    </div>
   );
 }
 
 /* ── AI Model Section ── */
 
 const MODEL_FALLBACK: ModelOption[] = [
-  // opencode-zen-free
+  // opencode-zen-free (gratuitos)
   { value: "opencode-zen-free/big-pickle", label: "Big Pickle", provider: "opencode-zen-free" },
   { value: "opencode-zen-free/deepseek-v4-flash-free", label: "DeepSeek V4 Flash (free)", provider: "opencode-zen-free" },
   { value: "opencode-zen-free/mimo-v2.5-free", label: "MiMo V2.5 (free)", provider: "opencode-zen-free" },
   { value: "opencode-zen-free/minimax-m3-free", label: "MiniMax M3 (free)", provider: "opencode-zen-free" },
-  { value: "opencode-zen-free/nemotron-3-super-free", label: "Nemotron 3 Super (free)", provider: "opencode-zen-free" },
+  { value: "opencode-zen-free/nemotron-3-ultra-free", label: "Nemotron 3 Ultra (free)", provider: "opencode-zen-free" },
+  { value: "opencode-zen-free/north-mini-code-free", label: "North Mini Code (free)", provider: "opencode-zen-free" },
   { value: "opencode-zen-free/qwen3.6-plus-free", label: "Qwen 3.6 Plus (free)", provider: "opencode-zen-free" },
-  // opencode-go
+  // opencode-go (lista completa)
   { value: "opencode-go/deepseek-v4-flash", label: "DeepSeek V4 Flash", provider: "opencode-go" },
   { value: "opencode-go/deepseek-v4-pro", label: "DeepSeek V4 Pro", provider: "opencode-go" },
-  { value: "opencode-go/kimi-k2.6", label: "Kimi K2.6", provider: "opencode-go" },
-  { value: "opencode-go/glm-5.1", label: "GLM 5.1", provider: "opencode-go" },
-  { value: "opencode-go/minimax-m3", label: "MiniMax M3", provider: "opencode-go" },
+  { value: "opencode-go/qwen3.5-plus", label: "Qwen 3.5 Plus", provider: "opencode-go" },
+  { value: "opencode-go/qwen3.6-plus", label: "Qwen 3.6 Plus", provider: "opencode-go" },
+  { value: "opencode-go/qwen3.7-plus", label: "Qwen 3.7 Plus", provider: "opencode-go" },
   { value: "opencode-go/qwen3.7-max", label: "Qwen 3.7 Max", provider: "opencode-go" },
+  { value: "opencode-go/kimi-k2.5", label: "Kimi K2.5", provider: "opencode-go" },
+  { value: "opencode-go/kimi-k2.6", label: "Kimi K2.6", provider: "opencode-go" },
+  { value: "opencode-go/glm-5", label: "GLM 5", provider: "opencode-go" },
+  { value: "opencode-go/glm-5.1", label: "GLM 5.1", provider: "opencode-go" },
+  { value: "opencode-go/minimax-m2.5", label: "MiniMax M2.5", provider: "opencode-go" },
+  { value: "opencode-go/minimax-m2.7", label: "MiniMax M2.7", provider: "opencode-go" },
+  { value: "opencode-go/minimax-m3", label: "MiniMax M3", provider: "opencode-go" },
+  { value: "opencode-go/mimo-v2.5", label: "MiMo V2.5", provider: "opencode-go" },
+  { value: "opencode-go/mimo-v2.5-pro", label: "MiMo V2.5 Pro", provider: "opencode-go" },
+  { value: "opencode-go/mimo-v2-pro", label: "MiMo V2 Pro", provider: "opencode-go" },
+  { value: "opencode-go/mimo-v2-omni", label: "MiMo V2 Omni", provider: "opencode-go" },
+  { value: "opencode-go/hy3-preview", label: "HY3 Preview", provider: "opencode-go" },
 ];
 
-type ModelOption = { value: string; label: string; provider: string };
+// Modelo aplicado por defecto a todos los agentes mientras no se añada una excepción.
+const GLOBAL_DEFAULT_MODEL = "opencode-zen-free/deepseek-v4-flash-free";
 
 const DEFAULT_AGENT_MODELS: Record<string, string> = {
-  "generator": "opencode-zen-free/deepseek-v4-flash-free",
-  "skeptic": "opencode-zen-free/deepseek-v4-flash-free",
-  "defender": "opencode-zen-free/deepseek-v4-flash-free",
-  "judge": "opencode-zen-free/minimax-m3-free",
-  "refiner": "opencode-zen-free/deepseek-v4-flash-free",
+  generator: "opencode-zen-free/deepseek-v4-flash-free",
+  skeptic: "opencode-zen-free/deepseek-v4-flash-free",
+  defender: "opencode-zen-free/deepseek-v4-flash-free",
+  judge: "opencode-zen-free/minimax-m3-free",
+  refiner: "opencode-zen-free/deepseek-v4-flash-free",
   "project-analyst": "opencode-zen-free/deepseek-v4-flash-free",
   "project-branding": "opencode-zen-free/deepseek-v4-flash-free",
   "project-content": "opencode-zen-free/deepseek-v4-flash-free",
@@ -295,65 +334,29 @@ const DEFAULT_AGENT_MODELS: Record<string, string> = {
 };
 
 const AGENT_INFO: { id: string; name: string; description: string }[] = [
-  {
-    id: "generator",
-    name: "Generador de ideas",
-    description: "Propone nuevas ideas de negocio a partir de tendencias, mercados y necesidades detectadas.",
-  },
-  {
-    id: "skeptic",
-    name: "Validador (Escéptico)",
-    description: "Analiza la idea desde una perspectiva crítica, detectando riesgos, debilidades y puntos ciegos.",
-  },
-  {
-    id: "defender",
-    name: "Validador (Defensor)",
-    description: "Busca argumentos a favor, oportunidades de mercado y ventajas competitivas de la idea.",
-  },
-  {
-    id: "judge",
-    name: "Juez",
-    description: "Evalúa los argumentos de ambos validadores y emite un veredicto con puntuación final.",
-  },
-  {
-    id: "refiner",
-    name: "Refinador (QA)",
-    description: "Pule la idea final, mejora la redacción y asegura la calidad del resultado.",
-  },
+  { id: "generator", name: "Generador de ideas", description: "Propone nuevas ideas de negocio a partir de tendencias, mercados y necesidades detectadas." },
+  { id: "skeptic", name: "Validador (Escéptico)", description: "Analiza la idea desde una perspectiva crítica, detectando riesgos, debilidades y puntos ciegos." },
+  { id: "defender", name: "Validador (Defensor)", description: "Busca argumentos a favor, oportunidades de mercado y ventajas competitivas de la idea." },
+  { id: "judge", name: "Juez", description: "Evalúa los argumentos de ambos validadores y emite un veredicto con puntuación final." },
+  { id: "refiner", name: "Refinador (QA)", description: "Pule la idea final, mejora la redacción y asegura la calidad del resultado." },
 ];
 
 const PROJECT_AGENT_INFO: { id: string; name: string; description: string }[] = [
-  {
-    id: "project-analyst",
-    name: "Analista de Mercado",
-    description: "Analiza el mercado, competencia, TAM/SAM/SOM y genera estrategia de entrada.",
-  },
-  {
-    id: "project-business",
-    name: "Estrategia de Negocio",
-    description: "Lean Canvas, modelo de ingresos, pricing y propuesta de valor estratégica.",
-  },
-  {
-    id: "project-branding",
-    name: "Branding / Identidad",
-    description: "Define naming, tono de voz, personalidad y estilo visual del proyecto.",
-  },
-  {
-    id: "project-content",
-    name: "Contenido y Publicación",
-    description: "Genera estrategia de contenido, skill de publicación y landing promocional.",
-  },
-  {
-    id: "project-execution",
-    name: "Roadmap y Ejecución",
-    description: "OKRs 30/60/90, plan financiero y próximos pasos.",
-  },
-  {
-    id: "project-skills",
-    name: "Generador de Skills",
-    description: "Genera skills ejecutables para el proyecto basadas en las fases completadas.",
-  },
+  { id: "project-analyst", name: "Analista de Mercado", description: "Analiza el mercado, competencia, TAM/SAM/SOM y genera estrategia de entrada." },
+  { id: "project-business", name: "Estrategia de Negocio", description: "Lean Canvas, modelo de ingresos, pricing y propuesta de valor estratégica." },
+  { id: "project-branding", name: "Branding / Identidad", description: "Define naming, tono de voz, personalidad y estilo visual del proyecto." },
+  { id: "project-content", name: "Contenido y Publicación", description: "Genera estrategia de contenido, skill de publicación y landing promocional." },
+  { id: "project-execution", name: "Roadmap y Ejecución", description: "OKRs 30/60/90, plan financiero y próximos pasos." },
+  { id: "project-skills", name: "Generador de Skills", description: "Genera skills ejecutables para el proyecto basadas en las fases completadas." },
 ];
+
+type AgentInfo = { id: string; name: string; description: string };
+const GROUPS: { key: string; title: string; description: string; agents: AgentInfo[] }[] = [
+  { key: "ideas", title: "Ideas", description: "Generación y validación de ideas", agents: AGENT_INFO },
+  { key: "projects", title: "Proyectos", description: "Fases de ejecución de proyectos", agents: PROJECT_AGENT_INFO },
+];
+
+const ALL_AGENTS: AgentInfo[] = [...AGENT_INFO, ...PROJECT_AGENT_INFO];
 
 const STORAGE_KEY = "brew-ia-agent-models";
 
@@ -363,7 +366,6 @@ function loadModelConfig(): Record<string, string> {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_AGENT_MODELS;
     const parsed = JSON.parse(raw) as Record<string, string>;
-    // Merge with defaults so that new agents always have a fallback
     return { ...DEFAULT_AGENT_MODELS, ...parsed };
   } catch {
     return DEFAULT_AGENT_MODELS;
@@ -375,93 +377,148 @@ function saveModelConfig(config: Record<string, string>) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
 }
 
+// A partir de un config completo {agente: modelo}, deduce el modelo por defecto
+// (el más repetido) y las excepciones (agentes que difieren de ese default).
+function deriveDefaultAndOverrides(full: Record<string, string>): {
+  defaultModel: string;
+  overrides: Record<string, string>;
+} {
+  const counts = new Map<string, number>();
+  for (const a of ALL_AGENTS) {
+    const m = full[a.id];
+    if (m) counts.set(m, (counts.get(m) ?? 0) + 1);
+  }
+  let defaultModel = GLOBAL_DEFAULT_MODEL;
+  let max = 0;
+  for (const [m, c] of counts) {
+    if (c > max) {
+      max = c;
+      defaultModel = m;
+    }
+  }
+  const overrides: Record<string, string> = {};
+  for (const a of ALL_AGENTS) {
+    const m = full[a.id];
+    if (m && m !== defaultModel) overrides[a.id] = m;
+  }
+  return { defaultModel, overrides };
+}
+
 function AIModelSection() {
-  const [config, setConfig] = useState<Record<string, string>>(DEFAULT_AGENT_MODELS);
+  const [defaultModel, setDefaultModel] = useState<string>(GLOBAL_DEFAULT_MODEL);
+  const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState(false);
   const [modelOptions, setModelOptions] = useState<ModelOption[]>([...MODEL_FALLBACK]);
-  const [ideasExpanded, setIdeasExpanded] = useState(false);
-  const [projectsExpanded, setProjectsExpanded] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    setConfig(loadModelConfig());
+    const { defaultModel: d, overrides: o } = deriveDefaultAndOverrides(loadModelConfig());
+    setDefaultModel(d);
+    setOverrides(o);
   }, []);
 
-  // Fetch available models from API, fallback to hardcoded list
+  // Carga la lista de modelos disponibles desde la API (live > fallback).
+  const refreshModels = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const res = await fetch("/api/settings/available-models", { cache: "no-store" });
+      if (!res.ok) throw new Error("Not ok");
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        setModelOptions(data as ModelOption[]);
+      }
+    } catch {
+      // Mantener la lista de respaldo
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
+  // Al abrir Ajustes se actualiza automáticamente
   useEffect(() => {
-    fetch("/api/settings/available-models")
-      .then((res) => {
-        if (!res.ok) throw new Error("Not ok");
-        return res.json();
-      })
-      .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setModelOptions(data as ModelOption[]);
-        }
-      })
-      .catch(() => {
-        // Keep fallback models
-      });
-  }, []);
+    refreshModels();
+  }, [refreshModels]);
 
-  function handleChange(agentId: string, model: string) {
-    setConfig((prev) => ({ ...prev, [agentId]: model }));
+  function setOverride(agentId: string, model: string) {
+    setOverrides((prev) => ({ ...prev, [agentId]: model }));
     setSaved(false);
   }
 
-  function handleBulkChange(agentIds: string[], model: string) {
-    setConfig((prev) => {
+  function removeOverride(agentId: string) {
+    setOverrides((prev) => {
       const next = { ...prev };
-      for (const id of agentIds) next[id] = model;
+      delete next[agentId];
       return next;
     });
     setSaved(false);
   }
 
+  function handleDefaultChange(model: string) {
+    setDefaultModel(model);
+    setSaved(false);
+  }
+
   function handleSave() {
-    saveModelConfig(config);
-    // Also persist to server for bridge daemon
-    saveAgentModels(config).catch((err) => console.error("Failed to persist agent models:", err));
+    // Expandir a config completo: cada agente usa su excepción o el modelo por defecto.
+    const full: Record<string, string> = {};
+    for (const a of ALL_AGENTS) {
+      full[a.id] = overrides[a.id] ?? defaultModel;
+    }
+    saveModelConfig(full);
+    saveAgentModels(full).catch((err) => console.error("Failed to persist agent models:", err));
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   }
 
-  const ideaModels = new Set(AGENT_INFO.map((a) => config[a.id])).size;
-  const projectModels = new Set(PROJECT_AGENT_INFO.map((a) => config[a.id])).size;
-
   return (
     <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
-      <h2 className="text-lg font-semibold text-white">Modelos de IA</h2>
-      <p className="mt-1 text-sm text-slate-400">
-        Asigna un modelo de lenguaje a cada agente
-      </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold text-white">Modelos de IA</h2>
+          <p className="mt-1 text-sm text-slate-400">
+            Un modelo por defecto para todos los agentes, con excepciones por agente si las necesitas
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={refreshModels}
+          disabled={refreshing}
+          title="Volver a consultar los modelos disponibles"
+          className="flex shrink-0 items-center gap-2 rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-300 transition-colors hover:bg-slate-800 disabled:opacity-50"
+        >
+          <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+          {refreshing ? "Actualizando..." : "Actualizar modelos"}
+        </button>
+      </div>
 
-      {/* ── Bloque Ideas ── */}
-      <ModelBlock
-        title="Ideas"
-        description="Generación y validación de ideas"
-        agents={AGENT_INFO}
-        config={config}
-        modelOptions={modelOptions}
-        expanded={ideasExpanded}
-        onToggle={() => setIdeasExpanded(!ideasExpanded)}
-        onChange={handleChange}
-        onBulkChange={(model) => handleBulkChange(AGENT_INFO.map((a) => a.id), model)}
-        uniqueModelsCount={ideaModels}
-      />
+      {/* Modelo por defecto */}
+      <div className="mt-6 rounded-lg border border-amber-500/20 bg-amber-500/5 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-medium text-amber-300">Modelo por defecto</p>
+            <p className="mt-0.5 text-xs text-slate-400">Se aplica a todos los agentes sin excepción</p>
+          </div>
+          <ModelSelect
+            value={defaultModel}
+            onChange={handleDefaultChange}
+            modelOptions={modelOptions}
+            className="shrink-0 sm:w-72"
+          />
+        </div>
+      </div>
 
-      {/* ── Bloque Proyectos ── */}
-      <ModelBlock
-        title="Proyectos"
-        description="Fases de ejecución de proyectos"
-        agents={PROJECT_AGENT_INFO}
-        config={config}
-        modelOptions={modelOptions}
-        expanded={projectsExpanded}
-        onToggle={() => setProjectsExpanded(!projectsExpanded)}
-        onChange={handleChange}
-        onBulkChange={(model) => handleBulkChange(PROJECT_AGENT_INFO.map((a) => a.id), model)}
-        uniqueModelsCount={projectModels}
-      />
+      {/* Grupos con excepciones */}
+      {GROUPS.map((group) => (
+        <ExceptionGroup
+          key={group.key}
+          group={group}
+          defaultModel={defaultModel}
+          overrides={overrides}
+          modelOptions={modelOptions}
+          onSetOverride={setOverride}
+          onRemoveOverride={removeOverride}
+        />
+      ))}
 
       <div className="mt-6 flex items-center gap-3">
         <button
@@ -471,43 +528,175 @@ function AIModelSection() {
         >
           Guardar configuración
         </button>
-        {saved && (
-          <span className="text-sm text-emerald-400 animate-in fade-in">
-            ✓ Guardado
-          </span>
-        )}
+        {saved && <span className="animate-in fade-in text-sm text-emerald-400">✓ Guardado</span>}
       </div>
     </section>
+  );
+}
+
+/* ── Reusable model <select> with provider optgroups ── */
+function ModelSelect({
+  value,
+  onChange,
+  modelOptions,
+  className = "",
+}: {
+  value: string;
+  onChange: (model: string) => void;
+  modelOptions: ModelOption[];
+  className?: string;
+}) {
+  const providers = [...new Set(modelOptions.map((m) => m.provider))];
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={`rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 ${className}`}
+    >
+      {providers.map((provider) => (
+        <optgroup key={provider} label={PROVIDER_LABELS[provider] ?? provider}>
+          {modelOptions
+            .filter((m) => m.provider === provider)
+            .map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
+        </optgroup>
+      ))}
+    </select>
+  );
+}
+
+/* ── Collapsible group with per-agent exceptions ── */
+function ExceptionGroup({
+  group,
+  defaultModel,
+  overrides,
+  modelOptions,
+  onSetOverride,
+  onRemoveOverride,
+}: {
+  group: { key: string; title: string; description: string; agents: AgentInfo[] };
+  defaultModel: string;
+  overrides: Record<string, string>;
+  modelOptions: ModelOption[];
+  onSetOverride: (id: string, model: string) => void;
+  onRemoveOverride: (id: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  const exceptions = group.agents.filter((a) => overrides[a.id] != null);
+  const available = group.agents.filter((a) => overrides[a.id] == null);
+  const labelFor = (value: string) => modelOptions.find((m) => m.value === value)?.label ?? value;
+
+  return (
+    <div className="mt-4 rounded-lg border border-slate-800 bg-slate-900/30">
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-slate-800/30"
+      >
+        <div className="flex items-center gap-3">
+          <ChevronRight className={`size-4 text-slate-400 transition-transform ${expanded ? "rotate-90" : ""}`} />
+          <div>
+            <p className="text-sm font-medium text-white">{group.title}</p>
+            <p className="text-xs text-slate-500">{group.description}</p>
+          </div>
+        </div>
+        <span className="text-xs text-slate-400">
+          {exceptions.length > 0
+            ? `${exceptions.length} excepci${exceptions.length === 1 ? "ón" : "ones"}`
+            : "Por defecto"}
+        </span>
+      </button>
+
+      {expanded && (
+        <div className="space-y-3 border-t border-slate-800 px-4 py-4">
+          {exceptions.length === 0 && (
+            <p className="text-xs text-slate-500">
+              Todos los agentes de este grupo usan el modelo por defecto ({labelFor(defaultModel)}).
+            </p>
+          )}
+
+          {/* Excepciones actuales */}
+          {exceptions.map((agent) => (
+            <div
+              key={agent.id}
+              className="flex flex-col gap-3 rounded-lg border border-slate-800 bg-slate-900 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-white">{agent.name}</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-slate-400">{agent.description}</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <ModelSelect
+                  value={overrides[agent.id]}
+                  onChange={(model) => onSetOverride(agent.id, model)}
+                  modelOptions={modelOptions}
+                />
+                <button
+                  type="button"
+                  onClick={() => onRemoveOverride(agent.id)}
+                  title="Quitar excepción (volver al modelo por defecto)"
+                  className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-slate-700 text-slate-400 transition-colors hover:bg-slate-800 hover:text-red-400"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {/* Añadir excepción */}
+          {available.length > 0 && (
+            <div className="flex items-center gap-2 rounded-lg border border-dashed border-slate-700 px-4 py-3">
+              <Plus className="size-4 shrink-0 text-slate-400" />
+              <span className="text-sm text-slate-300">Añadir excepción</span>
+              <select
+                value=""
+                onChange={(e) => {
+                  if (e.target.value) onSetOverride(e.target.value, defaultModel);
+                }}
+                className="ml-auto rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm text-white focus:border-amber-500 focus:outline-none"
+              >
+                <option value="" disabled>
+                  Seleccionar agente...
+                </option>
+                {available.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
 /* ── Users Section (Admin only) ── */
 
 function UsersSection({ users }: { users: ListedUser[] }) {
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [pending, setPending] = useState(false);
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setPending(true);
-    setMessage(null);
-    const formData = new FormData(e.currentTarget);
-    const result = await addUser(formData);
-    setMessage(result.error
-      ? { type: "error", text: result.error }
-      : { type: "success", text: result.success ?? "Usuario añadido" });
-    if (!result.error) {
-      e.currentTarget.reset();
-    }
-    setPending(false);
-  }
+  const router = useRouter();
+  const [modalOpen, setModalOpen] = useState(false);
 
   return (
     <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
-      <h2 className="text-lg font-semibold text-white">Usuarios</h2>
-      <p className="mt-1 text-sm text-slate-400">
-        Gestiona quién tiene acceso a BrewIdea
-      </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold text-white">Usuarios</h2>
+          <p className="mt-1 text-sm text-slate-400">Gestiona quién tiene acceso a BrewIdea</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setModalOpen(true)}
+          className="flex shrink-0 items-center gap-2 rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-400"
+        >
+          <Plus className="h-4 w-4" />
+          Añadir usuario
+        </button>
+      </div>
 
       {/* User list */}
       <div className="mt-6 space-y-2">
@@ -517,22 +706,15 @@ function UsersSection({ users }: { users: ListedUser[] }) {
             className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-900 px-4 py-3"
           >
             {u.image ? (
-              <img
-                src={u.image}
-                alt=""
-                className="size-8 rounded-full object-cover"
-              />
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={u.image} alt="" className="size-8 rounded-full object-cover" />
             ) : (
               <div className="flex size-8 items-center justify-center rounded-full bg-slate-700 text-xs font-bold text-slate-300">
-                {u.name
-                  ? u.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
-                  : u.email.charAt(0).toUpperCase()}
+                {initialsOf(u.name, u.email)}
               </div>
             )}
-            <div className="flex-1 min-w-0">
-              <p className="truncate text-sm font-medium text-white">
-                {u.name ?? "Sin nombre"}
-              </p>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-white">{u.name ?? "Sin nombre"}</p>
               <p className="truncate text-xs text-slate-400">{u.email}</p>
             </div>
             {u.isAdmin && (
@@ -544,238 +726,112 @@ function UsersSection({ users }: { users: ListedUser[] }) {
         ))}
 
         {users.length === 0 && (
-          <p className="py-4 text-center text-sm text-slate-500">
-            No hay usuarios
-          </p>
+          <p className="py-4 text-center text-sm text-slate-500">No hay usuarios</p>
         )}
       </div>
 
-      {/* Add user form */}
-      <div className="mt-6 border-t border-slate-800 pt-6">
-        <h3 className="text-sm font-semibold text-slate-300">
-          Añadir nuevo usuario
-        </h3>
-        <form onSubmit={handleSubmit} className="mt-4 space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label
-                htmlFor="newUserName"
-                className="mb-1 block text-xs font-medium text-slate-400"
-              >
-                Nombre
-              </label>
-              <input
-                id="newUserName"
-                name="name"
-                type="text"
-                required
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                placeholder="Nombre"
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="newUserEmail"
-                className="mb-1 block text-xs font-medium text-slate-400"
-              >
-                Email
-              </label>
-              <input
-                id="newUserEmail"
-                name="email"
-                type="email"
-                required
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                placeholder="usuario@email.com"
-              />
-            </div>
-          </div>
-          <div>
-            <label
-              htmlFor="tempPassword"
-              className="mb-1 block text-xs font-medium text-slate-400"
-            >
-              Contraseña temporal
-            </label>
-            <input
-              id="tempPassword"
-              name="tempPassword"
-              type="password"
-              required
-              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-              placeholder="Mínimo 6 caracteres"
-            />
-          </div>
-
-          {message && (
-            <div
-              className={`rounded-lg px-4 py-2.5 text-sm ${
-                message.type === "success"
-                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                  : "bg-red-500/10 text-red-400 border border-red-500/20"
-              }`}
-            >
-              {message.text}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={pending}
-            className="rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-400 disabled:opacity-50"
-          >
-            {pending ? "Añadiendo..." : "Añadir usuario"}
-          </button>
-        </form>
-      </div>
+      {modalOpen && (
+        <AddUserModal
+          onClose={() => setModalOpen(false)}
+          onAdded={() => {
+            setModalOpen(false);
+            router.refresh();
+          }}
+        />
+      )}
     </section>
   );
 }
 
-/* ── Model block (collapsible group) ── */
-function ModelBlock({
-  title,
-  description,
-  agents,
-  config,
-  modelOptions,
-  expanded,
-  onToggle,
-  onChange,
-  onBulkChange,
-  uniqueModelsCount,
-}: {
-  title: string;
-  description: string;
-  agents: { id: string; name: string; description: string }[];
-  config: Record<string, string>;
-  modelOptions: ModelOption[];
-  expanded: boolean;
-  onToggle: () => void;
-  onChange: (id: string, model: string) => void;
-  onBulkChange: (model: string) => void;
-  uniqueModelsCount: number;
-}) {
+/* ── Add user modal ── */
+function AddUserModal({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
+  const [message, setMessage] = useState<Message>(null);
+  const [pending, setPending] = useState(false);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setPending(true);
+    setMessage(null);
+    const formData = new FormData(e.currentTarget);
+    const result = await addUser(formData);
+    if (result.error) {
+      setMessage({ type: "error", text: result.error });
+      setPending(false);
+    } else {
+      onAdded();
+    }
+  }
+
   return (
-    <div className="mt-4 rounded-lg border border-slate-800 bg-slate-900/30">
-      {/* Header colapsable */}
-      <button
-        onClick={onToggle}
-        className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-slate-800/30"
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-xl border border-slate-800 bg-slate-900 p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-3">
-          <ChevronRight
-            className={`size-4 text-slate-400 transition-transform ${expanded ? "rotate-90" : ""}`}
-          />
+        <div className="flex items-start justify-between gap-4">
+          <h3 className="text-base font-semibold text-white">Añadir nuevo usuario</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex size-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="mt-4 space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label htmlFor="newUserName" className="mb-1 block text-xs font-medium text-slate-400">
+                Nombre
+              </label>
+              <input id="newUserName" name="name" type="text" required className={inputClass} placeholder="Nombre" />
+            </div>
+            <div>
+              <label htmlFor="newUserEmail" className="mb-1 block text-xs font-medium text-slate-400">
+                Email
+              </label>
+              <input id="newUserEmail" name="email" type="email" required className={inputClass} placeholder="usuario@email.com" />
+            </div>
+          </div>
           <div>
-            <p className="text-sm font-medium text-white">{title}</p>
-            <p className="text-xs text-slate-500">{description}</p>
+            <label htmlFor="tempPassword" className="mb-1 block text-xs font-medium text-slate-400">
+              Contraseña temporal
+            </label>
+            <input id="tempPassword" name="tempPassword" type="password" required className={inputClass} placeholder="Mínimo 6 caracteres" />
           </div>
-        </div>
-        <span className="text-xs text-slate-400">
-          {uniqueModelsCount} modelo{uniqueModelsCount !== 1 ? "s" : ""}
-        </span>
-      </button>
 
-      {/* Contenido expandible */}
-      {expanded && (
-        <div className="border-t border-slate-800 px-4 py-4 space-y-3">
-          {/* Master selector */}
-          <div className="flex items-center gap-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3">
-            <RefreshCw className="size-4 shrink-0 text-amber-400" />
-            <span className="text-sm font-medium text-amber-300">Cambiar todos</span>
-            <select
-              onChange={(e) => {
-                if (e.target.value) onBulkChange(e.target.value);
-                e.target.value = "";
-              }}
-              defaultValue=""
-              className="ml-auto rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm text-white focus:border-amber-500 focus:outline-none"
+          <Banner message={message} />
+
+          <div className="flex items-center justify-end gap-3 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800"
             >
-              <option value="" disabled>
-                Seleccionar modelo...
-              </option>
-              {(() => {
-                const providers = [...new Set(modelOptions.map((m) => m.provider))];
-                const providerLabels: Record<string, string> = {
-                  "opencode-zen-free": "OpenCode Zen Free",
-                  "opencode-go": "OpenCode Go",
-                };
-                return providers.map((provider) => (
-                  <optgroup key={provider} label={providerLabels[provider] ?? provider}>
-                    {modelOptions
-                      .filter((m) => m.provider === provider)
-                      .map((m) => (
-                        <option key={m.value} value={m.value}>
-                          {m.label}
-                        </option>
-                      ))}
-                  </optgroup>
-                ));
-              })()}
-            </select>
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={pending}
+              className="rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-400 disabled:opacity-50"
+            >
+              {pending ? "Añadiendo..." : "Añadir usuario"}
+            </button>
           </div>
-
-          {/* Selectores individuales */}
-          {agents.map((agent) => (
-            <AgentSelectRow
-              key={agent.id}
-              agent={agent}
-              config={config}
-              modelOptions={modelOptions}
-              onChange={onChange}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ── Agent select row (reusable) ── */
-function AgentSelectRow({
-  agent,
-  config,
-  modelOptions,
-  onChange,
-}: {
-  agent: { id: string; name: string; description: string };
-  config: Record<string, string>;
-  modelOptions: { value: string; label: string; provider: string }[];
-  onChange: (id: string, model: string) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-3 rounded-lg border border-slate-800 bg-slate-900 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-white">{agent.name}</p>
-        <p className="mt-0.5 text-xs text-slate-400 leading-relaxed">
-          {agent.description}
-        </p>
+        </form>
       </div>
-      <select
-        value={config[agent.id] ?? DEFAULT_AGENT_MODELS[agent.id]}
-        onChange={(e) => onChange(agent.id, e.target.value)}
-        className="shrink-0 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-      >
-        {(() => {
-          const providers = [...new Set(modelOptions.map((m) => m.provider))];
-          const providerLabels: Record<string, string> = {
-            "opencode-zen-free": "OpenCode Zen Free",
-            "opencode-go": "OpenCode Go",
-          };
-          return providers.map((provider) => (
-            <optgroup key={provider} label={providerLabels[provider] ?? provider}>
-              {modelOptions
-                .filter((m) => m.provider === provider)
-                .map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
-            </optgroup>
-          ));
-        })()}
-      </select>
     </div>
   );
 }
