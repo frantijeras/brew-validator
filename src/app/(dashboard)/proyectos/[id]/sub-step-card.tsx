@@ -20,9 +20,11 @@ import {
   PlayCircle,
   Rocket,
   AlertTriangle,
+  Info,
   type LucideIcon,
 } from "lucide-react";
 import { type SubStepMeta } from "@/lib/phase-substeps";
+import { DOMAIN_FALLBACK_MESSAGE } from "@/lib/user-messages";
 
 /** Estado visual de un sub-step card. */
 export type SubStepStatus =
@@ -45,6 +47,17 @@ export interface SubStepCardProps {
   processingEta?: string;
   /** Mensaje de error de la última acción fallida; muestra un banner + reintento. */
   errorMessage?: string;
+  /**
+   * Cuando la verificación de disponibilidad de dominios viene degradada
+   * (servicio caído, lento o timeout), el padre activa este flag para que
+   * el sub-paso muestre un aviso de Fallback (Plan de contingencia) NO
+   * bloqueante. El usuario puede seguir eligiendo/escribiendo el nombre.
+   *
+   * Texto: opcional; por defecto usa DOMAIN_FALLBACK_MESSAGE.text.
+   */
+  domainFallback?: boolean;
+  /** Texto del aviso de Fallback de dominio (por defecto el mensaje estándar). */
+  domainFallbackMessage?: string;
 }
 
 /** Mapa estático de nombres de iconos a componentes Lucide. */
@@ -197,6 +210,8 @@ export function SubStepCard({
   processingMessage = "Generando...",
   processingEta = "~2-3 min",
   errorMessage,
+  domainFallback = false,
+  domainFallbackMessage,
 }: SubStepCardProps) {
   const badge = statusBadgeConfig[status];
   const StatusIcon = badge.Icon;
@@ -350,6 +365,23 @@ export function SubStepCard({
               </button>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Fallback (Plan de contingencia) de dominios: aviso NO bloqueante,
+          tono ámbar-azul. Se muestra cuando la verificación de
+          disponibilidad de dominio viene degradada (servicio caído, lento
+          o timeout). El usuario puede continuar con el nombre igualmente. */}
+      {domainFallback && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="mt-3 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-gradient-to-r from-amber-500/10 to-blue-500/10 px-3 py-2 text-xs text-amber-200"
+        >
+          <Info className="size-3.5 shrink-0 mt-0.5 text-blue-300" />
+          <p className="flex-1 min-w-0 leading-relaxed">
+            {domainFallbackMessage || DOMAIN_FALLBACK_MESSAGE.text}
+          </p>
         </div>
       )}
     </div>
