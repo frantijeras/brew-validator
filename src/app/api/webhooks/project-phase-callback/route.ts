@@ -17,6 +17,18 @@ interface SubStepArtifact {
 }
 
 /**
+ * Sub-pasos intermedios por tipo de fase: nunca completan la fase de golpe,
+ * pasan por SUBSTEP_READY para que el usuario revise/elija. Definidos una sola
+ * vez aquí (antes estaban duplicados dentro del handler con nombres distintos).
+ */
+const IDENTITY_INTERMEDIATE_SUBSTEPS = ["naming", "voice", "visual"];
+const EXECUTION_INTERMEDIATE_SUBSTEPS = ["plan_30_60_90"];
+const ALL_INTERMEDIATE_SUBSTEPS = [
+  ...IDENTITY_INTERMEDIATE_SUBSTEPS,
+  ...EXECUTION_INTERMEDIATE_SUBSTEPS,
+];
+
+/**
  * POST /api/webhooks/project-phase-callback
  *
  * Bridge webhook que recibe el resultado de un job de ProjectPhase. Soporta:
@@ -43,17 +55,50 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
 
-    // Find phase from job input
+    // Idempotency: a terminal job must not be reprocessed. Two callbacks for
+    // the same job (bridge retry / duplicate delivery) would otherwise double
+    // -unlock phases or overwrite state. Ack and skip.
+    if (job.status === "COMPLETED" || job.status === "FAILED") {
+      return NextResponse.json({ ok: true, skipped: "job already terminal" });
+    }
+
+    // Find phase from job input — parse defensively: a corrupt string must not
+    // throw an unhandled error (which would surface as a 500 and trigger bridge
+    // retries).
     const rawInput = job.input;
-    const jobInput =
-      typeof rawInput === "string"
-        ? JSON.parse(rawInput)
-        : rawInput && typeof rawInput === "object"
-          ? (rawInput as Record<string, unknown>)
-          : {};
-    const projectId = (jobInput as any)?.projectId;
-    const phaseId = (jobInput as any)?.phaseId;
-    const subStep = (jobInput as any)?.subStep as string | null | undefined;
+    let jobInput: Record<string, unknown> = {};
+    if (typeof rawInput === "string") {
+      try {
+        jobInput = JSON.parse(rawInput) as Record<string, unknown>;
+      } catch {
+        return NextResponse.json(
+          { error: "Invalid job.input JSON" },
+          { status: 400 }
+        );
+      }
+    } else if (rawInput && typeof rawInput === "object") {
+      jobInput = rawInput as Record<string, unknown>;
+    }
+    const projectId = jobInput.projectId as string | undefined;
+    const phaseId = jobInput.phaseId as string | undefined;
+    const subStep = jobInput.subStep as string | null | undefined;
+
+    // Validate phase ownership ONCE: the phase referenced in job.input must
+    // belong to the project in job.input. Prevents a crafted job from steering
+    // a callback at another project's phase. Subsequent updates use the unique
+    // phaseId, which is now known to belong to projectId.
+    if (phaseId) {
+      const owned = await prisma.projectPhase.findFirst({
+        where: { id: phaseId, projectId },
+        select: { id: true },
+      });
+      if (!owned) {
+        return NextResponse.json(
+          { error: "Phase not found for this project" },
+          { status: 404 }
+        );
+      }
+    }
 
     if (status === "COMPLETED" && output) {
       // Parse output
@@ -103,7 +148,6 @@ export async function POST(req: Request) {
         // Query phase early so phaseType is available for intermediate check
         const phase = await prisma.projectPhase.findUnique({ where: { id: phaseId } });
         const phaseType = phase?.type;
-        const EXECUTION_INTERMEDIATE_SUBSTEPS = ["plan_30_60_90"];
         const isIntermediate =
           (outputSubStep && outputSubStep !== "final") ||
           (phaseType === "EXECUTION" && EXECUTION_INTERMEDIATE_SUBSTEPS.includes(outputSubStep ?? ""));
@@ -179,13 +223,9 @@ export async function POST(req: Request) {
           // ── FINAL REPORT, SUBSTEP WITHOUT ARTIFACT FALLBACK, or unexpected shape ──
           // For IDENTITY phases with intermediate sub-steps, we must NEVER complete
           // the phase without going through all sub-steps (naming → voice → visual → final).
-          const IDENTITY_INTERMEDIATE_SUBSTEPS = ["naming", "voice", "visual"];
-          const EXECUTION_INTERMEDIATE_SUBSTEPS_FALLBACK = ["plan_30_60_90"];
-          const allIntermediateSubsteps = [...IDENTITY_INTERMEDIATE_SUBSTEPS, ...EXECUTION_INTERMEDIATE_SUBSTEPS_FALLBACK];
-
           if (
             (phaseType === "IDENTITY" || phaseType === "EXECUTION") &&
-            allIntermediateSubsteps.includes(outputSubStep ?? "")
+            ALL_INTERMEDIATE_SUBSTEPS.includes(outputSubStep ?? "")
           ) {
             // Intermediate IDENTITY sub-step but no proper artifact shape.
             // Try to build an artifact from available content before giving up.
@@ -260,26 +300,30 @@ export async function POST(req: Request) {
                 ...extraFields,
               };
 
-              await prisma.projectPhase.update({
-                where: { id: phaseId },
-                data: {
-                  status: "COMPLETED",
-                  completedAt: new Date(),
-                  subStep: outputSubStep,
-                  artifacts: [artifactEntry],
-                },
-              });
+              // Complete this phase and unlock the next one atomically, so a
+              // concurrent callback can't observe a half-applied transition.
+              // Only unlock the next phase if it's still LOCKED (don't reopen a
+              // phase a user already started elsewhere).
+              await prisma.$transaction(async (tx) => {
+                await tx.projectPhase.update({
+                  where: { id: phaseId },
+                  data: {
+                    status: "COMPLETED",
+                    completedAt: new Date(),
+                    subStep: outputSubStep,
+                    artifacts: [artifactEntry],
+                  },
+                });
 
-              // Unlock the next phase
-              const nextPhase = await prisma.projectPhase.findFirst({
-                where: { projectId, sortOrder: phase.sortOrder + 1 },
-              });
-              if (nextPhase) {
-                await prisma.projectPhase.update({
-                  where: { id: nextPhase.id },
+                await tx.projectPhase.updateMany({
+                  where: {
+                    projectId,
+                    sortOrder: phase.sortOrder + 1,
+                    status: "LOCKED",
+                  },
                   data: { status: "AVAILABLE" },
                 });
-              }
+              });
             }
           }
         }

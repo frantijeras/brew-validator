@@ -41,8 +41,11 @@ export async function POST(req: NextRequest) {
     const isRenamerAgent = job.agentName === RENAMER_AGENT;
 
     if (data.status === "FAILED") {
-      await prisma.job.update({
-        where: { id: data.jobId },
+      // Atomic claim: only the callback that flips the job out of a non-terminal
+      // state proceeds. A concurrent duplicate gets count===0 and is skipped,
+      // preventing double idea-state mutations.
+      const claim = await prisma.job.updateMany({
+        where: { id: data.jobId, status: { notIn: ["COMPLETED", "FAILED"] } },
         data: {
           status: "FAILED",
           error: data.error || "Error desconocido",
@@ -50,6 +53,9 @@ export async function POST(req: NextRequest) {
           cost: data.cost || 0,
         },
       });
+      if (claim.count === 0) {
+        return NextResponse.json({ success: true, skipped: true });
+      }
 
       // If any validation agent fails, mark idea as FAILED so the
       // user sees the error and can retry. Reset status to COMPLETED
@@ -79,8 +85,11 @@ export async function POST(req: NextRequest) {
     const output = data.output || {};
     const cost = data.cost || 0.02;
 
-    await prisma.job.update({
-      where: { id: data.jobId },
+    // Atomic claim (same pattern as FAILED): guarantees exactly one callback
+    // proceeds past this point for a given job, so reports/versions aren't
+    // created twice when duplicate callbacks race.
+    const claim = await prisma.job.updateMany({
+      where: { id: data.jobId, status: { notIn: ["COMPLETED", "FAILED"] } },
       data: {
         status: "COMPLETED",
         output: JSON.stringify(output),
@@ -88,14 +97,12 @@ export async function POST(req: NextRequest) {
         cost,
       },
     });
+    if (claim.count === 0) {
+      return NextResponse.json({ success: true, skipped: true });
+    }
 
     // ── Idea Generator callback ──
     if (isGeneratorAgent) {
-      // Si el job ya estaba COMPLETED antes de esta actualización, ignorar
-      if (job.status === "COMPLETED") {
-        return NextResponse.json({ success: true, skipped: true });
-      }
-
       const title = (output.title as string) || "";
       const description = (output.description as string) || "";
       const problem = (output.problem as string) || "";
