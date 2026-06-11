@@ -3,6 +3,12 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { getNextVersionPhase } from "@/lib/versions";
 import { verifyBridgeSecret } from "@/lib/bridge-auth";
+import { resolveErrorType } from "@/lib/phase-errors";
+import {
+  writeBridgeLog,
+  extractBridgeTelemetry,
+  isEmptyOutput,
+} from "@/lib/bridge-log";
 
 const callbackSchema = z.object({
   jobId: z.string(),
@@ -10,6 +16,16 @@ const callbackSchema = z.object({
   output: z.record(z.string(), z.unknown()).optional(),
   error: z.string().optional(),
   cost: z.number().positive().optional(),
+  // Campos estructurados que manda el bridge para diagnóstico (opcionales:
+  // un bridge antiguo simplemente no los envía).
+  errorType: z.string().optional(),
+  httpStatus: z.number().optional(),
+  provider: z.string().optional(),
+  model: z.string().optional(),
+  tokensIn: z.number().optional(),
+  tokensOut: z.number().optional(),
+  latencyMs: z.number().optional(),
+  retryCount: z.number().optional(),
 });
 
 const VALIDATION_AGENTS = ["skeptic", "advocate", "judge"];
@@ -40,7 +56,19 @@ export async function POST(req: NextRequest) {
     const isRefinerAgent = job.agentName === REFINER_AGENT;
     const isRenamerAgent = job.agentName === RENAMER_AGENT;
 
-    if (data.status === "FAILED") {
+    // Telemetría estructurada del bridge (httpStatus, model, tokens, ...).
+    const telemetry = extractBridgeTelemetry(body as Record<string, unknown>);
+    // Un COMPLETED con output vacío = el modelo no devolvió nada ("empty_response").
+    // Se trata como fallo para no avanzar el flujo con datos vacíos.
+    const emptyCompleted = data.status === "COMPLETED" && isEmptyOutput(data.output);
+
+    if (data.status === "FAILED" || emptyCompleted) {
+      const rawError = emptyCompleted
+        ? "El modelo terminó sin devolver contenido (respuesta vacía)."
+        : data.error || "Error desconocido";
+      const errorType = emptyCompleted
+        ? "empty_response"
+        : resolveErrorType({ errorType: data.errorType, error: rawError });
       // Atomic claim: only the callback that flips the job out of a non-terminal
       // state proceeds. A concurrent duplicate gets count===0 and is skipped,
       // preventing double idea-state mutations.
@@ -48,7 +76,7 @@ export async function POST(req: NextRequest) {
         where: { id: data.jobId, status: { notIn: ["COMPLETED", "FAILED"] } },
         data: {
           status: "FAILED",
-          error: data.error || "Error desconocido",
+          error: rawError,
           finishedAt: new Date(),
           cost: data.cost || 0,
         },
@@ -56,6 +84,24 @@ export async function POST(req: NextRequest) {
       if (claim.count === 0) {
         return NextResponse.json({ success: true, skipped: true });
       }
+
+      // Traza del fallo en BridgeLog (best-effort).
+      await writeBridgeLog({
+        level: "error",
+        jobId: data.jobId,
+        ideaId: job.ideaId,
+        agentName: job.agentName,
+        errorType,
+        errorMessage: rawError,
+        httpStatus: telemetry.httpStatus,
+        retryCount: telemetry.retryCount,
+        resolutionAction: isValidationAgent || isGeneratorAgent ? "idea_marked_failed" : "logged",
+        model: telemetry.model,
+        provider: telemetry.provider,
+        tokensIn: telemetry.tokensIn,
+        tokensOut: telemetry.tokensOut,
+        latencyMs: telemetry.latencyMs,
+      });
 
       // If any validation agent fails, mark idea as FAILED so the
       // user sees the error and can retry. Reset status to COMPLETED

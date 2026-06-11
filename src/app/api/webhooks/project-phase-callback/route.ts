@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { classifyError } from "@/lib/phase-errors";
+import { resolveErrorType, getErrorMeta } from "@/lib/phase-errors";
+import {
+  writeBridgeLog,
+  extractBridgeTelemetry,
+  isEmptyOutput,
+} from "@/lib/bridge-log";
 import { verifyBridgeSecret } from "@/lib/bridge-auth";
 
 /**
@@ -100,7 +105,11 @@ export async function POST(req: Request) {
       }
     }
 
-    if (status === "COMPLETED" && output) {
+    // Telemetría estructurada que pueda mandar el bridge (httpStatus, model,
+    // tokens, latencia, retryCount). Tolera ausencia (bridge antiguo → nulls).
+    const telemetry = extractBridgeTelemetry(body);
+
+    if (status === "COMPLETED" && !isEmptyOutput(output)) {
       // Parse output
       let parsedOutput: Record<string, unknown> = {};
       try {
@@ -340,17 +349,38 @@ export async function POST(req: Request) {
           finishedAt: new Date(),
         },
       });
-    } else if (status === "FAILED") {
+    } else if (status === "COMPLETED" || status === "FAILED") {
+      // ── FALLO ──
+      // Dos casos llegan aquí:
+      //  - status === "FAILED": el bridge reporta un fallo explícito.
+      //  - status === "COMPLETED" con output vacío: el modelo terminó pero no
+      //    devolvió contenido utilizable ("empty_response" — no respondió).
+      // En ambos: marcamos el job como FAILED, devolvemos la fase a AVAILABLE
+      // con un lastError enriquecido y dejamos traza en BridgeLog.
+      const isEmpty = status === "COMPLETED";
+      const rawError = isEmpty
+        ? "El modelo terminó sin devolver contenido (respuesta vacía)."
+        : typeof body.error === "string" && body.error
+          ? body.error
+          : "Agent returned no output";
+
+      // Prioriza el errorType del bridge; si es empty, fuerza empty_response.
+      const errorType = isEmpty
+        ? "empty_response"
+        : resolveErrorType({ errorType: body.errorType, error: rawError });
+      const meta = getErrorMeta(errorType);
+
       await prisma.job.update({
         where: { id: jobId },
         data: {
           status: "FAILED",
-          error: typeof body.error === "string" ? body.error : "Unknown error",
+          error: rawError,
           finishedAt: new Date(),
         },
       });
 
-      // If phase was in a question/processing/substep state, unlock it so user can retry
+      // Si la fase estaba en un estado en curso, desbloquéala para reintentar.
+      let resolutionAction = "logged";
       if (phaseId) {
         const phase = await prisma.projectPhase.findUnique({
           where: { id: phaseId },
@@ -361,20 +391,44 @@ export async function POST(req: Request) {
             phase.status === "PROCESSING" ||
             phase.status === "SUBSTEP_READY")
         ) {
-          const errorMessage = typeof body.error === "string" ? body.error : "Agent returned no output";
           await prisma.projectPhase.update({
             where: { id: phaseId },
             data: {
               status: "AVAILABLE",
               lastError: {
-                message: errorMessage,
-                category: classifyError(errorMessage),
+                message: meta.description,
+                category: errorType,
                 timestamp: new Date().toISOString(),
+                // Detalle estructurado para el panel de historial / debugging.
+                errorType,
+                httpStatus: telemetry.httpStatus ?? undefined,
+                model: telemetry.model ?? undefined,
+                retryCount: telemetry.retryCount ?? undefined,
+                rawMessage: rawError,
               },
             },
           });
+          resolutionAction = "reset_to_available";
         }
       }
+
+      await writeBridgeLog({
+        level: "error",
+        jobId,
+        projectId: projectId ?? null,
+        phaseId: phaseId ?? null,
+        agentName: job.agentName,
+        errorType,
+        errorMessage: rawError,
+        httpStatus: telemetry.httpStatus,
+        retryCount: telemetry.retryCount,
+        resolutionAction,
+        model: telemetry.model,
+        provider: telemetry.provider,
+        tokensIn: telemetry.tokensIn,
+        tokensOut: telemetry.tokensOut,
+        latencyMs: telemetry.latencyMs,
+      });
     }
 
     return NextResponse.json({ ok: true });
