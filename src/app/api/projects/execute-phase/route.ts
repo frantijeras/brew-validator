@@ -36,23 +36,38 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Phase not found" }, { status: 404 });
     }
 
-    // Validate phase status based on mode
+    // Validate phase status based on mode — explicit whitelist per mode.
     // IDENTITY sub-steps use "report" mode from AVAILABLE state (they generate
     // intermediate artifacts, not quiz questions). Other phases use "questions" mode.
-    // Also allow mode "report" from QUESTIONING status (e.g., when restarting a sub-step).
     const isIdentityPhase = phaseType === "IDENTITY";
-    if (mode === "questions" && phase.status !== "AVAILABLE") {
-      return NextResponse.json({ error: "Phase is not available for questions" }, { status: 409 });
+    const allowedStatuses =
+      mode === "questions"
+        ? ["AVAILABLE"]
+        : mode === "report"
+          ? ["QUESTIONING", "SUBSTEP_READY", ...(isIdentityPhase ? ["AVAILABLE"] : [])]
+          : null;
+    if (!allowedStatuses) {
+      return NextResponse.json({ error: `Modo desconocido: ${mode}` }, { status: 400 });
     }
+    if (!allowedStatuses.includes(phase.status)) {
+      return NextResponse.json(
+        {
+          error: `La fase está en estado ${phase.status}; el modo "${mode}" requiere ${allowedStatuses.join(" o ")}`,
+        },
+        { status: 409 }
+      );
+    }
+
+    // Quiz answers are mandatory when answering a questionnaire. Sub-step
+    // launches (SUBSTEP_READY / IDENTITY from AVAILABLE) legitimately carry none.
     if (
       mode === "report" &&
-      phase.status !== "QUESTIONING" &&
-      phase.status !== "SUBSTEP_READY" &&
-      !(isIdentityPhase && phase.status === "AVAILABLE")
+      phase.status === "QUESTIONING" &&
+      (!answers || typeof answers !== "object" || Object.keys(answers).length === 0)
     ) {
       return NextResponse.json(
-        { error: "Phase must be in QUESTIONING or SUBSTEP_READY state to submit answers" },
-        { status: 409 }
+        { error: "Faltan las respuestas del cuestionario" },
+        { status: 400 }
       );
     }
 

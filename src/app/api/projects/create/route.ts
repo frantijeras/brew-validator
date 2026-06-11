@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
 export async function POST(req: Request) {
@@ -21,6 +22,14 @@ export async function POST(req: Request) {
     if (idea.project) {
       return NextResponse.json(
         { error: "Esta idea ya tiene un proyecto", projectId: idea.project.id },
+        { status: 409 }
+      );
+    }
+
+    // Same precondition the UI enforces: only validated ideas become projects
+    if (idea.status !== "COMPLETED" && idea.validationStatus !== "DONE") {
+      return NextResponse.json(
+        { error: "La idea debe estar validada antes de convertirla en proyecto" },
         { status: 409 }
       );
     }
@@ -80,6 +89,17 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ project });
   } catch (error) {
+    // Unique constraint on Project.ideaId: two concurrent requests both passed
+    // the idea.project check — treat the loser as "already exists".
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      return NextResponse.json(
+        { error: "Esta idea ya tiene un proyecto" },
+        { status: 409 }
+      );
+    }
     console.error("Error creating project:", error);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }

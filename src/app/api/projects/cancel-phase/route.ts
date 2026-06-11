@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
 export async function POST(req: Request) {
@@ -22,14 +23,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Phase is not in a cancellable state" }, { status: 409 });
     }
 
-    // Update phase: reset to AVAILABLE, clear any stored questions/artifact
+    // Update phase: reset to AVAILABLE, clear any stored questions/artifact.
+    // Json fields need Prisma.JsonNull — `undefined` is ignored by Prisma.
     await prisma.projectPhase.update({
       where: { id: phaseId },
       data: {
         status: "AVAILABLE",
-        questions: undefined,
-        subStepArtifact: undefined,
-        subStepChoice: undefined,
+        questions: Prisma.JsonNull,
+        subStepArtifact: Prisma.JsonNull,
+        subStepChoice: null,
       },
     });
 

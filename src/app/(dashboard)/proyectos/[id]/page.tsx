@@ -26,7 +26,6 @@ export default async function ProjectDetailPage({ params }: Props) {
   if (!project) notFound();
 
   const allCompleted = project.phases.every((p) => p.status === "COMPLETED");
-  const hasCompletedPhases = project.phases.every((p) => p.status === "COMPLETED");
 
   // Load existing skills selection from project
   const existingSkills = project.skills as Array<{
@@ -104,7 +103,7 @@ export default async function ProjectDetailPage({ params }: Props) {
           lastError: p.lastError as import("@/lib/phase-errors").PhaseError | null,
         }))}
         memory={project.memory as import("@/lib/project-memory").ProjectMemory | null}
-        hasCompletedPhases={hasCompletedPhases}
+        hasCompletedPhases={allCompleted}
         handoffReady={project.handoffReady ?? false}
         existingSkills={existingSkills}
         idea={project.idea ? {

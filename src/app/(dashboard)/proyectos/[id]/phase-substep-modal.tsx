@@ -472,9 +472,24 @@ export function PhaseSubstepModal({
     let choice =
       customValue.trim() || selectedOpt?.label || selectedOption || "";
 
+    // Naming: el agente (desde 2026-06) pone el nombre real de la marca en
+    // option.value, asi que esa es la fuente fiable (los labels nuevos
+    // "Opcion A -- Nombre: gancho" romperian la limpieza legacy de abajo,
+    // que produciria "Opcion A"). Los artifacts antiguos usaban "A"/"B"/"C"
+    // como value (el nombre iba en el label) y siguen el camino legacy.
+    const usedNamingValue =
+      phaseType === "IDENTITY" &&
+      subStep === "naming" &&
+      !customValue.trim() &&
+      !!selectedOpt?.value &&
+      selectedOpt.value.trim().length > 2;
+    if (usedNamingValue && selectedOpt) {
+      choice = selectedOpt.value.trim();
+    }
+
     // Para naming: limpiar prefijo "Opción X: " y sufijos como "(recomendado)"
     // para que el nombre elegido sea solo el texto real.
-    if (phaseType === "IDENTITY" && subStep === "naming") {
+    if (phaseType === "IDENTITY" && subStep === "naming" && !usedNamingValue) {
       const match = choice.match(/^Opci[oó]n\s+\w+:\s*(.*)/i);
       if (match) {
         choice = match[1].trim();

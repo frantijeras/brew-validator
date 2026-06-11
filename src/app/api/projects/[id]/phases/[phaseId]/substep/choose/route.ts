@@ -44,6 +44,30 @@ export async function POST(
       );
     }
 
+    // Sub-steps that accept free text (mirrors FREE_INPUT_SUBSTEPS in the
+    // modal). For option-only sub-steps (voice, visual, ...), the choice must
+    // match one of the generated options — the UI sends either the option's
+    // value or its label depending on the flow, so accept both.
+    const FREE_INPUT_SUBSTEPS = new Set(["naming", "mockup", "final"]);
+    const currentSubStep = phase.subStep || "";
+    if (!FREE_INPUT_SUBSTEPS.has(currentSubStep)) {
+      const artifact = phase.subStepArtifact as {
+        options?: Array<{ value?: unknown; label?: unknown }>;
+      } | null;
+      const opts = Array.isArray(artifact?.options) ? artifact.options : null;
+      if (opts && opts.length > 0) {
+        const isValid = opts.some(
+          (o) => o?.value === choice || o?.label === choice
+        );
+        if (!isValid) {
+          return NextResponse.json(
+            { error: "La elección no corresponde a ninguna de las opciones generadas" },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
     // Accumulate the confirmed sub-step into `subStepHistory` so each sub-step
     // (naming / voice / visual) is preserved independently. The singular
     // `subStepArtifact`/`subStepChoice` fields hold only the *current* sub-step

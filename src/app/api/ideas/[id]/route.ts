@@ -10,7 +10,17 @@ const updateIdeaSchema = z.object({
   valueProposition: z.string().optional().nullable(),
   targetUser: z.string().min(3).optional(),
   monetization: z.string().min(3).optional(),
-  status: z.string().optional(),
+  status: z
+    .enum([
+      "DRAFT",
+      "GENERATING",
+      "VALIDATING",
+      "REFINING",
+      "COMPLETED",
+      "POLISHING",
+      "FAILED",
+    ])
+    .optional(),
   isArchived: z.boolean().optional(),
   isFavorite: z.boolean().optional(),
 });
