@@ -27,12 +27,12 @@ export function verifyBridgeSecret(req: Request): boolean {
     if (!warnedMissingSecret) {
       console.warn(
         "[SECURITY] BRIDGE_SECRET no configurado: los endpoints del bridge " +
-          "aceptan peticiones sin autenticar (fail-open). Configura el secreto " +
-          "en el VPS y en Vercel para cerrarlo."
+          "requieren autenticación (fail-closed). Verifica que el secreto " +
+          "está en el VPS y en Vercel."
       );
       warnedMissingSecret = true;
     }
-    return true;
+    return false;
   }
 
   const header = req.headers.get("authorization") ?? "";
