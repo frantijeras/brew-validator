@@ -612,6 +612,7 @@ export function ProjectPhasesWithModal({
               // porque las acciones "Ver" + "Descargar PDF" ya cubren la descarga.
               // Así evitamos el enlace duplicado en forma de chip de artefacto.
               statusLabel={isProcessing ? processingLabel : undefined}
+              hasQuestions={Boolean(hasQuestions)}
               artifacts={undefined}
               lastError={phase.lastError}
               actions={(() => {

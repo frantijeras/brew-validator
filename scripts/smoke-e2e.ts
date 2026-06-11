@@ -817,6 +817,85 @@ async function testAgentContextRules() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// MODULE 11: phase-loading-messages.ts — estado→mensaje de carga (U6 UX)
+// ═══════════════════════════════════════════════════════════════════════
+section("11. phase-loading-messages.ts — estado→mensaje de carga");
+
+async function testPhaseLoadingMessages() {
+  const {
+    getPhaseLoadingMessage,
+    isPhaseLoading,
+    PHASE_PREPARING_MESSAGE,
+  } = await import("../src/lib/phase-loading-messages");
+
+  // processing sin preguntas -> "Generando preguntas…"
+  assert(
+    getPhaseLoadingMessage("processing", { hasQuestions: false }) ===
+      "Generando preguntas…",
+    tc("processing sin preguntas -> Generando preguntas…")
+  );
+
+  // processing con preguntas -> "Generando informe…"
+  assert(
+    getPhaseLoadingMessage("processing", { hasQuestions: true }) ===
+      "Generando informe…",
+    tc("processing con preguntas -> Generando informe…")
+  );
+
+  // questioning sin preguntas -> "Generando preguntas…"
+  assert(
+    getPhaseLoadingMessage("questioning", { hasQuestions: false }) ===
+      "Generando preguntas…",
+    tc("questioning sin preguntas -> Generando preguntas…")
+  );
+
+  // questioning CON preguntas -> null (no hay job de carga)
+  assert(
+    getPhaseLoadingMessage("questioning", { hasQuestions: true }) === null,
+    tc("questioning con preguntas -> null (sin spinner)")
+  );
+
+  // justUnlocked tiene prioridad -> "Preparando la siguiente fase…"
+  assert(
+    getPhaseLoadingMessage("available", { justUnlocked: true }) ===
+      PHASE_PREPARING_MESSAGE,
+    tc("justUnlocked -> Preparando la siguiente fase…")
+  );
+
+  // Estados sin carga -> null
+  assert(
+    getPhaseLoadingMessage("available") === null,
+    tc("available -> null")
+  );
+  assert(
+    getPhaseLoadingMessage("completed") === null,
+    tc("completed -> null")
+  );
+  assert(
+    getPhaseLoadingMessage("locked") === null,
+    tc("locked -> null")
+  );
+  assert(
+    getPhaseLoadingMessage("substep") === null,
+    tc("substep -> null")
+  );
+
+  // isPhaseLoading refleja getPhaseLoadingMessage
+  assert(
+    isPhaseLoading("processing", { hasQuestions: false }) === true,
+    tc("isPhaseLoading: processing -> true")
+  );
+  assert(
+    isPhaseLoading("completed") === false,
+    tc("isPhaseLoading: completed -> false")
+  );
+  assert(
+    isPhaseLoading("available", { justUnlocked: true }) === true,
+    tc("isPhaseLoading: justUnlocked -> true")
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // MODULE 10: handoff-builder.ts
 // ═══════════════════════════════════════════════════════════════════════
 section("10. handoff-builder.ts — buildHandoffZip");
@@ -1031,6 +1110,7 @@ async function main() {
     await testBrandBook();
     await testProjectMemory();
     await testAgentContextRules();
+    await testPhaseLoadingMessages();
     await testHandoffBuilder();
   } catch (err) {
     console.log(`\n  ❌ FATAL ERROR: ${err}`);
