@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { BUSINESS_MODELS } from "@/lib/business-models";
 import { resolveModelForJobAgent } from "@/lib/agent-models";
+import { requireAuth } from "@/lib/require-auth";
 
 const generateIdeaSchema = z.discriminatedUnion("mode", [
   z.object({
@@ -26,6 +27,9 @@ const generateIdeaSchema = z.discriminatedUnion("mode", [
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth.response;
+
     const body = await req.json();
     const data = generateIdeaSchema.parse(body);
 
@@ -61,6 +65,7 @@ export async function POST(req: NextRequest) {
       title: placeholderTitle,
       status: "GENERATING",
       validationStatus: "PENDING",
+      userId: auth.userId,
     };
 
     if (resolvedBusinessModel) {

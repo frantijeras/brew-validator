@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { guardIdea } from "@/lib/ownership";
 
 export async function POST(
   _req: NextRequest,
@@ -7,6 +8,9 @@ export async function POST(
 ) {
   try {
     const { id, versionId } = await params;
+
+    const guard = await guardIdea(id);
+    if (!guard.ok) return guard.response;
 
     const version = await prisma.ideaVersion.findUnique({
       where: { id: versionId },

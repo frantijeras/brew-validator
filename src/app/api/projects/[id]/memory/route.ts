@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { Prisma } from "@prisma/client";
+import { guardProject } from "@/lib/ownership";
 import {
   mergeProjectMemory,
   type ProjectMemory,
@@ -18,6 +19,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    const guard = await guardProject(id);
+    if (!guard.ok) return guard.response;
     const project = await prisma.project.findUnique({
       where: { id },
       select: { memory: true },
@@ -54,6 +57,8 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
+    const guard = await guardProject(id);
+    if (!guard.ok) return guard.response;
     const body = await req.json();
 
     const project = await prisma.project.findUnique({

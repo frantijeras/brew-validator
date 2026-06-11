@@ -1,11 +1,17 @@
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { requireAuth } from "@/lib/require-auth";
+import { ideaOwnerWhere } from "@/lib/ownership";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth.response;
+
     const projects = await prisma.project.findMany({
+      where: { idea: ideaOwnerWhere(auth.userId) },
       include: {
         phases: { orderBy: { sortOrder: "asc" } },
       },

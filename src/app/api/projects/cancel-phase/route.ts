@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { guardPhase } from "@/lib/ownership";
 
 export async function POST(req: Request) {
   try {
@@ -8,6 +9,9 @@ export async function POST(req: Request) {
     if (!phaseId) {
       return NextResponse.json({ error: "Missing phaseId" }, { status: 400 });
     }
+
+    const guard = await guardPhase(phaseId);
+    if (!guard.ok) return guard.response;
 
     const phase = await prisma.projectPhase.findUnique({ where: { id: phaseId } });
     if (!phase) {

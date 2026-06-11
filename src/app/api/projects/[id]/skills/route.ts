@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { guardProject } from "@/lib/ownership";
 import { inferSkills } from "@/lib/skill-inference";
 import type { InferenceInput, SkillRecommendation } from "@/lib/skill-inference";
 
@@ -41,6 +42,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    const guard = await guardProject(id);
+    if (!guard.ok) return guard.response;
 
     const project = await prisma.project.findUnique({
       where: { id },
@@ -169,6 +172,8 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
+    const guard = await guardProject(id);
+    if (!guard.ok) return guard.response;
 
     const project = await prisma.project.findUnique({
       where: { id },

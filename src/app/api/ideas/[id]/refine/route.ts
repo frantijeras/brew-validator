@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { resolveModelForJobAgent } from "@/lib/agent-models";
 import { getNextVersionPhase } from "@/lib/versions";
 import { isIdeaBusy } from "@/lib/idea-state";
+import { guardIdea } from "@/lib/ownership";
 
 // ── Schema: manual mode with structured fields ──
 const manualFieldsSchema = z.object({
@@ -57,6 +58,10 @@ export async function POST(
 ) {
   try {
     const { id: ideaId } = await params;
+
+    const guard = await guardIdea(ideaId);
+    if (!guard.ok) return guard.response;
+
     const body = await req.json();
     const parsed = refineSchema.parse(body);
 
@@ -283,6 +288,10 @@ export async function GET(
 ) {
   try {
     const { id: ideaId } = await params;
+
+    const guard = await guardIdea(ideaId);
+    if (!guard.ok) return guard.response;
+
     const { searchParams } = new URL(req.url);
     const jobId = searchParams.get("jobId");
 

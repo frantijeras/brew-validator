@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { guardProject } from "@/lib/ownership";
 import { buildReportHtml } from "@/lib/report-renderer";
 import {
   buildBrandBookFromPhase,
@@ -28,6 +29,8 @@ export async function GET(
 ) {
   try {
     const { id: projectId, phaseId } = await params;
+    const guard = await guardProject(projectId);
+    if (!guard.ok) return guard.response;
 
     const phase = await prisma.projectPhase.findFirst({
       where: { id: phaseId, projectId },

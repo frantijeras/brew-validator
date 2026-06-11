@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { guardIdea } from "@/lib/ownership";
 
 export async function PATCH(
   _req: Request,
@@ -7,6 +8,9 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
+
+    const guard = await guardIdea(id);
+    if (!guard.ok) return guard.response;
 
     const idea = await prisma.idea.findUnique({ where: { id } });
     if (!idea) {

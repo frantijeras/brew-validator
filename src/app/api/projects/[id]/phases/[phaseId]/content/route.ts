@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { guardProject } from "@/lib/ownership";
 
 /**
  * GET /api/projects/[id]/phases/[phaseId]/content
@@ -23,6 +24,8 @@ export async function GET(
 ) {
   try {
     const { id, phaseId } = await params;
+    const guard = await guardProject(id);
+    if (!guard.ok) return guard.response;
 
     const phase = await prisma.projectPhase.findUnique({
       where: { id: phaseId },

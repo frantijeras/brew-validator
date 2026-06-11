@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { isIdeaBusy } from "@/lib/idea-state";
+import { guardIdea, guardIdeaOrBridge } from "@/lib/ownership";
 
 const updateIdeaSchema = z.object({
   title: z.string().min(3).optional(),
@@ -31,6 +32,10 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+
+    const guard = await guardIdeaOrBridge(req, id);
+    if (!guard.ok) return guard.response;
+
     const { searchParams } = new URL(req.url);
     const requestedVersionId = searchParams.get("versionId");
 
@@ -130,6 +135,10 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
+
+    const guard = await guardIdea(id);
+    if (!guard.ok) return guard.response;
+
     const body = await req.json();
     const data = updateIdeaSchema.parse(body);
 
@@ -187,6 +196,9 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+
+    const guard = await guardIdea(id);
+    if (!guard.ok) return guard.response;
 
     const idea = await prisma.idea.findUnique({ where: { id } });
     if (!idea) {

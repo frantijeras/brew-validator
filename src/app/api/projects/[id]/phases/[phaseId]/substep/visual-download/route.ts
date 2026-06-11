@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { guardProject } from "@/lib/ownership";
 import {
   getVisualOption,
   parseVisualArtifactContent,
@@ -29,6 +30,8 @@ export async function GET(
 ) {
   try {
     const { id: projectId, phaseId } = await params;
+    const guard = await guardProject(projectId);
+    if (!guard.ok) return guard.response;
     const url = new URL(req.url);
     const rawVariant = (url.searchParams.get("variant") || "A").toUpperCase();
     if (rawVariant !== "A" && rawVariant !== "B" && rawVariant !== "C") {

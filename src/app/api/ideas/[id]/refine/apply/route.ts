@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getNextVersionPhase } from "@/lib/versions";
+import { guardIdea } from "@/lib/ownership";
 
 const applyRefineSchema = z.object({
   title: z.string().min(3),
@@ -25,6 +26,10 @@ export async function POST(
 ) {
   try {
     const { id: ideaId } = await params;
+
+    const guard = await guardIdea(ideaId);
+    if (!guard.ok) return guard.response;
+
     const body = await req.json();
     const data = applyRefineSchema.parse(body);
 

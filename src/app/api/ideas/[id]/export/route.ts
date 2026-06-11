@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { BUSINESS_MODELS } from "@/lib/business-models";
+import { guardIdeaOrBridge } from "@/lib/ownership";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+
+    const guard = await guardIdeaOrBridge(req, id);
+    if (!guard.ok) return guard.response;
 
     const idea = await prisma.idea.findUnique({
       where: { id },

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { guardProject } from "@/lib/ownership";
 import { enqueuePhaseJob } from "@/lib/bridge/phase-jobs";
 import { PHASE_SUBSTEPS } from "@/lib/phase-substeps";
 
@@ -25,6 +26,8 @@ export async function POST(
 ) {
   try {
     const { id: projectId, phaseId } = await params;
+    const guard = await guardProject(projectId);
+    if (!guard.ok) return guard.response;
     const { choice, nextSubStep } = await req.json();
 
     if (!choice || typeof choice !== "string") {

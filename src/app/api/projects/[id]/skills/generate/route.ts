@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { guardProject } from "@/lib/ownership";
 import type { ProjectMemory } from "@/lib/project-memory";
 
 const generateSkillsSchema = z.object({
@@ -375,6 +376,8 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
+    const guard = await guardProject(id);
+    if (!guard.ok) return guard.response;
     const body = await req.json();
     const parsed = generateSkillsSchema.safeParse(body);
 

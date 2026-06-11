@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { guardProject } from "@/lib/ownership";
 import { buildBrandBookFromPhase, brandBookToMarkdown } from "@/lib/identity-brandbook";
 import { ZipArchive } from "archiver";
 import type { ProjectMemory } from "@/lib/project-memory";
@@ -161,6 +162,9 @@ export async function GET(req: Request) {
         { status: 400 },
       );
     }
+
+    const guard = await guardProject(projectId);
+    if (!guard.ok) return guard.response;
 
     const project = await prisma.project.findUnique({
       where: { id: projectId },

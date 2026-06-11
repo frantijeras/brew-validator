@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { requireAuth } from "@/lib/require-auth";
+import { ideaOwnerWhere } from "@/lib/ownership";
 
 const createIdeaSchema = z.object({
   title: z.string().min(3, "El título debe tener al menos 3 caracteres"),
@@ -11,6 +13,9 @@ const createIdeaSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth.response;
+
     const body = await req.json();
     const data = createIdeaSchema.parse(body);
 
@@ -20,6 +25,7 @@ export async function POST(req: NextRequest) {
       originalIdea: data.description,
       targetUser: data.targetUser,
       monetization: data.monetization,
+      userId: auth.userId,
     };
 
     const idea = await prisma.idea.create({ data: ideaData });
@@ -46,7 +52,11 @@ export async function POST(req: NextRequest) {
 
 export async function GET() {
   try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth.response;
+
     const ideas = await prisma.idea.findMany({
+      where: ideaOwnerWhere(auth.userId),
       orderBy: { updatedAt: "desc" },
       include: {
         currentVersion: {

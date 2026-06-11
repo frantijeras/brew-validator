@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { guardProject } from "@/lib/ownership";
 import { propagateRename } from "@/lib/rename-propagate";
 
 /**
@@ -38,6 +39,8 @@ export async function POST(
 ) {
   try {
     const { id: projectId } = await params;
+    const guard = await guardProject(projectId);
+    if (!guard.ok) return guard.response;
     const { newName, phaseId } = await req.json();
 
     if (!newName || typeof newName !== "string" || !newName.trim()) {

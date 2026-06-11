@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { guardProject } from "@/lib/ownership";
 import { buildValidationReport } from "@/lib/validation-report";
 import { buildReportPdf } from "@/lib/pdf-export";
 
@@ -22,6 +23,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    const guard = await guardProject(id);
+    if (!guard.ok) return guard.response;
 
     let assembled;
     try {

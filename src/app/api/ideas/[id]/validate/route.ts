@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { resolveModelForJobAgent } from "@/lib/agent-models";
 import { isIdeaBusy } from "@/lib/idea-state";
+import { guardIdea } from "@/lib/ownership";
 
 const AGENTS = ["skeptic", "advocate", "judge"];
 
@@ -11,6 +12,9 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
+
+    const guard = await guardIdea(id);
+    if (!guard.ok) return guard.response;
 
     const idea = await prisma.idea.findUnique({ where: { id } });
     if (!idea) {

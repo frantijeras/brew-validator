@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { enqueuePhaseJob } from "@/lib/bridge/phase-jobs";
+import { guardProject } from "@/lib/ownership";
 
 /**
  * POST /api/projects/execute-phase
@@ -30,6 +31,9 @@ export async function POST(req: Request) {
     if (!projectId || !phaseId || !phaseType) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
+
+    const guard = await guardProject(projectId);
+    if (!guard.ok) return guard.response;
 
     const phase = await prisma.projectPhase.findUnique({ where: { id: phaseId } });
     if (!phase) {

@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { backfillCurrentVersion } from "@/lib/backfill-current-version";
+import { guardIdeaOrBridge } from "@/lib/ownership";
 
 let backfillRan = false;
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+
+    const guard = await guardIdeaOrBridge(req, id);
+    if (!guard.ok) return guard.response;
 
     const idea = await prisma.idea.findUnique({
       where: { id },

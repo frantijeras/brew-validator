@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { buildValidationReport } from "@/lib/validation-report";
 import { buildReportHtml } from "@/lib/report-renderer";
 import { prisma } from "@/lib/db";
+import { guardProject } from "@/lib/ownership";
 
 /**
  * GET /api/projects/[id]/validation/view
@@ -28,6 +29,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    const guard = await guardProject(id);
+    if (!guard.ok) return guard.response;
     const url = new URL(req.url);
     const format = url.searchParams.get("format");
 

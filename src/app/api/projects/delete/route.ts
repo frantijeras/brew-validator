@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { guardProject } from "@/lib/ownership";
 
 export async function POST(req: Request) {
   try {
@@ -7,6 +8,9 @@ export async function POST(req: Request) {
     if (!projectId) {
       return NextResponse.json({ error: "Missing projectId" }, { status: 400 });
     }
+
+    const guard = await guardProject(projectId);
+    if (!guard.ok) return guard.response;
 
     // 1. Get ideaId before deleting project
     const project = await prisma.project.findUnique({

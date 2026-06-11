@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { guardProject } from "@/lib/ownership";
 import { previewRename } from "@/lib/rename-propagate";
 
 /**
@@ -25,6 +26,8 @@ export async function GET(
 ) {
   try {
     const { id: projectId } = await params;
+    const guard = await guardProject(projectId);
+    if (!guard.ok) return guard.response;
     const url = new URL(req.url);
     const newName = url.searchParams.get("newName") ?? "";
 
