@@ -165,7 +165,7 @@ export function ProjectTabs({
             if (handoffReady) setActiveTab("handoff");
           }}
           disabled={!handoffReady}
-          title={!handoffReady ? "Disponible cuando el proyecto esté listo para hand-off" : ""}
+          title={!handoffReady ? "Disponible cuando el proyecto esté listo para el Hand-off" : ""}
           className={`
             relative shrink-0 px-4 py-3 text-sm font-medium transition-colors
             whitespace-nowrap inline-flex items-center gap-1.5
@@ -594,7 +594,7 @@ function HandoffTab({
                       {phase.label}
                     </p>
                     <p className="text-xs text-slate-500">
-                      Fase {phase.sortOrder} · {phase.type}
+                      Fase {phase.sortOrder}
                     </p>
                   </div>
                   <span className="text-xs text-slate-500 shrink-0">

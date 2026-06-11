@@ -21,10 +21,10 @@ export const STATUS_LABELS: Record<string, string> = {
   POLISHING: "Puliendo",
   FAILED: "Error",
   // Legacy
-  DONE: "completada",
-  PENDING: "pendiente",
-  RUNNING: "en progreso",
-  KILLED: "cancelada",
+  DONE: "Completada",
+  PENDING: "Pendiente",
+  RUNNING: "En progreso",
+  KILLED: "Cancelada",
 };
 
 /** @deprecated usar STATUS_LABELS */
