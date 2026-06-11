@@ -146,12 +146,10 @@ model Project {
   ideaId          String         @unique
   name            String
   description     String?
-  status          String         @default("ACTIVE")
   memory          Json?
   skills          Json?
   handoffReady    Boolean        @default(false)
   generatedSkills Json?
-  buyerPersona    Json?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   idea            Idea           @relation(fields: [ideaId], references: [id], onDelete: Cascade)

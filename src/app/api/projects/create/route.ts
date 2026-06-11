@@ -42,7 +42,6 @@ export async function POST(req: Request) {
         ideaId: idea.id,
         name: idea.title,
         description: idea.description?.slice(0, 300),
-        status: "ACTIVE",
         phases: {
           create: [
             {
