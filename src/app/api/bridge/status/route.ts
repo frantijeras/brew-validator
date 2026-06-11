@@ -120,11 +120,10 @@ export async function GET() {
           : null,
       lastJobAt: lastJobAtIso,
       staleAfterSeconds: STALE_AFTER_SECONDS,
-      // Live bridge state
+      // Live bridge state. We expose only what the UI consumes: `state` and
+      // `lastError` (the bridge-status banner). `currentModel`/`currentAgent`/
+      // `stateDetail` were leaking internal config and nothing reads them.
       state: value.state ?? "idle",
-      stateDetail: value.stateDetail ?? "",
-      currentAgent: value.currentAgent ?? "",
-      currentModel: value.currentModel ?? "",
       lastError: value.lastError ?? "",
       lastErrorAt: lastErrorAtIso,
       jobsCompleted: value.jobsCompleted ?? 0,

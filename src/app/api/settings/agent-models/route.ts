@@ -94,9 +94,9 @@ async function forwardToBridge(
 }
 
 // GET /api/settings/agent-models
-// Public endpoint — the bridge daemon polls this without auth.
-// Returns the latest saved config (per user when authenticated, otherwise
-// the most recently saved user's config — single-tenant today).
+// Gated by the middleware (session OR bridge secret) — the bridge daemon polls
+// it with the shared secret. Returns the latest saved config (single-tenant
+// today: the most recently saved user's config).
 export async function GET() {
   // Priority: DB (user settings) > file (bridge-synced) > defaults
   // Merge with defaults so any agent without explicit config gets a fallback.

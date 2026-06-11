@@ -13,9 +13,27 @@
  * To enable: set the same `BRIDGE_SECRET` in the Next.js env (Vercel) and in
  * the bridge daemon, and have the bridge send the header on every call.
  */
+let warnedMissingSecret = false;
+
 export function verifyBridgeSecret(req: Request): boolean {
   const secret = process.env.BRIDGE_SECRET;
-  if (!secret) return true; // not configured → allow
+  if (!secret) {
+    // Fail-open until the secret is provisioned on BOTH the VPS bridge and
+    // Vercel — this keeps the running bridge working during rollout. Warn once
+    // per instance so the unauthenticated window is visible in the logs.
+    // TODO(seguridad): una vez creado /root/.openclaw/credentials/
+    // brew-validator-bridge-secret.txt en el VPS y configurado BRIDGE_SECRET en
+    // Vercel, cambiar este `return true` por `return false` (fail-closed).
+    if (!warnedMissingSecret) {
+      console.warn(
+        "[SECURITY] BRIDGE_SECRET no configurado: los endpoints del bridge " +
+          "aceptan peticiones sin autenticar (fail-open). Configura el secreto " +
+          "en el VPS y en Vercel para cerrarlo."
+      );
+      warnedMissingSecret = true;
+    }
+    return true;
+  }
 
   const header = req.headers.get("authorization") ?? "";
   const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
