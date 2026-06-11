@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import dns from "dns";
-import net from "net";
 
 /**
  * POST /api/domains/check
@@ -44,8 +43,10 @@ export async function POST(req: Request) {
       );
     }
 
-    const results: Array<{ domain: string; available: boolean | null }> = [];
-
+    // Build the full domain list, then probe all of them concurrently \u2014 DNS
+    // lookups are I/O-bound and independent, so awaiting them in a nested loop
+    // (names \u00d7 suffixes) serialised dozens of round-trips for no reason.
+    const domains: string[] = [];
     for (const name of names) {
       const slug = name
         .toLowerCase()
@@ -57,11 +58,16 @@ export async function POST(req: Request) {
       if (!slug) continue;
 
       for (const suffix of SUFFIXES) {
-        const domain = `${slug}${suffix}`;
-        const available = await checkDomain(domain);
-        results.push({ domain, available });
+        domains.push(`${slug}${suffix}`);
       }
     }
+
+    const results = await Promise.all(
+      domains.map(async (domain) => ({
+        domain,
+        available: await checkDomain(domain),
+      }))
+    );
 
     return NextResponse.json({ results });
   } catch (error) {

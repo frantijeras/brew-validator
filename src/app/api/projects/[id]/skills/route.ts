@@ -56,6 +56,14 @@ export async function GET(
         phases: {
           where: { status: "COMPLETED" },
           orderBy: { sortOrder: "asc" },
+          // Only the fields the inference loop reads below.
+          select: {
+            type: true,
+            artifacts: true,
+            questions: true,
+            subStepChoice: true,
+            subStepArtifact: true,
+          },
         },
       },
     });

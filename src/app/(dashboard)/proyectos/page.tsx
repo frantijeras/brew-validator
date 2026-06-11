@@ -14,9 +14,15 @@ const avatarColors: Record<string, { bg: string; text: string }> = {
 
 export default async function ProyectosPage() {
   const projects = await prisma.project.findMany({
-    include: {
-      idea: true,
-      phases: { orderBy: { sortOrder: "asc" } },
+    select: {
+      id: true,
+      name: true,
+      updatedAt: true,
+      idea: { select: { title: true, description: true } },
+      phases: {
+        orderBy: { sortOrder: "asc" },
+        select: { status: true, label: true, sortOrder: true },
+      },
     },
     orderBy: { updatedAt: "desc" },
   });

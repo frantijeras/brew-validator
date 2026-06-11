@@ -18,7 +18,21 @@ export default async function ProjectDetailPage({ params }: Props) {
   const project = await prisma.project.findUnique({
     where: { id },
     include: {
-      idea: true,
+      // Only the idea fields the page actually forwards to ProjectTabs.
+      idea: {
+        select: {
+          title: true,
+          description: true,
+          problem: true,
+          valueProposition: true,
+          targetUser: true,
+          monetization: true,
+          businessModel: true,
+          score: true,
+          verdict: true,
+          status: true,
+        },
+      },
       phases: { orderBy: { sortOrder: "asc" } },
     },
   });
