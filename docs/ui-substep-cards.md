@@ -89,14 +89,20 @@ Las sub-cards viven **dentro** de la card padre (`PhaseCard`), debajo de la desc
 
 ### 3.1 Tabla Maestra de Sub-steps
 
-| Fase | ID de Fase | Sub-steps | Orden |
-|------|-----------|-----------|-------|
-| **ANALYSIS** | Fase 01 | `quiz` → `report` | (implícito, no muestra cards) |
-| **BUSINESS** | Fase 02 | `quiz` (1), `final` (2) | 2 sub-steps |
-| **IDENTITY** | Fase 03 | `naming` (1), `voice` (2), `visual` (3), `final` (4) | 4 sub-steps |
-| **CONTENT** | Fase 04 | `quiz` (1), `pilars` (2), `final` (3) | 3 sub-steps |
-| **DEVELOPMENT** | Fase 05 | `quiz` (1), `compare` (2), `final` (3) | 3 sub-steps |
-| **EXECUTION** | Fase 06 | `quiz` (1), `simulate` (2), `final` (3) | 3 sub-steps |
+> **Estado de implementación (fuente de verdad: `src/lib/phase-substeps.ts`).**
+> Solo `IDENTITY` y `EXECUTION` definen sub-cards. El resto de fases ejecutan
+> quiz → report sin cards anidadas. No existe la fase `DEVELOPMENT` (el enum
+> `PhaseType` tiene 5 valores: ANALYSIS, BUSINESS, IDENTITY, CONTENT, EXECUTION).
+> El sub-paso `final` de IDENTITY (Brand Book) se genera automáticamente al
+> completar `visual`; no es una card ejecutable.
+
+| Fase | Orden | Sub-steps (cards) |
+|------|-------|-------------------|
+| **ANALYSIS** | Fase 1 | (implícito, no muestra cards) |
+| **BUSINESS** | Fase 2 | (implícito, no muestra cards) |
+| **IDENTITY** | Fase 3 | `naming`, `voice`, `visual` (+ Brand Book automático) |
+| **CONTENT** | Fase 4 | (implícito, no muestra cards) |
+| **EXECUTION** | Fase 5 | `plan_30_60_90`, `final` |
 
 ### 3.2 Metadatos de Cada Sub-step (para UI)
 
@@ -110,37 +116,22 @@ export interface SubStepMeta {
   icon: string;            // Nombre del icono Lucide (ej. "Type", "MessageSquare", etc.)
 }
 
+// Versión implementada (ver src/lib/phase-substeps.ts para el original vigente):
 export const PHASE_SUBSTEPS: Record<string, SubStepMeta[]> = {
   IDENTITY: [
-    { id: "naming",  order: 0, label: "Nombre",      description: "Elige el nombre de tu proyecto",           icon: "Type" },
-    { id: "voice",   order: 1, label: "Voz y Tono",  description: "Define la personalidad de tu marca",       icon: "MessageSquare" },
-    { id: "visual",  order: 2, label: "Estilo Visual", description: "Fuentes, colores e identidad visual",     icon: "Palette" },
-    { id: "final",   order: 3, label: "Brand Book",  description: "Documento final con toda la identidad",    icon: "BookOpen" },
-  ],
-  BUSINESS: [
-    { id: "quiz",    order: 0, label: "Cuestionario", description: "Responde preguntas clave de negocio",       icon: "HelpCircle" },
-    { id: "final",   order: 1, label: "Plan de Negocio", description: "Documento final consolidado",         icon: "BriefcaseBusiness" },
-  ],
-  CONTENT: [
-    { id: "quiz",    order: 0, label: "Cuestionario", description: "Estrategia de contenido",                  icon: "HelpCircle" },
-    { id: "pilars",  order: 1, label: "Pilares de Contenido", description: "Temas y calendario editorial",     icon: "LayoutGrid" },
-    { id: "final",   order: 2, label: "Estrategia Final", description: "Plan de contenido completo",          icon: "FileText" },
-  ],
-  DEVELOPMENT: [
-    { id: "quiz",    order: 0, label: "Cuestionario", description: "Requisitos técnicos",                      icon: "HelpCircle" },
-    { id: "compare", order: 1, label: "Comparativa", description: "Comparación de stacks y arquitecturas",    icon: "GitCompare" },
-    { id: "final",   order: 2, label: "Especificación Técnica", description: "Documento de desarrollo",       icon: "Code" },
+    { id: "naming",  order: 0, label: "Naming",        description: "Elige el nombre de tu proyecto",         icon: "Type" },
+    { id: "voice",   order: 1, label: "Voz y Tono",    description: "Define la personalidad de tu marca",     icon: "MessageSquare" },
+    { id: "visual",  order: 2, label: "Estilo Visual", description: "Fuentes, colores e identidad visual. Al completar se genera el Brand Book automáticamente.", icon: "Palette" },
   ],
   EXECUTION: [
-    { id: "quiz",    order: 0, label: "Cuestionario", description: "Plan de lanzamiento",                      icon: "HelpCircle" },
-    { id: "simulate",order: 1, label: "Simulación", description: "Escenarios y riesgos",                      icon: "PlayCircle" },
-    { id: "final",   order: 2, label: "Plan de Ejecución", description: "Roadmap de lanzamiento",               icon: "Rocket" },
+    { id: "plan_30_60_90", order: 0, label: "Plan 30/60/90",       description: "Hitos para los primeros 30/60/90 días", icon: "Rocket" },
+    { id: "final",         order: 1, label: "Simulación Económica", description: "Proyección financiera y escenarios",    icon: "BriefcaseBusiness" },
   ],
-  // ANALYSIS: no tiene sub-steps con nombre (solo quiz → report implícito)
+  // ANALYSIS, BUSINESS, CONTENT: no renderizan sub-cards (quiz → report implícito).
 };
 ```
 
-> **Nota:** `ANALYSIS` (Fase 01) no renderiza sub-cards. Solo muestra el quiz de análisis como fase simple.
+> **Nota:** `ANALYSIS`, `BUSINESS` y `CONTENT` no renderizan sub-cards: ejecutan el quiz → report como fase simple.
 
 ---
 
@@ -392,12 +383,10 @@ type SubStepStatus = "locked" | "available" | "processing" | "completed" | "subs
 ### 4.6 Mapa de Tono Heredado por Fase
 
 ```typescript
-const subStepToneMap: Record<string, PhaseCardTone> = {
-  IDENTITY:   "purple",
-  BUSINESS:   "cyan",      // Nota: usar blue si cyan no está en toneNumberStyles
-  CONTENT:    "amber",
-  DEVELOPMENT:"green",
-  EXECUTION:  "amber",     // O crear un tone "orange" si se agrega
+const subStepToneMap: Record<string, string> = {
+  IDENTITY: "purple",
+  BUSINESS: "blue",  // blue en lugar de cyan para consistencia con toneNumberStyles
+  CONTENT:  "amber",
 };
 ```
 

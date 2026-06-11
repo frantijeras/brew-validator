@@ -96,15 +96,14 @@ const updated = mergeProjectMemory(currentMemory, {
 
 ## 4. Fases y sus códigos de source
 
-| Código | Fase |
-|--------|------|
-| `"01"` | Análisis de Mercado |
-| `"02"` | Estrategia de Negocio |
-| `"03"` | Identidad de Marca |
-| `"04"` | Estrategia de Distribución |
-| `"05"` | Landing Page |
-| `"06"` | Roadmap 30/60/90 |
-| `"user"` | Override manual del usuario |
+| Código | Fase | PhaseType |
+|--------|------|-----------|
+| `"01"` | Análisis de Mercado | ANALYSIS |
+| `"02"` | Estrategia de Negocio | BUSINESS |
+| `"03"` | Identidad de Marca | IDENTITY |
+| `"04"` | Estrategia de Distribución | CONTENT |
+| `"05"` | Roadmap 30/60/90 | EXECUTION |
+| `"user"` | Override manual del usuario | — |
 
 ---
 
@@ -128,20 +127,25 @@ Con `contextRules` en su prompt, el agente debe:
 ## 6. Ejemplo completo de flujo
 
 ```
-Fase 01 (Análisis):
+Fase 01 (Análisis de Mercado):
   Agente investiga → propone target="jóvenes 18-25", channels=["TikTok"]
   → Se guarda en Project.memory con source="01"
 
-Fase 02 (Identidad - Naming):
+Fase 02 (Estrategia de Negocio):
   Agente recibe contextRules con "target: jóvenes 18-25" y "channels: TikTok"
   → NO pregunta target ni channels
-  → Propone: "Basado en tu target joven (18-25) y TikTok como canal principal,
-     aquí tienes 3 opciones de nombre: 1) VibeCheck 2) Trendzy 3) PulseApp"
-  → El usuario elige
+  → Propone modelo de negocio coherente con ese target y canal
   → Se guarda en Project.memory con source="02"
 
-Fase 03 (Contenido):
-  Agente recibe contextRules con target y channels DE LA FASE 01 + naming DE LA FASE 02
+Fase 03 (Identidad de Marca - Naming):
+  Agente recibe target y channels de fases previas
   → NO pregunta nada ya decidido
-  → Propone estrategia de contenido coherente con TODO
+  → Propone: "Basado en tu target joven (18-25) y TikTok como canal principal,
+     aquí tienes 3 opciones de nombre: 1) VibeCheck 2) Trendzy 3) PulseApp"
+  → El usuario elige → se guarda en Project.memory con source="03"
+
+Fase 04 (Estrategia de Distribución):
+  Agente recibe target, channels y naming de las fases previas
+  → NO pregunta nada ya decidido
+  → Propone estrategia de contenido/canales coherente con TODO
 ```
