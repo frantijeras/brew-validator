@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { NavItem } from "@/components/nav-item";
+import { ToastProvider } from "@/components/toast";
 
 export default function DashboardLayout({
   children,
@@ -48,6 +49,7 @@ export default function DashboardLayout({
     : session?.user?.email?.charAt(0).toUpperCase() ?? "?";
 
   return (
+    <ToastProvider>
     <div className="flex min-h-screen overflow-x-hidden">
       {/* ── Mobile overlay ── */}
       {mobileOpen && (
@@ -169,6 +171,7 @@ export default function DashboardLayout({
         </div>
       </main>
     </div>
+    </ToastProvider>
   );
 }
 

@@ -1010,6 +1010,78 @@ async function testHandoffBuilder() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// MODULE 11: toast-queue.ts — pure toast queue reducer (U3)
+// ═══════════════════════════════════════════════════════════════════════
+section("11. toast-queue.ts — toast queue reducer (pure)");
+
+async function testToastQueue() {
+  const { toastQueueReducer, createToastId, MAX_TOASTS } = await import(
+    "../src/components/toast/toast-queue"
+  );
+  const { getUserMessage } = await import("../src/lib/user-messages");
+
+  const mk = (id: string) => ({
+    id,
+    severity: "info" as const,
+    text: `t-${id}`,
+    durationMs: 5000,
+  });
+
+  // add → newest first
+  let s = toastQueueReducer([], { type: "add", toast: mk("a") });
+  s = toastQueueReducer(s, { type: "add", toast: mk("b") });
+  assert(s.length === 2 && s[0].id === "b", tc("add inserts newest first"));
+
+  // add is idempotent on duplicate id
+  const dup = toastQueueReducer(s, { type: "add", toast: mk("a") });
+  assert(
+    dup.length === 2 && dup.filter((t) => t.id === "a").length === 1,
+    tc("add with existing id does not duplicate")
+  );
+
+  // remove
+  const removed = toastQueueReducer(s, { type: "remove", id: "a" });
+  assert(
+    removed.length === 1 && removed[0].id === "b",
+    tc("remove drops the matching toast")
+  );
+
+  // clear
+  assert(
+    toastQueueReducer(s, { type: "clear" }).length === 0,
+    tc("clear empties the queue")
+  );
+
+  // cap at MAX_TOASTS (drops oldest)
+  let capped: ReturnType<typeof toastQueueReducer> = [];
+  for (let i = 0; i < MAX_TOASTS + 3; i++) {
+    capped = toastQueueReducer(capped, { type: "add", toast: mk(`x${i}`) });
+  }
+  assert(capped.length === MAX_TOASTS, tc(`queue capped at MAX_TOASTS=${MAX_TOASTS}`));
+  assert(
+    capped[0].id === `x${MAX_TOASTS + 2}`,
+    tc("cap keeps newest, drops oldest")
+  );
+
+  // unique ids
+  const id1 = createToastId();
+  const id2 = createToastId();
+  assert(id1 !== id2 && id1.startsWith("toast-"), tc("createToastId is unique & prefixed"));
+
+  // getUserMessage integration (showErrorByCategory backbone)
+  const known = getUserMessage("rate_limit");
+  assert(
+    known.severity === "warning" && known.text.length > 0,
+    tc("getUserMessage('rate_limit') → warning message")
+  );
+  const fallback = getUserMessage("does-not-exist");
+  assert(
+    fallback.severity === "error" && fallback.text.length > 0,
+    tc("getUserMessage(unknown) → domain fallback message")
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // MAIN
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -1031,6 +1103,7 @@ async function main() {
     await testBrandBook();
     await testProjectMemory();
     await testAgentContextRules();
+    await testToastQueue();
     await testHandoffBuilder();
   } catch (err) {
     console.log(`\n  ❌ FATAL ERROR: ${err}`);
