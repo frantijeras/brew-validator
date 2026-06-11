@@ -23,7 +23,6 @@ const updateIdeaSchema = z.object({
     ])
     .optional(),
   isArchived: z.boolean().optional(),
-  isFavorite: z.boolean().optional(),
 });
 
 export async function GET(
@@ -142,13 +141,10 @@ export async function PATCH(
     const body = await req.json();
     const data = updateIdeaSchema.parse(body);
 
-    // Metadata-only fields are always allowed (favorito/archivado). Any
-    // other field (title/description/targetUser/monetization/problem/
-    // valueProposition/status) is content and must be rejected while
-    // the bridge is processing the idea to avoid race conditions.
-    const isMetadataOnly = Object.keys(data).every(
-      (k) => k === "isFavorite" || k === "isArchived"
-    );
+    // isArchived is always allowed even while the bridge is processing.
+    // Any content field (title/description/targetUser/monetization/problem/
+    // valueProposition/status) must be rejected while the bridge is busy.
+    const isMetadataOnly = Object.keys(data).every((k) => k === "isArchived");
 
     if (!isMetadataOnly) {
       const current = await prisma.idea.findUnique({
@@ -160,7 +156,7 @@ export async function PATCH(
       }
       if (isIdeaBusy(current.status)) {
         return NextResponse.json(
-          { error: `No se puede editar una idea en estado ${current.status}. Solo puedes cambiar favorito/archivada.` },
+          { error: `No se puede editar una idea en estado ${current.status}. Solo puedes cambiar el estado de archivado.` },
           { status: 409 }
         );
       }

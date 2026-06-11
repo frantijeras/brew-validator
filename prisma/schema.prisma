@@ -75,7 +75,6 @@ model Idea {
   originalIdea     String?
   metadata         Json?
   isArchived       Boolean       @default(false)
-  isFavorite       Boolean       @default(false)
   currentVersionId String?
   userId           String?
   createdAt        DateTime      @default(now())

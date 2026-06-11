@@ -27,10 +27,7 @@ export default async function IdeasPage({ searchParams }: Props) {
     ? { ...whereBase, businessModel: activeModel, project: null }
     : { ...whereBase, project: null };
 
-  const orderBy =
-    activeTab === "all"
-      ? [{ isFavorite: "desc" as const }, { updatedAt: "desc" as const }]
-      : [{ updatedAt: "desc" as const }];
+  const orderBy = [{ updatedAt: "desc" as const }];
 
   const ideas = await prisma.idea.findMany({
     where,
@@ -167,7 +164,6 @@ interface IdeaCardData {
   score: number | null;
   businessModel: string | null;
   currentVersionPhase?: string | null;
-  isFavorite: boolean;
   isArchived: boolean;
   createdAt: Date;
   updatedAt: Date;

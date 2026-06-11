@@ -31,7 +31,6 @@ interface IdeaData {
   verdict: string | null;
   score: number | null;
   businessModel: string | null;
-  isFavorite: boolean;
   isArchived: boolean;
   currentVersionId: string | null;
   currentVersionPhase: string | null;
