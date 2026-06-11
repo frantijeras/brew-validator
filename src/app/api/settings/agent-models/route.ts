@@ -1,8 +1,13 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import fs from "fs";
 import path from "path";
+
+// Agent → model id map. Both keys and values must be non-empty strings; this
+// rejects nested objects, arrays or non-string values being injected as config.
+const agentModelsSchema = z.record(z.string().min(1), z.string().min(1));
 
 const CONFIG_PATH = path.resolve(
   process.env.HOME || "/root",
@@ -122,14 +127,18 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    const parsed = agentModelsSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Formato inválido: se esperaba un objeto" },
+        {
+          error: "Formato inválido: se esperaba un objeto { agente: modelo } de strings",
+          details: parsed.error.flatten(),
+        },
         { status: 400 }
       );
     }
 
-    const config = body as Record<string, string>;
+    const config = parsed.data;
 
     // 1. Always persist to DB FIRST — this is the durable source of truth
     //    used by resolveModelForJobAgent() when creating jobs.

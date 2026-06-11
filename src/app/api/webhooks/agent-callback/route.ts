@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { getNextVersionPhase } from "@/lib/versions";
+import { verifyBridgeSecret } from "@/lib/bridge-auth";
 
 const callbackSchema = z.object({
   jobId: z.string(),
@@ -18,6 +19,9 @@ const RENAMER_AGENT = "idea-renamer";
 
 export async function POST(req: NextRequest) {
   try {
+    if (!verifyBridgeSecret(req)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const body = await req.json();
     const data = callbackSchema.parse(body);
 

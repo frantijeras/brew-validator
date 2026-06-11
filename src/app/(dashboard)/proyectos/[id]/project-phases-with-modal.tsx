@@ -43,6 +43,7 @@ import {
 } from "@/lib/project-memory";
 import { SubStepCard, type SubStepStatus } from "./sub-step-card";
 import type { PhaseError } from "@/lib/phase-errors";
+import { useReactivePolling } from "@/hooks/use-reactive-polling";
 
 interface PhaseData {
   id: string;
@@ -160,6 +161,22 @@ function getSubStepStatus(
   if (phaseStatus === "LOCKED") return "locked";
 
   if (phaseStatus === "AVAILABLE") {
+    // For IDENTITY, a phase reset to AVAILABLE after a sub-step failed keeps
+    // its position in `subStep`/`subStepOrder`. Sub-steps are independent:
+    // earlier ones stay completed and the user retries ONLY the current one —
+    // we never force a restart from `naming`. A fresh phase (no subStep) has
+    // currentIdx 0, so only the first sub-step is available.
+    if (phase.type === "IDENTITY") {
+      const currentIdx =
+        phase.subStepOrder !== null && phase.subStepOrder !== undefined
+          ? phase.subStepOrder
+          : phase.subStep
+            ? getSubStepIndex(phase.subStep, phase.type)
+            : 0;
+      if (subStepMeta.order < currentIdx) return "completed";
+      if (subStepMeta.order === currentIdx) return "available";
+      return "locked";
+    }
     return subStepMeta.order === 0 ? "available" : "locked";
   }
 
@@ -283,13 +300,9 @@ export function ProjectPhasesWithModal({
       p.status === "SUBSTEP_READY"
   );
 
-  useEffect(() => {
-    if (!isAnyProcessingOrQuestioning) return;
-    const interval = setInterval(() => {
-      router.refresh();
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [isAnyProcessingOrQuestioning, router]);
+  // Poll while a phase is active, and refresh instantly when the user returns
+  // to the tab (fixes "the phase finished but the UI is stale until I reload").
+  useReactivePolling(isAnyProcessingOrQuestioning, 3000);
 
   async function handleCancelPhase(phaseId: string) {
     try {
@@ -479,28 +492,32 @@ export function ProjectPhasesWithModal({
                 // Si el sub-step actual tiene preguntas activas, abrir modal
                 if ((hasQuestions || (isQuestioning && meta.id === "quiz")) && meta.id === "quiz") {
                   onAction = () => setModalPhase(phase);
-                } else if (meta.order === 0) {
-                  // IDENTITY sub-steps use "report" mode (generate intermediate artifacts)
-                  // Other phases use "questions" mode (generate quiz)
+                } else {
+                  // IDENTITY sub-steps use "report" mode and can be launched at
+                  // ANY order (including retrying a failed sub-step like
+                  // "visual" without restarting from "naming"). Other phases
+                  // launch only their first sub-step (quiz) in "questions" mode.
                   const isIdentitySubStep = ["naming", "voice", "visual"].includes(meta.id);
-                  const executeMode = isIdentitySubStep ? "report" : "questions";
-                  onAction = () => {
-                    fetch("/api/projects/execute-phase", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        projectId,
-                        phaseId: phase.id,
-                        phaseType: phase.type,
-                        mode: executeMode,
-                        subStep: meta.id,
-                      }),
-                    })
-                      .then((res) => {
-                        if (res.ok) router.refresh();
+                  if (isIdentitySubStep || meta.order === 0) {
+                    const executeMode = isIdentitySubStep ? "report" : "questions";
+                    onAction = () => {
+                      fetch("/api/projects/execute-phase", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          projectId,
+                          phaseId: phase.id,
+                          phaseType: phase.type,
+                          mode: executeMode,
+                          subStep: meta.id,
+                        }),
                       })
-                      .catch(() => {});
-                  };
+                        .then((res) => {
+                          if (res.ok) router.refresh();
+                        })
+                        .catch(() => {});
+                    };
+                  }
                 }
               } else if (sStatus === "substep_ready") {
                 onAction = () =>

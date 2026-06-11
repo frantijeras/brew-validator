@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { buildReportPdf } from "@/lib/pdf-export";
 import {
-  buildBrandBook,
+  buildBrandBookFromPhase,
   brandBookToMarkdown,
 } from "@/lib/identity-brandbook";
 
@@ -51,37 +51,15 @@ export async function GET(
       );
     }
 
-    // Resolve content: prefer agent-generated artifact, fall back to
-    // on-the-fly generation.
-    const subArtifact = phase.subStepArtifact as
-      | { type?: "html" | "markdown"; content?: string; title?: string }
-      | null;
-
-    let title = "Brand Book";
-    let rawContent = "";
-    let contentIsHtml = false;
-
-    if (subArtifact?.content && subArtifact.content.trim().length > 0) {
-      rawContent = subArtifact.content;
-      contentIsHtml = subArtifact.type === "html";
-      if (subArtifact.title) title = subArtifact.title;
-    } else {
-      // Build on-the-fly.
-      const visualArtifactJson = (phase.subStepArtifact as { content?: string } | null)?.content ?? null;
-
-      const brandBook = buildBrandBook({
-        projectName: phase.project.name,
-        namingContent: phase.subStepChoice ?? null,
-        voiceContent: null,
-        visualChoice: phase.subStepChoice ?? null,
-        visualArtifactJson,
-        projectContext: { description: phase.project.description },
-      });
-
-      rawContent = brandBookToMarkdown(brandBook);
-      contentIsHtml = false;
-      title = `Brand Book — ${phase.project.name}`;
-    }
+    // Always consolidate the Brand Book from the per-sub-step history (naming
+    // + voice + visual chosen options). `subStepArtifact` is NOT the Brand
+    // Book — for a completed phase it holds the visual artifact.
+    const brandBook = buildBrandBookFromPhase(phase, phase.project.name, {
+      description: phase.project.description,
+    });
+    const rawContent = brandBookToMarkdown(brandBook);
+    const contentIsHtml = false;
+    const title = `Brand Book — ${phase.project.name}`;
 
     if (!rawContent) {
       return NextResponse.json(

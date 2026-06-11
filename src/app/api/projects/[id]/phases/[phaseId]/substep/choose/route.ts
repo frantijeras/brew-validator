@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { enqueuePhaseJob } from "@/lib/bridge/phase-jobs";
 import { PHASE_SUBSTEPS } from "@/lib/phase-substeps";
@@ -43,12 +44,37 @@ export async function POST(
       );
     }
 
+    // Accumulate the confirmed sub-step into `subStepHistory` so each sub-step
+    // (naming / voice / visual) is preserved independently. The singular
+    // `subStepArtifact`/`subStepChoice` fields hold only the *current* sub-step
+    // and get overwritten by the next one — the history is what the Brand Book
+    // and hand-off read from to consolidate the chosen options of every
+    // sub-step. We merge (never overwrite the whole map).
+    const prevHistory =
+      phase.subStepHistory && typeof phase.subStepHistory === "object" && !Array.isArray(phase.subStepHistory)
+        ? (phase.subStepHistory as Record<string, unknown>)
+        : {};
+    const subStepId = phase.subStep || "unknown";
+    const subStepLabel =
+      PHASE_SUBSTEPS[phase.type]?.find((s) => s.id === subStepId)?.label ?? subStepId;
+    const historyEntry = {
+      subStep: subStepId,
+      label: subStepLabel,
+      choice,
+      artifact: phase.subStepArtifact ?? null,
+      confirmedAt: new Date().toISOString(),
+    };
+    const nextHistory = {
+      ...prevHistory,
+      [subStepId]: historyEntry,
+    } as Prisma.InputJsonValue;
+
     // Persist the user's choice on the phase BEFORE launching the next job,
     // so the webhook can read it and downstream agents receive it in
     // `previousArtifacts` (via the helper's `includePreviousSubStepArtifact`).
     await prisma.projectPhase.update({
       where: { id: phaseId },
-      data: { subStepChoice: choice },
+      data: { subStepChoice: choice, subStepHistory: nextHistory },
     });
 
     // Determine the next sub-step based on current position in PHASE_SUBSTEPS

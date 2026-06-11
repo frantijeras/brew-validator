@@ -167,6 +167,7 @@ model ProjectPhase {
   subStepArtifact Json?
   subStepChoice   String?
   subStepOrder    Int?
+  subStepHistory  Json?
   lastError       Json?
   completedAt     DateTime?
   createdAt       DateTime  @default(now())

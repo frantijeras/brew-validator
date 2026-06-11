@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { buildHandoffZip } from "@/lib/handoff-builder";
-import { buildBrandBook } from "@/lib/identity-brandbook";
+import { buildBrandBookFromPhase, extractIdentityChoices } from "@/lib/identity-brandbook";
 import type { ProjectMemory } from "@/lib/project-memory";
 import type { HandoffOptions } from "@/lib/handoff-builder";
 
@@ -72,44 +72,15 @@ export async function GET(
     );
     let brandBook = null;
     if (identityPhase && identityPhase.status === "COMPLETED") {
-      // Extract naming content: check naming sub-step artifact or choice
-      const namingContent = identityPhase.subStepChoice
-        ? `**Nombre elegido:** ${identityPhase.subStepChoice}\n\nSeleccionado en la sub-fase de naming.`
-        : null;
-
-      // Voice content: check voice sub-step
-      const voiceContent =
-        identityPhase.subStepArtifact &&
-        typeof identityPhase.subStepArtifact === "object" &&
-        (identityPhase.subStepArtifact as { content?: string }).content
-          ? (identityPhase.subStepArtifact as { content: string }).content
-          : null;
-
-      // Visual: extract from artifacts or subStepArtifact
-      const firstArtifact =
-        identityPhase.artifacts &&
-        Array.isArray(identityPhase.artifacts)
-          ? (identityPhase.artifacts as Array<{ content?: string }>)[0]
-          : null;
-      const visualJson =
-        identityPhase.subStepArtifact &&
-        typeof identityPhase.subStepArtifact === "object"
-          ? JSON.stringify(identityPhase.subStepArtifact)
-          : firstArtifact?.content ?? null;
-
-      const visualChoice = identityPhase.subStepChoice || null;
-
-      if (namingContent || voiceContent) {
+      // Build the Brand Book from the per-sub-step history so the naming,
+      // voice and visual choices are each read from their own slot (not from
+      // the singular subStepArtifact/subStepChoice, which only hold the last
+      // sub-step and would otherwise corrupt the consolidated document).
+      const choices = extractIdentityChoices(identityPhase);
+      if (choices.namingContent || choices.voiceContent || choices.visualArtifactJson) {
         try {
-          brandBook = buildBrandBook({
-            projectName: project.name,
-            namingContent,
-            voiceContent,
-            visualChoice,
-            visualArtifactJson: visualJson,
-            projectContext: {
-              description: project.description,
-            },
+          brandBook = buildBrandBookFromPhase(identityPhase, project.name, {
+            description: project.description,
           });
         } catch (err) {
           console.error("[handoff] BrandBook build failed:", err);
@@ -130,7 +101,7 @@ export async function GET(
       recommended: boolean;
       selected?: boolean;
       custom?: boolean;
-    }> | null)?.filter(s => s.selected !== false) ?? null;
+    }> | null)?.filter(s => s.selected !== false) ?? [];
 
     const generatedSkills = (project.generatedSkills as Array<{
       id: string;

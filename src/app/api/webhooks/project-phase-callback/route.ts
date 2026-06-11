@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { classifyError } from "@/lib/phase-errors";
+import { verifyBridgeSecret } from "@/lib/bridge-auth";
 
 /**
  * Sub-step artifact shape. The agent emits this JSON when a sub-step produces
@@ -26,6 +27,9 @@ interface SubStepArtifact {
  */
 export async function POST(req: Request) {
   try {
+    if (!verifyBridgeSecret(req)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const body = await req.json();
     const { jobId, status, output, mode } = body;
 
@@ -115,6 +119,31 @@ export async function POST(req: Request) {
                 options: (parsedOutput.options as Array<{ value: string; label: string }> | undefined) ?? undefined,
               }
             : null);
+
+        // Defensive heuristic: a naming/voice sub-step should NOT contain the
+        // other sub-steps' sections. If it does, the agent likely emitted the
+        // whole IDENTITY phase in one go (a known bug). We can't reliably split
+        // a monolithic markdown here, so we log a loud warning — the real fix
+        // is the agent prompt (see docs/bridge-prompts-fase3.md).
+        if (
+          phaseType === "IDENTITY" &&
+          (outputSubStep === "naming" || outputSubStep === "voice") &&
+          artifact?.content
+        ) {
+          const lc = artifact.content.toLowerCase();
+          const foreignMarkers =
+            outputSubStep === "naming"
+              ? ["voz y tono", "tono de voz", "paleta de colores", "tipografía", "estilo visual"]
+              : ["nombre elegido", "naming", "paleta de colores", "estilo visual"];
+          const hit = foreignMarkers.find((m) => lc.includes(m));
+          if (hit || artifact.content.length > 8000) {
+            console.warn(
+              `[project-phase-callback] IDENTITY sub-step "${outputSubStep}" (job ${jobId}) looks monolithic ` +
+                `(len=${artifact.content.length}${hit ? `, contains "${hit}"` : ""}). ` +
+                `The agent may be emitting multiple sub-steps at once — review the project-branding prompt.`
+            );
+          }
+        }
 
         if (isIntermediate && artifact) {
           // ── INTERMEDIATE SUB-STEP ──

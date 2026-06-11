@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { buildReportHtml } from "@/lib/report-renderer";
 import {
-  buildBrandBook,
+  buildBrandBookFromPhase,
   brandBookToMarkdown,
 } from "@/lib/identity-brandbook";
 
@@ -52,38 +52,16 @@ export async function GET(
       );
     }
 
-    // Try to use the existing sub-step artifact if the agent already
-    // generated the Brand Book and stored it in `subStepArtifact`.
-    const subArtifact = phase.subStepArtifact as
-      | { type?: "html" | "markdown"; content?: string; title?: string }
-      | null;
-
-    let title = "Brand Book";
-    let rawContent = "";
-    let contentType: "markdown" | "html" = "markdown";
-
-    if (subArtifact?.content && subArtifact.content.trim().length > 0) {
-      // Agent already generated the Brand Book artifact.
-      rawContent = subArtifact.content;
-      contentType = subArtifact.type === "html" ? "html" : "markdown";
-      if (subArtifact.title) title = subArtifact.title;
-    } else {
-      // Build on-the-fly from available data.
-      const visualArtifactJson = (phase.subStepArtifact as { content?: string } | null)?.content ?? null;
-
-      const brandBook = buildBrandBook({
-        projectName: phase.project.name,
-        namingContent: phase.subStepChoice ?? null,
-        voiceContent: null,
-        visualChoice: phase.subStepChoice ?? null,
-        visualArtifactJson,
-        projectContext: { description: phase.project.description },
-      });
-
-      rawContent = brandBookToMarkdown(brandBook);
-      contentType = "markdown";
-      title = `Brand Book — ${phase.project.name}`;
-    }
+    // Always consolidate the Brand Book from the per-sub-step history (naming
+    // + voice + visual chosen options). We do NOT render `subStepArtifact`
+    // directly: for a completed phase that field holds the visual artifact
+    // (JSON/HTML), not the Brand Book.
+    const brandBook = buildBrandBookFromPhase(phase, phase.project.name, {
+      description: phase.project.description,
+    });
+    const rawContent = brandBookToMarkdown(brandBook);
+    const contentType: "markdown" | "html" = "markdown";
+    const title = `Brand Book — ${phase.project.name}`;
 
     if (!rawContent) {
       return NextResponse.json(

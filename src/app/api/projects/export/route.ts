@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { buildBrandBook, brandBookToMarkdown } from "@/lib/identity-brandbook";
+import { buildBrandBookFromPhase, brandBookToMarkdown } from "@/lib/identity-brandbook";
 import { ZipArchive } from "archiver";
 import type { ProjectMemory } from "@/lib/project-memory";
 
@@ -29,6 +29,7 @@ interface PhaseExportData {
   } | null;
   subStepChoice: string | null;
   subStep: string | null;
+  subStepHistory: unknown;
 }
 
 interface SkillExportData {
@@ -55,12 +56,9 @@ function sanitizeFilename(name: string): string {
 }
 
 function getPhaseContent(phase: PhaseExportData): string | null {
-  // IDENTITY with subStep final → use subStepArtifact
-  if (phase.type === "IDENTITY" && (phase.subStep === "final" || phase.subStep === "visual")) {
-    if (phase.subStepArtifact?.content) {
-      return phase.subStepArtifact.content;
-    }
-  }
+  // IDENTITY is handled separately (consolidated Brand Book), never as a raw
+  // sub-step artifact — skip it here to avoid emitting the visual JSON.
+  if (phase.type === "IDENTITY") return null;
 
   // Otherwise, first artifact
   if (phase.artifacts && phase.artifacts.length > 0) {
@@ -204,6 +202,7 @@ export async function GET(req: Request) {
       } | null,
       subStepChoice: p.subStepChoice,
       subStep: p.subStep,
+      subStepHistory: p.subStepHistory,
     }));
 
     const skills: SkillExportData[] =
@@ -247,48 +246,17 @@ export async function GET(req: Request) {
         (p) => p.type === "IDENTITY" && p.status === "COMPLETED",
       );
       if (identityPhase) {
-        // Build brand book as single markdown file
-        const namingContent = identityPhase.subStepChoice
-          ? `**Nombre elegido:** ${identityPhase.subStepChoice}\n\nSeleccionado en la sub-fase de naming.`
-          : null;
-
-        const voiceContent =
-          identityPhase.subStepArtifact &&
-          typeof identityPhase.subStepArtifact === "object" &&
-          (identityPhase.subStepArtifact as { content?: string }).content
-            ? (identityPhase.subStepArtifact as { content: string }).content
-            : null;
-
-        const firstArtifact =
-          identityPhase.artifacts &&
-          Array.isArray(identityPhase.artifacts)
-            ? (identityPhase.artifacts as Array<{ content?: string }>)[0]
-            : null;
-        const visualJson =
-          identityPhase.subStepArtifact &&
-          typeof identityPhase.subStepArtifact === "object"
-            ? JSON.stringify(identityPhase.subStepArtifact)
-            : firstArtifact?.content ?? null;
-
-        const visualChoice = identityPhase.subStepChoice || null;
-
+        // Consolidate the 3 sub-steps (naming + voice + visual) into a single
+        // Brand Book document, reading each chosen option from subStepHistory.
         try {
-          const brandBook = buildBrandBook({
-            projectName: project.name,
-            namingContent,
-            voiceContent,
-            visualChoice,
-            visualArtifactJson: visualJson,
-            projectContext: {
-              description: project.description,
-            },
+          const brandBook = buildBrandBookFromPhase(identityPhase, project.name, {
+            description: project.description,
           });
 
           archive.append(
             brandBookToMarkdown(brandBook),
             { name: `${prefix}03-identidad-marca.md` },
           );
-
         } catch (err) {
           console.error("[export] BrandBook build failed:", err);
         }

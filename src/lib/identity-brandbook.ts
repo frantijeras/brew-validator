@@ -575,3 +575,141 @@ export function brandBookToMarkdown(brandBook: BrandBook): string {
     .map((s) => s.content)
     .join("\n\n---\n\n");
 }
+
+/* ── Identity choices extraction ────────────────────────────────────── */
+
+/** Minimal shape of an IDENTITY ProjectPhase needed to rebuild the Brand Book. */
+export interface IdentityPhaseLike {
+  subStepHistory?: unknown;
+  subStepArtifact?: unknown;
+  subStepChoice?: string | null;
+  artifacts?: unknown;
+}
+
+/** A single confirmed sub-step entry as stored in `subStepHistory`. */
+interface SubStepHistoryEntry {
+  subStep?: string;
+  label?: string;
+  choice?: string;
+  artifact?: { type?: string; content?: string; options?: unknown } | null;
+}
+
+/** Reads the history map (object keyed by subStep id) defensively. */
+function readHistory(phase: IdentityPhaseLike): Record<string, SubStepHistoryEntry> {
+  const h = phase.subStepHistory;
+  if (h && typeof h === "object" && !Array.isArray(h)) {
+    return h as Record<string, SubStepHistoryEntry>;
+  }
+  return {};
+}
+
+/** Pulls the markdown content out of a sub-step artifact, if present. */
+function artifactContent(artifact: SubStepHistoryEntry["artifact"]): string | null {
+  if (artifact && typeof artifact === "object" && typeof artifact.content === "string") {
+    return artifact.content;
+  }
+  return null;
+}
+
+/**
+ * Returns the JSON string `parseVisualArtifactContent` expects (an object with
+ * a top-level `options` array). The visual sub-step stores
+ * `{ type: "html", content: "<JSON string with options>" }`, so we unwrap the
+ * inner `content`. If the artifact already carries `options`, we re-serialize.
+ */
+function visualJsonFromArtifact(artifact: SubStepHistoryEntry["artifact"]): string | null {
+  if (!artifact || typeof artifact !== "object") return null;
+  if (typeof artifact.content === "string") {
+    const t = artifact.content.trim();
+    if (t.startsWith("{") || t.startsWith("[")) return artifact.content;
+  }
+  if (Array.isArray(artifact.options)) {
+    return JSON.stringify({ options: artifact.options });
+  }
+  return null;
+}
+
+/** The four inputs `buildBrandBook` needs, derived from a phase. */
+export interface IdentityChoices {
+  namingContent: string | null;
+  voiceContent: string | null;
+  visualChoice: string | null;
+  visualArtifactJson: string | null;
+}
+
+/**
+ * Extracts the chosen options of each IDENTITY sub-step (naming / voice /
+ * visual) from a phase. Prefers `subStepHistory` (where every sub-step is
+ * preserved independently); falls back to the legacy singular
+ * `subStepArtifact`/`subStepChoice` fields for projects completed before the
+ * history field existed.
+ *
+ * This is the single source of truth for assembling the Brand Book — every
+ * consumer (hand-off, export, brandbook view/download) must use it so the
+ * naming choice is never confused with the visual choice.
+ */
+export function extractIdentityChoices(phase: IdentityPhaseLike): IdentityChoices {
+  const history = readHistory(phase);
+  const naming = history["naming"];
+  const voice = history["voice"];
+  const visual = history["visual"];
+
+  // ── Naming: chosen name + rationale from the naming artifact ──
+  let namingContent: string | null = null;
+  if (naming) {
+    const rationale = artifactContent(naming.artifact);
+    const chosen = naming.choice ? `**Nombre elegido:** ${naming.choice}` : null;
+    namingContent = [chosen, rationale].filter(Boolean).join("\n\n") || null;
+  }
+
+  // ── Voice: markdown from the voice artifact (+ choice if it was a pick) ──
+  let voiceContent: string | null = voice ? artifactContent(voice.artifact) : null;
+  if (voice?.choice && voiceContent) {
+    voiceContent = `**Opción elegida:** ${voice.choice}\n\n${voiceContent}`;
+  } else if (voice?.choice && !voiceContent) {
+    voiceContent = `**Opción elegida:** ${voice.choice}`;
+  }
+
+  // ── Visual: chosen variant + the inner options JSON ──
+  let visualChoice: string | null = visual?.choice ?? null;
+  let visualArtifactJson: string | null = visual
+    ? visualJsonFromArtifact(visual.artifact)
+    : null;
+
+  // ── Fallback to the singular fields for visual whenever the history hasn't
+  //    captured it yet. This covers two cases: (1) legacy projects completed
+  //    before `subStepHistory` existed, and (2) a live preview while the user
+  //    is still reviewing the `visual` sub-step (not yet confirmed, so not in
+  //    history). The singular subStepArtifact/subStepChoice always hold the
+  //    most recent visual, so they are the right source here. naming/voice of
+  //    legacy projects are unrecoverable and stay null. ──
+  if (!visualArtifactJson) {
+    const legacyArtifact = phase.subStepArtifact as SubStepHistoryEntry["artifact"];
+    visualArtifactJson = visualJsonFromArtifact(legacyArtifact);
+  }
+  if (!visualChoice) {
+    visualChoice = phase.subStepChoice ?? null;
+  }
+
+  return { namingContent, voiceContent, visualChoice, visualArtifactJson };
+}
+
+/**
+ * Convenience wrapper: builds a Brand Book directly from an IDENTITY phase,
+ * pulling each sub-step's chosen option from `subStepHistory`.
+ */
+export function buildBrandBookFromPhase(
+  phase: IdentityPhaseLike,
+  projectName: string,
+  projectContext?: { description?: string | null }
+): BrandBook {
+  const choices = extractIdentityChoices(phase);
+  return buildBrandBook({
+    projectName,
+    namingContent: choices.namingContent,
+    voiceContent: choices.voiceContent,
+    visualChoice: choices.visualChoice,
+    visualArtifactJson: choices.visualArtifactJson,
+    projectContext,
+  });
+}

@@ -62,12 +62,19 @@ export async function POST(req: Request) {
       data: { lastError: Prisma.JsonNull },
     });
 
+    // Resolve the sub-step to run. For IDENTITY we must NOT default to "quiz"
+    // (an invalid IDENTITY sub-step): passing null lets enqueuePhaseJob
+    // auto-advance from the current position (null → "naming" on a fresh start,
+    // or re-run the failed sub-step held in phase.subStep on a retry).
+    const resolvedSubStep =
+      subStep ?? phase.subStep ?? (phaseType === "IDENTITY" ? null : "quiz");
+
     const result = await enqueuePhaseJob({
       projectId,
       phaseId,
       phaseType,
       mode,
-      subStep: subStep ?? phase.subStep ?? "quiz",
+      subStep: resolvedSubStep,
       answers,
       modelOverride,
     });

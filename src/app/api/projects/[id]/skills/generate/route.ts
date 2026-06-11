@@ -5,7 +5,9 @@ import { prisma } from "@/lib/db";
 import type { ProjectMemory } from "@/lib/project-memory";
 
 const generateSkillsSchema = z.object({
-  skillIds: z.array(z.string()).min(1, "Selecciona al menos una skill"),
+  // An empty array is valid: it means "skip skill generation" — the handler
+  // generates nothing and just unlocks the hand-off (handoffReady = true).
+  skillIds: z.array(z.string()),
   mode: z.enum(["all", "sequential"]).default("all"),
 });
 

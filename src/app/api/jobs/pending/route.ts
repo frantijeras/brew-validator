@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
+import { verifyBridgeSecret } from "@/lib/bridge-auth";
 
 const MONITORED_AGENTS = [
   "skeptic", "advocate", "judge",
@@ -17,6 +18,9 @@ const MONITORED_AGENTS = [
  */
 export async function GET(req: NextRequest) {
   try {
+    if (!verifyBridgeSecret(req)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const { searchParams } = new URL(req.url);
     const ideaId = searchParams.get("ideaId");
 

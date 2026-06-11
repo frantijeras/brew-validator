@@ -798,18 +798,18 @@ export async function buildHandoffZip(options: HandoffOptions): Promise<Buffer> 
         }
       }
     } else {
-      // Fallback: always include handoff + landing regardless of selection
-      archive.append(buildLandingPageSkill(options), { name: `${prefix}skills/landing-page.md` });
+      // No skills selected/generated (user skipped, or none matched). Include
+      // only the project-handoff meta-context skill so the package is still
+      // usable — we do NOT ship skills the user didn't ask for (e.g. landing).
       archive.append(buildProjectHandoffSkill(options), { name: `${prefix}skills/project-handoff.md` });
     }
 
-    // Always include project-handoff as the meta-context skill
-    const handoffFilename = selectedSkills.find(s => s.id === "project-handoff")
-      ? sanitizeSkillFilename(selectedSkills.find(s => s.id === "project-handoff")!.name) + ".md"
-      : "project-handoff.md";
-    // Don't duplicate if already included above
-    if (!hasSkills || !selectedSkills.some(s => s.id === "project-handoff")) {
-      archive.append(buildProjectHandoffSkill(options), { name: `${prefix}skills/${handoffFilename}` });
+    // Ensure the project-handoff meta-context skill is present exactly once.
+    // When skills were selected but project-handoff wasn't among them, add it.
+    // (When it WAS selected, the loop above already wrote it; when there were
+    // no skills, the else branch above already wrote it.)
+    if (hasSkills && !selectedSkills.some(s => s.id === "project-handoff")) {
+      archive.append(buildProjectHandoffSkill(options), { name: `${prefix}skills/project-handoff.md` });
     }
 
     void archive.finalize();
