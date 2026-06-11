@@ -27,6 +27,8 @@ export interface BridgeLogInput {
   tokensIn?: number | null;
   tokensOut?: number | null;
   latencyMs?: number | null;
+  /** Versión del esquema esperado del output (info técnica 3.3). */
+  schemaVersion?: string | null;
 }
 
 /**
@@ -55,6 +57,7 @@ export async function writeBridgeLog(input: BridgeLogInput): Promise<void> {
         tokensIn: input.tokensIn ?? null,
         tokensOut: input.tokensOut ?? null,
         latencyMs: input.latencyMs ?? null,
+        schemaVersion: input.schemaVersion ?? null,
       },
     });
   } catch (e) {
