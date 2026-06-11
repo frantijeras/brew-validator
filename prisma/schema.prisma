@@ -187,6 +187,39 @@ model Setting {
   @@unique([key, userId])
 }
 
+/// Historial de errores/eventos del Bridge (Puente con las APIs de IA).
+/// Una fila por evento relevante (sobre todo fallos). Sin claves foráneas
+/// duras a propósito: son referencias sueltas (jobId/projectId/phaseId/ideaId)
+/// para no acoplar el log al ciclo de vida de esas entidades ni arriesgar
+/// borrados en cascada. Se consulta por proyecto en el panel "Historial de Errores".
+model BridgeLog {
+  id               String   @id @default(cuid())
+  createdAt        DateTime @default(now())
+  level            String   @default("error") // "error" | "warning" | "info"
+  // Referencias sueltas al contexto del evento
+  jobId            String?
+  ideaId           String?
+  projectId        String?
+  phaseId          String?
+  agentName        String?
+  // Clasificación y detalle del error
+  errorType        String? // categoría estable (ver lib/phase-errors.ts ErrorCategory)
+  errorMessage     String? // mensaje crudo del proveedor/bridge
+  httpStatus       Int? // status HTTP del proveedor de IA, si lo hubo
+  retryCount       Int? // nº de reintentos que hizo el bridge antes de rendirse
+  resolutionAction String? // qué hizo el sistema (retry, fallback, reset_to_available...)
+  // Telemetría técnica (debugging)
+  model            String?
+  provider         String?
+  tokensIn         Int?
+  tokensOut        Int?
+  latencyMs        Int?
+
+  @@index([createdAt])
+  @@index([projectId])
+  @@index([jobId])
+}
+
 enum IdeaStatus {
   DRAFT
   GENERATING
