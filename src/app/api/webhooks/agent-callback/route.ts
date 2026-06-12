@@ -88,12 +88,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: true, skipped: true });
       }
 
-      // Acción base: si el fallo marca la idea como FAILED lo registramos como
-      // reset_to_available (queda lista para reintento manual del usuario); en
-      // los demás agentes, solo se registra.
+      // Acción base: para agentes de validación/generación, el fallo marca la
+      // idea como FAILED (ver más abajo), así que registramos esa acción real
+      // ("idea_marked_failed"); en los demás agentes, solo se registra.
       let resolutionAction: string =
         isValidationAgent || isGeneratorAgent
-          ? RESOLUTION_ACTION.RESET_TO_AVAILABLE
+          ? "idea_marked_failed"
           : RESOLUTION_ACTION.LOGGED;
       // En respuesta vacía señalamos reintento simplificado.
       if (emptyCompleted) {
