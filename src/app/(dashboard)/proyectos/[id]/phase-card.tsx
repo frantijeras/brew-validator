@@ -1,9 +1,15 @@
 "use client";
 
 import * as React from "react";
-import { Check, Download, FileText, Loader2, AlertTriangle } from "lucide-react";
+import { Check, Download, FileText, AlertTriangle } from "lucide-react";
 import type { PhaseError } from "@/lib/phase-errors";
 import { errorLabel, formatErrorTimestamp } from "@/lib/phase-errors";
+import { Spinner } from "@/components/skeletons/spinner";
+import { PhaseCardSkeleton } from "@/components/skeletons/phase-card-skeleton";
+import {
+  getPhaseLoadingMessage,
+  type PhaseLoadingStatus,
+} from "@/lib/phase-loading-messages";
 
 /**
  * PhaseCard — Tarjeta rediseñada (v5: acciones responsive) para una fase
@@ -180,6 +186,20 @@ export interface PhaseCardProps {
   subSteps?: React.ReactNode;
   /** Último error del agente, mostrado cuando la fase está disponible tras un fallo. */
   lastError?: PhaseError | null;
+  /**
+   * Indica si esta fase acaba de desbloquearse por un Auto-Trigger
+   * (activación automática) en cascada y su contenido aún se está
+   * "cocinando" en segundo plano. Cuando es `true`, en lugar de la
+   * tarjeta normal se renderiza un skeleton (esqueleto de carga) con
+   * el mensaje "Preparando la siguiente fase…".
+   */
+  justUnlocked?: boolean;
+  /**
+   * Si la fase ya tiene preguntas generadas. Afecta al mensaje
+   * contextual del spinner durante `processing`/`questioning`
+   * ("Generando informe…" vs "Generando preguntas…").
+   */
+  hasQuestions?: boolean;
 }
 
 export function PhaseCard({
@@ -196,7 +216,18 @@ export function PhaseCard({
   miniProgressBar,
   subSteps,
   lastError,
+  justUnlocked,
+  hasQuestions,
 }: PhaseCardProps) {
+  // Fase recién desbloqueada por Auto-Trigger (activación automática)
+  // cuyo contenido aún se está calculando: mostramos el skeleton en
+  // lugar de la tarjeta normal (todavía no hay datos reales).
+  if (justUnlocked) {
+    return (
+      <PhaseCardSkeleton label={`Preparando la fase ${number}: ${title}…`} />
+    );
+  }
+
   const badge = statusBadgeStyles[status];
   const hasArtifacts = artifacts && artifacts.length > 0;
   const hasActions = React.Children.count(actions) > 0;
@@ -206,6 +237,14 @@ export function PhaseCard({
   // `animate-pulse` — el feedback de "está vivo" lo dan el spinner
   // y el texto "Generando análisis..." bajo el header.
   const isProcessing = status === "processing";
+
+  // Mensaje contextual de carga (spinner) según el estado y si la fase
+  // ya tiene preguntas generadas. `null` => no hay job en marcha y se
+  // renderiza el badge estático. Para estados que sí cargan (processing,
+  // questioning sin preguntas) devuelve "Generando preguntas…", etc.
+  const loadingMessage = getPhaseLoadingMessage(status as PhaseLoadingStatus, {
+    hasQuestions,
+  });
 
   // Aplanar fragments para envolver acciones hijas.
   // Los consumidores pasan `<>...</>` con varios buttons, por lo que
@@ -261,15 +300,17 @@ export function PhaseCard({
       </div>
 
       {/* Badge de estado: solo para estados no-locked.
-          Processing: spinner + texto dinámico.
+          Processing/Questioning con job en marcha: Spinner + mensaje
+          contextual ("Generando preguntas…", "Generando informe…").
           Otros estados: badge estático con label. */}
       {status !== "locked" && (
         <div className="mt-1 ml-2">
-          {isProcessing ? (
-            <span className="inline-flex w-fit items-center gap-1.5 text-[11px] font-medium text-amber-400">
-              <Loader2 className="size-3 shrink-0 animate-spin" />
-              <span>{statusLabel || "Generando análisis..."}</span>
-            </span>
+          {loadingMessage ? (
+            <Spinner
+              label={statusLabel || loadingMessage}
+              iconClassName="size-3"
+              className="w-fit text-[11px] font-medium text-amber-400"
+            />
           ) : (
             <span
               className={`inline-flex w-fit shrink-0 items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${badge.className}`}
