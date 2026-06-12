@@ -34,10 +34,13 @@ interface SubStepArtifact {
  * pasan por SUBSTEP_READY para que el usuario revise/elija. Definidos una sola
  * vez aquí (antes estaban duplicados dentro del handler con nombres distintos).
  */
-// IDENTITY: naming → voice → logo son intermedios; "visual" (Estilo Visual y
-// Maqueta) es el ÚLTIMO sub-paso y COMPLETA la fase (ya no hay "final"/Brand Book).
+// IDENTITY: los 4 sub-pasos (naming → voice → logo → visual) son intermedios:
+// al GENERARSE pasan a SUBSTEP_READY para que el usuario revise/elija. La fase
+// se COMPLETA cuando el usuario CONFIRMA el último sub-paso (visual / 3d) — eso
+// lo hace el endpoint /substep/choose vía completePhaseAndAutostart, no este
+// callback. Ya no existe el sub-paso "final"/Brand Book.
 // EXECUTION (Roadmap) ya no tiene sub-pasos: es quiz → informe único.
-const IDENTITY_INTERMEDIATE_SUBSTEPS = ["naming", "voice", "logo"];
+const IDENTITY_INTERMEDIATE_SUBSTEPS = ["naming", "voice", "logo", "visual"];
 const EXECUTION_INTERMEDIATE_SUBSTEPS: string[] = [];
 const ALL_INTERMEDIATE_SUBSTEPS = [
   ...IDENTITY_INTERMEDIATE_SUBSTEPS,

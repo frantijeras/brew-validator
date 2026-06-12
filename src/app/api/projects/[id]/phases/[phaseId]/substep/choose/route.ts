@@ -3,7 +3,9 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { guardProject } from "@/lib/ownership";
 import { enqueuePhaseJob } from "@/lib/bridge/phase-jobs";
+import { completePhaseAndAutostart } from "@/lib/bridge/complete-phase";
 import { PHASE_SUBSTEPS } from "@/lib/phase-substeps";
+import { buildIdentitySummaryMarkdown } from "@/lib/identity-summary";
 
 /**
  * POST /api/projects/[id]/phases/[phaseId]/substep/choose
@@ -122,6 +124,42 @@ export async function POST(
         // types no longer use this route (Roadmap = quiz → report único).
         nextSubStepName = phase.type === "IDENTITY" ? "naming" : undefined;
       }
+    }
+
+    // ── Último sub-paso: CERRAR la fase (no encolar otro job) ──
+    // Si no hay siguiente sub-paso, el usuario acaba de confirmar el último
+    // (IDENTITY: el estilo visual 3d). Completamos la fase con un artefacto
+    // resumen y arrancamos automáticamente la siguiente. La composición de los
+    // assets 3d (maqueta + guía PDF) se hace bajo demanda en sus endpoints.
+    if (!nextSubStepName) {
+      let artifactContent: string;
+      const artifactType = phase.type;
+      if (phase.type === "IDENTITY") {
+        const project = await prisma.project.findUnique({
+          where: { id: projectId },
+          select: { name: true },
+        });
+        artifactContent = buildIdentitySummaryMarkdown({
+          projectName: project?.name || "Proyecto",
+          subStepHistory: nextHistory,
+          visualChoice: choice,
+        });
+      } else {
+        // Fallback genérico: usar el contenido del último artefacto intermedio.
+        const art = phase.subStepArtifact as { content?: string } | null;
+        artifactContent = art?.content || `Sub-paso final confirmado: ${choice}`;
+      }
+      await completePhaseAndAutostart({
+        projectId,
+        phaseId,
+        subStep: subStepId,
+        artifact: {
+          title: phase.label,
+          content: artifactContent,
+          type: artifactType,
+        },
+      });
+      return NextResponse.json({ success: true, completed: true, choice });
     }
 
     const result = await enqueuePhaseJob({

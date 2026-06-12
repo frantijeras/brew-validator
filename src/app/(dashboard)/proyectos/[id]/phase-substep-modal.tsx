@@ -26,6 +26,7 @@ import {
   getVisualOption,
   type VisualStyleGuide,
 } from "@/lib/identity-visual";
+import { extractLogoSvgs } from "@/lib/identity-logo";
 import {
   buildBrandBook,
   brandBookToMarkdown,
@@ -194,6 +195,19 @@ export function PhaseSubstepModal({
     return getVisualOption(visualContent, visualVariant);
   }, [isVisualSubStep, visualContent, visualVariant]);
 
+  // ── Logo sub-step state (IDENTITY logo / 3c only) ──
+  // El artefacto es un HTML con 12 logos en SVG. El usuario elige uno
+  // (índice 1-based). Mostramos el HTML en un iframe + 12 chips de selección.
+  const isLogoSubStep = useMemo(
+    () => phaseType === "IDENTITY" && subStep === "logo",
+    [phaseType, subStep]
+  );
+  const logoSvgs = useMemo(
+    () => (isLogoSubStep ? extractLogoSvgs(subStepArtifact?.content) : []),
+    [isLogoSubStep, subStepArtifact?.content]
+  );
+  const [selectedLogo, setSelectedLogo] = useState<number | null>(null);
+
   // ── Brand Book sub-step state (IDENTITY final only) ──
   // The `final` sub-step shows a consolidated Brand Book generated
   // from the naming, voice and visual outputs. We compute it once.
@@ -264,6 +278,13 @@ export function PhaseSubstepModal({
         setVisualVariant(subStepChoice);
       } else {
         setVisualVariant("A");
+      }
+      // Sync el logo elegido (3c) desde subStepChoice (índice 1-based).
+      if (phaseType === "IDENTITY" && subStep === "logo" && subStepChoice) {
+        const n = parseInt(String(subStepChoice).match(/(\d+)/)?.[1] ?? "", 10);
+        setSelectedLogo(Number.isFinite(n) && n >= 1 ? n : null);
+      } else {
+        setSelectedLogo(null);
       }
       // NOTE: we do NOT reset successBanner here — it lives outside the
       // modal lifecycle (rendered as a fixed banner) and should only
@@ -694,10 +715,69 @@ export function PhaseSubstepModal({
   }
 
   /**
-   * "Usar este estilo" — visual sub-step flow.
-   * Calls /substep/choose with the current variant (A/B/C) and advances
-   * to the "final" sub-step. After confirming, the user lands on the
-   * brand-book step.
+   * Descarga del artefacto de logos (3c). Sin `svg` → HTML con las 12
+   * propuestas; con `svg=N` → solo el SVG elegido.
+   */
+  function handleDownloadLogo(opts: { onlySvg?: boolean } = {}) {
+    if (!isLogoSubStep) return;
+    const base = `/api/projects/${projectId}/phases/${phaseId}/substep/logo-download`;
+    const url =
+      opts.onlySvg && selectedLogo != null
+        ? `${base}?svg=${selectedLogo}`
+        : base;
+    const a = document.createElement("a");
+    a.href = url;
+    a.rel = "noopener noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  /**
+   * "Usar este logo" — sub-fase 3c. Guarda el índice elegido (1-based) y
+   * avanza a la sub-fase `visual` (3d), que incrustará el SVG elegido en la
+   * maqueta.
+   */
+  async function handleLogoChoose() {
+    if (!isLogoSubStep || selectedLogo == null) {
+      setError("Elige uno de los logotipos");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/phases/${phaseId}/substep/choose`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            choice: String(selectedLogo),
+            nextSubStep: "visual",
+          }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Error al confirmar el logotipo");
+        setSubmitting(false);
+        return;
+      }
+      onResolved?.();
+      onClose();
+      window.dispatchEvent(new CustomEvent("project-changed"));
+      router.refresh();
+    } catch {
+      setError("Error de conexión");
+      setSubmitting(false);
+    }
+  }
+
+  /**
+   * "Usar este estilo" — visual sub-step (3d) flow.
+   * Calls /substep/choose with the current variant (A/B/C). Al ser el ÚLTIMO
+   * sub-paso de IDENTITY, el endpoint CIERRA la fase (sin Brand Book) y arranca
+   * automáticamente la siguiente. Por eso NO enviamos `nextSubStep`.
    */
   async function handleVisualChoose() {
     if (!isVisualSubStep) return;
@@ -711,7 +791,6 @@ export function PhaseSubstepModal({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             choice: visualVariant,
-            nextSubStep: "final",
           }),
         }
       );
@@ -736,6 +815,7 @@ export function PhaseSubstepModal({
   const subStepTitle: Record<string, string> = {
     naming: "Elige un nombre",
     voice: "Revisa el tono de voz",
+    logo: "Elige un logotipo",
     visual: "Elige un estilo visual",
     mockup: "Elige un estilo visual",
     compare: "Elige una opción técnica",
@@ -844,7 +924,17 @@ export function PhaseSubstepModal({
                   </div>
                 )
               ) : subStepArtifact ? (
-                isVisualSubStep && visualContent ? (
+                isLogoSubStep ? (
+                  <LogoSubStepPreview
+                    html={artifactContent}
+                    svgCount={logoSvgs.length}
+                    selected={selectedLogo}
+                    onSelect={setSelectedLogo}
+                    iframeRef={iframeRef}
+                    previewMode={previewMode}
+                    onPreviewModeChange={setPreviewMode}
+                  />
+                ) : isVisualSubStep && visualContent ? (
                   <VisualSubStepPreview
                     options={visualContent.options}
                     current={visualVariant}
@@ -1080,6 +1170,44 @@ export function PhaseSubstepModal({
                     >
                       <Download className="size-4" />
                       Descargar PDF
+                    </button>
+                  </>
+                ) : isLogoSubStep ? (
+                  <>
+                    <button
+                      onClick={() => handleDownloadLogo()}
+                      disabled={submitting}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 transition-all hover:bg-slate-700/60 hover:border-slate-600 disabled:opacity-50"
+                    >
+                      <Download className="size-4" />
+                      Descargar
+                    </button>
+                    <button
+                      onClick={() => setShowIterate(true)}
+                      disabled={submitting}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 transition-all hover:bg-slate-700/60 hover:border-slate-600 disabled:opacity-50"
+                    >
+                      <RefreshCw className="size-4" />
+                      Iterar
+                    </button>
+                    <button
+                      onClick={handleLogoChoose}
+                      disabled={submitting || selectedLogo == null}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-400 disabled:opacity-50"
+                    >
+                      {submitting ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin" />
+                          Enviando…
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="size-4" />
+                          {selectedLogo != null
+                            ? `Usar logo ${selectedLogo}`
+                            : "Usar este logo"}
+                        </>
+                      )}
                     </button>
                   </>
                 ) : isVisualSubStep ? (
@@ -1438,6 +1566,126 @@ function ColorSwatch({ label, hex }: { label: string; hex: string }) {
           {label}
         </p>
         <p className="font-mono text-xs text-slate-200">{hex}</p>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* LogoSubStepPreview (sub-fase 3c)                                    */
+/* ------------------------------------------------------------------ */
+
+interface LogoSubStepPreviewProps {
+  /** HTML completo con las 12 propuestas de logo en SVG. */
+  html: string;
+  /** Número de logos detectados en el HTML (para los chips de selección). */
+  svgCount: number;
+  /** Índice 1-based del logo elegido, o null. */
+  selected: number | null;
+  onSelect: (n: number) => void;
+  iframeRef: React.RefObject<HTMLIFrameElement | null>;
+  previewMode: "rendered" | "source";
+  onPreviewModeChange: (m: "rendered" | "source") => void;
+}
+
+/**
+ * Renderizador de la sub-fase 3c (Logotipo):
+ *   - Toolbar Vista previa / HTML.
+ *   - Iframe con las 12 propuestas (o el HTML fuente).
+ *   - Rejilla de chips numerados (1..N) para ELEGIR un logo.
+ *
+ * El HTML llega del agente con N `.logo-card`; mostramos `svgCount` chips
+ * (normalmente 12). El usuario pulsa un número para elegir y luego confirma
+ * en el footer con "Usar logo N".
+ */
+function LogoSubStepPreview({
+  html,
+  svgCount,
+  selected,
+  onSelect,
+  iframeRef,
+  previewMode,
+  onPreviewModeChange,
+}: LogoSubStepPreviewProps) {
+  // Si por alguna razón no se detectan SVGs, ofrecemos al menos 12 chips
+  // (el prompt garantiza 12 propuestas) para no bloquear la elección.
+  const count = svgCount > 0 ? svgCount : 12;
+  const chips = Array.from({ length: count }, (_, i) => i + 1);
+
+  return (
+    <div className="space-y-3">
+      {/* Toolbar */}
+      <div className="flex items-center gap-2 text-xs">
+        <button
+          onClick={() => onPreviewModeChange("rendered")}
+          className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1 transition-colors ${
+            previewMode === "rendered"
+              ? "border-amber-500 bg-amber-500/10 text-amber-300"
+              : "border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-600"
+          }`}
+        >
+          <Eye className="size-3" />
+          Vista previa
+        </button>
+        <button
+          onClick={() => onPreviewModeChange("source")}
+          className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1 transition-colors ${
+            previewMode === "source"
+              ? "border-amber-500 bg-amber-500/10 text-amber-300"
+              : "border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-600"
+          }`}
+        >
+          <Code2 className="size-3" />
+          HTML
+        </button>
+      </div>
+
+      {/* Iframe / source */}
+      {previewMode === "rendered" ? (
+        <div className="overflow-hidden rounded-lg border border-slate-700 bg-white">
+          <iframe
+            ref={iframeRef}
+            srcDoc={html}
+            title="12 propuestas de logotipo"
+            className="w-full min-h-[360px] border-0"
+            sandbox="allow-same-origin"
+          />
+        </div>
+      ) : (
+        <pre className="overflow-auto max-h-[480px] rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs text-slate-300">
+          <code>{html}</code>
+        </pre>
+      )}
+
+      {/* Selección de logo (chips numerados) */}
+      <div>
+        <p className="mb-2 text-sm font-medium text-white">
+          Elige un logotipo
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {chips.map((n) => {
+            const isSel = selected === n;
+            return (
+              <button
+                key={n}
+                onClick={() => onSelect(n)}
+                aria-pressed={isSel}
+                className={`inline-flex size-10 items-center justify-center rounded-md border text-sm font-bold transition-colors ${
+                  isSel
+                    ? "border-amber-500 bg-amber-500 text-slate-950"
+                    : "border-slate-700 bg-slate-800 text-slate-200 hover:border-slate-500 hover:bg-slate-700/60"
+                }`}
+                title={`Logotipo ${n}`}
+              >
+                {n}
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-2 text-xs text-slate-500">
+          Las propuestas se numeran de izquierda a derecha y de arriba abajo en
+          la vista previa.
+        </p>
       </div>
     </div>
   );
