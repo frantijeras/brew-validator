@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { resolveModelForJobAgent } from "@/lib/agent-models";
 import { buildAgentContextRules } from "@/lib/agent-context-rules";
 import type { ProjectMemory } from "@/lib/project-memory";
+import { parsePreviousPhaseArtifacts } from "@/lib/phase-context-parser";
 import {
   getNextIdentitySubStep,
   getIdentitySubStepIndex,
@@ -118,7 +119,9 @@ export async function enqueuePhaseJob(
     judgeReport: latestReport?.content?.slice(0, 3000) || "",
   };
 
-  const previousArtifacts: Array<{ title: string; content: string }> = project.phases
+  // Artefactos CRUDOS de cada fase previa COMPLETED (completada). Tomamos el
+  // primer artefacto de cada fase (el informe consolidado) tal como se persiste.
+  const rawPreviousArtifacts: Array<{ title: string; content: string }> = project.phases
     .filter((p) => p.artifacts)
     .map((p) => {
       const arts = p.artifacts as Array<{ title: string; content: string }> | null;
@@ -131,12 +134,24 @@ export async function enqueuePhaseJob(
   if (includePreviousSubStepArtifact && phase.status === "SUBSTEP_READY" && phase.subStepArtifact) {
     const subArtifact = phase.subStepArtifact as { type?: string; content?: string };
     if (subArtifact.content) {
-      previousArtifacts.push({
+      rawPreviousArtifacts.push({
         title: `SubStep ${phase.subStep || "intermedio"}`,
         content: subArtifact.content,
       });
     }
   }
+
+  // Densidad de contexto: en lugar de inyectar los artefactos CRUDOS (que
+  // pueden ser enormes e incluir ruido —quiz, opciones intermedias, debates—),
+  // pasamos cada artefacto por el parser (analizador sintáctico) de densidad
+  // de contexto. Esto extrae SOLO el resultado consolidado de cada fase y lo
+  // acota en tamaño, ahorrando tokens (unidades de procesamiento de texto) sin
+  // cambiar la forma { title, content } que el agente ya espera.
+  const previousArtifacts: Array<{ title: string; content: string }> =
+    parsePreviousPhaseArtifacts(rawPreviousArtifacts).map((s) => ({
+      title: s.title,
+      content: s.summary,
+    }));
 
   const agentName = PHASE_TO_AGENT[phaseType] || `project-${phaseType.toLowerCase()}`;
   const model = modelOverride || (await resolveModelForJobAgent(agentName));
