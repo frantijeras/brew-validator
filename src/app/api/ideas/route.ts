@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/require-auth";
 import { ideaOwnerWhere } from "@/lib/ownership";
+import { verifyBridgeSecret } from "@/lib/bridge-auth";
 
 const createIdeaSchema = z.object({
   title: z.string().min(3, "El título debe tener al menos 3 caracteres"),
@@ -50,8 +51,23 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    // ── Acceso del Bridge (Puente con las APIs de IA) ──
+    // El daemon de validación lee con su BRIDGE_SECRET (no tiene sesión de
+    // usuario) las ideas que están EN VALIDACIÓN (validationStatus RUNNING)
+    // para ejecutar los agentes skeptic/advocate/judge. Es un acceso de
+    // sistema (todas las ideas en validación), distinto del listado por
+    // usuario de abajo. Sin este branch, el bridge recibía 401 y la validación
+    // se quedaba colgada.
+    if (verifyBridgeSecret(req)) {
+      const running = await prisma.idea.findMany({
+        where: { validationStatus: "RUNNING" },
+        orderBy: { updatedAt: "desc" },
+      });
+      return NextResponse.json(running);
+    }
+
     const auth = await requireAuth();
     if (!auth.ok) return auth.response;
 
