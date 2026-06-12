@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { notFound } from "next/navigation";
 import { ProjectTabs } from "./project-tabs";
 import { ProjectHeaderMenu } from "./project-header-menu";
+import { phaseDescription } from "@/lib/phase-descriptions";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -98,7 +99,9 @@ export default async function ProjectDetailPage({ params }: Props) {
           id: p.id,
           type: p.type,
           label: p.label,
-          description: p.description,
+          // Descripción canónica por tipo (asegura texto actual en proyectos
+          // antiguos y nuevos); fallback al valor guardado en BDD.
+          description: phaseDescription(p.type, p.description),
           status: p.status,
           sortOrder: p.sortOrder,
           artifacts: p.artifacts as Array<{ title: string; type: string }> | null,

@@ -379,6 +379,16 @@ export function PhaseCard({
         <div className="mt-2">{miniProgressBar}</div>
       )}
 
+      {description && (
+        <p
+          className={`mt-3 text-sm leading-relaxed md:mt-2 md:leading-snug ${
+            isInactive ? "text-slate-600" : "text-slate-400"
+          }`}
+        >
+          {description}
+        </p>
+      )}
+
       {/* Sub-step cards (nuevo) — renderizadas debajo de la descripción,
           antes de los artefactos y las acciones globales. */}
       {subSteps && (

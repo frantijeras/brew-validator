@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { PHASE_DESCRIPTIONS } from "@/lib/phase-descriptions";
 
 export async function POST(req: Request) {
   try {
@@ -47,35 +48,35 @@ export async function POST(req: Request) {
             {
               type: "ANALYSIS",
               label: "Análisis de Mercado",
-              description: "Análisis DAFO, 5 Fuerzas de Porter, estimación de TAM/SAM/SOM, Lean Canvas, segmentos de cliente con Buyer Persona y propuesta de valor única",
+              description: PHASE_DESCRIPTIONS.ANALYSIS,
               status: "AVAILABLE",
               sortOrder: 1,
             },
             {
               type: "BUSINESS",
               label: "Viabilidad Financiera",
-              description: "Modelo de ingresos, estrategia de pricing, simulador financiero con Unit Economics, proyección LTV/CAC y análisis de viabilidad en 3 escenarios (pesimista, realista, optimista)",
+              description: PHASE_DESCRIPTIONS.BUSINESS,
               status: "LOCKED",
               sortOrder: 2,
             },
             {
               type: "IDENTITY",
               label: "Identidad de Marca",
-              description: "Naming, voz y tono (12 Arquetipos de Jung), estilo visual (paletas de color, tipografías, style guide HTML) y brand book final",
+              description: PHASE_DESCRIPTIONS.IDENTITY,
               status: "LOCKED",
               sortOrder: 3,
             },
             {
               type: "CONTENT",
               label: "Estrategia de Distribución",
-              description: "Matriz Bullseye, canales prioritarios, tipo de contenido, calendario editorial, pilares de contenido y estrategia de lanzamiento",
+              description: PHASE_DESCRIPTIONS.CONTENT,
               status: "LOCKED",
               sortOrder: 4,
             },
             {
               type: "EXECUTION",
               label: "Roadmap 30/60/90",
-              description: "Hoja de ruta detallada y OKRs (objetivos y resultados clave) para 30, 60 y 90 días",
+              description: PHASE_DESCRIPTIONS.EXECUTION,
               status: "LOCKED",
               sortOrder: 5,
             },
