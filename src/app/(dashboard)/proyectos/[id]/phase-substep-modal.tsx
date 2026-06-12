@@ -208,6 +208,9 @@ export function PhaseSubstepModal({
   );
   const [selectedLogo, setSelectedLogo] = useState<number | null>(null);
 
+  // Generación de PDF de la guía de estilo (3d) en cliente.
+  const [pdfBusy, setPdfBusy] = useState(false);
+
   // ── Brand Book sub-step state (IDENTITY final only) ──
   // The `final` sub-step shows a consolidated Brand Book generated
   // from the naming, voice and visual outputs. We compute it once.
@@ -698,20 +701,102 @@ export function PhaseSubstepModal({
   }
 
   /**
-   * Triggers a native browser download of the current visual variant.
-   * The endpoint serves the HTML with `Content-Disposition: attachment`
-   * so the browser saves it as `style-guide-{A|B|C}.html`.
+   * Descarga la **maqueta HTML** (3d): la variante elegida con el logotipo SVG
+   * incrustado, como `index.html`.
    */
   function handleDownloadVisual() {
     if (!isVisualSubStep) return;
-    const url = `/api/projects/${projectId}/phases/${phaseId}/substep/visual-download?variant=${visualVariant}`;
-    // Use a hidden link so the iframe is not disturbed.
+    const url = `/api/projects/${projectId}/phases/${phaseId}/substep/3d/template?variant=${visualVariant}`;
     const a = document.createElement("a");
     a.href = url;
     a.rel = "noopener noreferrer";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+  }
+
+  /**
+   * "Ver" (3d): abre la vista integrada (Guía de Estilo + maqueta con
+   * logotipo) en una pestaña nueva, cada panel aislado en su iframe.
+   */
+  function handleView3d() {
+    if (!isVisualSubStep) return;
+    const url = `/api/projects/${projectId}/phases/${phaseId}/substep/3d/view?variant=${visualVariant}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  /**
+   * "Descargar PDF" (3d): genera el PDF de la Guía de Estilo en el CLIENTE para
+   * que el logotipo SVG quede renderizado/incrustado. Pide al servidor el HTML
+   * autocontenible de la guía, lo renderiza en un iframe oculto y lo exporta
+   * con html2canvas + jsPDF. Si algo falla, cae al PDF de servidor (texto).
+   */
+  async function handleDownloadStyleGuidePdf() {
+    if (!isVisualSubStep) return;
+    const base = `/api/projects/${projectId}/phases/${phaseId}/substep/3d/styleguide?variant=${visualVariant}`;
+    setPdfBusy(true);
+    let iframe: HTMLIFrameElement | null = null;
+    try {
+      const res = await fetch(`${base}&format=html`);
+      if (!res.ok) throw new Error("styleguide html fetch failed");
+      const html = await res.text();
+
+      iframe = document.createElement("iframe");
+      iframe.setAttribute("sandbox", "allow-same-origin");
+      iframe.style.position = "fixed";
+      iframe.style.left = "-10000px";
+      iframe.style.top = "0";
+      iframe.style.width = "840px";
+      iframe.style.height = "10px";
+      document.body.appendChild(iframe);
+      await new Promise<void>((resolve) => {
+        iframe!.addEventListener("load", () => resolve(), { once: true });
+        iframe!.srcdoc = html;
+      });
+      // Pequeña espera para que fuentes/SVG terminen de pintar.
+      await new Promise((r) => setTimeout(r, 350));
+
+      const doc = iframe.contentDocument;
+      const body = doc?.body;
+      if (!doc || !body) throw new Error("iframe document not ready");
+
+      const html2canvas = (await import("html2canvas")).default;
+      const { jsPDF } = await import("jspdf");
+      const canvas = await html2canvas(body, {
+        scale: 2,
+        backgroundColor: "#ffffff",
+        windowWidth: 840,
+      });
+
+      const pdf = new jsPDF({ unit: "pt", format: "a4" });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const imgW = pageW;
+      const imgH = (canvas.height * imgW) / canvas.width;
+      const img = canvas.toDataURL("image/png");
+      if (imgH <= pageH) {
+        pdf.addImage(img, "PNG", 0, 0, imgW, imgH);
+      } else {
+        let y = 0;
+        while (y < imgH) {
+          pdf.addImage(img, "PNG", 0, -y, imgW, imgH);
+          y += pageH;
+          if (y < imgH) pdf.addPage();
+        }
+      }
+      pdf.save("guia-estilos.pdf");
+    } catch {
+      // Fallback: PDF de servidor (texto, sin SVG rasterizado).
+      const a = document.createElement("a");
+      a.href = base;
+      a.rel = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } finally {
+      if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
+      setPdfBusy(false);
+    }
   }
 
   /**
@@ -1213,16 +1298,41 @@ export function PhaseSubstepModal({
                 ) : isVisualSubStep ? (
                   <>
                     <button
+                      onClick={handleView3d}
+                      disabled={submitting || pdfBusy || !currentVisualOption}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 transition-all hover:bg-slate-700/60 hover:border-slate-600 disabled:opacity-50"
+                    >
+                      <Eye className="size-4" />
+                      Ver
+                    </button>
+                    <button
                       onClick={handleDownloadVisual}
-                      disabled={submitting || !currentVisualOption}
+                      disabled={submitting || pdfBusy || !currentVisualOption}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 transition-all hover:bg-slate-700/60 hover:border-slate-600 disabled:opacity-50"
                     >
                       <Download className="size-4" />
                       Descargar HTML
                     </button>
                     <button
+                      onClick={handleDownloadStyleGuidePdf}
+                      disabled={submitting || pdfBusy || !currentVisualOption}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 transition-all hover:bg-slate-700/60 hover:border-slate-600 disabled:opacity-50"
+                    >
+                      {pdfBusy ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin" />
+                          Generando PDF…
+                        </>
+                      ) : (
+                        <>
+                          <Printer className="size-4" />
+                          Descargar PDF
+                        </>
+                      )}
+                    </button>
+                    <button
                       onClick={() => setShowIterate(true)}
-                      disabled={submitting}
+                      disabled={submitting || pdfBusy}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 transition-all hover:bg-slate-700/60 hover:border-slate-600 disabled:opacity-50"
                     >
                       <RefreshCw className="size-4" />
@@ -1230,7 +1340,7 @@ export function PhaseSubstepModal({
                     </button>
                     <button
                       onClick={handleVisualChoose}
-                      disabled={submitting || !currentVisualOption}
+                      disabled={submitting || pdfBusy || !currentVisualOption}
                       className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-400 disabled:opacity-50"
                     >
                       {submitting ? (
