@@ -50,10 +50,11 @@ export function useToast(): UseToastReturn {
         showToast({ severity: "warning", text, title }),
       showInfo: (text, title) => showToast({ severity: "info", text, title }),
       showErrorByCategory: (category, overrides) => {
+        // getUserMessage (fuente única U1) devuelve { severity, text }; el
+        // título es opcional y puede venir en `overrides` desde la llamada.
         const msg = getUserMessage(category);
         return showToast({
           severity: msg.severity,
-          title: msg.title,
           text: msg.text,
           ...overrides,
         });
