@@ -24,6 +24,8 @@ import {
   Save,
   Info,
   Edit3,
+  RotateCcw,
+  AlertTriangle,
 } from "lucide-react";
 import { PhaseActionButton } from "./phase-action-button";
 import { PhaseQuestionsModal } from "./phase-questions-modal";
@@ -284,6 +286,12 @@ export function ProjectPhasesWithModal({
   const [subStepErrors, setSubStepErrors] = useState<Record<string, string>>({});
   // In-flight guard so a double-click can't fire two execute-phase jobs.
   const inFlightSubSteps = useRef<Set<string>>(new Set());
+  // Rollback (Regresión en cascada): fase que el usuario quiere REHACER. Al
+  // confirmar, se borran las fases posteriores. `null` = sin confirmación abierta.
+  const [rollbackPhase, setRollbackPhase] = useState<PhaseData | null>(null);
+  // Guard de doble click + spinner mientras se ejecuta el rollback.
+  const [rollbackInFlight, setRollbackInFlight] = useState(false);
+  const [rollbackError, setRollbackError] = useState<string | null>(null);
   const router = useRouter();
 
   // Launch an IDENTITY/quiz sub-step. Guards against double-submission and
@@ -368,6 +376,45 @@ export function ProjectPhasesWithModal({
       router.refresh();
     } catch (err) {
       console.error("Error canceling phase:", err);
+    }
+  }
+
+  // ── Rollback (Regresión en cascada) ──
+  // Rehace la fase objetivo: el endpoint borra de la BDD (Base de datos) todos
+  // los artefactos/estados de las fases POSTERIORES y deja la objetivo en
+  // AVAILABLE. Tras la respuesta hacemos `router.refresh()` para PURGAR el
+  // estado global del frontend (re-fetch del Server Component) y evitar
+  // renderizar "datos fantasma" de las fases que ya no son válidas. Además,
+  // cerramos cualquier modal abierto cuya fase haya podido quedar reseteada.
+  async function handleRollback(phase: PhaseData) {
+    if (rollbackInFlight) return;
+    setRollbackInFlight(true);
+    setRollbackError(null);
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/phases/${phase.id}/rollback`,
+        { method: "POST" }
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setRollbackError(
+          data?.error || "No se pudo rehacer la fase. Inténtalo de nuevo."
+        );
+        return;
+      }
+      // Purgar estado local cacheado de fases posteriores: cerramos modales que
+      // pudieran apuntar a una fase ya reseteada y limpiamos errores de sub-paso.
+      setModalPhase(null);
+      setSubstepModalPhase(null);
+      setSubStepErrors({});
+      inFlightSubSteps.current.clear();
+      setRollbackPhase(null);
+      // Re-fetch del estado de servidor → invalida el árbol cacheado del cliente.
+      router.refresh();
+    } catch {
+      setRollbackError("Error de conexión. Inténtalo de nuevo.");
+    } finally {
+      setRollbackInFlight(false);
     }
   }
 
@@ -699,6 +746,28 @@ export function ProjectPhasesWithModal({
                       {PHASE4_DOWNLOAD_LABEL}
                     </a>
                   );
+                  // Rollback (Regresión en cascada): rehacer esta fase. Solo
+                  // tiene sentido si EXISTE alguna fase posterior que se vería
+                  // afectada; si es la última fase, no mostramos el botón.
+                  const hasLaterPhase = phases.some(
+                    (p) => p.sortOrder > phase.sortOrder
+                  );
+                  if (hasLaterPhase) {
+                    list.push(
+                      <button
+                        key="rollback"
+                        onClick={() => {
+                          setRollbackError(null);
+                          setRollbackPhase(phase);
+                        }}
+                        className={btnStyles.cancel}
+                        title="Rehacer esta fase (borra las fases posteriores)"
+                      >
+                        <RotateCcw className="size-4" />
+                        Rehacer esta fase
+                      </button>
+                    );
+                  }
                 }
                 return <>{list}</>;
               })()}
@@ -864,6 +933,77 @@ export function ProjectPhasesWithModal({
               <button
                 onClick={() => setShowMemoryModal(false)}
                 disabled={savingMemory}
+                className="text-sm text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rollback (Regresión en cascada) — modal de confirmación.
+          Avisa claramente de que se borrarán TODAS las fases posteriores. */}
+      {rollbackPhase && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-xl border border-red-500/30 bg-slate-900 shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+              <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                <AlertTriangle className="size-4 text-red-400" />
+                Rehacer esta fase
+              </h3>
+              <button
+                onClick={() => {
+                  if (rollbackInFlight) return;
+                  setRollbackPhase(null);
+                }}
+                disabled={rollbackInFlight}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors disabled:opacity-50"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-3">
+              <p className="text-sm text-slate-300">
+                Vas a rehacer la fase{" "}
+                <span className="font-semibold text-white">{rollbackPhase.label}</span>.
+              </p>
+              <p className="text-sm text-red-300">
+                Se borrarán de forma permanente los resultados, informes y
+                estados de <span className="font-semibold">todas las fases posteriores</span>.
+                Esta fase volverá a estar disponible para rehacerla desde cero.
+                Esta acción no se puede deshacer.
+              </p>
+              {rollbackError && (
+                <p className="text-sm text-red-400">{rollbackError}</p>
+              )}
+            </div>
+
+            <div className="border-t border-slate-800 px-5 py-4 flex items-center gap-3">
+              <button
+                onClick={() => handleRollback(rollbackPhase)}
+                disabled={rollbackInFlight}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-red-500 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-400 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {rollbackInFlight ? (
+                  <>
+                    <span className="inline-block size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    Rehaciendo...
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="size-4" />
+                    Sí, rehacer y borrar posteriores
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  if (rollbackInFlight) return;
+                  setRollbackPhase(null);
+                }}
+                disabled={rollbackInFlight}
                 className="text-sm text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-50"
               >
                 Cancelar
