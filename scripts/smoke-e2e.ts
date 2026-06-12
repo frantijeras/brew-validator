@@ -82,16 +82,16 @@ async function testIdentitySubsteps() {
     tc("naming → voice")
   );
   assert(
-    getNextIdentitySubStep("voice") === "visual",
-    tc("voice → visual")
+    getNextIdentitySubStep("voice") === "logo",
+    tc("voice → logo")
   );
   assert(
-    getNextIdentitySubStep("visual") === "final",
-    tc("visual → final")
+    getNextIdentitySubStep("logo") === "visual",
+    tc("logo → visual")
   );
   assert(
-    getNextIdentitySubStep("final") === null,
-    tc("final → null (phase complete)")
+    getNextIdentitySubStep("visual") === null,
+    tc("visual → null (phase complete)")
   );
   assert(
     getNextIdentitySubStep(undefined) === "naming",
@@ -112,12 +112,12 @@ async function testIdentitySubsteps() {
     tc("index: voice = 1")
   );
   assert(
-    getIdentitySubStepIndex("visual") === 2,
-    tc("index: visual = 2")
+    getIdentitySubStepIndex("logo") === 2,
+    tc("index: logo = 2")
   );
   assert(
-    getIdentitySubStepIndex("final") === 3,
-    tc("index: final = 3")
+    getIdentitySubStepIndex("visual") === 3,
+    tc("index: visual = 3")
   );
   assert(
     getIdentitySubStepIndex(null) === -1,
@@ -130,20 +130,20 @@ async function testIdentitySubsteps() {
 
   // getIdentitySubStepLabel
   assert(
-    getIdentitySubStepLabel("naming") === "Nombre",
-    tc("label: naming = Nombre")
+    getIdentitySubStepLabel("naming") === "Naming",
+    tc("label: naming = Naming")
   );
   assert(
     getIdentitySubStepLabel("voice") === "Voz y Tono",
     tc("label: voice = Voz y Tono")
   );
   assert(
-    getIdentitySubStepLabel("visual") === "Estilo Visual",
-    tc("label: visual = Estilo Visual")
+    getIdentitySubStepLabel("logo") === "Logotipo",
+    tc("label: logo = Logotipo")
   );
   assert(
-    getIdentitySubStepLabel("final") === "Brand Book",
-    tc("label: final = Brand Book")
+    getIdentitySubStepLabel("visual") === "Estilo Visual y Maqueta",
+    tc("label: visual = Estilo Visual y Maqueta")
   );
   assert(
     getIdentitySubStepLabel(null) === "",
@@ -157,8 +157,9 @@ async function testIdentitySubsteps() {
   );
   assert(
     IDENTITY_SUBSTEP_IDS[0] === "naming" &&
-    IDENTITY_SUBSTEP_IDS[3] === "final",
-    tc("IDS covers naming..final in order")
+    IDENTITY_SUBSTEP_IDS[2] === "logo" &&
+    IDENTITY_SUBSTEP_IDS[3] === "visual",
+    tc("IDS covers naming..visual in order")
   );
 
   // IDENTITY_SUBSTEP_ORDER
@@ -457,7 +458,16 @@ async function testPdfExport() {
   // Check it's valid jsPDF output (contains /Type /Page or /Type /Catalog)
   const fullStr = buffer.toString("latin1");
   assert(fullStr.includes("/Type"), tc("PDF contains /Type entries"));
-  assert(fullStr.includes("Brew Validator"), tc("PDF includes project name"));
+  // NOTA: buildReportPdf incrusta la fuente Roboto (subconjunto) y escribe el
+  // texto como ÍNDICES DE GLIFO, no como ASCII — por eso el nombre del proyecto
+  // NUNCA aparece como "Brew Validator" en el buffer (ni tras inflar streams).
+  // En su lugar verificamos que el PDF incrustó la fuente y tiene páginas, lo
+  // que implica que el texto del informe se renderizó.
+  assert(
+    fullStr.includes("/FontFile2") || fullStr.includes("/BaseFont"),
+    tc("PDF incrusta la fuente (texto renderizado)")
+  );
+  assert(fullStr.includes("/Page"), tc("PDF contiene al menos una página"));
 
   // Test 2: empty content still produces valid PDF
   const emptyBuffer = buildReportPdf({
@@ -902,54 +912,47 @@ section("10. handoff-builder.ts — buildHandoffZip");
 
 async function testHandoffBuilder() {
   const { buildHandoffZip } = await import("../src/lib/handoff-builder");
-  const { buildBrandBook } = await import("../src/lib/identity-brandbook");
 
-  const brandBook = buildBrandBook({
-    projectName: "TestFlow",
-    namingContent: "Elegimos TestFlow por claridad.",
-    voiceContent: "Tono profesional y directo.",
-    visualChoice: "A",
-    visualArtifactJson: JSON.stringify({
-      options: [
-        {
-          variant: "A",
-          html: "<html><body><h1>A</h1></body></html>",
-          meta: {
-            name: "Estilo A",
-            primaryColor: "#6C63FF",
-            secondaryColor: "#FF6584",
-            fontHeading: "Inter",
-            fontBody: "Source Sans 3",
-            mood: "Moderno",
-          },
+  // Artefacto visual (3 estilos A/B/C) y logos (HTML con 2 SVG) para que el
+  // builder pueda componer 3.voz-y-tono.md, 3d.guia-de-estilo.md y los assets.
+  const visualJson = JSON.stringify({
+    options: [
+      {
+        variant: "A",
+        html: "<!DOCTYPE html><html><body><h1 style=\"color:#6C63FF\">A</h1></body></html>",
+        meta: {
+          name: "Estilo A",
+          primaryColor: "#6C63FF",
+          secondaryColor: "#FF6584",
+          fontHeading: "Inter",
+          fontBody: "Source Sans 3",
+          mood: "Moderno",
         },
-        {
-          variant: "B",
-          html: "<html><body><h1>B</h1></body></html>",
-          meta: {
-            name: "Estilo B",
-            primaryColor: "#1a1a2e",
-            secondaryColor: "#e94560",
-            fontHeading: "Playfair Display",
-            fontBody: "Lora",
-            mood: "Elegante",
-          },
-        },
-        {
-          variant: "C",
-          html: "<html><body><h1>C</h1></body></html>",
-          meta: {
-            name: "Estilo C",
-            primaryColor: "#16A34A",
-            secondaryColor: "#F59E0B",
-            fontHeading: "Space Grotesk",
-            fontBody: "DM Sans",
-            mood: "Fresco",
-          },
-        },
-      ],
-    }),
+      },
+      {
+        variant: "B",
+        html: "<!DOCTYPE html><html><body><h1>B</h1></body></html>",
+        meta: { name: "Estilo B", primaryColor: "#1a1a2e", secondaryColor: "#e94560", fontHeading: "Playfair Display", fontBody: "Lora", mood: "Elegante" },
+      },
+      {
+        variant: "C",
+        html: "<!DOCTYPE html><html><body><h1>C</h1></body></html>",
+        meta: { name: "Estilo C", primaryColor: "#16A34A", secondaryColor: "#F59E0B", fontHeading: "Space Grotesk", fontBody: "DM Sans", mood: "Fresco" },
+      },
+    ],
   });
+  const logosHtml =
+    "<!DOCTYPE html><html><body><div class=\"grid\">" +
+    "<div class=\"logo-card\"><svg viewBox=\"0 0 100 40\"><text x=\"0\" y=\"30\">Uno</text></svg></div>" +
+    "<div class=\"logo-card\"><svg viewBox=\"0 0 100 40\"><circle cx=\"20\" cy=\"20\" r=\"15\"/></svg></div>" +
+    "</div></body></html>";
+
+  const identityHistory = {
+    naming: { subStep: "naming", choice: "TestFlow", artifact: { type: "markdown", content: "## Naming\n\nTestFlow." } },
+    voice: { subStep: "voice", choice: "", artifact: { type: "markdown", content: "# Voz y Tono\n\nProfesional y directo." } },
+    logo: { subStep: "logo", choice: "1", artifact: { type: "html", content: logosHtml } },
+    visual: { subStep: "visual", choice: "A", artifact: { type: "html", content: visualJson } },
+  };
 
   const options = {
     projectId: "test-handoff-123",
@@ -965,66 +968,43 @@ async function testHandoffBuilder() {
     },
     phases: [
       {
-        type: "VALIDATION",
-        label: "Validación",
-        sortOrder: 0,
-        status: "COMPLETED",
-        description: "Validación de la idea",
-        subStep: null,
-        subStepChoice: null,
-        subStepArtifact: null,
-        artifacts: [{ title: "Informe", content: "# Validación\n\nCompletada.", type: "markdown" }],
-      },
-      {
-        type: "ANALYSIS",
-        label: "Análisis de Mercado",
-        sortOrder: 1,
-        status: "COMPLETED",
-        description: "Análisis de mercado",
-        subStep: null,
-        subStepChoice: null,
-        subStepArtifact: null,
+        type: "ANALYSIS", label: "Análisis de Mercado", sortOrder: 1, status: "COMPLETED",
+        description: "Análisis de mercado", subStep: null, subStepChoice: null, subStepArtifact: null,
         artifacts: [{ title: "Análisis", content: "## Mercado\n\nTAM/SAM/SOM...", type: "markdown" }],
       },
       {
-        type: "IDENTITY",
-        label: "Identidad de Marca",
-        sortOrder: 2,
-        status: "COMPLETED",
-        description: "Identidad de marca",
-        subStep: "final",
-        subStepChoice: "TestFlow",
-        subStepArtifact: null,
-        artifacts: [{ title: "Brand Book", content: "## Brand Book", type: "markdown" }],
+        type: "BUSINESS", label: "Viabilidad Económica", sortOrder: 2, status: "COMPLETED",
+        description: "Viabilidad", subStep: null, subStepChoice: null, subStepArtifact: null,
+        artifacts: [{ title: "Viabilidad", content: "## Lean Canvas\n\nLTV/CAC...", type: "markdown" }],
       },
       {
-        type: "CONTENT",
-        label: "Distribución",
-        sortOrder: 3,
-        status: "COMPLETED",
-        description: null,
-        subStep: null,
-        subStepChoice: null,
-        subStepArtifact: null,
+        type: "IDENTITY", label: "Identidad de Marca", sortOrder: 3, status: "COMPLETED",
+        description: "Identidad de marca",
+        subStep: "visual",
+        subStepChoice: "A",
+        subStepArtifact: { type: "html", content: visualJson },
+        subStepHistory: identityHistory,
+        artifacts: [{ title: "Identidad", content: "## Identidad", type: "markdown" }],
+      },
+      {
+        type: "CONTENT", label: "Distribución", sortOrder: 4, status: "COMPLETED",
+        description: null, subStep: null, subStepChoice: null, subStepArtifact: null,
         artifacts: [{ title: "Estrategia", content: "## Canales\n\nTwitter, LinkedIn", type: "markdown" }],
       },
       {
-        type: "DEVELOPMENT",
-        label: "Landing",
-        sortOrder: 4,
-        status: "LOCKED", // Should NOT appear in ZIP
-        description: null,
-        subStep: null,
-        subStepChoice: null,
-        subStepArtifact: null,
-        artifacts: null,
+        type: "EXECUTION", label: "Roadmap", sortOrder: 5, status: "COMPLETED",
+        description: null, subStep: null, subStepChoice: null, subStepArtifact: null,
+        artifacts: [{ title: "Roadmap", content: "## Plan 30/60/90", type: "markdown" }],
+      },
+      {
+        type: "DEVELOPMENT", label: "Landing", sortOrder: 6, status: "LOCKED", // NO debe aparecer
+        description: null, subStep: null, subStepChoice: null, subStepArtifact: null, artifacts: null,
       },
     ],
     memory: {
       target: { value: "Startups tech España", source: "01", updatedAt: "2026-06-07T10:00:00Z" },
       tone: { value: "profesional", source: "01", updatedAt: "2026-06-07T10:00:00Z" },
     },
-    brandBook,
   };
 
   // Build ZIP
@@ -1032,60 +1012,40 @@ async function testHandoffBuilder() {
   assert(Buffer.isBuffer(buffer), tc("returns a Buffer"));
   assert(buffer.length > 100, tc("ZIP buffer is non-empty"));
 
-  // Write to /tmp and extract to verify structure
-  const tmpZip = "/tmp/smoke-e2e-handoff.zip";
-  const tmpDir = "/tmp/smoke-e2e-extract";
-  fs.writeFileSync(tmpZip, buffer);
-  execSync(`rm -rf "${tmpDir}" && mkdir -p "${tmpDir}"`, { encoding: "utf-8" });
+  // Verificación cross-platform: los nombres de entrada del ZIP se guardan como
+  // texto literal en las cabeceras locales, así que basta con escanear el buffer
+  // (sin shell ni unzip — funciona igual en Windows/Linux).
+  const zipText = buffer.toString("latin1");
+  const has = (name: string) => zipText.includes(name);
 
-  try {
-    execSync(`unzip -o "${tmpZip}" -d "${tmpDir}"`, { encoding: "utf-8" });
-  } catch {
-    // If unzip isn't available on this system, skip extraction verification
-    console.log("  ⚠ unzip not available, skipping extraction check");
-    execSync(`rm -f "${tmpZip}" && rm -rf "${tmpDir}"`, { encoding: "utf-8" });
-    return;
-  }
+  // Carpeta raíz saneada (sin espacios ni emoji).
+  assert(has("testflow-app"), tc("carpeta raíz contiene el slug del proyecto"));
+  assert(!has("TestFlow App 🚀/"), tc("carpeta raíz saneada (sin espacios/emoji)"));
 
-  const files = execSync(`find "${tmpDir}" -type f | sort`, { encoding: "utf-8" })
-    .trim()
-    .split("\n")
-    .map((f) => f.replace(tmpDir + "/", ""));
-
-  const topDir = files[0]?.split("/")[0] || "";
-
-  // Verify filename sanitization: no spaces, no accents, no special chars
-  assert(
-    !topDir.includes(" ") && !topDir.includes("🚀"),
-    tc(`sanitized folder: "${topDir}" (no spaces, no emoji)`)
-  );
-  assert(topDir.includes("testflow-app"), tc("sanitized folder contains project slug"));
-
-  // Verify required files
+  // Estructura NUEVA (numerada, sin naming ni Brand Book).
   const requiredFiles = [
+    "AGENT.md",
     "README.md",
-    "01-validacion.md",
-    "02-analisis-mercado.md",
-    "03-identidad/brand-book.md",
-    "04-estrategia-distribucion.md",
-    "skills/landing-builder.md",
-    "skills/content-writer.md",
-    "skills/social-strategy.md",
+    "1.analisis-de-mercado.md",
+    "2.viabilidad-economica.md",
+    "3.voz-y-tono.md",
+    "3d.guia-de-estilo.md",
+    "4.estrategia-distribucion.md",
+    "5.roadmap.md",
+    "skills/3c-logos/logo.svg",
+    "skills/3c-logos/logos-options.html",
+    "skills/3d-assets/index.html",
+    "skills/3d-assets/guia-estilos.pdf",
     "skills/project-handoff.md",
   ];
-
   for (const rf of requiredFiles) {
-    const fullPath = `${topDir}/${rf}`;
-    const found = files.some((f) => f === fullPath);
-    assert(found, tc(`ZIP contains: ${fullPath}`));
+    assert(has(rf), tc(`ZIP contiene: ${rf}`));
   }
 
-  // Verify LOCKED phase (DEVELOPMENT) is NOT included
-  const hasLanding = files.some((f) => f.includes("05-landing-page"));
-  assert(!hasLanding, tc("LOCKED phase (landing) correctly omitted from ZIP"));
-
-  // Cleanup
-  execSync(`rm -f "${tmpZip}" && rm -rf "${tmpDir}"`, { encoding: "utf-8" });
+  // NEGATIVOS: ni naming, ni Brand Book, ni nomenclatura antigua, ni fase LOCKED.
+  assert(!has("03-identidad-marca.md"), tc("sin Brand Book consolidado (03-identidad-marca.md)"));
+  assert(!has("1.naming") && !has("naming.md"), tc("proceso de naming excluido del paquete"));
+  assert(!has("6."), tc("fase LOCKED (Landing) correctamente omitida"));
 }
 
 // ═══════════════════════════════════════════════════════════════════════
