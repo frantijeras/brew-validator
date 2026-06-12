@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Lock, Download, FileText, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 import { ProjectPhasesWithModal } from "./project-phases-with-modal";
 import { SkillSelector } from "./skill-selector";
-import { ErrorHistoryPanel } from "./error-history-panel";
 import type { ProjectMemory } from "@/lib/project-memory";
 import { renderMarkdown } from "@/components/markdown-renderer";
 
@@ -197,8 +196,6 @@ export function ProjectTabs({
             phases={phases}
             memory={memory}
           />
-          {/* Feedback Capa 3 — historial de errores del Bridge del proyecto */}
-          <ErrorHistoryPanel projectId={projectId} />
         </div>
       )}
 
