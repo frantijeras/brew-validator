@@ -47,6 +47,19 @@ function cleanJudgeReportPdf(content: string): string {
     return match;
   });
 
+  // ── Andamiaje interno multi-agente (NO va en el entregable) ──
+  // Los informes pueden arrastrar términos del proceso interno de validación
+  // por debate de roles (Escéptico/Defensor/Abogado del diablo/Juez). Eso es
+  // ruido para el usuario final: lo quitamos del PDF descargable.
+  // Quitamos secciones cuyo encabezado ES uno de esos roles internos.
+  const internalSectionRe =
+    /^#{1,4}\s*(debate(\s+interno)?|escéptic[oa]|defensor[a]?|abogad[oa]\s+del\s+diablo|juez|veredicto\s+del\s+juez|deliberaci[oó]n|skeptic|advocate|judge)\b[^\n]*\n[\s\S]*?(?=^#{1,4}\s|\n---|$)/gim;
+  clean = clean.replace(internalSectionRe, "");
+  // Quitamos etiquetas internas sueltas a principio de línea.
+  const internalLabelRe =
+    /^\s*[*_]{0,2}(veredicto\s+del\s+juez|puntuaci[oó]n\s+interna|score\s+interno|abogad[oa]\s+del\s+diablo|nota\s+del\s+juez|el\s+juez\s+(dictamina|concluye)|el\s+escéptico|el\s+defensor)[*_]{0,2}\s*:?.*$/gim;
+  clean = clean.replace(internalLabelRe, "");
+
   // Collapse multiple blank lines
   clean = clean.replace(/\n{3,}/g, "\n\n");
 
@@ -117,6 +130,126 @@ function agentLabel(name: string): string {
     case "idea-generator": return "Generador de ideas";
     default: return name;
   }
+}
+
+/**
+ * Dibuja una tabla markdown con estilo profesional y robusto:
+ *  - Cabecera con fondo gris y borde inferior; se REPITE en cada salto de página.
+ *  - Filas tipo cebra (alternas) con relleno de celda (padding) para que el
+ *    texto no toque los bordes.
+ *  - Rejilla ligera (verticales + línea inferior por fila) sin que las líneas
+ *    crucen el texto (la línea inferior se dibuja DEBAJO del contenido).
+ *  - Anchos de columna proporcionales al contenido, con mínimo y ajuste exacto
+ *    al ancho disponible (no se sale de la página → no se corta).
+ *
+ * Devuelve la `y` final tras la tabla.
+ */
+function drawMarkdownTable(
+  doc: jsPDF,
+  headers: string[],
+  rows: string[][],
+  ctx: { y: number; marginX: number; contentW: number; top: number; bottom: number }
+): number {
+  const colCount = headers.length;
+  if (colCount === 0) return ctx.y;
+
+  const PADX = 2; // relleno horizontal de celda (mm)
+  const PADV = 1.8; // relleno vertical de celda (mm)
+  const LH = 4.0; // alto de línea (mm) para 8pt
+  const FS = 8;
+  const tableW = ctx.contentW;
+  const x0 = ctx.marginX;
+
+  // Anchos proporcionales por longitud de contenido (mínimo 18mm), ajustados
+  // exactamente al ancho de la tabla.
+  const maxLens: number[] = [];
+  let totalChars = 0;
+  for (let ci = 0; ci < colCount; ci++) {
+    let m = stripEmojis(headers[ci] || "").length;
+    for (const r of rows) m = Math.max(m, stripEmojis(r[ci] || "").length);
+    maxLens.push(m);
+    totalChars += m;
+  }
+  let colW = maxLens.map((l) => Math.max(18, (l / Math.max(totalChars, 1)) * tableW));
+  const wsum = colW.reduce((a, b) => a + b, 0);
+  colW = colW.map((w) => (w / wsum) * tableW);
+
+  const colX = (ci: number) => x0 + colW.slice(0, ci).reduce((a, b) => a + b, 0);
+  const wrap = (t: string, w: number): string[] =>
+    doc.splitTextToSize(stripEmojis(t || ""), w - 2 * PADX) as string[];
+
+  let y = ctx.y;
+
+  const renderRow = (cells: string[], kind: "header" | "odd" | "even"): number => {
+    const linesPerCol = cells.map((c, ci) => wrap(c, colW[ci] ?? 18));
+    const maxLines = Math.max(1, ...linesPerCol.map((l) => l.length));
+    const rowH = maxLines * LH + 2 * PADV;
+
+    // Fondo
+    if (kind === "header") {
+      doc.setFillColor(...C_BG);
+      doc.rect(x0, y, tableW, rowH, "F");
+    } else if (kind === "even") {
+      doc.setFillColor(250, 250, 250);
+      doc.rect(x0, y, tableW, rowH, "F");
+    }
+
+    // Texto (top-aligned con padding)
+    doc.setFont("Roboto", kind === "header" ? "bold" : "normal");
+    doc.setFontSize(FS);
+    doc.setTextColor(...C_DARK);
+    for (let ci = 0; ci < colCount; ci++) {
+      const bx = colX(ci) + PADX;
+      let by = y + PADV + 2.9; // baseline de la primera línea
+      for (const ln of linesPerCol[ci]) {
+        doc.text(ln, bx, by);
+        by += LH;
+      }
+    }
+
+    // Rejilla: verticales de toda la fila + línea inferior (debajo del texto)
+    doc.setDrawColor(228, 228, 228);
+    doc.setLineWidth(0.2);
+    for (let ci = 0; ci <= colCount; ci++) {
+      const gx = ci === colCount ? x0 + tableW : colX(ci);
+      doc.line(gx, y, gx, y + rowH);
+    }
+    if (kind === "header") {
+      doc.setDrawColor(170, 170, 170);
+      doc.setLineWidth(0.3);
+    } else {
+      doc.setDrawColor(225, 225, 225);
+      doc.setLineWidth(0.2);
+    }
+    doc.line(x0, y + rowH, x0 + tableW, y + rowH);
+    return rowH;
+  };
+
+  // Borde superior + cabecera
+  doc.setDrawColor(170, 170, 170);
+  doc.setLineWidth(0.3);
+  doc.line(x0, y, x0 + tableW, y);
+  y += renderRow(headers, "header");
+
+  // Filas con salto de página que repite la cabecera
+  rows.forEach((row, ri) => {
+    const maxLines = Math.max(
+      1,
+      ...row.map((c, ci) => wrap(c, colW[ci] ?? 18).length)
+    );
+    const rowH = maxLines * LH + 2 * PADV;
+    if (y + rowH > ctx.bottom) {
+      doc.addPage();
+      y = ctx.top;
+      doc.setDrawColor(170, 170, 170);
+      doc.setLineWidth(0.3);
+      doc.line(x0, y, x0 + tableW, y);
+      y += renderRow(headers, "header");
+    }
+    y += renderRow(row, ri % 2 === 0 ? "odd" : "even");
+  });
+
+  return y + 4;
 }
 
 /**
@@ -363,88 +496,15 @@ export function generatePdf(filename: string, data: ExportData): void {
           y += 2;
           break;
         case "table": {
-          // Table with proportional column widths and text wrapping
           if (block.headers.length === 0) break;
-          const colCount = block.headers.length;
-          const tableWidth = CONTENT_W - 20;
-
-          // Calculate proportional column widths based on content length
-          let totalChars = 0;
-          const maxLens: number[] = [];
-          for (let ci = 0; ci < colCount; ci++) {
-            let maxLen = stripEmojis(block.headers[ci] || "").length;
-            for (const row of block.rows) {
-              const cellLen = stripEmojis(row[ci] || "").length;
-              if (cellLen > maxLen) maxLen = cellLen;
-            }
-            maxLens.push(maxLen);
-            totalChars += maxLen;
-          }
-
-          const colWidths: number[] = maxLens.map(
-            (len) => Math.max(20, (len / Math.max(totalChars, 1)) * tableWidth)
-          );
-          // Normalize to fit exact tableWidth
-          const sum = colWidths.reduce((a, b) => a + b, 0);
-          for (let ci = 0; ci < colCount; ci++) colWidths[ci] = (colWidths[ci] / sum) * tableWidth;
-
-          let x = MARGIN;
-
-          // Header row with background
-          checkSpace(6);
-          doc.setFillColor(...C_BG);
-          doc.rect(MARGIN, y - 4, tableWidth, 6, "F");
-          doc.setFont("Roboto", "bold");
-          doc.setFontSize(8);
-          doc.setTextColor(...C_DARK);
-          for (let ci = 0; ci < colCount; ci++) {
-            const cellLines = doc.splitTextToSize(
-              stripEmojis(block.headers[ci] || ""),
-              colWidths[ci] - 2
-            );
-            doc.text(cellLines, x + 1, y);
-            x += colWidths[ci];
-          }
-
-          // Header bottom line
-          y += 6;
-          doc.setDrawColor(180, 180, 180);
-          doc.line(MARGIN, y, MARGIN + tableWidth, y);
-          doc.setFont("Roboto", "normal");
-
-          // Data rows
-          for (const row of block.rows) {
-            // Pre-calculate max row height
-            let maxRowHeight = 0;
-            const cellLinesPerCol: string[][] = [];
-            for (let ci = 0; ci < colCount; ci++) {
-              const cell = stripEmojis(row[ci] || "");
-              const lines = doc.splitTextToSize(cell, colWidths[ci] - 2);
-              cellLinesPerCol.push(lines);
-              if (lines.length > maxRowHeight) maxRowHeight = lines.length;
-            }
-
-            const rowHeight = maxRowHeight * 4 + 2;
-            if (y + rowHeight > pageH - MARGIN) {
-              doc.addPage();
-              y = MARGIN;
-              doc.setFont("Roboto", "normal");
-              doc.setFontSize(8);
-            }
-
-            x = MARGIN;
-            for (let ci = 0; ci < colCount; ci++) {
-              doc.text(cellLinesPerCol[ci], x + 1, y + 1);
-              x += colWidths[ci];
-            }
-
-            // Row separator
-            y += rowHeight;
-            doc.setDrawColor(230, 230, 230);
-            doc.line(MARGIN, y, MARGIN + tableWidth, y);
-          }
-
-          y += 4;
+          checkSpace(14);
+          y = drawMarkdownTable(doc, block.headers, block.rows, {
+            y,
+            marginX: MARGIN,
+            contentW: CONTENT_W,
+            top: MARGIN,
+            bottom: pageH - MARGIN,
+          });
           break;
         }
         case "hr":
@@ -825,87 +885,15 @@ export function buildReportPdf(params: BuildReportPdfParams): Buffer {
           y += 2;
           break;
         case "table": {
-          // Table with proportional column widths and text wrapping
           if (block.headers.length === 0) break;
-          const colCount = block.headers.length;
-          const tableWidth = localContentW - 20;
-
-          // Calculate proportional column widths based on content length
-          let totalChars = 0;
-          const maxLens: number[] = [];
-          for (let ci = 0; ci < colCount; ci++) {
-            let maxLen = stripEmojis(block.headers[ci] || "").length;
-            for (const row of block.rows) {
-              const cellLen = stripEmojis(row[ci] || "").length;
-              if (cellLen > maxLen) maxLen = cellLen;
-            }
-            maxLens.push(maxLen);
-            totalChars += maxLen;
-          }
-
-          const colWidths: number[] = maxLens.map(
-            (len) => Math.max(20, (len / Math.max(totalChars, 1)) * tableWidth)
-          );
-          // Normalize to fit exact tableWidth
-          const sum = colWidths.reduce((a, b) => a + b, 0);
-          for (let ci = 0; ci < colCount; ci++) colWidths[ci] = (colWidths[ci] / sum) * tableWidth;
-
-          let x = MARGIN;
-
-          // Header row with background
-          checkSpace(6);
-          doc.setFillColor(...C_BG);
-          doc.rect(MARGIN, y - 4, tableWidth, 6, "F");
-          doc.setFont("Roboto", "bold");
-          doc.setFontSize(8);
-          doc.setTextColor(...C_DARK);
-          for (let ci = 0; ci < colCount; ci++) {
-            const cellLines = doc.splitTextToSize(
-              stripEmojis(block.headers[ci] || ""),
-              colWidths[ci] - 2
-            );
-            doc.text(cellLines, x + 1, y);
-            x += colWidths[ci];
-          }
-
-          // Header bottom line
-          y += 6;
-          doc.setDrawColor(180, 180, 180);
-          doc.line(MARGIN, y, MARGIN + tableWidth, y);
-          doc.setFont("Roboto", "normal");
-
-          // Data rows
-          for (const row of block.rows) {
-            // Pre-calculate max row height
-            let maxRowHeight = 0;
-            const cellLinesPerCol: string[][] = [];
-            for (let ci = 0; ci < colCount; ci++) {
-              const cell = stripEmojis(row[ci] || "");
-              const lines = doc.splitTextToSize(cell, colWidths[ci] - 2);
-              cellLinesPerCol.push(lines);
-              if (lines.length > maxRowHeight) maxRowHeight = lines.length;
-            }
-
-            const rowHeight = maxRowHeight * 4 + 2;
-            if (y + rowHeight > pageH - MARGIN) {
-              addPage();
-              doc.setFont("Roboto", "normal");
-              doc.setFontSize(8);
-            }
-
-            x = MARGIN;
-            for (let ci = 0; ci < colCount; ci++) {
-              doc.text(cellLinesPerCol[ci], x + 1, y + 1);
-              x += colWidths[ci];
-            }
-
-            // Row separator
-            y += rowHeight;
-            doc.setDrawColor(230, 230, 230);
-            doc.line(MARGIN, y, MARGIN + tableWidth, y);
-          }
-
-          y += 4;
+          checkSpace(14); // que entre al menos cabecera + 1 fila
+          y = drawMarkdownTable(doc, block.headers, block.rows, {
+            y,
+            marginX: MARGIN,
+            contentW: localContentW,
+            top: MARGIN,
+            bottom: pageH - MARGIN,
+          });
           break;
         }
         case "hr":
