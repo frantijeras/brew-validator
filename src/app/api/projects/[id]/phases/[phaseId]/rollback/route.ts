@@ -198,9 +198,8 @@ export async function POST(
       "[POST /api/projects/[id]/phases/[phaseId]/rollback]",
       error
     );
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Internal error" },
-      { status: 500 }
-    );
+    // No exponemos `error.message` al cliente (podría filtrar detalle interno
+    // de la BDD); el detalle queda en el log del servidor. Mensaje genérico.
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }
