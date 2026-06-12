@@ -63,7 +63,7 @@ export async function GET() {
 
     const items = [...projectItems, ...ideaItems]
       .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
-      .slice(0, 6);
+      .slice(0, 3);
 
     return NextResponse.json(items);
   } catch {
