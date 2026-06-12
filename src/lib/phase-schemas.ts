@@ -23,8 +23,12 @@ export const questionSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
   type: questionTypeSchema,
+  // Las opciones del quiz vienen como STRINGS simples (formato real de los
+  // skills y del bridge), p. ej. ["Opción A", "Opción B"]. Aceptamos también
+  // la forma { value, label } por compatibilidad, pero la forma string es la
+  // que usan los agentes — exigir objetos rompía la validación ("JSON roto").
   options: z
-    .array(z.object({ value: z.string(), label: z.string() }))
+    .array(z.union([z.string(), z.object({ value: z.string(), label: z.string() })]))
     .optional(),
   placeholder: z.string().optional(),
   required: z.boolean().optional(),
