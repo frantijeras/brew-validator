@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { type SubStepMeta } from "@/lib/phase-substeps";
 import { DOMAIN_FALLBACK_MESSAGE } from "@/lib/user-messages";
+import { ElapsedCounter } from "@/components/elapsed-counter";
 
 /** Estado visual de un sub-step card. */
 export type SubStepStatus =
@@ -44,7 +45,12 @@ export interface SubStepCardProps {
   reviewLabel?: string;
   executeLabel?: string;
   processingMessage?: string;
-  processingEta?: string;
+  /**
+   * Instante en que el sub-paso entró en PROCESSING (normalmente
+   * `phase.updatedAt`). Durante `processing` se muestra un contador de tiempo
+   * en vivo `mm:ss` en lugar de una ETA fija.
+   */
+  processingSince?: string | number | Date | null;
   /** Mensaje de error de la última acción fallida; muestra un banner + reintento. */
   errorMessage?: string;
   /**
@@ -219,7 +225,7 @@ export function SubStepCard({
   reviewLabel = "Revisar",
   executeLabel = "Iniciar",
   processingMessage = "Generando...",
-  processingEta = "~2-3 min",
+  processingSince,
   errorMessage,
   domainFallback = false,
   domainFallbackMessage,
@@ -251,7 +257,7 @@ export function SubStepCard({
       {/* Header: número + icono + título + badge + botón (desktop) */}
       <div className="flex items-center gap-3">
         <span
-          className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${getNumberStyles(status, tone)}`}
+          className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-xs font-bold md:h-7 md:w-7 md:text-[11px] ${getNumberStyles(status, tone)}`}
           aria-hidden="true"
         >
           {phaseType === "IDENTITY" ? IDENTITY_SUBSTEP_LABELS[subStepMeta.id] ?? String(number) : String(number)}
@@ -309,18 +315,14 @@ export function SubStepCard({
           <span className="hidden md:flex shrink-0 items-center gap-2 text-xs text-amber-400/80">
             <Loader2 className="size-3 animate-spin" />
             <span>{processingMessage}</span>
-            <span className="text-amber-400/60">{processingEta}</span>
+            <ElapsedCounter
+              since={processingSince}
+              className="tabular-nums text-amber-400/60"
+            />
           </span>
         )}
-
-        {status === "completed" && (
-          <span className="hidden md:inline-flex shrink-0 items-center gap-1 text-xs font-medium text-green-400">
-            <CheckCircle className="size-4" />
-            Hecho
-          </span>
-        )}
-
-
+        {/* El estado "Hecho" ya se comunica con el badge de estado (arriba a la
+            derecha). Se eliminó el texto/icono redundante "Hecho". */}
       </div>
 
       {showButton && (
@@ -348,14 +350,10 @@ export function SubStepCard({
         <div className="mt-3 w-full md:hidden flex items-center gap-2 text-xs text-amber-400/80">
           <Loader2 className="size-3 animate-spin" />
           <span>{processingMessage}</span>
-          <span className="text-amber-400/60">{processingEta}</span>
-        </div>
-      )}
-
-      {status === "completed" && (
-        <div className="mt-3 w-full md:hidden flex items-center gap-1 text-xs font-medium text-green-400">
-          <CheckCircle className="size-4" />
-          Hecho
+          <ElapsedCounter
+            since={processingSince}
+            className="tabular-nums text-amber-400/60"
+          />
         </div>
       )}
 

@@ -61,6 +61,8 @@ interface PhaseData {
   subStepArtifact: { type?: "html" | "markdown"; content?: string; options?: Array<{ value: string; label: string }> } | null;
   subStepChoice: string | null;
   lastError?: PhaseError | null;
+  /** ISO timestamp del último cambio (≈ entrada en PROCESSING) para el contador. */
+  updatedAt?: string;
 }
 
 interface ProjectPhasesWithModalProps {
@@ -594,7 +596,7 @@ export function ProjectPhasesWithModal({
                   // ANY order (including retrying a failed sub-step like
                   // "visual" without restarting from "naming"). Other phases
                   // launch only their first sub-step (quiz) in "questions" mode.
-                  const isIdentitySubStep = ["naming", "voice", "visual"].includes(meta.id);
+                  const isIdentitySubStep = ["naming", "voice", "logo", "visual"].includes(meta.id);
                   if (isIdentitySubStep || meta.order === 0) {
                     const executeMode = isIdentitySubStep ? "report" : "questions";
                     onAction = () =>
@@ -619,6 +621,7 @@ export function ProjectPhasesWithModal({
                   executeLabel={executeLabel}
                   reviewLabel={reviewLabel}
                   processingMessage={processingMsg}
+                  processingSince={phase.updatedAt}
                   errorMessage={subStepErrors[subStepErrorKey]}
                 />
               );
@@ -660,6 +663,7 @@ export function ProjectPhasesWithModal({
               // Así evitamos el enlace duplicado en forma de chip de artefacto.
               statusLabel={isProcessing ? processingLabel : undefined}
               hasQuestions={Boolean(hasQuestions)}
+              processingSince={phase.updatedAt}
               artifacts={undefined}
               lastError={phase.lastError}
               actions={(() => {
@@ -722,33 +726,12 @@ export function ProjectPhasesWithModal({
                   );
                 }
                 if (isCompleted && hasArtifacts) {
-                  // Phase 4: symmetric "Ver" + "Descargar PDF" buttons.
-                  // The HTML view is opened in a new tab; the PDF triggers
-                  // a download. Both labels are consistent across all phases.
-                  list.push(
-                    <Link
-                      key="view"
-                      href={`/proyectos/${projectId}/fase/${phase.id}`}
-                      className={btnStyles.secondary}
-                    >
-                      <Eye className="size-4" />
-                      {PHASE4_VIEW_LABEL}
-                    </Link>
-                  );
-                  list.push(
-                    <a
-                      key="download"
-                      href={`/api/projects/${projectId}/phases/${phase.id}/download`}
-                      className={btnStyles.download}
-                      download
-                    >
-                      <Download className="size-4" />
-                      {PHASE4_DOWNLOAD_LABEL}
-                    </a>
-                  );
-                  // Rollback (Regresión en cascada): rehacer esta fase. Solo
-                  // tiene sentido si EXISTE alguna fase posterior que se vería
-                  // afectada; si es la última fase, no mostramos el botón.
+                  // Orden de botones (acción más peligrosa a la IZQUIERDA):
+                  //   [Rehacer] [Descargar] [Ver]
+                  // "Rehacer" borra las fases posteriores, por eso va primero
+                  // (a la izquierda del grupo, alineado con el criterio de
+                  // "cancelar" como acción peligrosa a la izquierda).
+                  // Solo tiene sentido si EXISTE alguna fase posterior afectada.
                   const hasLaterPhase = phases.some(
                     (p) => p.sortOrder > phase.sortOrder
                   );
@@ -768,6 +751,27 @@ export function ProjectPhasesWithModal({
                       </button>
                     );
                   }
+                  list.push(
+                    <a
+                      key="download"
+                      href={`/api/projects/${projectId}/phases/${phase.id}/download`}
+                      className={btnStyles.download}
+                      download
+                    >
+                      <Download className="size-4" />
+                      {PHASE4_DOWNLOAD_LABEL}
+                    </a>
+                  );
+                  list.push(
+                    <Link
+                      key="view"
+                      href={`/proyectos/${projectId}/fase/${phase.id}`}
+                      className={btnStyles.secondary}
+                    >
+                      <Eye className="size-4" />
+                      {PHASE4_VIEW_LABEL}
+                    </Link>
+                  );
                 }
                 return <>{list}</>;
               })()}

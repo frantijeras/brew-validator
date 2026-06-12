@@ -5,6 +5,7 @@ import { Check, Download, FileText, AlertTriangle } from "lucide-react";
 import type { PhaseError } from "@/lib/phase-errors";
 import { errorLabel, formatErrorTimestamp } from "@/lib/phase-errors";
 import { Spinner } from "@/components/skeletons/spinner";
+import { ElapsedCounter } from "@/components/elapsed-counter";
 import { PhaseCardSkeleton } from "@/components/skeletons/phase-card-skeleton";
 import {
   getPhaseLoadingMessage,
@@ -200,6 +201,12 @@ export interface PhaseCardProps {
    * ("Generando informe…" vs "Generando preguntas…").
    */
   hasQuestions?: boolean;
+  /**
+   * Instante en que la fase entró en PROCESSING (normalmente `phase.updatedAt`).
+   * Durante `processing` se muestra un contador de tiempo en vivo `mm:ss` junto
+   * al estado, en lugar de una ETA fija.
+   */
+  processingSince?: string | number | Date | null;
 }
 
 export function PhaseCard({
@@ -218,6 +225,7 @@ export function PhaseCard({
   lastError,
   justUnlocked,
   hasQuestions,
+  processingSince,
 }: PhaseCardProps) {
   // Fase recién desbloqueada por Auto-Trigger (activación automática)
   // cuyo contenido aún se está calculando: mostramos el skeleton en
@@ -274,17 +282,49 @@ export function PhaseCard({
         isInactive ? "opacity-60" : ""
       }`}
     >
-      {/* Cabecera (v5): número → icono → título, en la misma línea.
-          En desktop, las acciones se renderizan también aquí, a la derecha,
-          con `md:ml-auto`. En móvil, las acciones ya se renderizaron arriba. */}
-      <div
-        className="flex flex-row items-center gap-2"
-      >
+      {/* Fila superior derecha (v6): badge de estado alineado al extremo
+          superior derecho, POR ENCIMA de cualquier otro texto.
+          Processing: Spinner + mensaje contextual + contador de tiempo `mm:ss`.
+          Otros estados: badge estático con label. */}
+      {status !== "locked" && (
+        <div className="flex items-center justify-end gap-2">
+          {loadingMessage ? (
+            <span className="inline-flex w-fit items-center gap-1.5 text-[11px] font-medium text-amber-400">
+              <Spinner
+                label={statusLabel || loadingMessage}
+                iconClassName="size-3"
+                className="w-fit"
+              />
+              {isProcessing && (
+                <ElapsedCounter
+                  since={processingSince}
+                  className="tabular-nums text-amber-400/70"
+                />
+              )}
+            </span>
+          ) : (
+            <span
+              className={`inline-flex w-fit shrink-0 items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${badge.className}`}
+            >
+              {statusLabel || badge.label}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Fila central (v6): número (cuadrado redondeado) → icono SVG → título,
+          en una sola línea. */}
+      <div className={`flex flex-row items-center gap-2.5 ${status !== "locked" ? "mt-2" : ""}`}>
         <span
-          className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-base font-semibold tracking-wider md:h-6 md:w-6 md:rounded-md md:text-[10px] ${toneNumberStyles[tone]}`}
+          className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-base font-semibold tracking-wider md:h-8 md:w-8 md:text-sm ${toneNumberStyles[tone]}`}
         >
           {String(number)}
         </span>
+        {icon && (
+          <span className={`shrink-0 ${isInactive ? "text-slate-500" : toneIconStyles[tone]}`}>
+            {icon}
+          </span>
+        )}
         <h3
           className={`min-w-0 flex-1 truncate text-lg font-medium leading-snug md:text-base md:font-semibold md:leading-tight ${
             isInactive
@@ -296,30 +336,7 @@ export function PhaseCard({
         >
           {title}
         </h3>
-
       </div>
-
-      {/* Badge de estado: solo para estados no-locked.
-          Processing/Questioning con job en marcha: Spinner + mensaje
-          contextual ("Generando preguntas…", "Generando informe…").
-          Otros estados: badge estático con label. */}
-      {status !== "locked" && (
-        <div className="mt-1 ml-2">
-          {loadingMessage ? (
-            <Spinner
-              label={statusLabel || loadingMessage}
-              iconClassName="size-3"
-              className="w-fit text-[11px] font-medium text-amber-400"
-            />
-          ) : (
-            <span
-              className={`inline-flex w-fit shrink-0 items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${badge.className}`}
-            >
-              {statusLabel || badge.label}
-            </span>
-          )}
-        </div>
-      )}
 
       {/* Sub-progress (ej. IDENTITY 1/4 Nombre, 2/4 Voz y Tono, …). Solo
           se muestra si la fase no está completada/locked y se ha pasado

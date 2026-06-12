@@ -113,6 +113,9 @@ export default async function ProjectDetailPage({ params }: Props) {
             | null,
           subStepChoice: p.subStepChoice,
           lastError: p.lastError as import("@/lib/phase-errors").PhaseError | null,
+          // Momento del último cambio de estado (≈ entrada en PROCESSING):
+          // alimenta el contador de tiempo en vivo de las tarjetas.
+          updatedAt: p.updatedAt.toISOString(),
         }))}
         memory={project.memory as import("@/lib/project-memory").ProjectMemory | null}
         hasCompletedPhases={allCompleted}
