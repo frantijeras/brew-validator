@@ -33,8 +33,11 @@ interface SubStepArtifact {
  * pasan por SUBSTEP_READY para que el usuario revise/elija. Definidos una sola
  * vez aquí (antes estaban duplicados dentro del handler con nombres distintos).
  */
-const IDENTITY_INTERMEDIATE_SUBSTEPS = ["naming", "voice", "visual"];
-const EXECUTION_INTERMEDIATE_SUBSTEPS = ["plan_30_60_90"];
+// IDENTITY: naming → voice → logo son intermedios; "visual" (Estilo Visual y
+// Maqueta) es el ÚLTIMO sub-paso y COMPLETA la fase (ya no hay "final"/Brand Book).
+// EXECUTION (Roadmap) ya no tiene sub-pasos: es quiz → informe único.
+const IDENTITY_INTERMEDIATE_SUBSTEPS = ["naming", "voice", "logo"];
+const EXECUTION_INTERMEDIATE_SUBSTEPS: string[] = [];
 const ALL_INTERMEDIATE_SUBSTEPS = [
   ...IDENTITY_INTERMEDIATE_SUBSTEPS,
   ...EXECUTION_INTERMEDIATE_SUBSTEPS,
@@ -220,9 +223,11 @@ export async function POST(req: Request) {
         }
       } else if (phaseId) {
         // ── REPORT MODE ──
-        // Detect if this is a sub-step intermediate output (naming/mockup/compare/...)
-        // or the final sub-step ("final"). The agent emits `subStep` in its output,
-        // but the bridge can also infer it from the job input.
+        // Detect if this is an intermediate sub-step output (naming/voice/logo)
+        // or the final one. For IDENTITY the final sub-step is "visual" (Estilo
+        // Visual y Maqueta); for the rest, any report completes the phase. The
+        // agent emits `subStep` in its output, but the bridge can also infer it
+        // from the job input.
         const outputSubStepClaim = parsedOutput.subStep as string | undefined;
         // If the agent claims a different subStep than expected, trust the
         // job input (the expected one). This prevents agents from skipping
@@ -236,8 +241,10 @@ export async function POST(req: Request) {
         const phase = await prisma.projectPhase.findUnique({ where: { id: phaseId } });
         const phaseType = phase?.type;
         const isIntermediate =
-          (outputSubStep && outputSubStep !== "final") ||
-          (phaseType === "EXECUTION" && EXECUTION_INTERMEDIATE_SUBSTEPS.includes(outputSubStep ?? ""));
+          (phaseType === "IDENTITY" &&
+            IDENTITY_INTERMEDIATE_SUBSTEPS.includes(outputSubStep ?? "")) ||
+          (phaseType === "EXECUTION" &&
+            EXECUTION_INTERMEDIATE_SUBSTEPS.includes(outputSubStep ?? ""));
         // The agent may emit the intermediate artifact as `subStepArtifact` OR as
         // `reportMarkdown`/`content` + `options`. We accept both shapes.
         const artifact: SubStepArtifact | null =
@@ -309,7 +316,7 @@ export async function POST(req: Request) {
         } else {
           // ── FINAL REPORT, SUBSTEP WITHOUT ARTIFACT FALLBACK, or unexpected shape ──
           // For IDENTITY phases with intermediate sub-steps, we must NEVER complete
-          // the phase without going through all sub-steps (naming → voice → visual → final).
+          // the phase without going through all sub-steps (naming → voice → logo → visual).
           if (
             (phaseType === "IDENTITY" || phaseType === "EXECUTION") &&
             ALL_INTERMEDIATE_SUBSTEPS.includes(outputSubStep ?? "")

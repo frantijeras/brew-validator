@@ -10,15 +10,17 @@ import { PHASE_SUBSTEPS } from "@/lib/phase-substeps";
  *
  * El usuario eligió (A/B/C o nombre custom) en el modal de sub-step.
  * Crea un nuevo job en el bridge con:
- *  - subStep: nextSubStep (o "final" si se omite)
+ *  - subStep: nextSubStep (calculado desde PHASE_SUBSTEPS si se omite)
  *  - mode: "report"
  *  - answers: { subStepChoice: choice }
  *  - previousArtifacts: ya poblado por el helper con el subStepArtifact previo
  *
  * Status: SUBSTEP_READY → PROCESSING.
  *
+ * Flujo IDENTITY: naming → voice → logo → visual → (fase completada).
+ *
  * Body:
- *   { choice: string, nextSubStep?: "naming"|"mockup"|"final"|... }
+ *   { choice: string, nextSubStep?: "naming"|"voice"|"logo"|"visual" }
  */
 export async function POST(
   req: Request,
@@ -47,11 +49,12 @@ export async function POST(
       );
     }
 
-    // Sub-steps that accept free text (mirrors FREE_INPUT_SUBSTEPS in the
-    // modal). For option-only sub-steps (voice, visual, ...), the choice must
-    // match one of the generated options — the UI sends either the option's
-    // value or its label depending on the flow, so accept both.
-    const FREE_INPUT_SUBSTEPS = new Set(["naming", "mockup", "final"]);
+    // Sub-steps whose choice is a free identifier (mirrors FREE_INPUT_SUBSTEPS
+    // in the modal): "naming" (custom name allowed), "logo" (chosen logo id of
+    // 1..12) and "visual" (chosen variant A/B/C — options live inside the HTML
+    // artifact, not as a top-level options array). For sub-steps that DO expose
+    // a top-level options array, the choice must match one of them.
+    const FREE_INPUT_SUBSTEPS = new Set(["naming", "logo", "visual"]);
     const currentSubStep = phase.subStep || "";
     if (!FREE_INPUT_SUBSTEPS.has(currentSubStep)) {
       const artifact = phase.subStepArtifact as {
@@ -72,11 +75,11 @@ export async function POST(
     }
 
     // Accumulate the confirmed sub-step into `subStepHistory` so each sub-step
-    // (naming / voice / visual) is preserved independently. The singular
+    // (naming / voice / logo / visual) is preserved independently. The singular
     // `subStepArtifact`/`subStepChoice` fields hold only the *current* sub-step
-    // and get overwritten by the next one — the history is what the Brand Book
-    // and hand-off read from to consolidate the chosen options of every
-    // sub-step. We merge (never overwrite the whole map).
+    // and get overwritten by the next one — the history is what the 3d composition
+    // (maqueta + guía) and the hand-off read from to assemble the chosen options
+    // of every sub-step. We merge (never overwrite the whole map).
     const prevHistory =
       phase.subStepHistory && typeof phase.subStepHistory === "object" && !Array.isArray(phase.subStepHistory)
         ? (phase.subStepHistory as Record<string, unknown>)
@@ -115,7 +118,9 @@ export async function POST(
         }
         // If currentIdx is the last one, nextSubStepName stays undefined → phase completes
       } else {
-        nextSubStepName = phase.type === "IDENTITY" ? "naming" : "final";
+        // No current sub-step yet: IDENTITY starts at "naming". Other phase
+        // types no longer use this route (Roadmap = quiz → report único).
+        nextSubStepName = phase.type === "IDENTITY" ? "naming" : undefined;
       }
     }
 

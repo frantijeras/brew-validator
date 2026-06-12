@@ -6,8 +6,10 @@
  *
  *   0. naming       → choose a brand name (A/B/C + custom)
  *   1. voice        → voice & tone quiz (personality of the brand)
- *   2. visual       → visual style preview (HTML mockup with fonts/colors/logo)
- *   3. final        → consolidated brand book (downloaded, in-app)
+ *   2. logo         → 12 SVG logo variants (HTML grid); user picks one
+ *   3. visual       → visual style + mockup (HTML mockup w/ embedded logo) +
+ *                     style-guide PDF. This is the LAST sub-step; completing it
+ *                     closes the phase. There is NO Brand Book consolidation.
  *
  * Each sub-step has a stable `id` (string), a `label` (UI text) and a
  * `description` (UI subtext). The `subStepOrder` integer field in the DB
@@ -16,8 +18,8 @@
  *
  * Transition rules:
  *  - When the user confirms a sub-step, the helper auto-advances to the next
- *    one in this list ("naming" → "voice" → "visual" → "final" → null).
- *  - `null` means the phase is fully complete.
+ *    one in this list ("naming" → "voice" → "logo" → "visual" → null).
+ *  - `null` means the phase is fully complete (after "visual").
  *
  * IMPORTANT: keep this list and the agent's expected subStep values in
  * sync. The agent `project-branding` reads `subStep` from the job input to
@@ -60,9 +62,9 @@ const IDENTITY_BY_ID: Record<string, (typeof IDENTITY_SUBSTEP_ORDER)[number] | u
  * Returns the next sub-step id in the IDENTITY flow, given the current one.
  *
  *   "naming" → "voice"
- *   "voice"  → "visual"
- *   "visual" → "final"
- *   "final"  → null   (fase completada)
+ *   "voice"  → "logo"
+ *   "logo"   → "visual"
+ *   "visual" → null   (fase completada)
  *   null     → "naming"  (fresh start: first sub-step)
  *   unknown  → "naming" (safe fallback: start from the beginning)
  */
@@ -82,8 +84,8 @@ export function getNextIdentitySubStep(current: string | null | undefined): stri
  * Returns the 0-based index of a sub-step in the IDENTITY flow.
  *   "naming" → 0
  *   "voice"  → 1
- *   "visual" → 2
- *   "final"  → 3
+ *   "logo"   → 2
+ *   "visual" → 3
  *   null/unknown → -1
  */
 export function getIdentitySubStepIndex(subStep: string | null | undefined): number {

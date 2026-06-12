@@ -158,7 +158,7 @@ export async function enqueuePhaseJob(
 
   // ── IDENTITY sub-step auto-advance ──
   // The IDENTITY phase is presented to the user as 4 sequential sub-steps
-  // (naming → voice → visual → final). When the client launches the next
+  // (naming → voice → logo → visual). When the client launches the next
   // job after a user confirmation, we auto-compute the next sub-step from
   // the current one. The caller can override this with `subStepHint` (e.g.
   // to restart from "naming" or to force a specific sub-step).
@@ -181,7 +181,7 @@ export async function enqueuePhaseJob(
   }
 
   // Derive the 0-based order for the sub-step the agent is about to run.
-  // For IDENTITY: 0=naming, 1=voice, 2=visual, 3=final, null=null.
+  // For IDENTITY: 0=naming, 1=voice, 2=logo, 3=visual, null=null.
   // For other phases with sub-step: keep it null (those flows are
   // single-step from the user's perspective).
   const subStepOrder =

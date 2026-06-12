@@ -38,30 +38,22 @@ export const PHASE_SUBSTEPS: Record<string, SubStepMeta[]> = {
       icon: "MessageSquare",
     },
     {
-      id: "visual",
+      id: "logo",
       order: 2,
-      label: "Estilo Visual",
-      description: "Fuentes, colores e identidad visual. Al completar se genera el Brand Book automáticamente.",
+      label: "Logotipo",
+      description: "Elige entre 12 variantes de logotipo en SVG (Gráficos vectoriales redimensionables).",
+      icon: "LayoutGrid",
+    },
+    {
+      id: "visual",
+      order: 3,
+      label: "Estilo Visual y Maqueta",
+      description: "Maqueta HTML con el logotipo incrustado y una Guía de Estilo en PDF. Al completar se cierra la fase.",
       icon: "Palette",
     },
   ],
-  EXECUTION: [
-    {
-      id: "plan_30_60_90",
-      order: 0,
-      label: "Plan 30/60/90",
-      description: "Plan de acción con hitos concretos para los primeros 30, 60 y 90 días",
-      icon: "Rocket",
-    },
-    {
-      id: "final",
-      order: 1,
-      label: "Simulación Económica",
-      description: "Proyección financiera y simulación de escenarios",
-      icon: "BriefcaseBusiness",
-    },
-  ],
-  // ANALYSIS: no tiene sub-steps con sub-cards (solo quiz → report implícito).
+  // ANALYSIS y EXECUTION (Roadmap) no tienen sub-steps con sub-cards:
+  // solo quiz → report implícito (Preguntas → Generar Informe).
 };
 
 /**

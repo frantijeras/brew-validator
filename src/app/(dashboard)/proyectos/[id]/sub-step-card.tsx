@@ -60,6 +60,17 @@ export interface SubStepCardProps {
   domainFallbackMessage?: string;
 }
 
+/**
+ * Etiqueta corta del número de sub-paso IDENTITY (3a/3b/3c/3d).
+ * naming=3A, voice=3B, logo=3C (Logotipo), visual=3D (Estilo Visual y Maqueta).
+ */
+const IDENTITY_SUBSTEP_LABELS: Record<string, string> = {
+  naming: "3A",
+  voice: "3B",
+  logo: "3C",
+  visual: "3D",
+};
+
 /** Mapa estático de nombres de iconos a componentes Lucide. */
 const ICON_MAP: Record<string, LucideIcon> = {
   Type,
@@ -243,7 +254,7 @@ export function SubStepCard({
           className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${getNumberStyles(status, tone)}`}
           aria-hidden="true"
         >
-          {phaseType === "IDENTITY" ? subStepMeta.id.replace("naming", "3A").replace("voice", "3B").replace("visual", "3C") : String(number)}
+          {phaseType === "IDENTITY" ? IDENTITY_SUBSTEP_LABELS[subStepMeta.id] ?? String(number) : String(number)}
         </span>
 
         {SubStepIcon && (
