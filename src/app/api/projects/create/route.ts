@@ -47,14 +47,14 @@ export async function POST(req: Request) {
             {
               type: "ANALYSIS",
               label: "Análisis de Mercado",
-              description: "Investigación de mercado, DAFO, 5 Fuerzas de Porter, TAM/SAM/SOM y canales recomendados según el target",
+              description: "Análisis DAFO, 5 Fuerzas de Porter, estimación de TAM/SAM/SOM, Lean Canvas, segmentos de cliente con Buyer Persona y propuesta de valor única",
               status: "AVAILABLE",
               sortOrder: 1,
             },
             {
               type: "BUSINESS",
-              label: "Estrategia de Negocio",
-              description: "Lean Canvas, modelo de ingresos, pricing, segmentos de cliente y propuesta de valor estratégica",
+              label: "Viabilidad Financiera",
+              description: "Modelo de ingresos, estrategia de pricing, simulador financiero con Unit Economics, proyección LTV/CAC y análisis de viabilidad en 3 escenarios (pesimista, realista, optimista)",
               status: "LOCKED",
               sortOrder: 2,
             },
@@ -75,7 +75,7 @@ export async function POST(req: Request) {
             {
               type: "EXECUTION",
               label: "Roadmap 30/60/90",
-              description: "OKRs 30/60/90, simulador financiero con unit economics y 3 escenarios, y plan financiero detallado",
+              description: "Hoja de ruta detallada y OKRs (objetivos y resultados clave) para 30, 60 y 90 días",
               status: "LOCKED",
               sortOrder: 5,
             },
