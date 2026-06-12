@@ -6,7 +6,7 @@ import { Lock, Download, FileText, CheckCircle2, AlertTriangle, XCircle } from "
 import { ProjectPhasesWithModal } from "./project-phases-with-modal";
 import { SkillSelector } from "./skill-selector";
 import type { ProjectMemory } from "@/lib/project-memory";
-import { renderMarkdown } from "@/components/markdown-renderer";
+import { ReportViewer } from "@/components/report-viewer";
 
 import type { PhaseError } from "@/lib/phase-errors";
 
@@ -412,7 +412,11 @@ function ValidationTab({
             Reportes de validación
           </h3>
           {sortedReports.map((report) => (
-            <ValidationReportCard key={report.id} report={report} />
+            <ReportViewer
+              key={report.id}
+              report={report}
+              defaultOpen={report.agentName === "judge"}
+            />
           ))}
         </div>
       ) : null}
@@ -427,76 +431,6 @@ function ValidationTab({
           <Download className="size-4" />
           Descargar PDF de validación
         </a>
-      )}
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   Validation Report Card
-   ══════════════════════════════════════════════════════════════════════ */
-
-function ValidationReportCard({ report }: { report: ValidationReport }) {
-  const [open, setOpen] = useState(report.agentName === "judge");
-
-  const agentLabel =
-    report.agentName === "skeptic"
-      ? "Escéptico"
-      : report.agentName === "advocate"
-        ? "Defensor"
-        : report.agentName === "judge"
-          ? "Juez"
-          : report.agentName;
-
-  const agentColor =
-    report.agentName === "skeptic"
-      ? "red"
-      : report.agentName === "advocate"
-        ? "emerald"
-        : "amber";
-
-  const htmlContent = renderMarkdown(report.content, report.agentName);
-
-  return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/50 overflow-hidden">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex w-full items-center justify-between px-5 py-3.5 text-left hover:bg-slate-800/30 transition-colors"
-      >
-        <div className="flex items-center gap-3">
-          <div
-            className={`flex size-7 items-center justify-center rounded-lg bg-${agentColor}-500/10 text-${agentColor}-400`}
-          >
-            <FileText className="size-3.5" />
-          </div>
-          <span className="text-sm font-medium text-white">
-            {agentLabel}
-          </span>
-        </div>
-        <svg
-          className={`size-4 text-slate-500 transition-transform shrink-0 ${open ? "rotate-180" : ""}`}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
-      </button>
-
-      {open && (
-        <div className="border-t border-slate-800 px-5 py-4">
-          <div
-            className="prose prose-invert prose-sm max-w-none
-              prose-headings:text-white prose-p:text-slate-300
-              prose-strong:text-slate-200 prose-li:text-slate-300
-              prose-a:text-amber-400 prose-code:text-amber-300
-              prose-pre:bg-slate-800 prose-pre:border prose-pre:border-slate-700"
-            dangerouslySetInnerHTML={{ __html: htmlContent }}
-          />
-        </div>
       )}
     </div>
   );

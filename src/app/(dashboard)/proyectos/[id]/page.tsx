@@ -71,11 +71,6 @@ export default async function ProjectDetailPage({ params }: Props) {
           <h1 className="text-3xl font-bold tracking-tight text-white">
             {project.name}
           </h1>
-          {project.description && (
-            <p className="mt-2 text-sm text-slate-400">
-              {project.description}
-            </p>
-          )}
           <div className="mt-2 flex items-center gap-3">
             <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
               allCompleted
