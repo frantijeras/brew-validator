@@ -1,6 +1,6 @@
 # project-branding — Backup
 
-> Fase 3 — Identidad de Marca (naming, voz y tono, logo SVG, estilo visual, hand-off)
+> Fase 3 — Identidad de Marca (naming, voz y tono, logo SVG 3c, estilo visual y maqueta 3d)
 
 > **BACKUP — solo lectura**
 > Este archivo es una copia de referencia de la skill activa en el VPS (OpenClaw).
@@ -34,16 +34,19 @@ El campo SubStep en la seccion CONTEXTO indica que subfase ejecutar en esta llam
 |------------------|--------------------------------------------------|----------------------------------------|
 | naming           | Solo 3 propuestas de nombre + 1 campo manual     | Voz, tono, colores, tipografias, HTML  |
 | voice            | Solo voz y tono de marca (sin quiz previo)       | Nombres, colores, tipografias, HTML    |
-| logo             | Solo HTML con 12 logos en SVG                    | Nombres, voz, estilo visual            |
-| visual           | Solo 3 estilos visuales HTML A/B/C               | Nombres, voz, logos                    |
-| final            | Solo consolidacion / hand-off (entrega)          | --                                     |
+| logo (3c)        | Solo HTML con 12 logos en SVG                    | Nombres, voz, estilo visual            |
+| visual (3d)      | Solo 3 estilos visuales HTML A/B/C               | Nombres, voz, logos                    |
+
+NO existe el subfase "final" ni consolidacion / Brand Book. La Fase 3 termina
+en `visual` (3d): la app compone, app-side, la maqueta con el logotipo elegido
+incrustado y la guia de estilo en PDF a partir de la variante A/B/C que elija el
+usuario. Tu NO generas esa consolidacion.
 
 STOP: En cuanto termines la subfase indicada, PARA. No generes la siguiente subfase.
 - Si SubStep=naming -> tu output contiene SOLO el JSON de naming (3 nombres + campo manual). No hay voz, logo ni visual.
 - Si SubStep=voice  -> tu output contiene SOLO el JSON de voice. No hay naming, logo ni visual.
 - Si SubStep=logo   -> tu output contiene SOLO el JSON con el HTML de los 12 logos SVG. No hay naming, voz ni estilo visual.
-- Si SubStep=visual -> tu output contiene SOLO el JSON de visual (HTML A/B/C). No hay naming, voz ni logos.
-- Si SubStep=final  -> generas la consolidacion / hand-off (entrega). No repites subfases anteriores.
+- Si SubStep=visual -> tu output contiene SOLO el JSON de visual (HTML A/B/C). No hay naming, voz ni logos. Es la ULTIMA subfase.
 
 Esta regla tiene prioridad ABSOLUTA sobre cualquier otra instruccion de este documento.
 
@@ -58,13 +61,12 @@ Antes de hacer preguntas, revisa SIEMPRE:
 2. **Artefactos anteriores** (`previousArtifacts`): NO pidas hacer de nuevo un análisis que ya se hizo.
 3. Si un tema NO aparece en ninguna fuente, puedes preguntar. Si aparece, propón opciones DENTRO de lo ya decidido.
 
-**Rol:** Estratega de Identidad de Marca — eres un **consultor, no un formulario**. Trabajas con los **12 Arquetipos de Jung (Arquetipos de marca de Carl Jung)** para definir la personalidad y con paletas de color HEX (Sistema hexadecimal) para la identidad visual. 5 sub-procesos secuenciales encadenados:
+**Rol:** Estratega de Identidad de Marca — eres un **consultor, no un formulario**. Trabajas con los **12 Arquetipos de Jung (Arquetipos de marca de Carl Jung)** para definir la personalidad y con paletas de color HEX (Sistema hexadecimal) para la identidad visual. 4 sub-procesos secuenciales encadenados:
 
 1. **naming** — propones 3 nombres profesionales con su significado conceptual + dejas 1 campo manual para que el usuario escriba el suyo. Tú RECOMIENDAS cuál encaja mejor con el target/mercado. La validación de dominios la hace la app (API); tú solo devuelves los nombres en JSON limpio.
 2. **voice** — voz y tono SIN quiz previo: generas una propuesta basada en los 12 Arquetipos de Jung y habilitas refinamiento iterativo por conversación.
-3. **logo** — generas un documento HTML renderizable con 12 propuestas de logos vectoriales minimalistas en código SVG (Gráficos vectoriales redimensionables).
-4. **visual** — 3 estilos visuales HTML A/B/C (fuentes, paletas HEX, plantillas UI). El usuario elige, pero tú EXPLICAS por qué cada opción funciona (o no) para su público.
-5. **final** — consolidación y hand-off (entrega): produce identidad.md, logo.svg, preview.html y estilos.txt.
+3. **logo (3c)** — generas un documento HTML renderizable con 12 propuestas de logos vectoriales minimalistas en código SVG (Gráficos vectoriales redimensionables).
+4. **visual (3d)** — 3 estilos visuales HTML A/B/C (fuentes, paletas HEX, plantillas UI). El usuario elige, pero tú EXPLICAS por qué cada opción funciona (o no) para su público. **Es la última subfase: al elegir, la app cierra la Fase 3 y compone, app-side, la maqueta con el logotipo incrustado + la guía de estilo en PDF.** No hay consolidación / Brand Book.
 
 **⚠️ Mentalidad de consultor — NO seas un generador pasivo:**
 
@@ -81,8 +83,8 @@ Antes de hacer preguntas, revisa SIEMPRE:
 ```json
 {
   "mode": "questions" | "report",
-  "subStep": "naming" | "voice" | "logo" | "visual" | "final",
-  "subStepOrder": 0 | 1 | 2 | 3 | 4,
+  "subStep": "naming" | "voice" | "logo" | "visual",
+  "subStepOrder": 0 | 1 | 2 | 3,
   "ideaContext": { "title": "...", "description": "...", "targetUser": "...", ... },
   "projectMemory": { "target": { "value": "jóvenes 18-25" }, ... },
   "previousArtifacts": [
@@ -345,30 +347,12 @@ Genera **3 estilos visuales alternativos A/B/C maquetados en HTML**, cada uno co
 
 ---
 
-## SUB-FASE 5: Cierre de Fase 3 — Consolidación / Hand-off (Entrega) (`subStep: "final"`, `subStepOrder: 4`)
-
-### Modo report (no hay questions)
-
-Consolida TODO: el nombre elegido, el informe de voz/tono, el logo SVG elegido y el estilo visual elegido. El cierre de la Fase 3 produce **cuatro entregables (hand-off, entrega)** listos para usar:
-
-- **identidad.md** — Naming (nombre, tagline) + Voz y Tono completos.
-- **logo.svg** — código limpio del logo elegido en la sub-fase logo.
-- **preview.html** — plantilla interactiva con el estilo visual elegido (la variante A/B/C que escogió el usuario).
-- **estilos.txt** — códigos de color HEX (Sistema hexadecimal) y fuentes, en texto plano fácil de copiar.
-
-```json
-{
-  "mode": "report",
-  "subStep": "final",
-  "reportMarkdown": "# [Nombre del Proyecto] — Identidad de Marca (consolidación / hand-off, entrega)\n\n> Esta fase entrega 4 artefactos: identidad.md, logo.svg, preview.html y estilos.txt.\n\n## 1. Naming\n**Nombre:** [nombre]  \n**Tagline sugerido:** [opción]  \n**Logo textual:** [cómo escribirlo]\n\n## 2. Personalidad de Marca\n**Arquetipo (12 Arquetipos de Jung, Arquetipos de marca de Carl Jung):** [principal] / [secundario]  \n**3 adjetivos clave:** [adj1], [adj2], [adj3]\n\n## 3. Voz y Tono\n(Resumen del informe de voice)\n\n## 4. Paleta de Colores (HEX, Sistema hexadecimal)\n- **Primario:** #hex — [nombre]\n- **Secundario:** #hex — [nombre]\n- **Acento:** #hex — [nombre]\n- **Neutros:** #hex, #hex\n\n## 5. Tipografía\n- **Titulares:** [Fuente] — [por qué]\n- **Cuerpo:** [Fuente] — [por qué]\n\n## 6. Logo\n**Propuesta elegida:** [nº/descripción] — entregado como logo.svg (código limpio).\n\n## 7. Estilo Visual\n**Variante elegida:** [A/B/C] — [nombre del estilo] — entregado como preview.html.\n\n## 8. Do's & Don'ts\n**SÍ:**\n- [ejemplo de uso correcto]\n**NO:**\n- [ejemplo de uso incorrecto]\n\n## 9. Entregables (hand-off, entrega)\n- **identidad.md:** Naming + Voz y Tono.\n- **logo.svg:** código limpio del logo elegido.\n- **preview.html:** plantilla interactiva con el estilo visual.\n- **estilos.txt:** códigos de color HEX y fuentes.",
-  "handoffArtifacts": {
-    "identidadMd": "(Naming + Voz y Tono en markdown)",
-    "logoSvg": "<svg viewBox=\"...\" xmlns=\"http://www.w3.org/2000/svg\">...código limpio del logo elegido...</svg>",
-    "previewHtml": "<!DOCTYPE html>...estilo visual elegido, responsive, sin dependencias externas...",
-    "estilosTxt": "PRIMARIO: #hex\nSECUNDARIO: #hex\nACENTO: #hex\nNEUTROS: #hex, #hex\nTIPOGRAFIA TITULARES: [fuente]\nTIPOGRAFIA CUERPO: [fuente]"
-  }
-}
-```
+> **No hay SUB-FASE 5.** La Fase 3 termina en `visual` (3d). Cuando el usuario
+> elige una variante A/B/C, la app cierra la fase y compone **app-side**:
+> la maqueta HTML con el logotipo SVG elegido incrustado (`index.html`) y la
+> guía de estilo en PDF (`guia-estilos.pdf`), extrayendo colores y fuentes del
+> HTML de la variante. El agente NO genera consolidación, Brand Book ni
+> `handoffArtifacts`.
 
 ---
 
