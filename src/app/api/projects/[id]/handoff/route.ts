@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { guardProject } from "@/lib/ownership";
 import { buildHandoffZip } from "@/lib/handoff-builder";
-import { buildBrandBookFromPhase, extractIdentityChoices } from "@/lib/identity-brandbook";
 import type { ProjectMemory } from "@/lib/project-memory";
 import type { HandoffOptions } from "@/lib/handoff-builder";
 
@@ -70,29 +69,6 @@ export async function GET(
 
     const idea = project.idea;
 
-    // ── Build BrandBook if IDENTITY phase is present ──
-    const identityPhase = project.phases.find(
-      (p) => p.type === "IDENTITY"
-    );
-    let brandBook = null;
-    if (identityPhase && identityPhase.status === "COMPLETED") {
-      // Build the Brand Book from the per-sub-step history so the naming,
-      // voice and visual choices are each read from their own slot (not from
-      // the singular subStepArtifact/subStepChoice, which only hold the last
-      // sub-step and would otherwise corrupt the consolidated document).
-      const choices = extractIdentityChoices(identityPhase);
-      if (choices.namingContent || choices.voiceContent || choices.visualArtifactJson) {
-        try {
-          brandBook = buildBrandBookFromPhase(identityPhase, project.name, {
-            description: project.description,
-          });
-        } catch (err) {
-          console.error("[handoff] BrandBook build failed:", err);
-          // Continue without BrandBook — the handoff is still useful
-        }
-      }
-    }
-
     // ── Load selected skills from project ──
     const selectedSkills = (project.skills as Array<{
       id: string;
@@ -144,9 +120,9 @@ export async function GET(
         } | null,
         subStepChoice: p.subStepChoice,
         subStep: p.subStep,
+        subStepHistory: p.subStepHistory,
       })),
       memory: project.memory as ProjectMemory | null,
-      brandBook,
       selectedSkills,
       generatedSkills,
     };

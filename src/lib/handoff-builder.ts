@@ -1,7 +1,9 @@
 import { ZipArchive } from "archiver";
 import { ProjectMemory, getMemoryValue, formatMemoryValue } from "./project-memory";
-import { BrandBook, brandBookToMarkdown } from "./identity-brandbook";
 import { SKILL_CATALOG } from "./skill-catalog";
+import { resolve3dAssets } from "./identity-3d";
+import { getChosenLogoSvg } from "./identity-logo";
+import { buildReportPdf } from "./pdf-export";
 
 /* ── Types ──────────────────────────────────────────────────────────── */
 
@@ -25,11 +27,12 @@ export interface HandoffOptions {
     subStepArtifact: { type?: string; content?: string; options?: Array<{ value: string; label: string }> } | null;
     subStepChoice: string | null;
     subStep: string | null;
+    /** Historial de sub-pasos (naming/voice/logo/visual) — JSON tolerante. */
+    subStepHistory?: unknown;
     description: string | null;
     status: string;
   }>;
   memory: ProjectMemory | null;
-  brandBook: BrandBook | null;
   /** Skills the user selected (from project.skills). Each has id, name, description, icon, category, selected, etc. */
   selectedSkills?: Array<{
     id: string;
@@ -84,15 +87,6 @@ function extractPhaseAssets(ctx: HandoffOptions): PhaseAsset[] {
     .filter((p) => p.status === "COMPLETED" && p.artifacts && p.artifacts.length > 0)
     .map((p) => {
       const arts = p.artifacts!;
-      if (p.type === "IDENTITY" && ctx.brandBook) {
-        return {
-          phaseType: p.type,
-          label: p.label,
-          sortOrder: p.sortOrder,
-          titles: ["Brand Book consolidado"],
-          contents: [brandBookToMarkdown(ctx.brandBook)],
-        };
-      }
       return {
         phaseType: p.type,
         label: p.label,
@@ -101,6 +95,58 @@ function extractPhaseAssets(ctx: HandoffOptions): PhaseAsset[] {
         contents: arts.map((a) => a.content),
       };
     });
+}
+
+/* ── Identidad (Fase 3): voz/tono, logo y assets 3d ─────────────────── */
+
+type HistoryMap = Record<
+  string,
+  { choice?: string; artifact?: { content?: string } | null }
+> | null;
+
+function getIdentityPhase(ctx: HandoffOptions) {
+  return (
+    ctx.phases.find((p) => p.type === "IDENTITY" && p.status === "COMPLETED") ??
+    null
+  );
+}
+
+function getHistory(phase: { subStepHistory?: unknown } | null): HistoryMap {
+  const h = phase?.subStepHistory;
+  return h && typeof h === "object" ? (h as NonNullable<HistoryMap>) : null;
+}
+
+/** Documento 3.voz-y-tono.md a partir del sub-paso voice (excluye naming). */
+function buildVoiceDoc(ctx: HandoffOptions): string | null {
+  const phase = getIdentityPhase(ctx);
+  const voice = getHistory(phase)?.voice;
+  const content = voice?.artifact?.content?.trim();
+  if (!content) return null;
+  return [`# Voz y Tono — ${ctx.projectName}`, "", content].join("\n");
+}
+
+/** SVG del logotipo elegido en 3c (o null). */
+function getChosenLogo(ctx: HandoffOptions): string | null {
+  const phase = getIdentityPhase(ctx);
+  const logo = getHistory(phase)?.logo;
+  if (!logo) return null;
+  return getChosenLogoSvg(logo.artifact?.content, logo.choice);
+}
+
+/** Assets 3d (maqueta con logo + guía de estilo) o null. */
+function getThreeDAssets(ctx: HandoffOptions) {
+  const phase = getIdentityPhase(ctx);
+  if (!phase) return null;
+  return resolve3dAssets(
+    {
+      subStep: phase.subStep,
+      subStepChoice: phase.subStepChoice,
+      subStepArtifact: phase.subStepArtifact,
+      subStepHistory: phase.subStepHistory,
+    },
+    phase.subStepChoice,
+    ctx.projectName
+  );
 }
 
 /* ── AGENT.md builder ────────────────────────────────────────────────── */
@@ -118,6 +164,8 @@ function buildAgentMd(ctx: HandoffOptions): string {
   const phaseListing = assets
     .map((a) => `- **Fase ${a.sortOrder} — ${a.label}**: ✅ Completada`)
     .join("\n");
+
+  const visualMeta = getThreeDAssets(ctx)?.meta ?? null;
 
   const memoryEntries = memory
     ? Object.entries(memory)
@@ -178,26 +226,36 @@ function buildAgentMd(ctx: HandoffOptions): string {
     "",
     "## 🎨 Identidad Visual",
     "",
-    ctx.brandBook?.meta?.visualMeta
+    visualMeta
       ? [
-          `- **Color primario:** \`${ctx.brandBook.meta.visualMeta.primaryColor}\``,
-          `- **Color secundario:** \`${ctx.brandBook.meta.visualMeta.secondaryColor}\``,
-          `- **Tipografía headings:** ${ctx.brandBook.meta.visualMeta.fontHeading}`,
-          `- **Tipografía body:** ${ctx.brandBook.meta.visualMeta.fontBody}`,
+          `- **Color primario:** \`${visualMeta.primaryColor}\``,
+          `- **Color secundario:** \`${visualMeta.secondaryColor}\``,
+          `- **Tipografía titulares:** ${visualMeta.fontHeading}`,
+          `- **Tipografía cuerpo:** ${visualMeta.fontBody}`,
           `- **Tono:** ${mTone || "Profesional y cercano"}`,
+          "",
+          "Detalle completo en `3d.guia-de-estilo.md`. Logotipo en `skills/3c-logos/logo.svg`",
+          "y maqueta en `skills/3d-assets/index.html` (con el logotipo incrustado).",
         ].join("\n")
-      : "- Ver \`03-identidad-marca.md\` para detalle completo.",
+      : "- Voz y tono en `3.voz-y-tono.md`; estilo visual en `3d.guia-de-estilo.md`.",
     "",
     "---",
     "",
+    "## 🗂️ Cómo leer este paquete",
+    "",
+    "Lee los `.md` numerados en orden (1 → 5). Cada uno corresponde a una fase del",
+    "proceso de validación. Los assets técnicos (logotipos, maqueta y guía de estilo)",
+    "están en `skills/`. El proceso de *naming* se omite a propósito: no aporta",
+    "contexto útil para construir el producto.",
+    "",
     "## 📋 Instrucciones para el Agente",
     "",
-    "1. **Lee este archivo** antes de empezar cualquier tarea",
-    "2. **Consulta las skills** en \`skills/\` para instrucciones específicas",
-    "3. **Respeta las decisiones** tomadas (target, tono, canales, etc.)",
-    "4. **Usa español** para todo el contenido y copy",
-    "5. **Mantén coherencia** con la identidad visual definida",
-    "6. **Los reportes de fase** están en la raíz como \`01-*.md\`, \`02-*.md\`, etc.",
+    "1. **Lee este archivo** antes de empezar cualquier tarea.",
+    "2. **Lee los reportes de fase** numerados (`1.*.md` … `5.*.md`) para el contexto de negocio.",
+    "3. **Respeta las decisiones** tomadas (target, tono, canales, etc.).",
+    "4. **Usa español** para todo el contenido y copy.",
+    "5. **Mantén coherencia** con la identidad visual (`3d.guia-de-estilo.md` + assets).",
+    "6. **Consulta las skills** de marketing en `skills/*.md` cuando apliquen.",
     "",
     "---",
     "",
@@ -235,20 +293,25 @@ function buildReadme(ctx: HandoffOptions): string {
     "",
     "```",
     `${safeName}/`,
-    `├── AGENT.md              ← Contexto para agentes AI (leer primero)`,
-    `├── README.md             ← Este archivo`,
-    `├── 01-validacion.md      ← Informe de validación`,
-    `├── 02-analisis-mercado.md← Análisis de mercado y competencia`,
-    `├── 03-identidad-marca.md ← Brand book y voz/tono`,
-    `├── 04-estrategia-negocio.md ← Lean Canvas y modelo de ingresos`,
-    `├── 05-estrategia-distribucion.md ← Canales y contenido`,
-    `├── 06-roadmap-ejecucion.md ← Plan 30/60/90 y simulación`,
-    `└── skills/               ← Skills listas para usar con agentes AI`,
-    `    ├── landing-page.md`,
-    `    ├── contenido-editorial.md`,
-    `    ├── social-media.md`,
-    `    └── project-handoff.md`,
+    `├── AGENT.md                   ← Contexto para agentes AI (leer primero)`,
+    `├── README.md                  ← Este archivo`,
+    `├── 1.analisis-de-mercado.md   ← Análisis de mercado y competencia`,
+    `├── 2.viabilidad-economica.md  ← Modelo de negocio y viabilidad`,
+    `├── 3.voz-y-tono.md            ← Personalidad de marca (voz y tono)`,
+    `├── 3d.guia-de-estilo.md       ← Colores, fuentes y dirección visual`,
+    `├── 4.estrategia-distribucion.md ← Canales y contenido`,
+    `├── 5.roadmap.md               ← Plan de ejecución 30/60/90`,
+    `└── skills/                    ← Assets técnicos + skills de marketing`,
+    `    ├── 3c-logos/`,
+    `    │   ├── logo.svg           ← Logotipo elegido`,
+    `    │   └── logos-options.html ← Las 12 propuestas`,
+    `    ├── 3d-assets/`,
+    `    │   ├── index.html         ← Maqueta con el logotipo incrustado`,
+    `    │   └── guia-estilos.pdf   ← Guía de estilo en PDF`,
+    `    └── *.md                   ← Skills de marketing seleccionadas`,
     "```",
+    "",
+    "> El proceso de _naming_ se excluye a propósito del paquete.",
     "",
     "---",
     "",
@@ -291,27 +354,6 @@ function buildReadme(ctx: HandoffOptions): string {
 
 /* ── Phase document builders (unchanged except improvements) ─────────── */
 
-function buildValidationReport(ctx: HandoffOptions): string {
-  const { ideaContext } = ctx;
-  return [
-    `# Informe de Validación — ${ideaContext.title}`,
-    "",
-    "## Datos de la idea",
-    "",
-    `- **Título:** ${ideaContext.title}`,
-    `- **Descripción:** ${ideaContext.description}`,
-    `- **Problema detectado:** ${ideaContext.problem || "No especificado"}`,
-    `- **Propuesta de valor:** ${ideaContext.valueProposition || "No especificada"}`,
-    `- **Usuario objetivo:** ${ideaContext.targetUser}`,
-    `- **Modelo de monetización:** ${ideaContext.monetization}`,
-    `- **Modelo de negocio:** ${ideaContext.businessModel || "No especificado"}`,
-    "",
-    "---",
-    "",
-    "El informe completo está disponible en la interfaz web de BrewIdea.",
-  ].join("\n");
-}
-
 function buildMarketAnalysis(ctx: HandoffOptions, assets: PhaseAsset[]): string | null {
   const analysis = assets.find((a) => a.phaseType === "ANALYSIS");
   if (!analysis) return null;
@@ -322,16 +364,11 @@ function buildMarketAnalysis(ctx: HandoffOptions, assets: PhaseAsset[]): string 
   ].join("\n");
 }
 
-function buildIdentityDocs(ctx: HandoffOptions): string | null {
-  if (!ctx.brandBook) return null;
-  const brandBook = ctx.brandBook;
-  return [
-    `# Brand Book — ${ctx.projectName}`,
-    "",
-    `Generado: ${brandBook.generatedAt}`,
-    "",
-    brandBookToMarkdown(brandBook),
-  ].join("\n");
+/** 3d.guia-de-estilo.md — guía de estilo (colores, fuentes, dirección visual). */
+function buildStyleGuideDoc(ctx: HandoffOptions): string | null {
+  const assets = getThreeDAssets(ctx);
+  if (!assets) return null;
+  return assets.styleGuideMarkdown;
 }
 
 function buildDistributionStrategy(ctx: HandoffOptions, assets: PhaseAsset[]): string | null {
@@ -362,9 +399,9 @@ function buildRoadmap(ctx: HandoffOptions, assets: PhaseAsset[]): string | null 
   const exec = assets.find((a) => a.phaseType === "EXECUTION");
   if (!exec) return null;
   return [
-    `# Roadmap & Ejecución — ${ctx.projectName}`,
+    `# Roadmap — ${ctx.projectName}`,
     "",
-    "## Plan 30/60/90 · Simulación Económica · Próximos Pasos",
+    "## Plan de ejecución 30/60/90 y próximos pasos",
     "",
     ...exec.contents.map((c, i) => `### ${exec.titles[i] || "Documento"}\n\n${c}`),
   ].join("\n");
@@ -377,7 +414,7 @@ function buildLandingPageSkill(ctx: HandoffOptions): string {
   const mTarget = getMemoryValue<string>(memory, "target") || ideaContext.targetUser;
   const mTone = getMemoryValue<string>(memory, "tone") || "profesional y cercano";
 
-  const visualMeta = ctx.brandBook?.meta?.visualMeta;
+  const visualMeta = getThreeDAssets(ctx)?.meta;
   const primaryColor = visualMeta?.primaryColor || "#1a1a2e";
   const secondaryColor = visualMeta?.secondaryColor || "#e94560";
   const fontHeading = visualMeta?.fontHeading || "Inter";
@@ -716,38 +753,75 @@ export async function buildHandoffZip(options: HandoffOptions): Promise<Buffer> 
     // ── README.md ──
     archive.append(buildReadme(options), { name: `${prefix}README.md` });
 
-    // ── 01-validacion.md ──
-    archive.append(buildValidationReport(options), {
-      name: `${prefix}01-validacion.md`,
-    });
-
-    // ── Phase documents ──
+    // ── Documentos de fase (markdown numerado, secuencial) ──
+    // El proceso de NAMING se excluye a propósito (no aporta contexto útil
+    // para agentes externos). Tampoco hay Brand Book consolidado.
     const marketAnalysis = buildMarketAnalysis(options, assets);
     if (marketAnalysis) {
-      archive.append(marketAnalysis, { name: `${prefix}02-analisis-mercado.md` });
+      archive.append(marketAnalysis, { name: `${prefix}1.analisis-de-mercado.md` });
     }
 
     const businessPlan = buildBusinessPlan(options, assets);
     if (businessPlan) {
-      archive.append(businessPlan, { name: `${prefix}04-estrategia-negocio.md` });
+      archive.append(businessPlan, { name: `${prefix}2.viabilidad-economica.md` });
     }
 
-    const identityContent = buildIdentityDocs(options);
-    if (identityContent) {
-      archive.append(identityContent, { name: `${prefix}03-identidad-marca.md` });
+    // 3.voz-y-tono.md — sub-paso voice (sin naming).
+    const voiceDoc = buildVoiceDoc(options);
+    if (voiceDoc) {
+      archive.append(voiceDoc, { name: `${prefix}3.voz-y-tono.md` });
+    }
+
+    // 3d.guia-de-estilo.md — documentación de estilos (colores, fuentes).
+    const styleGuideDoc = buildStyleGuideDoc(options);
+    if (styleGuideDoc) {
+      archive.append(styleGuideDoc, { name: `${prefix}3d.guia-de-estilo.md` });
     }
 
     const distStrategy = buildDistributionStrategy(options, assets);
     if (distStrategy) {
-      archive.append(distStrategy, { name: `${prefix}05-estrategia-distribucion.md` });
+      archive.append(distStrategy, { name: `${prefix}4.estrategia-distribucion.md` });
     }
 
     const roadmap = buildRoadmap(options, assets);
     if (roadmap) {
-      archive.append(roadmap, { name: `${prefix}06-roadmap-ejecucion.md` });
+      archive.append(roadmap, { name: `${prefix}5.roadmap.md` });
     }
 
-    // ── Skills/ — Use user-selected skills if available, otherwise defaults ──
+    // ── skills/3c-logos/ y skills/3d-assets/ — assets técnicos de identidad ──
+    const chosenLogo = getChosenLogo(options);
+    if (chosenLogo) {
+      archive.append(chosenLogo, { name: `${prefix}skills/3c-logos/logo.svg` });
+    }
+    const identityPhase = getIdentityPhase(options);
+    const logoOptionsHtml = getHistory(identityPhase)?.logo?.artifact?.content;
+    if (logoOptionsHtml) {
+      archive.append(logoOptionsHtml, {
+        name: `${prefix}skills/3c-logos/logos-options.html`,
+      });
+    }
+
+    const threeD = getThreeDAssets(options);
+    if (threeD) {
+      archive.append(threeD.maquetaHtml, {
+        name: `${prefix}skills/3d-assets/index.html`,
+      });
+      // Guía de estilo en PDF (servidor): documenta colores y fuentes. El
+      // logotipo SVG va incrustado en index.html y como logo.svg.
+      try {
+        const pdf = buildReportPdf({
+          title: `Guía de Estilo — ${options.projectName}`,
+          content: threeD.styleGuideMarkdown,
+          phaseType: "IDENTITY",
+          projectName: options.projectName,
+        });
+        archive.append(pdf, { name: `${prefix}skills/3d-assets/guia-estilos.pdf` });
+      } catch (err) {
+        console.error("[handoff] no se pudo generar guia-estilos.pdf:", err);
+      }
+    }
+
+    // ── Skills/ — skills de marketing seleccionadas por el usuario ──
 
     const selectedSkills = options.selectedSkills?.filter(s => s.selected !== false) ?? [];
     const generatedSkills = options.generatedSkills ?? [];
