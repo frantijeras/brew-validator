@@ -8,6 +8,13 @@ import {
   isEmptyOutput,
 } from "@/lib/bridge-log";
 import { verifyBridgeSecret } from "@/lib/bridge-auth";
+import {
+  safeParsePhaseOutput,
+  coerceJsonObject,
+  PHASE_SCHEMA_VERSION,
+} from "@/lib/phase-schemas";
+import { RESOLUTION_ACTION, isCritical } from "@/lib/bridge-retry";
+import { dispatchCriticalAlert } from "@/lib/critical-alert";
 
 /**
  * Sub-step artifact shape. The agent emits this JSON when a sub-step produces
@@ -120,6 +127,77 @@ export async function POST(req: Request) {
       }
 
       const responseMode = mode || parsedOutput.mode || "report";
+
+      // ── CAPA DE VALIDACIÓN ESTRUCTURADA (Salidas estructuradas) ──
+      // Validamos la ENVOLTURA del output con Zod (safeParsePhaseOutput ya hace
+      // corrección heurística internamente vía coerceJsonObject). Si rompe el
+      // esquema, NO persistimos un artefacto malformado: devolvemos la fase a
+      // AVAILABLE con lastError "invalid_response" para que el daemon/usuario
+      // reintente. NO bloqueamos aquí (el reintento real lo hace el daemon).
+      const validationMode: "questions" | "report" =
+        responseMode === "questions" ? "questions" : "report";
+      const validation = safeParsePhaseOutput(validationMode, output);
+      if (!validation.success && phaseId) {
+        // Tras la corrección heurística (coerceJsonObject) seguimos sin forma
+        // válida: ¿logramos recuperar AL MENOS un objeto interpretable? Si sí,
+        // la acción es "autocorrected" (se intentó corregir); si no, es un
+        // reset puro a AVAILABLE.
+        const recoveredObject = coerceJsonObject(output) !== null;
+        const resolutionAction = recoveredObject
+          ? RESOLUTION_ACTION.AUTOCORRECTED
+          : RESOLUTION_ACTION.RESET_TO_AVAILABLE;
+        const meta = getErrorMeta("invalid_response");
+
+        await prisma.projectPhase.update({
+          where: { id: phaseId },
+          data: {
+            status: "AVAILABLE",
+            lastError: {
+              message: meta.description,
+              category: "invalid_response",
+              timestamp: new Date().toISOString(),
+              errorType: "invalid_response",
+              model: telemetry.model ?? undefined,
+              retryCount: telemetry.retryCount ?? undefined,
+              // Mensajes de Zod para depuración (sin secretos: son rutas +
+              // mensajes del esquema, nunca el contenido crudo del modelo).
+              invalidSchema: validation.errors,
+            },
+          },
+        });
+
+        // El job completó pero rompió el esquema → lo marcamos FAILED para que
+        // sea terminal (idempotencia) y el daemon lance un job nuevo de reintento.
+        await prisma.job.update({
+          where: { id: jobId },
+          data: {
+            status: "FAILED",
+            error: `Output inválido (no cumple el esquema "${validationMode}"): ${validation.errors.join("; ")}`,
+            finishedAt: new Date(),
+          },
+        });
+
+        await writeBridgeLog({
+          level: "error",
+          jobId,
+          projectId: projectId ?? null,
+          phaseId,
+          agentName: job.agentName,
+          errorType: "invalid_response",
+          errorMessage: validation.errors.join("; "),
+          httpStatus: telemetry.httpStatus,
+          retryCount: telemetry.retryCount,
+          resolutionAction,
+          model: telemetry.model,
+          provider: telemetry.provider,
+          tokensIn: telemetry.tokensIn,
+          tokensOut: telemetry.tokensOut,
+          latencyMs: telemetry.latencyMs,
+          schemaVersion: PHASE_SCHEMA_VERSION,
+        });
+
+        return NextResponse.json({ ok: true, invalidSchema: true });
+      }
 
       if (responseMode === "questions" && phaseId) {
         // ── QUESTIONS MODE: store questions, mark phase as QUESTIONING ──
@@ -261,17 +339,40 @@ export async function POST(req: Request) {
                 },
               });
             } else {
-              // No content at all — mark error and reset to AVAILABLE so user can retry
+              // No content at all — el agente no generó artefacto: encaja con
+              // "empty_response" (el agente terminó sin contenido utilizable).
+              // ("agent_error" NO es un ErrorCategory válido — bug corregido).
               await prisma.projectPhase.update({
                 where: { id: phaseId },
                 data: {
                   status: "AVAILABLE",
                   lastError: {
                     message: `El agente no generó artefacto para el sub-paso "${outputSubStep}". Inténtalo de nuevo.`,
-                    category: "agent_error",
+                    category: "empty_response",
                     timestamp: new Date().toISOString(),
+                    errorType: "empty_response",
+                    // Señal para que el siguiente intento use prompt simplificado.
+                    simplifiedRetry: true,
                   },
                 },
+              });
+              await writeBridgeLog({
+                level: "warning",
+                jobId,
+                projectId: projectId ?? null,
+                phaseId,
+                agentName: job.agentName,
+                errorType: "empty_response",
+                errorMessage: `Sub-paso "${outputSubStep}" sin artefacto utilizable`,
+                httpStatus: telemetry.httpStatus,
+                retryCount: telemetry.retryCount,
+                resolutionAction: RESOLUTION_ACTION.SIMPLIFIED_RETRY,
+                model: telemetry.model,
+                provider: telemetry.provider,
+                tokensIn: telemetry.tokensIn,
+                tokensOut: telemetry.tokensOut,
+                latencyMs: telemetry.latencyMs,
+                schemaVersion: PHASE_SCHEMA_VERSION,
               });
             }
           } else {
@@ -380,7 +481,7 @@ export async function POST(req: Request) {
       });
 
       // Si la fase estaba en un estado en curso, desbloquéala para reintentar.
-      let resolutionAction = "logged";
+      let resolutionAction: string = RESOLUTION_ACTION.LOGGED;
       if (phaseId) {
         const phase = await prisma.projectPhase.findUnique({
           where: { id: phaseId },
@@ -405,11 +506,40 @@ export async function POST(req: Request) {
                 model: telemetry.model ?? undefined,
                 retryCount: telemetry.retryCount ?? undefined,
                 rawMessage: rawError,
+                // En respuesta vacía señalamos que el siguiente intento debe
+                // usar un prompt simplificado.
+                ...(isEmpty ? { simplifiedRetry: true } : {}),
               },
             },
           });
-          resolutionAction = "reset_to_available";
+          // En respuesta vacía la acción es "simplified_retry"; en el resto,
+          // simplemente devolvimos la fase a AVAILABLE.
+          resolutionAction = isEmpty
+            ? RESOLUTION_ACTION.SIMPLIFIED_RETRY
+            : RESOLUTION_ACTION.RESET_TO_AVAILABLE;
         }
+      }
+
+      // ── ALERTA CRÍTICA (Capa 4) ──
+      // Si el job agotó los reintentos (retryCount alcanzó el umbral crítico),
+      // notificamos al usuario. Best-effort: dispatchCriticalAlert nunca lanza,
+      // pero envolvemos por si acaso para no romper el callback.
+      if (isCritical(telemetry.retryCount)) {
+        try {
+          await dispatchCriticalAlert({
+            projectId: projectId ?? null,
+            phaseId: phaseId ?? null,
+            agentName: job.agentName,
+            errorType,
+            rawMessage: rawError,
+            retryCount: telemetry.retryCount,
+            model: telemetry.model,
+          });
+        } catch (e) {
+          console.error("[project-phase-callback] alerta crítica falló", e);
+        }
+        // Componemos la acción para reflejar que además se disparó la alerta.
+        resolutionAction = `${resolutionAction}+${RESOLUTION_ACTION.ALERTED}`;
       }
 
       await writeBridgeLog({
@@ -428,6 +558,7 @@ export async function POST(req: Request) {
         tokensIn: telemetry.tokensIn,
         tokensOut: telemetry.tokensOut,
         latencyMs: telemetry.latencyMs,
+        schemaVersion: PHASE_SCHEMA_VERSION,
       });
     }
 

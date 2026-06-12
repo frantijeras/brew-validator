@@ -9,6 +9,9 @@ import {
   extractBridgeTelemetry,
   isEmptyOutput,
 } from "@/lib/bridge-log";
+import { safeParsePhaseOutput, PHASE_SCHEMA_VERSION } from "@/lib/phase-schemas";
+import { RESOLUTION_ACTION, isCritical } from "@/lib/bridge-retry";
+import { dispatchCriticalAlert } from "@/lib/critical-alert";
 
 const callbackSchema = z.object({
   jobId: z.string(),
@@ -85,6 +88,37 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ success: true, skipped: true });
       }
 
+      // Acción base: para agentes de validación/generación, el fallo marca la
+      // idea como FAILED (ver más abajo), así que registramos esa acción real
+      // ("idea_marked_failed"); en los demás agentes, solo se registra.
+      let resolutionAction: string =
+        isValidationAgent || isGeneratorAgent
+          ? "idea_marked_failed"
+          : RESOLUTION_ACTION.LOGGED;
+      // En respuesta vacía señalamos reintento simplificado.
+      if (emptyCompleted) {
+        resolutionAction = RESOLUTION_ACTION.SIMPLIFIED_RETRY;
+      }
+
+      // ── ALERTA CRÍTICA (Capa 4) ──
+      // Si el job agotó los reintentos, notificamos (best-effort). Los jobs de
+      // ideas no tienen projectId, así que la notificación in-app no se crea,
+      // pero el webhook externo (si está configurado) sí recibe el contexto.
+      if (isCritical(telemetry.retryCount)) {
+        try {
+          await dispatchCriticalAlert({
+            agentName: job.agentName,
+            errorType,
+            rawMessage: rawError,
+            retryCount: telemetry.retryCount,
+            model: telemetry.model,
+          });
+        } catch (e) {
+          console.error("[agent-callback] alerta crítica falló", e);
+        }
+        resolutionAction = `${resolutionAction}+${RESOLUTION_ACTION.ALERTED}`;
+      }
+
       // Traza del fallo en BridgeLog (best-effort).
       await writeBridgeLog({
         level: "error",
@@ -95,12 +129,13 @@ export async function POST(req: NextRequest) {
         errorMessage: rawError,
         httpStatus: telemetry.httpStatus,
         retryCount: telemetry.retryCount,
-        resolutionAction: isValidationAgent || isGeneratorAgent ? "idea_marked_failed" : "logged",
+        resolutionAction,
         model: telemetry.model,
         provider: telemetry.provider,
         tokensIn: telemetry.tokensIn,
         tokensOut: telemetry.tokensOut,
         latencyMs: telemetry.latencyMs,
+        schemaVersion: PHASE_SCHEMA_VERSION,
       });
 
       // If any validation agent fails, mark idea as FAILED so the
@@ -217,6 +252,33 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Validation agent callback (skeptic / advocate / judge) ──
+
+    // Validación estructurada (Salidas estructuradas): el output de un agente
+    // de validación es un informe (reportMarkdown). Validamos la envoltura con
+    // Zod de forma NO bloqueante — el flujo actual ya tolera formas alternativas
+    // (cae a JSON.stringify), así que aquí solo registramos en BridgeLog si el
+    // esquema se rompe, para tener trazabilidad sin alterar el comportamiento.
+    const reportValidation = safeParsePhaseOutput("report", output);
+    if (!reportValidation.success) {
+      await writeBridgeLog({
+        level: "warning",
+        jobId: data.jobId,
+        ideaId: job.ideaId,
+        agentName: job.agentName,
+        errorType: "invalid_response",
+        errorMessage: reportValidation.errors.join("; "),
+        httpStatus: telemetry.httpStatus,
+        retryCount: telemetry.retryCount,
+        // No bloqueamos: el flujo recupera el contenido de forma defensiva.
+        resolutionAction: RESOLUTION_ACTION.AUTOCORRECTED,
+        model: telemetry.model,
+        provider: telemetry.provider,
+        tokensIn: telemetry.tokensIn,
+        tokensOut: telemetry.tokensOut,
+        latencyMs: telemetry.latencyMs,
+        schemaVersion: PHASE_SCHEMA_VERSION,
+      });
+    }
 
     // Create or update report
     const reportContent = (output.reportMarkdown as string) || JSON.stringify(output);
