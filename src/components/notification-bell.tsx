@@ -164,7 +164,7 @@ export function NotificationBell() {
         aria-haspopup="true"
         aria-expanded={open}
       >
-        <Bell className="size-5" />
+        <Bell className="size-5" strokeWidth={1.5} />
         {unread > 0 && (
           <span
             className="absolute -right-0.5 -top-0.5 flex min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-4 text-white"
@@ -176,7 +176,7 @@ export function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 bottom-full z-50 mb-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-slate-800 bg-slate-900 shadow-2xl">
+        <div className="absolute left-0 bottom-full z-50 mb-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-slate-800 bg-slate-900 shadow-2xl">
           <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
             <span className="text-sm font-semibold text-slate-200">
               Notificaciones

@@ -66,6 +66,7 @@ export function IdeaCard({
         credentials: "same-origin",
         body: JSON.stringify({ isArchived: next }),
       });
+      window.dispatchEvent(new Event("idea-changed"));
       router.refresh();
     } catch {
       setIsArchived(!next);
@@ -85,6 +86,8 @@ export function IdeaCard({
         return;
       }
       setShowDeleteModal(false);
+      // Avisar al sidebar (Recientes) para que se refresque sin recargar.
+      window.dispatchEvent(new Event("idea-changed"));
       router.refresh();
       onDeleted?.();
     } catch (err) {

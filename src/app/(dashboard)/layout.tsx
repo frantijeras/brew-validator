@@ -7,6 +7,7 @@ import { signOut, useSession } from "next-auth/react";
 import { NavItem } from "@/components/nav-item";
 import { ToastProvider } from "@/components/toast";
 import { NotificationBell } from "@/components/notification-bell";
+import { Lightbulb, Folder } from "lucide-react";
 
 export default function DashboardLayout({
   children,
@@ -183,36 +184,41 @@ export default function DashboardLayout({
 /* ── Recent projects ── */
 
 function RecentProjects({ onClick }: { onClick: () => void }) {
-  const [projects, setProjects] = useState<Array<{
+  const [items, setItems] = useState<Array<{
+    type: "project" | "idea";
     id: string;
     name: string;
     completedPhases: number;
     total: number;
-    currentPhaseType: string | null;
     status: string;
   }> | null>(null);
 
   const fetchRecent = useCallback(() => {
     fetch("/api/projects/recent")
       .then((r) => r.ok ? r.json() : [])
-      .then((data) => setProjects(data))
-      .catch(() => setProjects([]));
+      .then((data) => setItems(data))
+      .catch(() => setItems([]));
   }, []);
 
   useEffect(() => {
     fetchRecent();
   }, [fetchRecent]);
 
-  // Refresh sidebar when a project is created or modified
+  // Refrescar el sidebar cuando se crea/modifica/borra un proyecto o una idea,
+  // sin recargar la página completa.
   useEffect(() => {
-    function handleProjectChanged() {
+    function handleChanged() {
       fetchRecent();
     }
-    window.addEventListener("project-changed", handleProjectChanged);
-    return () => window.removeEventListener("project-changed", handleProjectChanged);
+    window.addEventListener("project-changed", handleChanged);
+    window.addEventListener("idea-changed", handleChanged);
+    return () => {
+      window.removeEventListener("project-changed", handleChanged);
+      window.removeEventListener("idea-changed", handleChanged);
+    };
   }, [fetchRecent]);
 
-  if (!projects || projects.length === 0) return null;
+  if (!items || items.length === 0) return null;
 
   return (
     <div>
@@ -220,36 +226,47 @@ function RecentProjects({ onClick }: { onClick: () => void }) {
         Recientes
       </p>
       <div className="space-y-1">
-        {projects.map((p) => (
-          <Link
-            key={p.id}
-            href={`/proyectos/${p.id}`}
-            onClick={onClick}
-            className="flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-slate-800"
-          >
-            <div
-              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-xs font-bold ${
-                p.status === "completed"
-                  ? "bg-green-500/20 text-green-400"
-                  : p.status === "processing"
-                    ? "bg-amber-500/20 text-amber-400"
-                    : p.status === "questioning"
-                      ? "bg-purple-500/20 text-purple-400"
-                      : "bg-blue-500/20 text-blue-400"
-              }`}
+        {items.map((it) => {
+          const isIdea = it.type === "idea";
+          const boxClass = isIdea
+            ? "bg-amber-500/15 text-amber-300"
+            : it.status === "completed"
+              ? "bg-green-500/20 text-green-400"
+              : it.status === "processing"
+                ? "bg-amber-500/20 text-amber-400"
+                : it.status === "questioning"
+                  ? "bg-purple-500/20 text-purple-400"
+                  : "bg-blue-500/20 text-blue-400";
+          return (
+            <Link
+              key={`${it.type}-${it.id}`}
+              href={isIdea ? `/ideas/${it.id}` : `/proyectos/${it.id}`}
+              onClick={onClick}
+              className="flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-slate-800"
             >
-              {p.name.charAt(0).toUpperCase()}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-slate-200">
-                {p.name}
-              </p>
-              <p className="truncate text-xs text-slate-500">
-                {statusText(p.status)} · {p.completedPhases}/{p.total} fases
-              </p>
-            </div>
-          </Link>
-        ))}
+              <div
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-xs font-bold ${boxClass}`}
+              >
+                {it.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="flex items-center gap-1.5 text-sm font-medium text-slate-200">
+                  {isIdea ? (
+                    <Lightbulb className="size-3 shrink-0 text-amber-400" aria-label="Idea" />
+                  ) : (
+                    <Folder className="size-3 shrink-0 text-blue-400" aria-label="Proyecto" />
+                  )}
+                  <span className="truncate">{it.name}</span>
+                </p>
+                <p className="truncate text-xs text-slate-500">
+                  {isIdea
+                    ? "Idea"
+                    : `${statusText(it.status)} · ${it.completedPhases}/${it.total} fases`}
+                </p>
+              </div>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

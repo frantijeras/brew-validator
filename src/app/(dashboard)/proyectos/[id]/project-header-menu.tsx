@@ -44,6 +44,8 @@ export function ProjectHeaderMenu({ projectId, projectName }: ProjectHeaderMenuP
         const data = await res.json();
         throw new Error(data.error || "Error al borrar");
       }
+      // Avisar al sidebar (Recientes) para que se refresque sin recargar.
+      window.dispatchEvent(new Event("project-changed"));
       router.push("/proyectos");
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : "Error al borrar");

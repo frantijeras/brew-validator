@@ -796,20 +796,20 @@ function AddUserModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
               <label htmlFor="newUserName" className="mb-1 block text-xs font-medium text-slate-400">
                 Nombre
               </label>
-              <input id="newUserName" name="name" type="text" required className={inputClass} placeholder="Nombre" />
+              <input id="newUserName" name="name" type="text" required autoComplete="off" className={inputClass} placeholder="Nombre" />
             </div>
             <div>
               <label htmlFor="newUserEmail" className="mb-1 block text-xs font-medium text-slate-400">
                 Email
               </label>
-              <input id="newUserEmail" name="email" type="email" required className={inputClass} placeholder="usuario@email.com" />
+              <input id="newUserEmail" name="email" type="email" required autoComplete="off" className={inputClass} placeholder="usuario@email.com" />
             </div>
           </div>
           <div>
             <label htmlFor="tempPassword" className="mb-1 block text-xs font-medium text-slate-400">
               Contraseña temporal
             </label>
-            <input id="tempPassword" name="tempPassword" type="password" required className={inputClass} placeholder="Mínimo 6 caracteres" />
+            <input id="tempPassword" name="tempPassword" type="password" required autoComplete="new-password" className={inputClass} placeholder="Mínimo 6 caracteres" />
           </div>
 
           <Banner message={message} />

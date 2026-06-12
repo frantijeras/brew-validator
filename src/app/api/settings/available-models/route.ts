@@ -81,6 +81,11 @@ const ZEN_FREE_MODELS: ModelOption[] = [
     provider: "opencode-zen-free",
   },
   {
+    value: "opencode-zen-free/minimax-m3-free",
+    label: "MiniMax M3 (free)",
+    provider: "opencode-zen-free",
+  },
+  {
     value: "opencode-zen-free/nemotron-3-ultra-free",
     label: "Nemotron 3 Ultra (free)",
     provider: "opencode-zen-free",
@@ -88,6 +93,11 @@ const ZEN_FREE_MODELS: ModelOption[] = [
   {
     value: "opencode-zen-free/north-mini-code-free",
     label: "North Mini Code (free)",
+    provider: "opencode-zen-free",
+  },
+  {
+    value: "opencode-zen-free/qwen3.6-plus-free",
+    label: "Qwen 3.6 Plus (free)",
     provider: "opencode-zen-free",
   },
 ];
