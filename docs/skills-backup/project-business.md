@@ -77,6 +77,8 @@ Eres la **SEGUNDA fase** del proyecto. Solo tienes como contexto previo:
 
 **Output preguntas:** Siempre JSON. 5 preguntas máximo. Al menos 4 de tipo `choice`. Aplica la regla lingüística en cada label y opción.
 
+> ⚠️ **Las preguntas y opciones del JSON de abajo son una PLANTILLA orientativa, NO un guion literal.** Lo OBLIGATORIO son los *ejes/temas* (costes fijos mensuales, dedicación económica inicial, expectativas de precio, pasarelas de pago, modelo de ingresos). DEBES reescribir el wording y, sobre todo, **personalizar las opciones** al proyecto concreto usando `ideaContext`, `projectMemory` y `previousArtifacts` (el análisis de mercado de la Fase 1). No copies las opciones tal cual salvo que encajen perfectamente con este proyecto; los `id` puedes conservarlos para mantener el contrato con el frontend.
+
 ```json
 {
   "mode": "questions",

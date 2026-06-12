@@ -67,6 +67,8 @@ Cierras el proyecto con la ejecución. Tienes contexto de fases anteriores:
 
 **Output preguntas:** 5 preguntas máximo. Los ejes obligatorios son: **fechas límite, tamaño del equipo ejecutor y dependencias técnicas críticas**. Aplica la regla lingüística en cada label y opción.
 
+> ⚠️ **Las preguntas y opciones del JSON de abajo son una PLANTILLA orientativa, NO un guion literal.** Lo OBLIGATORIO son los *ejes/temas* (fechas límite, tamaño del equipo ejecutor, dependencias técnicas críticas). DEBES reescribir el wording y **personalizar las opciones** al proyecto concreto usando `ideaContext`, `projectMemory` y `previousArtifacts` (fases 1-4). No copies las opciones tal cual salvo que encajen perfectamente. Los `id` puedes conservarlos para mantener el contrato con el frontend.
+
 ```json
 {
   "mode": "questions",

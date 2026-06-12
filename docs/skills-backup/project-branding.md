@@ -256,6 +256,8 @@ Genera **un único documento HTML renderizable** que contenga **12 propuestas de
 
 Genera 5-6 preguntas sobre **estilo visual, paleta de colores, referencias y tipografía**. Basa las preguntas en la voz/tono ya definida y el nombre del proyecto.
 
+> ⚠️ **Las preguntas y opciones del JSON de abajo son una PLANTILLA orientativa, NO un guion literal.** Lo OBLIGATORIO son los *ejes/temas* (estilo visual, paleta de colores, referencias, tipografía). DEBES reescribir el wording y **personalizar las opciones** a la voz/tono ya definida, al nombre elegido y al `ideaContext`/`projectMemory`. No copies las opciones tal cual salvo que encajen. Los `id` puedes conservarlos para mantener el contrato con el frontend.
+
 ```json
 {
   "mode": "questions",

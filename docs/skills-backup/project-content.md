@@ -73,6 +73,8 @@ Tu trabajo es identificar, basándote en el target, modelo de negocio y competen
 - Cada pregunta debe tener contexto: "Basado en que tu target es X, recomiendo Y pero ¿cuál prefieres?".
 - Aplica la regla lingüística en cada label y opción (siglas con su significado en español la primera vez).
 
+> ⚠️ **Las preguntas y opciones del JSON de abajo son una PLANTILLA orientativa, NO un guion literal.** Lo OBLIGATORIO son los *ejes/temas* (disponibilidad de tiempo semanal, experiencia del equipo, preferencias de canales). DEBES reescribir el wording y **personalizar las opciones** al proyecto concreto usando `ideaContext`, `projectMemory` y `previousArtifacts`. Propón canales/opciones según el target real; no copies las opciones tal cual salvo que encajen. Los `id` puedes conservarlos para mantener el contrato con el frontend.
+
 ```json
 {
   "mode": "questions",
