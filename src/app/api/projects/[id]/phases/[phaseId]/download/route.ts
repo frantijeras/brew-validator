@@ -9,12 +9,9 @@ import { jsPDF } from "jspdf";
  *
  * Returns the report of a COMPLETED phase as a **PDF** file.
  *
- * Source content is resolved as follows:
- *  1. If the phase is IDENTITY and is on the `final` sub-step, use
- *     `subStepArtifact.content` (the consolidated Brand Book, usually
- *     HTML).
- *  2. Otherwise, use the first entry in `artifacts[].content`
- *     (markdown body for the rest of the phases).
+ * Source content: the first entry in `artifacts[].content` (the consolidated
+ * report). For IDENTITY that is the identity summary (markdown). Los assets 3d
+ * (maqueta HTML + guía PDF) se descargan desde sus propios endpoints, no aquí.
  *
  * Markdown content is cleaned up the same way the web UI does (judge
  * scorecard duplicates, decorative emojis), so the PDF matches what
@@ -56,22 +53,13 @@ export async function GET(
       );
     }
 
-    // Resolve content: prefer the IDENTITY `final` sub-step artifact
-    // (the Brand Book), fall back to the first main artifact.
+    // Resolve content: para una fase COMPLETADA usamos `artifacts[0]` (el
+    // informe consolidado). En IDENTITY es el resumen de identidad (markdown);
+    // el JSON del sub-paso visual NO es un documento descargable para el
+    // usuario (la maqueta y la guía 3d se descargan desde sus propios botones).
     let title = phase.label || "Reporte";
     let rawContent = "";
     let contentIsHtml = false;
-
-    if (phase.type === "IDENTITY" && (phase.subStep === "final" || phase.subStep === "visual")) {
-      const subArtifact = phase.subStepArtifact as
-        | { type?: "html" | "markdown"; content?: string; title?: string }
-        | null;
-      if (subArtifact?.content) {
-        rawContent = subArtifact.content;
-        contentIsHtml = subArtifact.type === "html";
-        if (subArtifact.title) title = subArtifact.title;
-      }
-    }
 
     if (!rawContent) {
       const artifacts = phase.artifacts as

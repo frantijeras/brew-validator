@@ -50,20 +50,12 @@ export async function GET(
     }
 
     // Resolve content (same logic as the download route).
+    // Fase COMPLETADA → usamos `artifacts[0]` (informe consolidado). En
+    // IDENTITY es el resumen de identidad; el JSON del sub-paso visual no es
+    // un documento para el usuario.
     let title = phase.label || "Reporte";
     let rawContent = "";
     let contentType: "markdown" | "html" = "markdown";
-
-    if (phase.type === "IDENTITY" && (phase.subStep === "final" || phase.subStep === "visual")) {
-      const subArtifact = phase.subStepArtifact as
-        | { type?: "html" | "markdown"; content?: string; title?: string }
-        | null;
-      if (subArtifact?.content) {
-        rawContent = subArtifact.content;
-        contentType = subArtifact.type === "html" ? "html" : "markdown";
-        if (subArtifact.title) title = subArtifact.title;
-      }
-    }
 
     if (!rawContent) {
       const artifacts = phase.artifacts as

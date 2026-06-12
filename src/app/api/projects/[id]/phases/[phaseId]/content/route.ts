@@ -49,20 +49,12 @@ export async function GET(
     }
 
     // Resolve content (same logic as the view route).
+    // Para una fase COMPLETADA usamos siempre `artifacts[0]` (el informe
+    // consolidado). En IDENTITY eso es el resumen de identidad; el JSON del
+    // sub-paso visual (subStepArtifact) NO es un documento para el usuario.
     let title = phase.label || "Reporte";
     let rawContent = "";
     let contentType: "markdown" | "html" = "markdown";
-
-    if (phase.type === "IDENTITY" && (phase.subStep === "final" || phase.subStep === "visual")) {
-      const subArtifact = phase.subStepArtifact as
-        | { type?: "html" | "markdown"; content?: string; title?: string }
-        | null;
-      if (subArtifact?.content) {
-        rawContent = subArtifact.content;
-        contentType = subArtifact.type === "html" ? "html" : "markdown";
-        if (subArtifact.title) title = subArtifact.title;
-      }
-    }
 
     if (!rawContent) {
       const artifacts = phase.artifacts as
