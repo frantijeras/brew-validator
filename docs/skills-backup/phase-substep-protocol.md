@@ -7,27 +7,36 @@
 > La version en uso esta en el VPS en `/root/.openclaw/workspace/skills/phase-substep-protocol/SKILL.md`.
 > **No edites este archivo** para cambiar el comportamiento del agente — hazlo directamente en el VPS o
 > pide a la IA que tenga acceso SSH que aplique los cambios.
-> Ultima sincronizacion: 2026-06-11
+> Ultima sincronizacion: 2026-06-12
 
 ---
 
 # phase-substep-protocol
 
-**Documento técnico de referencia** sobre cómo el bridge maneja fases con sub-pasos interactivos (como branding, content, dev y business). No es una skill que se cargue como agente — es la especificación que el dev (CodeBot) debe seguir al implementar la UI multi-step y los endpoints.
+**Documento técnico de referencia** sobre cómo el bridge maneja fases con sub-pasos interactivos (como branding, content y business). No es una skill que se cargue como agente — es la especificación que el dev (CodeBot, agente de desarrollo) debe seguir al implementar la UI (Interfaz de usuario) multi-step y los endpoints.
+
+## ✍️ Regla lingüística OBLIGATORIA (siglas y tecnicismos)
+
+Aunque este documento es técnico, los textos que las skills generen para el usuario final deben cumplir la regla transversal: cada sigla o tecnicismo lleva su significado en español entre paréntesis **la primera vez que aparece** (UI (Interfaz de usuario), SVG (Gráficos vectoriales redimensionables), HEX (Sistema hexadecimal), OKR (Objetivos y resultados clave), LTV (Valor de vida del cliente), CAC (Coste de adquisición de cliente), etc.). Esta especificación lo refuerza para todas las fases con sub-pasos.
+
+## 🔒 Salidas estructuradas estrictas (regla transversal)
+
+Toda skill que produzca un sub-paso responde SIEMPRE con el JSON exacto del modo correspondiente (`mode: "questions"` o `mode: "report"`), sin texto fuera del JSON y sin markdown libre que rompa el tipado del frontend. El contenido del informe va dentro de `reportMarkdown`; los artefactos intermedios (HTML, SVG, naming) van dentro de `subStepArtifact`. El bridge valida que la respuesta sea JSON parseable antes de persistirla.
 
 ## ¿Por qué existen sub-pasos?
 
 Ciertas fases no se pueden resolver con "1 quiz + 1 informe final". Requieren **decisión humana entre cada paso** porque generan artefactos visuales o выбор que no se puede iterar sin re-generar el output anterior.
 
-**Fases con sub-pasos (opción A):**
-- Fase 2 (Branding): quiz → naming 3 rondas → mockup visual → brand book final (**4 jobs**)
-- Fase 3 (Content): quiz → pilares + landing v1 → estrategia + skill final (**3 jobs**)
-- Fase 4 (Dev): quiz → comparativa stack → plan técnico + skill final (**3 jobs**)
-- Fase 5 (Business): quiz → simulador unit economics → plan de negocio final (**3 jobs**)
+**Fases con sub-pasos:**
+- Fase 3 (Branding / Identidad de Marca): naming (quiz → 3 nombres + campo manual) → voice (sin quiz, propuesta + refinamiento iterativo) → logo (12 logos SVG, Gráficos vectoriales redimensionables) → visual (quiz → 3 estilos HTML A/B/C) → final / hand-off (entrega) (**5 sub-pasos**)
+- Fase 4 (Content / Distribución y Tracción): quiz → pilares → estrategia + skill final (**3 jobs**)
 
 **Fases sin sub-pasos (1 quiz + 1 report):**
-- Fase 1 (Análisis Estratégico): 1 quiz + 1 report largo
-- Fase 6 (Plan de Ejecución): 1 quiz + 1 report compilador
+- Fase 1 (Análisis Estratégico — Fundamentos y Mercado): 1 quiz + 1 report largo (orden estricto: DAFO → Porter → TAM/SAM/SOM → Lean Canvas → Buyer Persona → Propuesta de Valor)
+- Fase 2 (Viabilidad Financiera): 1 quiz + 1 report (orden estricto: Modelo de Ingresos → Pricing → Unit Economics → LTV/CAC → 3 Escenarios)
+- Fase 5 (Roadmap 30/60/90): 1 quiz + 1 report compilador (orden estricto: Hoja de ruta → OKRs 30 → OKRs 60 → OKRs 90)
+
+> NOTA: el orden de fases del producto evolucionó. Fase 2 es ahora Viabilidad Financiera (antes parte iba en una fase de negocio posterior) y Fase 5 cierra con el Roadmap 30/60/90. Las fases internamente pueden seguir teniendo más de un job aunque el usuario vea "1 quiz + 1 informe".
 
 ## Estados extendidos del ProjectPhase
 
@@ -122,7 +131,7 @@ El bridge (`src/app/api/projects/execute-phase/route.ts`) debe:
 
 1. Aceptar `subStep` en el input para saber qué job ejecutar.
 2. Devolver el `subStep` correspondiente en cada respuesta para que la UI sepa qué mostrar.
-3. Cuando se invoca con `mode: "report"` y `subStep` intermedio (ej: `naming` o `mockup`), el output se guarda en `subStepArtifact` (no en `artifacts`) hasta que se complete la fase.
+3. Cuando se invoca con `mode: "report"` y `subStep` intermedio (ej: `naming`, `voice`, `logo` o `visual`), el output se guarda en `subStepArtifact` (no en `artifacts`) hasta que se complete la fase.
 4. Cuando se confirma la elección del sub-paso (`/substep/choose`), se crea un nuevo job con `subStep: "nextSubStep"` o `subStep: "final"` según corresponda.
 
 ## Cambios en la UI (`project-phases-with-modal.tsx`)
@@ -136,9 +145,11 @@ El bridge (`src/app/api/projects/execute-phase/route.ts`) debe:
 
 ## Convenciones de nombrado
 
-- `subStep` en el job: lowercase, kebab-friendly: `"quiz"`, `"naming"`, `"mockup"`, `"final"`, `"compare"`, `"simulate"`, `"pilars"`.
-- `subStepChoice`: el valor crudo que eligió el usuario (`"A"`, `"Tallow & Glow"`, `"realista"`, etc.).
-- `subStepArtifact`: objeto JSON con `{type: "html" | "markdown", content: "...", options?: [{value, label}]}`.
+- `subStep` en el job: lowercase, kebab-friendly. Valores en uso: `"quiz"`, `"naming"`, `"voice"`, `"logo"`, `"visual"`, `"pilars"`, `"final"`.
+- `subStepChoice`: el valor crudo que eligió el usuario (`"A"`, `"Tallow & Glow"`, nombre manual escrito por el usuario, etc.).
+- `subStepArtifact`: objeto JSON con `{type: "html" | "markdown", content: "...", options?: [{value, label}], allowManualInput?: boolean}`.
+  - `allowManualInput: true` (sub-paso `naming`): la UI muestra, además de los botones A/B/C, **1 campo de texto** para que el usuario escriba un nombre propio.
+  - En `logo` el `content` es un documento HTML único con los 12 logos SVG; en `visual` el `content` es JSON con 3 `options` (A/B/C) para el preview en iframe.
 
 ## Resumen de implementación
 
@@ -149,11 +160,15 @@ El bridge (`src/app/api/projects/execute-phase/route.ts`) debe:
 | Endpoints | 4 nuevos: artifact, choose, iterate, rename |
 | UI modal | Nuevo modal de sub-paso (artefacto + elección + iterar) |
 | UI tarjeta | Nuevo estado `SUBSTEP_READY` con botón "Revisar [tipo]" |
-| Skills | Las 4 skills de fase con sub-pasos ya están actualizadas con la lógica de jobs |
+| Skills | Las skills de fase con sub-pasos (branding con 5 sub-pasos: naming/voice/logo/visual/final; content con 3 jobs) ya están actualizadas con la lógica de jobs, la regla lingüística y las salidas estructuradas estrictas |
 
 ## Reglas de oro
 
 1. **Si la fase tiene sub-pasos, NO se puede saltar al final sin pasar por todos.** Forzado por el bridge.
 2. **Cada sub-paso produce un artefacto descargable** además del output final.
-3. **El usuario siempre puede iterar** (volver a generar el sub-paso) antes de avanzar.
-4. **El cambio de nombre se confirma explícitamente** en la UI antes de propagar a `idea.title` y `project.name`.
+3. **El usuario siempre puede iterar** (volver a generar el sub-paso) antes de avanzar. En `voice` (branding) el refinamiento iterativo por conversación es el modo principal de trabajo (no hay quiz).
+4. **El cambio de nombre se confirma explícitamente** en la UI antes de propagar a `idea.title` y `project.name`. El nombre puede venir de A/B/C o del campo manual (`allowManualInput`).
+5. **Salidas estructuradas estrictas:** cada sub-paso responde con el JSON exacto del modo, sin texto fuera del JSON. El bridge rechaza respuestas no parseables.
+6. **Regla lingüística:** los textos para el usuario llevan cada sigla/tecnicismo con su significado en español entre paréntesis la primera vez.
+7. **Orden estricto del informe:** las fases con orden de secciones fijado (1, 2, 4, 5) deben respetarlo EXACTAMENTE — es un requisito duro del producto, no una sugerencia.
+8. **Caracteres españoles UTF-8** con tildes y ñ correctos en todos los textos generados.

@@ -7,11 +7,27 @@
 > La version en uso esta en el VPS en `/root/.openclaw/workspace/skills/project-analyst/SKILL.md`.
 > **No edites este archivo** para cambiar el comportamiento del agente — hazlo directamente en el VPS o
 > pide a la IA que tenga acceso SSH que aplique los cambios.
-> Ultima sincronizacion: 2026-06-11
+> Ultima sincronizacion: 2026-06-12
 
 ---
 
 # project-analyst
+
+## ✍️ Regla lingüística OBLIGATORIA (siglas y tecnicismos)
+
+En TODOS los textos que generes para el usuario (informe, preguntas, labels de opciones), cada sigla o tecnicismo lleva su significado en español entre paréntesis **la primera vez que aparece** en ese texto. Ejemplos obligatorios para esta fase:
+
+- TAM (Mercado total disponible)
+- SAM (Mercado direccionable absoluto)
+- SOM (Mercado objetivo retenido)
+- DAFO (Debilidades, Amenazas, Fortalezas y Oportunidades)
+- 5 Fuerzas de Porter (Análisis de intensidad competitiva)
+- Lean Canvas (Modelo de negocio ágil)
+- Buyer Persona (Arquetipo de cliente ideal)
+- CAGR (Tasa de crecimiento anual compuesta)
+- KPI (Indicador clave de rendimiento)
+
+Esta regla es un requisito duro del producto: el frontend muestra el texto tal cual al usuario final, que puede no conocer la jerga.
 
 ## 📌 Reglas de contexto acumulativo
 
@@ -102,24 +118,49 @@ Cuando `mode` es `"questions"`, generar **4-5 preguntas clave** orientadas a val
       ]
     },
     {
-      "id": "diferenciacion",
-      "label": "Basado en las 5 Fuerzas de Porter preliminares, ¿dónde ves tu ventaja competitiva?",
+      "id": "barrera_competitiva_oculta",
+      "label": "Detecté estas barreras competitivas ocultas (ventajas difíciles de ver desde fuera pero decisivas). ¿Cuál crees que es la tuya?",
       "type": "choice",
       "options": [
-        "Barreras de entrada altas — difícil de copiar, know-how único",
-        "Red de distribución — acceso a canales que la competencia no tiene",
-        "Comunidad / marca — conexión emocional difícil de replicar",
-        "Tecnología / IP — patente, algoritmo, datos propios"
+        "Know-how / IP (Propiedad intelectual) — patente, algoritmo o datos propios difíciles de replicar",
+        "Efecto red — el producto mejora cuanto más gente lo usa, ventaja del primero",
+        "Acceso a un canal o partner exclusivo que la competencia no tiene",
+        "Coste de cambio alto — una vez dentro, al cliente le cuesta irse",
+        "Comunidad / marca — conexión emocional difícil de copiar"
       ]
     },
     {
-      "id": "tendencia_clave",
-      "label": "De las tendencias que detecté en tu sector, ¿cuál define tu ventana de oportunidad?",
+      "id": "normativa_legal",
+      "label": "He revisado la normativa legal aplicable a tu sector. ¿Cuál de estos marcos regulatorios condiciona más tu entrada?",
       "type": "choice",
       "options": [
-        "[Tendencia 1] — [dato de crecimiento, fuente]",
-        "[Tendencia 2] — [dato de crecimiento, fuente]",
-        "[Tendencia 3] — [dato de crecimiento, fuente]"
+        "RGPD (Reglamento General de Protección de Datos) — tratas datos personales sensibles",
+        "Licencias o certificaciones sectoriales obligatorias antes de operar",
+        "Normativa de consumo / etiquetado / sanitaria según el producto",
+        "Fiscalidad específica (IVA reducido, modelos especiales, facturación)",
+        "Marco ligero — sin barreras regulatorias relevantes para empezar"
+      ]
+    },
+    {
+      "id": "canal_captacion_inicial",
+      "label": "De los canales de captación iniciales observados en tu mercado, ¿por cuál te inclinas para los primeros clientes? (decisión de dirección, el plan detallado es de la Fase 4)",
+      "type": "choice",
+      "options": [
+        "[Canal 1 observado en competidores] — [evidencia: dónde captan hoy]",
+        "[Canal 2 observado] — [evidencia]",
+        "[Canal 3 observado] — [evidencia]",
+        "Boca a boca / comunidad — orgánico antes de invertir"
+      ]
+    },
+    {
+      "id": "hipotesis_a_validar",
+      "label": "Para validar tu negocio, ¿cuál es la hipótesis más arriesgada que deberías probar primero?",
+      "type": "choice",
+      "options": [
+        "Hipótesis de problema — que el dolor es real y suficientemente grande",
+        "Hipótesis de solución — que tu producto resuelve ese dolor mejor que las alternativas",
+        "Hipótesis de pago — que el cliente está dispuesto a pagar el precio previsto",
+        "Hipótesis de canal — que puedes alcanzar al cliente a un coste rentable"
       ]
     },
     {
@@ -137,12 +178,16 @@ Cuando `mode` es `"questions"`, generar **4-5 preguntas clave** orientadas a val
 }
 ```
 
+> NOTA: 4-5 preguntas máximo. Si superas las 5, recorta priorizando barreras competitivas ocultas, normativa legal, canales de captación iniciales y validación de hipótesis (los cuatro ejes nuevos), más el de mercado/posicionamiento que mejor encaje. Todas de tipo `choice` salvo, como mucho, 1 `text` opcional al final.
+
 ### Reglas del Modo Preguntas
 
 1. **Cada opción debe ser específica del proyecto**, no genérica. Sustituye los placeholders [Mercado A], [Hueco 1] con lo que realmente has encontrado en tu investigación interna.
-2. **NO preguntes "¿tienes proveedor?", "¿tienes equipo?", "¿cuánto capital tienes?"** — esas son preguntas de collecte. Aquí damos opciones estratégicas.
-3. **5 preguntas máximo.** Más de eso abruma. La fase 1 debe sentirse como "elegir camino", no como "rellenar formulario".
+2. **NO preguntes "¿tienes proveedor?", "¿tienes equipo?", "¿cuánto capital tienes?"** — esas son preguntas de descubrimiento. Aquí damos opciones estratégicas (preguntas de DECISIÓN, no de descubrimiento).
+3. **4-5 preguntas máximo.** Más de eso abruma. La fase 1 debe sentirse como "elegir camino", no como "rellenar formulario".
 4. **90% de las preguntas deben ser `choice`**, máximo 1 `text` opcional al final (ej: "¿hay algo que no te haya preguntado y debería saber?").
+5. **El quiz dinámico DEBE cubrir** (ajustando al proyecto): barreras competitivas ocultas, normativa legal aplicable al sector, canales de captación iniciales y validación de hipótesis. Son los ejes obligatorios de esta fase.
+6. **Aplica la regla lingüística** en cada label y opción: toda sigla/tecnicismo lleva su significado en español entre paréntesis la primera vez — TAM (Mercado total disponible), DAFO (Debilidades, Amenazas, Fortalezas y Oportunidades), IP (Propiedad intelectual), RGPD (Reglamento General de Protección de Datos), etc.
 
 ## Modo 2: Generar análisis
 
@@ -164,43 +209,43 @@ Cuando `mode` es `"report"`, recibirás las respuestas del usuario y generarás 
 
 ### Misión (modo report)
 
-Usar `web_search` OBLIGATORIAMENTE para investigar el mercado real de esta idea. No improvises datos. Generar análisis completo con:
+Usar `web_search` OBLIGATORIAMENTE para investigar el mercado real de esta idea. No improvises datos. El informe se compone de un **esqueleto numerado de 6 secciones con ORDEN ESTRICTO (requisito duro del producto)** más material de apoyo. NO alteres el orden 1→6:
 
-1. **TAM/SAM/SOM** — Tamaño total, mercado disponible, mercado obtenible. Con datos reales y fuentes (Statista, Grand View, Euromonitor, Crunchbase, webs de competidores).
-2. **Análisis competitivo** — Mapear mínimo 5-8 competidores directos/indirectos con tabla comparativa. Incluir: nombre, web, precio, canal principal, tráfico estimado (Similarweb), fortalezas, debilidades, comunidad.
-3. **DAFO personalizado** — Para ESTE proyecto con los huecos detectados.
-4. **5 Fuerzas de Porter** — Poder de negociación de clientes, poder de negociación de proveedores, amenaza de nuevos entrantes, amenaza de productos sustitutivos, rivalidad competitiva. Para cada fuerza, evalúa intensidad (Alta/Media/Baja) y justifica con datos del análisis competitivo.
-5. **Tendencias del sector** — CAGR, crecimiento, drivers macro (Google Trends, informes sectoriales, movimientos de M&A).
-6. **Contexto de entrada** — Basado en las respuestas del usuario, describe: mercado objetivo (geografía + segmento), propuesta de valor diferencial (vs. competencia), canales observados en el mercado (sin plan detallado), y rango de precios observados en competidores (sin definir pricing propio). Esta sección es CONTEXTUAL — las decisiones concretas de pricing, canales, partnerships y KPIs se trabajan en fases posteriores.
-7. **Barreras y riesgos** — Regulatorios, técnicos, de mercado, operativos. Con plan de mitigación.
-8. **Validación de las respuestas del usuario** — Confirmar o matizar las elecciones con datos.
+1. **Análisis DAFO (Debilidades, Amenazas, Fortalezas y Oportunidades)** — Personalizado para ESTE proyecto con los huecos detectados.
+2. **5 Fuerzas de Porter (Análisis de intensidad competitiva)** — Poder de clientes, poder de proveedores, amenaza de nuevos entrantes, amenaza de sustitutivos, rivalidad. Cada fuerza con intensidad (Alta/Media/Baja) justificada con datos.
+3. **Estimación cuantitativa de TAM (Mercado total disponible), SAM (Mercado direccionable absoluto) y SOM (Mercado objetivo retenido)** — Con datos reales y fuentes (Statista, Grand View, Euromonitor, Crunchbase, webs de competidores).
+4. **Estructura completa del Lean Canvas (Modelo de negocio ágil)** — Las 9 casillas: Problema, Segmentos de cliente, Propuesta de valor única, Solución, Canales, Flujos de ingresos, Estructura de costes, Métricas clave, Ventaja injusta. Aquí es un primer boceto contextual; la Fase 2 lo profundiza.
+5. **Segmentos de Cliente detallados con Buyer Persona (Arquetipo de cliente ideal)** — Perfil(es) concreto(s): demografía, comportamiento, dolores, dónde están.
+6. **Propuesta de Valor única y redactada** — Frase clara y diferenciadora, conectada con el gap detectado.
+
+**Material de apoyo** (incluir DESPUÉS del esqueleto numerado, sin romper el orden 1→6): análisis competitivo (tabla de 5-8 competidores con web, precio, canal, tráfico Similarweb, fortalezas, debilidades, comunidad), tendencias del sector (CAGR (Tasa de crecimiento anual compuesta), drivers macro), barreras y riesgos con mitigación, validación de las respuestas del usuario y fuentes consultadas.
 
 ### Output (modo report)
 
-Responde SIEMPRE con este JSON exacto. Sin emojis. Sin texto fuera del JSON.
+Responde SIEMPRE con este JSON exacto. Sin emojis. Sin texto fuera del JSON. Sin markdown libre fuera del campo `reportMarkdown`. Respeta EXACTAMENTE el orden de secciones 1→6.
 
 ```json
 {
   "mode": "report",
-  "reportMarkdown": "# [Nombre Proyecto] — Análisis Estratégico\n\n## 1. Resumen ejecutivo\n[2-3 párrafos con la oportunidad, el mercado y la recomendación]\n\n## 2. TAM / SAM / SOM\n- **TAM:** [dato real] — [fuente]\n- **SAM:** [dato real] — [fuente]\n- **SOM (año 1):** [estimación realista basada en cuota de mercado obtenible]\n\n## 3. Análisis competitivo\n\n| Competidor | Web | Pricing | Canal principal | Tráfico mensual (Similarweb) | Fortalezas | Debilidades | Comunidad |\n|---|---|---|---|---|---|---|---|\n| [Nombre] | [url] | [precio] | [Instagram/Amazon/etc] | [visitas/mes] | [2-3] | [2-3] | [tamaño y engagement] |\n| ... |\n\n### Gap detectado\n[El hueco que este proyecto viene a llenar]\n\n## 4. DAFO\n\n**Debilidades internas**\n- [D1]\n- [D2]\n\n**Amenazas externas**\n- [A1]\n- [A2]\n\n**Fortalezas internas**\n- [F1]\n- [F2]\n\n**Oportunidades externas**\n- [O1]\n- [O2]\n\n## 5. 5 Fuerzas de Porter
+  "reportMarkdown": "# [Nombre Proyecto] — Análisis Estratégico\n\n## Resumen ejecutivo\n[2-3 párrafos con la oportunidad, el mercado y la recomendación]\n\n---\n\n## 1. Análisis DAFO (Debilidades, Amenazas, Fortalezas y Oportunidades)\n\n**Debilidades internas**\n- [D1]\n- [D2]\n\n**Amenazas externas**\n- [A1]\n- [A2]\n\n**Fortalezas internas**\n- [F1]\n- [F2]\n\n**Oportunidades externas**\n- [O1]\n- [O2]\n\n---\n\n## 2. 5 Fuerzas de Porter (Análisis de intensidad competitiva)
 
-### 1. Poder de negociacion de los clientes
+### 2.1 Poder de negociacion de los clientes
 **Intensidad:** Alta / Media / Baja
 [Justificacion basada en datos del mercado: concentracion de clientes, coste de cambio, sensibilidad al precio]
 
-### 2. Poder de negociacion de los proveedores
+### 2.2 Poder de negociacion de los proveedores
 **Intensidad:** Alta / Media / Baja
 [Justificacion: numero de proveedores, dependencia, coste de cambio]
 
-### 3. Amenaza de nuevos entrantes
+### 2.3 Amenaza de nuevos entrantes
 **Intensidad:** Alta / Media / Baja
 [Justificacion: barreras de entrada, capital necesario, regulacion, know-how]
 
-### 4. Amenaza de productos sustitutivos
+### 2.4 Amenaza de productos sustitutivos
 **Intensidad:** Alta / Media / Baja
 [Justificacion: alternativas disponibles, relacion calidad/precio de sustitutos]
 
-### 5. Rivalidad competitiva
+### 2.5 Rivalidad competitiva
 **Intensidad:** Alta / Media / Baja
 [Justificacion: numero de competidores, crecimiento del sector, diferenciacion]
 
@@ -214,21 +259,7 @@ Responde SIEMPRE con este JSON exacto. Sin emojis. Sin texto fuera del JSON.
 | Sustitutivos | [Alta/Media/Baja] | [Como afecta] |
 | Rivalidad | [Alta/Media/Baja] | [Como afecta] |
 
-## 6. Tendencias del sector\n[Crecimiento, drivers macro, cambios regulatorios, movimientos de mercado]\n\n## 7. Contexto de entrada
-
-### Mercado objetivo
-[Geografía, segmento, tamaño estimado]
-
-### Propuesta de valor diferencial
-[vs. competencia — 1-2 párrafos]
-
-### Canales observados en el mercado
-[Cómo capturan clientes los competidores: indirectos, SEO, Ads, etc. — sin plan detallado]
-
-### Rango de precios observados
-[Rango en competidores directos e indirectos — sin definir pricing propio]
-
-## 8. Barreras y riesgos\n\n| Barrera | Probabilidad | Impacto | Mitigación |\n|---|---|---|---|\n| [B1] | Alta/Media/Baja | Alto/Medio/Bajo | [Plan] |\n| ... |\n\n## 9. Validación de tus respuestas\n\n### [Pregunta 1 del usuario]\nElegiste: [opción]. [Validación con datos: encaja/no encaja porque...] [Matización si aplica].\n\n---\n\n## 10. Fuentes consultadas\n- [URL 1 — dato X]\n- [URL 2 — dato Y]\n- ...\n",
+---\n\n## 3. Estimación cuantitativa de TAM, SAM y SOM\n\n- **TAM (Mercado total disponible):** [dato real] — [fuente]\n- **SAM (Mercado direccionable absoluto):** [dato real] — [fuente]\n- **SOM (Mercado objetivo retenido, año 1):** [estimación realista basada en cuota obtenible]\n\n---\n\n## 4. Estructura completa del Lean Canvas (Modelo de negocio ágil)\n\n> Boceto contextual. La Fase 2 profundiza cada casilla.\n\n| Casilla | Contenido |\n|---|---|\n| 1. Problema | [Top 3 problemas que resuelve] |\n| 2. Segmentos de cliente | [Early adopters identificados] |\n| 3. Propuesta de valor única | [Frase diferenciadora] |\n| 4. Solución | [Top 3 funcionalidades del MVP (Producto mínimo viable)] |\n| 5. Canales | [Canales observados en el mercado — detalle en Fase 4] |\n| 6. Flujos de ingresos | [Modelo de ingresos probable — detalle en Fase 2] |\n| 7. Estructura de costes | [Costes fijos y variables principales] |\n| 8. Métricas clave | [2-3 métricas que importan] |\n| 9. Ventaja injusta | [Barrera difícil de copiar — de las 5 Fuerzas de Porter] |\n\n---\n\n## 5. Segmentos de Cliente detallados con Buyer Persona (Arquetipo de cliente ideal)\n\n### Buyer Persona principal: [nombre ficticio]\n- **Demografía:** [edad, ubicación, ocupación, nivel de ingresos]\n- **Comportamiento:** [hábitos, dónde pasa el tiempo, cómo compra]\n- **Dolores / necesidades:** [los problemas que tu producto resuelve]\n- **Objeciones:** [por qué podría no comprar]\n- **Dónde alcanzarlo:** [canales y momentos]\n\n### Segmentos secundarios\n- [Segmento 2 — breve]\n- [Segmento 3 — breve]\n\n---\n\n## 6. Propuesta de Valor única\n\n**[Frase de propuesta de valor en una línea]**\n\n[1-2 párrafos desarrollando por qué es diferencial frente al gap detectado y la competencia.]\n\n---\n\n# Material de apoyo\n\n## Análisis competitivo\n\n| Competidor | Web | Pricing | Canal principal | Tráfico mensual (Similarweb) | Fortalezas | Debilidades | Comunidad |\n|---|---|---|---|---|---|---|---|\n| [Nombre] | [url] | [precio] | [Instagram/Amazon/etc] | [visitas/mes] | [2-3] | [2-3] | [tamaño y engagement] |\n| ... |\n\n### Gap detectado\n[El hueco que este proyecto viene a llenar]\n\n## Tendencias del sector\n[Crecimiento, CAGR (Tasa de crecimiento anual compuesta), drivers macro, cambios regulatorios, movimientos de mercado]\n\n## Barreras y riesgos\n\n| Barrera | Probabilidad | Impacto | Mitigación |\n|---|---|---|---|\n| [B1] | Alta/Media/Baja | Alto/Medio/Bajo | [Plan] |\n| ... |\n\n## Validación de tus respuestas\n\n### [Pregunta 1 del usuario]\nElegiste: [opción]. [Validación con datos: encaja/no encaja porque...] [Matización si aplica].\n\n## Fuentes consultadas\n- [URL 1 — dato X]\n- [URL 2 — dato Y]\n- ...\n",
   "suggestedStrategy": "Resumen ejecutivo de la estrategia recomendada en 2-3 líneas, basado en las respuestas del usuario."
 }
 ```
@@ -236,8 +267,11 @@ Responde SIEMPRE con este JSON exacto. Sin emojis. Sin texto fuera del JSON.
 ## Reglas globales
 
 1. **Sin emojis.** Solo texto y markdown.
-2. **Usa `web_search` SIEMPRE en modo report.** No inventes datos. Cita fuentes. Si no encuentras, di "dato no disponible públicamente" en vez de inventar.
-3. **Separa datos objetivos de opiniones/recomendaciones** claramente en el markdown.
-4. **El análisis debe proporcionar contexto** — datos de mercado, competencia y tendencias que las fases posteriores usarán para tomar decisiones concretas de negocio.
-5. **El output debe ser descargable como `01-analisis-mercado.md`** para que el usuario lo saque de la plataforma.
-6. **Caracteres españoles OBLIGATORIOS.** Usa SIEMPRE tildes, ñ y caracteres especiales del español correcto: análisis, estrategia, competencia, producción, información, gestión, año, tamaño, página, etc. NUNCA escribas "analisis" sin tilde. El texto DEBE ser UTF-8 válido con todos los acentos y eñes correctos.
+2. **Salida estructurada estricta.** SIEMPRE respondes con el JSON exacto del modo correspondiente (questions / report), sin texto fuera del JSON y sin markdown libre que rompa el tipado del frontend. Todo el contenido del informe va dentro de `reportMarkdown`.
+3. **Orden estricto del informe.** Las 6 secciones numeradas (DAFO → Porter → TAM/SAM/SOM → Lean Canvas → Buyer Persona → Propuesta de Valor) deben aparecer EXACTAMENTE en ese orden. El material de apoyo va después. Es un requisito duro del producto.
+4. **Regla lingüística.** Cada sigla/tecnicismo lleva su significado en español entre paréntesis la primera vez que aparece (TAM, SAM, SOM, DAFO, Porter, Lean Canvas, Buyer Persona, CAGR, etc.).
+5. **Usa `web_search` SIEMPRE en modo report.** No inventes datos. Cita fuentes. Si no encuentras, di "dato no disponible públicamente" en vez de inventar.
+6. **Separa datos objetivos de opiniones/recomendaciones** claramente en el markdown.
+7. **El análisis debe proporcionar contexto** — datos de mercado, competencia y tendencias que las fases posteriores usarán para tomar decisiones concretas de negocio.
+8. **El output debe ser descargable como `01-analisis-mercado.md`** para que el usuario lo saque de la plataforma.
+9. **Caracteres españoles OBLIGATORIOS.** Usa SIEMPRE tildes, ñ y caracteres especiales del español correcto: análisis, estrategia, competencia, producción, información, gestión, año, tamaño, página, etc. NUNCA escribas "analisis" sin tilde. El texto DEBE ser UTF-8 válido con todos los acentos y eñes correctos.
