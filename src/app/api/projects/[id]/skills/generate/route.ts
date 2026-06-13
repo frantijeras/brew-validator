@@ -6,308 +6,107 @@ import { guardProject } from "@/lib/ownership";
 import type { ProjectMemory } from "@/lib/project-memory";
 import type { GeneratedSkill } from "@/lib/skill-types";
 import { buildProjectContext, type ProjectContext } from "@/lib/skill-context";
+import { SKILL_CATALOG, getSkillOutputMeta } from "@/lib/skill-catalog";
 
 const generateSkillsSchema = z.object({
-  // An empty array es válido: "saltar generación" — no genera nada y solo
-  // desbloquea el hand-off (handoffReady = true).
+  // Array vacío = "saltar": no genera nada, solo desbloquea el hand-off.
   skillIds: z.array(z.string()),
-  // - all    → reemplaza generatedSkills con las de skillIds (Generar todas).
-  // - merge  → regenera/añade solo skillIds, conservando el resto (Regenerar).
-  // - remove → elimina skillIds de generatedSkills (Quitar).
+  // all → reemplaza; merge → upsert sólo skillIds; remove → quita skillIds.
   mode: z.enum(["all", "merge", "remove"]).default("all"),
 });
 
-// Skill template generator function type
-type SkillTemplateFn = (ctx: ProjectContext) => string;
+/* ── Documentos de contexto del paquete (carpeta contexto/) ──────────── */
+// Cada skill REFERENCIA los documentos relevantes del paquete por su ruta
+// relativa (las skills viven en `skills/`, el contexto en `contexto/`).
+const CONTEXT_DOCS = {
+  ANALYSIS: "../contexto/1.analisis-de-mercado.md",
+  BUSINESS: "../contexto/2.viabilidad-economica.md",
+  VOICE: "../contexto/3.voz-y-tono.md",
+  STYLE: "../contexto/3d.guia-de-estilo.md",
+  CONTENT: "../contexto/4.estrategia-distribucion.md",
+  ROADMAP: "../contexto/5.roadmap.md",
+} as const;
+type ContextDocKey = keyof typeof CONTEXT_DOCS;
 
-function buildWebCreatorSkill(ctx: ProjectContext): string {
-  const lines: string[] = [];
-  lines.push("# Web Creator -- " + ctx.projectName);
-  lines.push("");
-  lines.push("> Skill para construir la landing page y presencia web de **" + ctx.projectName + "**.");
-  lines.push("");
-  lines.push("---");
-  lines.push("");
-  lines.push("## Contexto del proyecto");
-  lines.push("");
-  lines.push("- **Nombre:** " + ctx.projectName);
-  lines.push("- **Descripcion:** " + ctx.description);
-  lines.push("- **Target:** " + ctx.targetUser);
-  lines.push("- **Propuesta de valor:** " + (ctx.valueProposition || "No definida"));
-  lines.push("- **Problema:** " + (ctx.problem || "No definido"));
-  lines.push("- **Monetizacion:** " + ctx.monetization);
-  lines.push("- **Modelo de negocio:** " + (ctx.businessModel || "No especificado"));
-  lines.push("");
-  lines.push("---");
-  lines.push("");
-  lines.push("## Identidad visual");
-  lines.push("");
-  if (ctx.brandColors.length > 0) {
-    for (const c of ctx.brandColors) {
-      lines.push("- **" + c.name + ":** `" + c.value + "`");
-    }
-  } else {
-    lines.push("- Usar paleta coherente con la marca");
-  }
-  lines.push("");
-  lines.push("---");
-  lines.push("");
-  lines.push("## Instrucciones");
-  lines.push("");
-  lines.push("Genera una landing page completa, responsive y lista para produccion.");
-  lines.push("");
-  lines.push("### Secciones obligatorias");
-  lines.push("");
-  lines.push("1. **Hero** -- Titulo + subtitulo + CTA principal");
-  lines.push("2. **Problema** -- El dolor que resuelve el producto");
-  lines.push("3. **Solucion** -- Como " + ctx.projectName + " resuelve el problema");
-  lines.push("4. **Features** -- 3-6 funcionalidades clave");
-  lines.push("5. **Social Proof** -- Testimonios / logos");
-  lines.push("6. **Pricing** -- Tabla de precios (placeholder si no definido)");
-  lines.push("7. **FAQ** -- 5-8 preguntas frecuentes");
-  lines.push("8. **CTA final** -- Repite el CTA principal");
-  lines.push("9. **Footer** -- Links, legal, redes");
-  lines.push("");
-  lines.push("### Stack tecnico");
-  lines.push("");
-  lines.push("- Next.js 14+ (App Router)");
-  lines.push("- Tailwind CSS");
-  lines.push("- Lucide React icons");
-  lines.push("- Responsive (mobile-first)");
-  lines.push("");
-  lines.push("---");
-  lines.push("");
-  lines.push("_Generado por BrewValidator -- Handoff Package_");
-  return lines.join("\n");
-}
-
-function buildSeoAsoSkill(ctx: ProjectContext): string {
-  const lines: string[] = [];
-  lines.push("# SEO & ASO Strategy -- " + ctx.projectName);
-  lines.push("");
-  lines.push("> Skill para optimizar el posicionamiento web y de apps de **" + ctx.projectName + "**.");
-  lines.push("");
-  lines.push("---");
-  lines.push("");
-  lines.push("## Contexto");
-  lines.push("");
-  lines.push("- **Proyecto:** " + ctx.projectName);
-  lines.push("- **Target:** " + ctx.targetUser);
-  lines.push("- **Propuesta de valor:** " + (ctx.valueProposition || "No definida"));
-  lines.push("- **Modelo de negocio:** " + (ctx.businessModel || "No especificado"));
-  lines.push("");
-  lines.push("---");
-  lines.push("");
-  lines.push("## SEO Web");
-  lines.push("");
-  lines.push("### Palabras clave principales");
-  lines.push("");
-  if (ctx.keywords.length > 0) {
-    for (const k of ctx.keywords) {
-      lines.push("- " + k);
-    }
-  } else {
-    lines.push("- " + ctx.projectName);
-    lines.push("- " + (ctx.valueProposition || ctx.description).slice(0, 60));
-  }
-  lines.push("");
-  lines.push("### Meta tags");
-  lines.push("");
-  lines.push("- **Title:** " + ctx.projectName + " | " + (ctx.valueProposition || "Solucion innovadora").slice(0, 50));
-  lines.push("- **Description:** 150-160 caracteres resumiendo la propuesta de valor");
-  lines.push("- **OG Image:** Placeholder con colores de marca");
-  lines.push("");
-  lines.push("### Estructura SEO");
-  lines.push("");
-  lines.push("- URL-friendly slugs");
-  lines.push("- H1 unico por pagina");
-  lines.push("- Schema.org markup (SoftwareApplication / Service)");
-  lines.push("- Sitemap XML + robots.txt");
-  lines.push("");
-  lines.push("---");
-  lines.push("");
-  lines.push("## ASO (App Store Optimization)");
-  lines.push("");
-  lines.push("- **Titulo:** Max 30 caracteres, incluir keyword principal");
-  lines.push("- **Subtitulo:** Max 30 caracteres, keyword secundaria");
-  lines.push("- **Keywords:** 100 caracteres, separados por comas");
-  lines.push("- **Descripcion:** 4000 caracteres, keywords naturales");
-  lines.push("- **Screenshots:** 5-8 capturas que muestren features clave");
-  lines.push("");
-  lines.push("---");
-  lines.push("");
-  lines.push("_Generado por BrewValidator -- Handoff Package_");
-  return lines.join("\n");
-}
-
-function buildSocialMediaSkill(ctx: ProjectContext): string {
-  const lines: string[] = [];
-  lines.push("# Social Media Strategy -- " + ctx.projectName);
-  lines.push("");
-  lines.push("> Skill para planificar y ejecutar la estrategia en redes sociales de **" + ctx.projectName + "**.");
-  lines.push("");
-  lines.push("---");
-  lines.push("");
-  lines.push("## Objetivos");
-  lines.push("");
-  lines.push("- **Proyecto:** " + ctx.projectName);
-  lines.push("- **Target:** " + ctx.targetUser);
-  lines.push("- **Canales:** " + (ctx.channels.join(", ") || "A definir"));
-  lines.push("- **Tono:** " + (ctx.tone || "Profesional y cercano"));
-  lines.push("");
-  lines.push("---");
-  lines.push("");
-  lines.push("## Calendario editorial (30 dias)");
-  lines.push("");
-  lines.push("### Semana 1 -- Lanzamiento");
-  lines.push("- Dia 1-2: Presentacion del proyecto");
-  lines.push("- Dia 3-4: Contenido educativo sobre el problema");
-  lines.push("- Dia 5-7: CTA a lista de espera");
-  lines.push("");
-  lines.push("### Semana 2 -- Engagement");
-  lines.push("- Dia 8-10: Tutoriales / hilos");
-  lines.push("- Dia 11-12: Encuestas a la comunidad");
-  lines.push("- Dia 13-14: Colaboraciones");
-  lines.push("");
-  lines.push("### Semana 3 -- Conversion");
-  lines.push("- Dia 15-17: Casos de uso");
-  lines.push("- Dia 18-19: Comparativas");
-  lines.push("- Dia 20-21: Oferta early bird");
-  lines.push("");
-  lines.push("### Semana 4 -- Retencion");
-  lines.push("- Dia 22-24: User-generated content");
-  lines.push("- Dia 25-26: Roadmap / features");
-  lines.push("- Dia 27-30: Resumen + proximos pasos");
-  lines.push("");
-  lines.push("---");
-  lines.push("");
-  lines.push("## Metricas");
-  lines.push("");
-  lines.push("| Metrica | Mes 1 | Mes 3 |");
-  lines.push("|---------|-------|-------|");
-  lines.push("| Seguidores | +100 | +500 |");
-  lines.push("| Engagement | >3% | >5% |");
-  lines.push("| Clicks web | 200 | 1000 |");
-  lines.push("");
-  lines.push("---");
-  lines.push("");
-  lines.push("_Generado por BrewValidator -- Handoff Package_");
-  return lines.join("\n");
-}
-
-function buildProjectHandoffSkill(ctx: ProjectContext): string {
-  const lines: string[] = [];
-  lines.push("# Project Handoff -- " + ctx.projectName);
-  lines.push("");
-  lines.push("> Meta-skill con el contexto completo del proyecto.");
-  lines.push("");
-  lines.push("---");
-  lines.push("");
-  lines.push("## Idea original");
-  lines.push("");
-  lines.push("- **Nombre:** " + ctx.projectName);
-  lines.push("- **Descripcion:** " + ctx.description);
-  lines.push("- **Problema:** " + (ctx.problem || "No especificado"));
-  lines.push("- **Propuesta de valor:** " + (ctx.valueProposition || "No especificada"));
-  lines.push("- **Target:** " + ctx.targetUser);
-  lines.push("- **Monetizacion:** " + ctx.monetization);
-  lines.push("- **Modelo de negocio:** " + (ctx.businessModel || "No especificado"));
-  lines.push("");
-  lines.push("---");
-  lines.push("");
-  lines.push("## Decisiones del proyecto");
-  lines.push("");
-  for (const [k, v] of ctx.memoryEntries) {
-    lines.push("- **" + k + ":** " + v);
-  }
-  lines.push("");
-  lines.push("---");
-  lines.push("");
-  lines.push("## Fases completadas");
-  lines.push("");
-  for (const p of ctx.completedPhases) {
-    lines.push("- **" + p.label + "** (" + p.type + ")");
-  }
-  lines.push("");
-  lines.push("---");
-  lines.push("");
-  lines.push("## Como usar");
-  lines.push("");
-  lines.push("1. Arrastra este archivo al chat de Cline/Cursor/Copilot");
-  lines.push("2. El agente tiene TODO el contexto del proyecto");
-  lines.push("3. Usa las otras skills para tareas especificas");
-  lines.push("");
-  lines.push("---");
-  lines.push("");
-  lines.push("_Generado por BrewValidator -- Handoff Package_");
-  return lines.join("\n");
-}
-
-function buildContentWriterSkill(ctx: ProjectContext): string {
-  const lines: string[] = [];
-  lines.push("# Content Writer -- " + ctx.projectName);
-  lines.push("");
-  lines.push("> Skill para escribir contenido de marketing para **" + ctx.projectName + "**.");
-  lines.push("");
-  lines.push("---");
-  lines.push("");
-  lines.push("## Contexto");
-  lines.push("");
-  lines.push("- **Proyecto:** " + ctx.projectName);
-  lines.push("- **Target:** " + ctx.targetUser);
-  lines.push("- **Tono:** " + (ctx.tone || "Profesional y cercano"));
-  lines.push("- **Canales:** " + (ctx.channels.join(", ") || "A definir"));
-  lines.push("");
-  lines.push("---");
-  lines.push("");
-  lines.push("## Formatos de contenido");
-  lines.push("");
-  lines.push("### Posts de redes");
-  lines.push("- Maximo 280 chars (Twitter) / 800-1200 chars (LinkedIn)");
-  lines.push("- Hook -> Problema -> Solucion -> CTA");
-  lines.push("");
-  lines.push("### Anuncios");
-  lines.push("- Headline: 30 chars max");
-  lines.push("- Body: 90 chars max");
-  lines.push("- CTA claro y accionable");
-  lines.push("");
-  lines.push("### Email marketing");
-  lines.push("- Subject: 40-50 chars");
-  lines.push("- Body: 150-300 palabras");
-  lines.push("- CTA al final");
-  lines.push("");
-  lines.push("---");
-  lines.push("");
-  lines.push("_Generado por BrewValidator -- Handoff Package_");
-  return lines.join("\n");
-}
-
-const SKILL_TEMPLATES: Record<string, SkillTemplateFn> = {
-  "web-creator": buildWebCreatorSkill,
-  "seo-aso": buildSeoAsoSkill,
-  "social-media": buildSocialMediaSkill,
-  "project-handoff": buildProjectHandoffSkill,
-  "content-writer": buildContentWriterSkill,
-  "landing-builder": buildWebCreatorSkill,
+// Qué documentos del paquete debe leer cada skill antes de ejecutarse.
+const SKILL_REFS: Record<string, ContextDocKey[]> = {
+  "web-creator": ["ANALYSIS", "VOICE", "STYLE"],
+  "contenido-redes": ["CONTENT", "VOICE", "ANALYSIS"],
+  "seo-aso": ["ANALYSIS", "CONTENT"],
+  "email-marketing": ["CONTENT", "VOICE", "BUSINESS"],
+  analytics: ["BUSINESS", "ROADMAP"],
+  "ads-manager": ["CONTENT", "BUSINESS", "ANALYSIS"],
+  "finance-contabilidad": ["BUSINESS", "ROADMAP"],
+  "project-handoff": ["ANALYSIS", "BUSINESS", "VOICE", "STYLE", "CONTENT", "ROADMAP"],
 };
 
-const DEFAULT_SKILLS: Array<{
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  category: string;
-}> = [
-  { id: "web-creator", name: "Web Creator", description: "Construir la landing page del proyecto", icon: "Code", category: "desarrollo" },
-  { id: "seo-aso", name: "SEO & ASO", description: "Estrategia de posicionamiento web y apps", icon: "Search", category: "marketing" },
-  { id: "social-media", name: "Social Media", description: "Estrategia de redes sociales", icon: "Share2", category: "marketing" },
-  { id: "content-writer", name: "Content Writer", description: "Escribir contenido de marketing", icon: "PenLine", category: "marketing" },
-  { id: "project-handoff", name: "Project Handoff", description: "Contexto completo del proyecto para agentes AI", icon: "Target", category: "desarrollo" },
-];
+// Assets de identidad (carpeta assets/) que algunas skills usan.
+const SKILL_ASSETS: Record<string, string[]> = {
+  "web-creator": ["../assets/logo.svg", "../assets/maqueta.html"],
+  "project-handoff": ["../assets/logo.svg", "../assets/maqueta.html", "../assets/guia-estilos.pdf"],
+};
+
+/** Nota de guía por sección (genérica pero conectada al proyecto). */
+function sectionNote(sec: string, ctx: ProjectContext): string {
+  const target = ctx.targetUser || "tu publico objetivo";
+  const tone = ctx.tone ? ` Manten el tono "${ctx.tone}".` : "";
+  return (
+    `Desarrolla "${sec}" a medida de ${ctx.projectName}, conectado al target ` +
+    `(${target}) y al modelo de negocio (${ctx.businessModel || "por definir"}).${tone} ` +
+    `Incluye ejemplos concretos y pasos accionables (no teoria generica).`
+  );
+}
+
+/** Construye el documento markdown de una skill (data-driven, referencia el paquete). */
+function buildSkillMarkdown(skillId: string, ctx: ProjectContext): string {
+  const def = SKILL_CATALOG.find((s) => s.id === skillId);
+  const name = def?.name || skillId;
+  const meta = getSkillOutputMeta(skillId);
+  const refs = SKILL_REFS[skillId] || [];
+  const assets = SKILL_ASSETS[skillId] || [];
+
+  const L: string[] = [];
+  L.push(`# ${name} - ${ctx.projectName}`);
+  L.push("");
+  L.push(`> ${def?.description || meta.outputSummary}`);
+  L.push("");
+  L.push("## Contexto del proyecto");
+  L.push(`- Proyecto: ${ctx.projectName}`);
+  L.push(`- Target: ${ctx.targetUser}`);
+  if (ctx.valueProposition) L.push(`- Propuesta de valor: ${ctx.valueProposition}`);
+  if (ctx.problem) L.push(`- Problema: ${ctx.problem}`);
+  L.push(`- Modelo de negocio: ${ctx.businessModel || "Por definir"}`);
+  L.push(`- Monetizacion: ${ctx.monetization}`);
+  if (ctx.tone) L.push(`- Tono de marca: ${ctx.tone}`);
+  if (ctx.channels.length) L.push(`- Canales: ${ctx.channels.join(", ")}`);
+  L.push("");
+
+  if (refs.length || assets.length) {
+    L.push("## Documentos de referencia del paquete");
+    L.push("Lee estos archivos del paquete antes de ejecutar esta skill:");
+    for (const r of refs) L.push(`- \`${CONTEXT_DOCS[r]}\``);
+    for (const a of assets) L.push(`- \`${a}\``);
+    L.push("");
+  }
+
+  L.push("## Plan de trabajo");
+  L.push("");
+  for (const sec of meta.sections) {
+    L.push(`### ${sec}`);
+    L.push(sectionNote(sec, ctx));
+    L.push("");
+  }
+
+  L.push("---");
+  L.push(
+    "_Generado por BrewValidator. Para un documento profundo y a medida, usa \"Mejorar con IA\" en la app._"
+  );
+  return L.join("\n");
+}
 
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
@@ -315,14 +114,12 @@ export async function POST(
     if (!guard.ok) return guard.response;
     const body = await req.json();
     const parsed = generateSkillsSchema.safeParse(body);
-
     if (!parsed.success) {
       return NextResponse.json(
         { error: "Datos invalidos", details: parsed.error.flatten() },
-        { status: 400 },
+        { status: 400 }
       );
     }
-
     const { skillIds, mode } = parsed.data;
 
     const project = await prisma.project.findUnique({
@@ -330,8 +127,6 @@ export async function POST(
       include: {
         idea: {
           select: {
-            title: true,
-            description: true,
             targetUser: true,
             valueProposition: true,
             problem: true,
@@ -345,22 +140,10 @@ export async function POST(
         },
       },
     });
-
-    if (!project) {
-      return NextResponse.json(
-        { error: "Proyecto no encontrado" },
-        { status: 404 },
-      );
+    if (!project || !project.idea) {
+      return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
     }
 
-    if (!project.idea) {
-      return NextResponse.json(
-        { error: "El proyecto no tiene idea asociada" },
-        { status: 400 },
-      );
-    }
-
-    // Estado actual de las skills generadas (para merge/remove).
     const existing: GeneratedSkill[] = Array.isArray(project.generatedSkills)
       ? (project.generatedSkills as unknown as GeneratedSkill[])
       : [];
@@ -386,48 +169,17 @@ export async function POST(
       memory: project.memory as ProjectMemory | null,
     });
 
-    const generatedSkills: GeneratedSkill[] = [];
+    const generatedSkills: GeneratedSkill[] = skillIds.map((skillId) => {
+      const def = SKILL_CATALOG.find((s) => s.id === skillId);
+      return {
+        id: skillId,
+        name: def?.name || skillId,
+        content: buildSkillMarkdown(skillId, ctx),
+        source: "template" as const,
+      };
+    });
 
-    for (const skillId of skillIds) {
-      const templateFn = SKILL_TEMPLATES[skillId];
-      const skillDef = DEFAULT_SKILLS.find((s) => s.id === skillId);
-
-      if (templateFn) {
-        generatedSkills.push({
-          id: skillId,
-          name: skillDef?.name || skillId,
-          content: templateFn(ctx),
-          source: "template",
-        });
-      } else {
-        const genericLines: string[] = [];
-        genericLines.push("# " + (skillDef?.name || skillId) + " -- " + ctx.projectName);
-        genericLines.push("");
-        genericLines.push("> Skill para " + (skillDef?.description || skillId) + " del proyecto " + ctx.projectName + ".");
-        genericLines.push("");
-        genericLines.push("---");
-        genericLines.push("");
-        genericLines.push("## Contexto");
-        genericLines.push("");
-        genericLines.push("- **Proyecto:** " + ctx.projectName);
-        genericLines.push("- **Target:** " + ctx.targetUser);
-        genericLines.push("- **Descripcion:** " + ctx.description);
-        genericLines.push("");
-        genericLines.push("---");
-        genericLines.push("");
-        genericLines.push("_Generado por BrewValidator -- Handoff Package_");
-        generatedSkills.push({
-          id: skillId,
-          name: skillDef?.name || skillId,
-          content: genericLines.join("\n"),
-          source: "template",
-        });
-      }
-    }
-
-    // ── Persistencia según modo ──
-    //  - merge: upsert (reemplaza las mismas ids, conserva el resto).
-    //  - all:   reemplaza por completo con lo recién generado.
+    // merge: upsert; all: reemplaza.
     let finalSkills: GeneratedSkill[];
     if (mode === "merge") {
       const byId = new Map(existing.map((g) => [g.id, g]));
@@ -437,24 +189,31 @@ export async function POST(
       finalSkills = generatedSkills;
     }
 
+    // Persiste también project.skills (meta del catálogo) para el AGENT.md del hand-off.
+    const skillsMeta = finalSkills
+      .map((g) => SKILL_CATALOG.find((s) => s.id === g.id))
+      .filter((s): s is NonNullable<typeof s> => !!s)
+      .map((s) => ({
+        id: s.id,
+        name: s.name,
+        description: s.description,
+        icon: s.icon,
+        category: s.category,
+        selected: true,
+      }));
+
     await prisma.project.update({
       where: { id },
       data: {
         generatedSkills: finalSkills as unknown as Prisma.InputJsonValue,
+        skills: skillsMeta as unknown as Prisma.InputJsonValue,
         handoffReady: true,
       },
     });
 
-    return NextResponse.json({
-      success: true,
-      // Devolvemos SIEMPRE el estado completo de generadas para la UI de revisión.
-      skills: finalSkills,
-    });
+    return NextResponse.json({ success: true, skills: finalSkills });
   } catch (error) {
     console.error("POST /api/projects/[id]/skills/generate error:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }
 }

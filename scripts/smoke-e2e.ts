@@ -1102,34 +1102,28 @@ section("12. skills — catálogo, metadatos e inferencia");
 
 async function testSkills() {
   const { SKILL_CATALOG, getSkillOutputMeta } = await import("../src/lib/skill-catalog");
-  const { inferSkills } = await import("../src/lib/skill-inference");
 
-  // Cada skill del catálogo tiene metadatos de salida utilizables.
+  // Conjunto FIJO de 8 skills (sin motor de recomendación).
+  assert(SKILL_CATALOG.length === 8, tc("el catálogo tiene exactamente 8 skills"));
+  const ids = SKILL_CATALOG.map((s) => s.id);
+  assert(new Set(ids).size === 8, tc("los ids de skill son únicos"));
+  assert(ids.includes("contenido-redes") && !ids.includes("social-media"),
+    tc("Contenido y Redes está fusionada (sin social-media suelta)"));
+  assert(ids.includes("ads-manager") && ids.includes("finance-contabilidad"),
+    tc("incluye Ads y Finanzas (negocio)"));
+
+  // Cada skill tiene nombre, categoría y metadatos de salida utilizables.
   let metaOk = true;
   for (const s of SKILL_CATALOG) {
+    if (!s.name || !s.category) metaOk = false;
     const m = getSkillOutputMeta(s.id);
     if (!m.outputSummary || !Array.isArray(m.sections) || m.sections.length === 0) metaOk = false;
   }
-  assert(metaOk, tc("cada skill del catálogo tiene outputSummary + sections"));
+  assert(metaOk, tc("cada skill tiene name/category + outputSummary/sections"));
   assert(["corta", "media", "extensa"].includes(getSkillOutputMeta("web-creator").length),
     tc("getSkillOutputMeta.length es un valor válido"));
   assert(getSkillOutputMeta("id-inexistente").sections.length > 0,
     tc("getSkillOutputMeta tiene fallback genérico"));
-
-  // inferSkills devuelve, por skill, el catálogo anidado + matchedConditions.
-  const recs = inferSkills({
-    businessModel: "SaaS",
-    phaseArtifacts: [{ type: "CONTENT", artifacts: [{ title: "Distribución", content: "Instagram, posts, contenido" }] }],
-    phaseQuizAnswers: [],
-    projectMemory: { channels: { value: ["Instagram"] } },
-  });
-  assert(recs.length === SKILL_CATALOG.length, tc("inferSkills devuelve una recomendación por skill del catálogo"));
-  assert(recs.every((r) => typeof r.skill?.id === "string" && typeof r.skill?.name === "string"),
-    tc("cada recomendación lleva skill.id y skill.name (clave del aplanado del GET)"));
-  assert(recs.every((r) => Array.isArray(r.matchedConditions)),
-    tc("cada recomendación lleva matchedConditions (chips 'Basado en')"));
-  const always = recs.find((r) => r.skill.id === "web-creator");
-  assert(!!always && always.confidence > 0, tc("skill 'always' (web-creator) tiene confianza > 0"));
 }
 
 // ═══════════════════════════════════════════════════════════════════════

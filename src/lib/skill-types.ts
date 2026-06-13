@@ -14,22 +14,19 @@ export type SkillCategory =
   | "legal"
   | "finanzas";
 
-/** Skill (recomendación + selección del usuario), forma plana. */
+/**
+ * Skill del catálogo (forma plana). Sin motor de recomendación: el conjunto es
+ * fijo y se generan todas. `selected`/`custom` se mantienen opcionales por
+ * compatibilidad con datos antiguos en `project.skills`.
+ */
 export interface SkillData {
   id: string;
   name: string;
   description: string;
   icon: string;
   category: SkillCategory;
-  /** 0..1 — confianza de la recomendación. */
-  confidence: number;
-  /** Texto legible del porqué de la recomendación. */
-  reason: string;
-  recommended: boolean;
-  selected: boolean;
-  custom: boolean;
-  /** Condiciones cumplidas (chips "Basado en:"). Opcional para back-compat. */
-  matchedConditions?: string[];
+  selected?: boolean;
+  custom?: boolean;
 }
 
 /** Skill generada (contenido markdown) que va al Handoff. */

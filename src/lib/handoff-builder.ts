@@ -681,22 +681,7 @@ function buildGenericSkill(ctx: HandoffOptions, skill: { id: string; name: strin
     "",
     "## Objetivo",
     "",
-    skill.description,
-    "",
-    ...(catalogSkill ? [
-      "",
-      "## Criterios de Recomendación",
-      "",
-      ...catalogSkill.conditions.map(c => {
-        switch (c.type) {
-          case "always": return "- Siempre recomendada (base universal)";
-          case "business_model_is": return `- Modelo de negocio: ${c.values.join(", ")}`;
-          case "phase_artifact_contains": return `- Fase ${c.phaseType} contiene: ${c.keywords.join(", ")}`;
-          case "has_channel_in_bullseye": return `- Canales en Bullseye: ${c.channelKeywords.join(", ")}`;
-          default: return `- ${c.type}`;
-        }
-      }),
-    ] : []),
+    catalogSkill?.description || skill.description,
     "",
     "---",
     "",
