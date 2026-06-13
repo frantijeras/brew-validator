@@ -246,15 +246,14 @@ function buildSkillMarkdown(skillId: string, ctx: ProjectContext): string {
     L.push(role);
     L.push("");
   }
-  L.push("## Contexto del proyecto");
-  L.push(`- Proyecto: ${ctx.projectName}`);
-  L.push(`- Target: ${ctx.targetUser}`);
-  if (ctx.valueProposition) L.push(`- Propuesta de valor: ${ctx.valueProposition}`);
-  if (ctx.problem) L.push(`- Problema: ${ctx.problem}`);
-  L.push(`- Modelo de negocio: ${ctx.businessModel || "Por definir"}`);
-  L.push(`- Monetizacion: ${ctx.monetization}`);
-  if (ctx.tone) L.push(`- Tono de marca: ${ctx.tone}`);
-  if (ctx.channels.length) L.push(`- Canales: ${ctx.channels.join(", ")}`);
+  L.push("## Contexto");
+  L.push(
+    "El contexto autoritativo del proyecto **NO es la idea inicial**: vive en los " +
+      "documentos del paquete, ya validados y evolucionados por las fases. Las " +
+      "decisiones finales (target, modelo de negocio, pricing, tono, canales) están " +
+      "en `../AGENT.md`; el detalle por área, en `../contexto/*.md` (ver mapa abajo). " +
+      "Trabaja SIEMPRE sobre esas fuentes; no asumas datos de la idea de partida."
+  );
   L.push("");
 
   if (refs.length || assets.length) {
