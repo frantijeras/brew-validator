@@ -585,27 +585,24 @@ function HandoffTab({
         <h3 className="text-sm font-semibold text-white mb-3">
           Estructura del paquete
         </h3>
-        <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-4 font-mono text-xs text-slate-400 space-y-1">
-          <div className="text-white font-medium">
-            {projectName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}/
-          </div>
-          <div className="pl-3">├── README.md</div>
-          {completedPhases.map((phase, i) => (
-            <div key={phase.id} className="pl-3">
-              {i === completedPhases.length - 1 && selectedSkills.length === 0 ? "└──" : "├──"}{' '}{String(phase.sortOrder).padStart(2, "0")}-{phase.label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}.md
-            </div>
-          ))}
-          <div className="pl-3">└── skills/</div>
-          {selectedSkills.length > 0 ? (
-            selectedSkills.map((skill, i) => (
-              <div key={skill.id} className="pl-6">
-                {i === selectedSkills.length - 1 ? "└──" : "├──"}{' '}{skill.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}.md
-              </div>
-            ))
-          ) : (
-            <div className="pl-6">└── README.md</div>
-          )}
-        </div>
+        <pre className="rounded-lg border border-slate-700 bg-slate-900/60 p-4 font-mono text-xs text-slate-400 overflow-x-auto">
+{`${projectName.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}/
+├── AGENT.md
+├── README.md
+├── contexto/
+│   ├── 1.analisis-de-mercado.md
+│   ├── 2.viabilidad-economica.md
+│   ├── 3.voz-y-tono.md
+│   ├── 3d.guia-de-estilo.md
+│   ├── 4.estrategia-distribucion.md
+│   └── 5.roadmap.md
+├── assets/
+│   ├── logo.svg
+│   ├── maqueta.html
+│   └── guia-estilos.pdf
+└── skills/
+${selectedSkills.map((s) => s.id).map((id: string, i: number, arr: string[]) => `    ${i === arr.length - 1 ? "└──" : "├──"} ${id}.md`).join("\n") || "    └── (genera las skills)"}`}
+        </pre>
       </div>
     </div>
   );

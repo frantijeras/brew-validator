@@ -234,16 +234,16 @@ function buildAgentMd(ctx: HandoffOptions): string {
           `- **Tipografía cuerpo:** ${visualMeta.fontBody}`,
           `- **Tono:** ${mTone || "Profesional y cercano"}`,
           "",
-          "Detalle completo en `3d.guia-de-estilo.md`. Logotipo en `skills/3c-logos/logo.svg`",
-          "y maqueta en `skills/3d-assets/index.html` (con el logotipo incrustado).",
+          "Detalle completo en `contexto/3d.guia-de-estilo.md`. Logotipo en `assets/logo.svg`",
+          "y maqueta en `assets/maqueta.html` (con el logotipo incrustado).",
         ].join("\n")
-      : "- Voz y tono en `3.voz-y-tono.md`; estilo visual en `3d.guia-de-estilo.md`.",
+      : "- Voz y tono en `contexto/3.voz-y-tono.md`; estilo visual en `contexto/3d.guia-de-estilo.md`.",
     "",
     "---",
     "",
     "## 🗂️ Cómo leer este paquete",
     "",
-    "Lee los `.md` numerados en orden (1 → 5). Cada uno corresponde a una fase del",
+    "Lee los `.md` numerados de `contexto/` en orden (1 → 5). Cada uno corresponde a una fase del",
     "proceso de validación. Los assets técnicos (logotipos, maqueta y guía de estilo)",
     "están en `skills/`. El proceso de *naming* se omite a propósito: no aporta",
     "contexto útil para construir el producto.",
@@ -251,10 +251,10 @@ function buildAgentMd(ctx: HandoffOptions): string {
     "## 📋 Instrucciones para el Agente",
     "",
     "1. **Lee este archivo** antes de empezar cualquier tarea.",
-    "2. **Lee los reportes de fase** numerados (`1.*.md` … `5.*.md`) para el contexto de negocio.",
+    "2. **Lee los reportes** numerados de `contexto/` (`1.*.md` … `5.*.md`) para el contexto de negocio.",
     "3. **Respeta las decisiones** tomadas (target, tono, canales, etc.).",
     "4. **Usa español** para todo el contenido y copy.",
-    "5. **Mantén coherencia** con la identidad visual (`3d.guia-de-estilo.md` + assets).",
+    "5. **Mantén coherencia** con la identidad visual (`contexto/3d.guia-de-estilo.md` + `assets/`).",
     "6. **Consulta las skills** de marketing en `skills/*.md` cuando apliquen.",
     "",
     "---",
@@ -289,28 +289,28 @@ function buildReadme(ctx: HandoffOptions): string {
     "",
     "---",
     "",
-    "## 📁 Estructura del Proyecto",
+    "## Estructura del Paquete",
     "",
     "```",
     `${safeName}/`,
-    `├── AGENT.md                   ← Contexto para agentes AI (leer primero)`,
-    `├── README.md                  ← Este archivo`,
-    `├── 1.analisis-de-mercado.md   ← Análisis de mercado y competencia`,
-    `├── 2.viabilidad-economica.md  ← Modelo de negocio y viabilidad`,
-    `├── 3.voz-y-tono.md            ← Personalidad de marca (voz y tono)`,
-    `├── 3d.guia-de-estilo.md       ← Colores, fuentes y dirección visual`,
-    `├── 4.estrategia-distribucion.md ← Canales y contenido`,
-    `├── 5.roadmap.md               ← Plan de ejecución 30/60/90`,
-    `└── skills/                    ← Assets técnicos + skills de marketing`,
-    `    ├── 3c-logos/`,
-    `    │   └── logo.svg           ← Logotipo elegido`,
-    `    ├── 3d-assets/`,
-    `    │   ├── index.html         ← Maqueta con el logotipo incrustado`,
-    `    │   └── guia-estilos.pdf   ← Guía de estilo en PDF`,
-    `    └── *.md                   ← Skills de marketing seleccionadas`,
+    `├── AGENT.md                       <- Contexto para agentes IA (leer primero)`,
+    `├── README.md                      <- Este archivo`,
+    `├── contexto/                      <- Documentacion del proyecto (leer en orden)`,
+    `│   ├── 1.analisis-de-mercado.md`,
+    `│   ├── 2.viabilidad-economica.md`,
+    `│   ├── 3.voz-y-tono.md`,
+    `│   ├── 3d.guia-de-estilo.md`,
+    `│   ├── 4.estrategia-distribucion.md`,
+    `│   └── 5.roadmap.md`,
+    `├── assets/                        <- Identidad visual`,
+    `│   ├── logo.svg                   <- Logotipo elegido`,
+    `│   ├── maqueta.html               <- Maqueta con el logotipo incrustado`,
+    `│   └── guia-estilos.pdf           <- Guia de estilo en PDF`,
+    `└── skills/                        <- Guias accionables (referencian ../contexto y ../assets)`,
+    `    └── *.md`,
     "```",
     "",
-    "> El proceso de _naming_ se excluye a propósito del paquete.",
+    "> El proceso de naming se excluye a proposito del paquete.",
     "",
     "---",
     "",
@@ -742,58 +742,58 @@ export async function buildHandoffZip(options: HandoffOptions): Promise<Buffer> 
     // para agentes externos). Tampoco hay Brand Book consolidado.
     const marketAnalysis = buildMarketAnalysis(options, assets);
     if (marketAnalysis) {
-      archive.append(marketAnalysis, { name: `${prefix}1.analisis-de-mercado.md` });
+      archive.append(marketAnalysis, { name: `${prefix}contexto/1.analisis-de-mercado.md` });
     }
 
     const businessPlan = buildBusinessPlan(options, assets);
     if (businessPlan) {
-      archive.append(businessPlan, { name: `${prefix}2.viabilidad-economica.md` });
+      archive.append(businessPlan, { name: `${prefix}contexto/2.viabilidad-economica.md` });
     }
 
     // 3.voz-y-tono.md — sub-paso voice (sin naming).
     const voiceDoc = buildVoiceDoc(options);
     if (voiceDoc) {
-      archive.append(voiceDoc, { name: `${prefix}3.voz-y-tono.md` });
+      archive.append(voiceDoc, { name: `${prefix}contexto/3.voz-y-tono.md` });
     }
 
     // 3d.guia-de-estilo.md — documentación de estilos (colores, fuentes).
     const styleGuideDoc = buildStyleGuideDoc(options);
     if (styleGuideDoc) {
-      archive.append(styleGuideDoc, { name: `${prefix}3d.guia-de-estilo.md` });
+      archive.append(styleGuideDoc, { name: `${prefix}contexto/3d.guia-de-estilo.md` });
     }
 
     const distStrategy = buildDistributionStrategy(options, assets);
     if (distStrategy) {
-      archive.append(distStrategy, { name: `${prefix}4.estrategia-distribucion.md` });
+      archive.append(distStrategy, { name: `${prefix}contexto/4.estrategia-distribucion.md` });
     }
 
     const roadmap = buildRoadmap(options, assets);
     if (roadmap) {
-      archive.append(roadmap, { name: `${prefix}5.roadmap.md` });
+      archive.append(roadmap, { name: `${prefix}contexto/5.roadmap.md` });
     }
 
-    // ── skills/3c-logos/ y skills/3d-assets/ — assets técnicos de identidad ──
+    // ── assets/ — logotipo elegido + maqueta + guía de estilo en PDF ──
     // Solo el logotipo ELEGIDO (las 12 propuestas no aportan al entregable).
     const chosenLogo = getChosenLogo(options);
     if (chosenLogo) {
-      archive.append(chosenLogo, { name: `${prefix}skills/3c-logos/logo.svg` });
+      archive.append(chosenLogo, { name: `${prefix}assets/logo.svg` });
     }
 
     const threeD = getThreeDAssets(options);
     if (threeD) {
       archive.append(threeD.maquetaHtml, {
-        name: `${prefix}skills/3d-assets/index.html`,
+        name: `${prefix}assets/maqueta.html`,
       });
       // Guía de estilo en PDF (servidor): documenta colores y fuentes. El
-      // logotipo SVG va incrustado en index.html y como logo.svg.
+      // logotipo SVG va incrustado en maqueta.html y como logo.svg.
       try {
         const pdf = buildReportPdf({
-          title: `Guía de Estilo — ${options.projectName}`,
+          title: `Guia de Estilo - ${options.projectName}`,
           content: threeD.styleGuideMarkdown,
           phaseType: "IDENTITY",
           projectName: options.projectName,
         });
-        archive.append(pdf, { name: `${prefix}skills/3d-assets/guia-estilos.pdf` });
+        archive.append(pdf, { name: `${prefix}assets/guia-estilos.pdf` });
       } catch (err) {
         console.error("[handoff] no se pudo generar guia-estilos.pdf:", err);
       }

@@ -883,26 +883,27 @@ async function testHandoffBuilder() {
   const requiredFiles = [
     "AGENT.md",
     "README.md",
-    "1.analisis-de-mercado.md",
-    "2.viabilidad-economica.md",
-    "3.voz-y-tono.md",
-    "3d.guia-de-estilo.md",
-    "4.estrategia-distribucion.md",
-    "5.roadmap.md",
-    "skills/3c-logos/logo.svg",
-    "skills/3d-assets/index.html",
-    "skills/3d-assets/guia-estilos.pdf",
+    "contexto/1.analisis-de-mercado.md",
+    "contexto/2.viabilidad-economica.md",
+    "contexto/3.voz-y-tono.md",
+    "contexto/3d.guia-de-estilo.md",
+    "contexto/4.estrategia-distribucion.md",
+    "contexto/5.roadmap.md",
+    "assets/logo.svg",
+    "assets/maqueta.html",
+    "assets/guia-estilos.pdf",
     "skills/project-handoff.md",
   ];
   for (const rf of requiredFiles) {
     assert(has(rf), tc(`ZIP contiene: ${rf}`));
   }
 
-  // NEGATIVOS: ni naming, ni Brand Book, ni nomenclatura antigua, ni fase LOCKED.
+  // NEGATIVOS: estructura nueva (contexto/ + assets/), sin nomenclatura antigua.
+  assert(has("contexto/") && has("assets/"), tc("usa carpetas contexto/ y assets/"));
+  assert(!has("skills/3c-logos") && !has("skills/3d-assets"), tc("sin carpetas viejas skills/3c-logos|3d-assets"));
   assert(!has("03-identidad-marca.md"), tc("sin Brand Book consolidado (03-identidad-marca.md)"));
   assert(!has("1.naming") && !has("naming.md"), tc("proceso de naming excluido del paquete"));
   assert(!has("logos-options"), tc("solo el logo elegido (sin las 12 propuestas)"));
-  assert(!has("6."), tc("fase LOCKED (Landing) correctamente omitida"));
 }
 
 // ═══════════════════════════════════════════════════════════════════════
