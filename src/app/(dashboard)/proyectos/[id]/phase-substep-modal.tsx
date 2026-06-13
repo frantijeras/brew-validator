@@ -23,7 +23,7 @@ import {
   getVisualOption,
   type VisualStyleGuide,
 } from "@/lib/identity-visual";
-import { extractLogoSvgs, numberLogoHtml } from "@/lib/identity-logo";
+import { extractLogoSvgs, numberLogoHtml, embedLogoInHtml } from "@/lib/identity-logo";
 import { getNextIdentitySubStep } from "@/lib/identity-substeps";
 
 /**
@@ -50,6 +50,12 @@ export interface PhaseSubstepModalProps {
   subStep: string;
   subStepArtifact: SubStepArtifact | null;
   subStepChoice: string | null;
+  /**
+   * SVG del logotipo ya elegido en la sub-fase `logo`. Si está presente, se
+   * incrusta en las 3 muestras de estilo visual para que el usuario las compare
+   * con SU logotipo ya colocado (no un placeholder).
+   */
+  chosenLogoSvg?: string | null;
   // Current project name. Needed for the rename-impact preview shown
   // when confirming a name in the IDENTITY `naming` sub-step.
   currentName?: string;
@@ -129,6 +135,7 @@ export function PhaseSubstepModal({
   subStep,
   subStepArtifact,
   subStepChoice,
+  chosenLogoSvg,
   currentName,
   onResolved,
 }: PhaseSubstepModalProps) {
@@ -157,10 +164,21 @@ export function PhaseSubstepModal({
   // iframe, a meta card with palette/typography/mood, and three
   // actions (use this style / iterate / download HTML).
   const [visualVariant, setVisualVariant] = useState<"A" | "B" | "C">("A");
-  const visualContent = useMemo(
-    () => parseVisualArtifactContent(subStepArtifact?.content),
-    [subStepArtifact?.content]
-  );
+  const visualContent = useMemo(() => {
+    const parsed = parseVisualArtifactContent(subStepArtifact?.content);
+    // Incrusta el logotipo elegido en las 3 muestras para que el usuario las
+    // compare con SU logo ya colocado (el agente deja el token {{LOGO}}).
+    if (parsed && chosenLogoSvg) {
+      return {
+        ...parsed,
+        options: parsed.options.map((o) => ({
+          ...o,
+          html: embedLogoInHtml(o.html, chosenLogoSvg),
+        })) as typeof parsed.options,
+      };
+    }
+    return parsed;
+  }, [subStepArtifact?.content, chosenLogoSvg]);
   const isVisualSubStep = useMemo(
     () => phaseType === "IDENTITY" && subStep === "visual",
     [phaseType, subStep]

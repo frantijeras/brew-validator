@@ -109,6 +109,47 @@ export function getChosenLogoSvg(
   return svgs[idx - 1] ?? null;
 }
 
+/** Tokens de marcador que el template del agente puede usar para el logotipo. */
+export const LOGO_TOKENS = [
+  "{{LOGO}}",
+  "{{logo}}",
+  "<!--LOGO-->",
+  "<!-- LOGO -->",
+  "[LOGO]",
+];
+
+/**
+ * Incrusta el SVG del logotipo en un HTML.
+ *  1. Sustituye los tokens de marcador (`{{LOGO}}`, `[LOGO]`, …) si existen.
+ *  2. Si no hay marcador, inyecta una cabecera con el logo tras `<body>`.
+ *
+ * Función pura (sin dependencias de servidor): se usa tanto al componer la
+ * maqueta 3d server-side como al previsualizar las 3 muestras en el cliente
+ * (para que el usuario vea su logotipo ya colocado al elegir el estilo).
+ * Si `logoSvg` es null, devuelve el HTML original sin tocar.
+ */
+export function embedLogoInHtml(html: string, logoSvg: string | null): string {
+  if (!logoSvg) return html;
+
+  let replaced = false;
+  let out = html;
+  for (const token of LOGO_TOKENS) {
+    if (out.includes(token)) {
+      out = out.split(token).join(logoSvg);
+      replaced = true;
+    }
+  }
+  if (replaced) return out;
+
+  const header = `<div data-injected-logo="1" style="display:flex;align-items:center;gap:12px;padding:14px 24px;border-bottom:1px solid rgba(0,0,0,0.08)"><span style="display:inline-flex;align-items:center;height:44px">${logoSvg}</span></div>`;
+  const bodyOpen = out.match(/<body[^>]*>/i);
+  if (bodyOpen && bodyOpen.index != null) {
+    const at = bodyOpen.index + bodyOpen[0].length;
+    return out.slice(0, at) + header + out.slice(at);
+  }
+  return header + out;
+}
+
 /** Normaliza una elección de logo a un índice 1-based, o null. */
 export function parseLogoIndex(
   choice: string | number | null | undefined

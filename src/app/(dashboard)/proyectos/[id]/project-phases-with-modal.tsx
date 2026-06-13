@@ -61,6 +61,8 @@ interface PhaseData {
   subStepOrder: number | null;
   subStepArtifact: { type?: "html" | "markdown"; content?: string; options?: Array<{ value: string; label: string }> } | null;
   subStepChoice: string | null;
+  /** SVG del logotipo elegido (3c), resuelto en servidor para el preview visual. */
+  chosenLogoSvg?: string | null;
   lastError?: PhaseError | null;
   /** ISO timestamp del último cambio (≈ entrada en PROCESSING) para el contador. */
   updatedAt?: string;
@@ -992,6 +994,7 @@ export function ProjectPhasesWithModal({
           subStep={substepModalPhase.subStep || "naming"}
           subStepArtifact={substepModalPhase.subStepArtifact}
           subStepChoice={substepModalPhase.subStepChoice}
+          chosenLogoSvg={substepModalPhase.chosenLogoSvg}
           currentName={projectName}
           onResolved={() => {
             // When the user confirms / iterates, the parent (page.tsx) will

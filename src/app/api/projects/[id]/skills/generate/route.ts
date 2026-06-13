@@ -43,7 +43,7 @@ const CONTEXT_DOC_SUMMARY: Record<ContextDocKey, string> = {
 // Resumen de los assets de identidad.
 const ASSET_SUMMARY: Record<string, string> = {
   "../assets/logo.svg": "Logotipo vectorial elegido (SVG, 1:1).",
-  "../assets/maqueta.html": "Maqueta web con el logotipo incrustado.",
+  "../assets/template.html": "Template web (set de componentes: hero, cards, formularios, secciones) con el logotipo incrustado.",
   "../assets/guia-estilos.pdf": "Guía de estilo en PDF.",
 };
 
@@ -61,8 +61,8 @@ const SKILL_REFS: Record<string, ContextDocKey[]> = {
 
 // Assets de identidad (carpeta assets/) que algunas skills usan.
 const SKILL_ASSETS: Record<string, string[]> = {
-  "web-creator": ["../assets/logo.svg", "../assets/maqueta.html"],
-  "project-handoff": ["../assets/logo.svg", "../assets/maqueta.html", "../assets/guia-estilos.pdf"],
+  "web-creator": ["../assets/logo.svg", "../assets/template.html"],
+  "project-handoff": ["../assets/logo.svg", "../assets/template.html", "../assets/guia-estilos.pdf"],
 };
 
 /** Nota de guía por sección (genérica pero conectada al proyecto). */

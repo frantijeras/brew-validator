@@ -1,16 +1,3 @@
-# project-branding — Backup
-
-> Fase 3 — Identidad de Marca (naming, voz y tono, logo SVG 3c, estilo visual y maqueta 3d)
-
-> **BACKUP — solo lectura**
-> Este archivo es una copia de referencia de la skill activa en el VPS (OpenClaw).
-> La version en uso esta en el VPS en `/root/.openclaw/workspace/skills/project-branding/SKILL.md`.
-> **No edites este archivo** para cambiar el comportamiento del agente — hazlo directamente en el VPS o
-> pide a la IA que tenga acceso SSH que aplique los cambios.
-> Ultima sincronizacion: 2026-06-12
-
----
-
 # project-branding
 
 ## ✍️ Regla lingüística OBLIGATORIA (siglas y tecnicismos)
@@ -225,23 +212,14 @@ Genera un informe de Voz y Tono. Usa el framework de los 12 Arquetipos de Jung c
 
 Genera **un único documento HTML renderizable** que contenga **12 propuestas de logos vectoriales minimalistas en código SVG (Gráficos vectoriales redimensionables)** para el nombre ya elegido y coherentes con la voz/tono definida. El usuario abre el HTML, compara las 12 propuestas en una rejilla y elige una.
 
-**ANTES DE DIBUJAR — analiza el SECTOR del proyecto.** Lee `ideaContext` (descripción, problema, propuesta de valor, target) y `projectMemory` para identificar el **sector/industria** y el **público**. Los 5 principios de un buen logo, en orden de importancia:
-
-1. **Appropriate (ENCAJA CON EL SECTOR)** — el logo DEBE encajar con la industria y el público reales del proyecto. Un servicio de cuidado de niños NO lleva estética tecnológica/cripto; una fintech NO lleva estética infantil. Deriva motivos, formas y tono visual del SECTOR concreto (p. ej. cuidado infantil → formas redondeadas, cálidas, cercanas; legal/finanzas → sobrio, sólido, confianza; ecológico → orgánico, natural). Este principio tiene prioridad: un logo bonito pero impropio del sector es un logo MALO.
-2. **Simple** — fácil de reconocer y recordar; mejor pocas formas limpias que detalle recargado.
-3. **Memorable** — distintivo, no genérico.
-4. **Timeless** — que no se vea anticuado en 2 años (evita modas pasajeras).
-5. **Versatile** — funciona en grande y en pequeño (favicon), en color y en monocromo.
-
 **EXIGENCIAS TÉCNICAS OBLIGATORIAS para cada logo SVG:**
 
-1. **SVG 100% semántico** — usa elementos vectoriales reales (`<path>`, `<circle>`, `<rect>`, `<polygon>`, `<text>`), nunca imágenes rasterizadas ni `<image>` embebido. Prefiere primitivas geométricas y composiciones limpias sobre `<path>` enrevesados.
-2. **`viewBox` CUADRADO 1:1 OBLIGATORIO** — cada SVG declara un `viewBox` cuadrado **1:1** (p. ej. `viewBox="0 0 100 100"` o `0 0 200 200`). Centra el logotipo dentro del lienzo. No fijes width/height absolutos ni uses viewBox rectangulares (como `0 0 200 80`).
-3. **Estructura limpia y reutilizable** — agrupa con `<g>`, reutiliza con `<defs>`, recorta con `<clipPath>` cuando aporte. Incluye `<title>` y `<desc>` por accesibilidad.
-4. **Colores en variables reutilizables** — usa `currentColor` y/o CSS (Hojas de estilo en cascada) custom properties (`--brand-primary`, `--brand-accent`), de modo que cambiar la paleta o pasar a monocromo sea trivial. La paleta debe ser coherente con el sector y la voz/tono.
-5. **CERO dependencias externas** — nada de `<link rel="stylesheet">` a CDN ni Google Fonts externas; todo embebido. Cada logo renderiza offline y se puede copiar/pegar por separado.
-6. **Variedad REAL (no variaciones del mismo)** — los 12 deben ser enfoques DISTINTOS, no el mismo logo con tweaks. Cubre estos tipos: wordmark (tipográfico), lettermark/monograma (iniciales), pictorial (símbolo figurativo del sector), abstract (símbolo abstracto) y combination (símbolo + nombre). Varía la complejidad (de muy simple a algo más elaborado) manteniendo el minimalismo.
-7. **Rationale por propuesta** — en `reportMarkdown`, explica en 1 frase por qué cada bloque de propuestas encaja con el sector y el target.
+1. **SVG 100% semántico** — usa elementos vectoriales reales (`<path>`, `<circle>`, `<rect>`, `<polygon>`, `<text>`), nunca imágenes rasterizadas ni `<image>` embebido.
+2. **`viewBox` correcto** — cada SVG declara su `viewBox` para que escale sin pixelarse a cualquier tamaño. No fijes width/height absolutos que rompan la escalabilidad.
+3. **Colores en variables reutilizables** — define los colores como CSS (Hojas de estilo en cascada) custom properties (`--brand-primary`, `--brand-accent`) o atributos reutilizables, de modo que cambiar la paleta sea trivial.
+4. **CERO dependencias de hojas de estilo externas** — nada de `<link rel="stylesheet">` a CDN ni a Google Fonts externas; todo el estilo va embebido en el documento. Cada logo debe ser autónomo y renderizar offline.
+5. **Cada logo autónomo** — cada uno de los 12 debe poder copiarse y pegarse por separado y seguir funcionando solo.
+6. **Variedad real** — los 12 deben explorar enfoques distintos: solo tipografía (wordmark), símbolo + nombre, monograma/iniciales y abstracto. Minimalistas siempre.
 
 **Output (modo report):** SIEMPRE este JSON. Sin emojis. El HTML va dentro del artefacto.
 
@@ -252,7 +230,7 @@ Genera **un único documento HTML renderizable** que contenga **12 propuestas de
   "reportMarkdown": "## Logos — 12 propuestas SVG (Gráficos vectoriales redimensionables)\n\nHe generado 12 logos minimalistas para [Nombre del proyecto]. Ábrelos en la previsualización para compararlos y elige el que mejor represente tu marca.\n\n- Propuestas 1-3: tipográficas (wordmark)\n- Propuestas 4-6: símbolo + nombre\n- Propuestas 7-9: monograma / iniciales\n- Propuestas 10-12: abstractas\n\nTodos son SVG semánticos, escalables (viewBox correcto), con colores en variables y sin dependencias externas.",
   "subStepArtifact": {
     "type": "html",
-    "content": "<!DOCTYPE html><html lang=\"es\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><style>:root{--brand-primary:#hex;--brand-accent:#hex}body{margin:0;font-family:system-ui,sans-serif}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;padding:16px}.logo-card{border:1px solid #eee;border-radius:12px;padding:20px;text-align:center}svg{width:100%;height:auto;aspect-ratio:1/1}</style></head><body><div class=\"grid\"><div class=\"logo-card\"><svg viewBox=\"0 0 200 200\" xmlns=\"http://www.w3.org/2000/svg\"><!-- logo 1 semantico en lienzo cuadrado 1:1, color via var(--brand-primary) --></svg></div><!-- ... 12 logo-card en total, todos viewBox 0 0 200 200 ... --></div></body></html>"
+    "content": "<!DOCTYPE html><html lang=\"es\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><style>:root{--brand-primary:#hex;--brand-accent:#hex}body{margin:0;font-family:system-ui,sans-serif}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;padding:16px}.logo-card{border:1px solid #eee;border-radius:12px;padding:20px;text-align:center}svg{width:100%;height:auto}</style></head><body><div class=\"grid\"><div class=\"logo-card\"><svg viewBox=\"0 0 200 80\" xmlns=\"http://www.w3.org/2000/svg\"><!-- logo 1 semantico, color via var(--brand-primary) --></svg></div><!-- ... 12 logo-card en total ... --></div></body></html>"
   }
 }
 ```
@@ -332,21 +310,15 @@ Genera 5-6 preguntas sobre **estilo visual, paleta de colores, referencias y tip
 
 ### Modo report
 
-Genera **3 templates visuales alternativos A/B/C maquetados en HTML**. Cada template NO es solo una landing: es un **set de componentes** que demuestra el sistema de diseño aplicado — como mínimo: **navbar/header, hero, sección de cards (3), un formulario (con inputs, labels y botón), una sección de contenido/feature y footer**, además de botones (primario/secundario) y el logotipo en su sitio. El usuario abre las 3, compara y elige.
+Genera **3 estilos visuales alternativos A/B/C maquetados en HTML**, cada uno con fuentes, paleta HEX (Sistema hexadecimal) y plantillas UI (Interfaz de usuario) de ejemplo (hero, card, botón, espacio para el logo). El usuario abre las 3, compara y elige.
 
-**ADAPTA AL SECTOR Y AL CONTEXTO (obligatorio).** Lee `ideaContext` (descripción, problema, propuesta de valor, target) y `projectMemory` para identificar el **sector/industria** y el **público**, y deriva de ahí la dirección visual: paleta, tipografías, formas, densidad y textos de ejemplo. Los componentes deben usar **copy y secciones propios del proyecto** (no "Lorem ipsum" ni "Tu producto aquí"): nombres de sección, titulares y CTAs coherentes con el negocio real. Un servicio de cuidado infantil y una fintech NO pueden producir el mismo template. Coherencia con la voz/tono ya definida (`previousArtifacts`).
+**EXIGENCIAS TÉCNICAS OBLIGATORIAS para cada estilo HTML:**
 
-**EL LOGOTIPO ELEGIDO.** El usuario ya eligió un logo en la sub-fase `logo`. Coloca el token literal `{{LOGO}}` donde deba ir el logotipo (al menos en navbar y footer): la app lo sustituye automáticamente por el SVG del logotipo elegido, **tanto en las 3 muestras que el usuario compara como en el template final**. Reserva un espacio **cuadrado 1:1** para ese token (p. ej. un contenedor de 40×40). No dibujes tú un logo: usa el token.
-
-**EXIGENCIAS TÉCNICAS OBLIGATORIAS para cada template HTML:**
-
-1. **Set de componentes completo** — navbar, hero, 3 cards, formulario, sección feature/contenido y footer; botones primario y secundario; estados visibles (hover no es obligatorio). No te quedes en un hero suelto.
-2. **Clases CSS (Hojas de estilo en cascada) limpias** — clases semánticas coherentes, no estilos caóticos.
-3. **Responsive (adaptable a móvil)** — unidades relativas, `meta viewport` y media queries para que se vea bien en móvil y escritorio.
-4. **SIN dependencias externas** — nada de `<link>` a CDN ni Google Fonts remotas. Usa `@font-face` embebido o una pila del sistema (`system-ui`, sans/serif). Renderiza offline. CERO `<script>`.
-5. **Paleta HEX aplicada** — define los colores como CSS custom properties (`--color-primary`, `--color-secondary`, `--color-accent`) y úsalos en TODO el template, coherentes con el sector.
-6. **Autónomo y < 50 KB** — cada variante es un documento HTML5 completo, independiente y sandbox-safe.
-7. **Las 3 variantes REALMENTE distintas** — distinta personalidad visual (p. ej. una sobria, otra cálida, otra audaz), no la misma con otro color. En `meta.mood` resume la personalidad de cada una.
+1. **Clases CSS (Hojas de estilo en cascada) limpias o utilidades inline** — maqueta con clases semánticas o utilidades inline coherentes, no con estilos caóticos.
+2. **Responsive (adaptable a móvil)** — usa unidades relativas, `meta viewport` y media queries o utilidades flexibles para que se vea bien en móvil y escritorio.
+3. **SIN dependencias externas** — nada de `<link>` a CDN ni a Google Fonts remotas. Si usas tipografías de Google Fonts, decláralas con `@font-face` embebido o recurre a una pila de fuentes del sistema (`system-ui`, sans/serif). El documento debe renderizar offline.
+4. **Paleta HEX aplicada** — define los colores como CSS custom properties (`--color-primary`, `--color-secondary`, `--color-accent`) y úsalos en toda la maqueta.
+5. **Autónomo** — cada variante es un documento HTML5 completo e independiente.
 
 ```json
 {
@@ -364,7 +336,7 @@ Genera **3 templates visuales alternativos A/B/C maquetados en HTML**. Cada temp
 
 > **No hay SUB-FASE 5.** La Fase 3 termina en `visual` (3d). Cuando el usuario
 > elige una variante A/B/C, la app cierra la fase y compone **app-side**:
-> el template HTML de componentes con el logotipo SVG elegido incrustado (`template.html`) y la
+> la maqueta HTML con el logotipo SVG elegido incrustado (`index.html`) y la
 > guía de estilo en PDF (`guia-estilos.pdf`), extrayendo colores y fuentes del
 > HTML de la variante. El agente NO genera consolidación, Brand Book ni
 > `handoffArtifacts`.

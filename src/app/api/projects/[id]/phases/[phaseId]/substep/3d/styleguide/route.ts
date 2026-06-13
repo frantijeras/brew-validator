@@ -13,8 +13,8 @@ import { buildReportPdf } from "@/lib/pdf-export";
  *   SVG incrustado (inline). El cliente la usa para generar el PDF con el SVG
  *   renderizado por el navegador (html2canvas + jsPDF).
  * - por defecto → devuelve un PDF generado en servidor (texto: colores y
- *   fuentes documentados) como `guia-estilos.pdf`. El SVG va incrustado en la
- *   maqueta `index.html` y como `logo.svg` en el hand-off.
+ *   fuentes documentados) como `guia-estilos.pdf`. El SVG va incrustado en el
+ *   template `template.html` y como `logo.svg` en el hand-off.
  */
 export async function GET(
   req: Request,

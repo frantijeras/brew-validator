@@ -6,8 +6,8 @@ import { resolve3dAssets } from "@/lib/identity-3d";
 /**
  * GET /api/projects/[id]/phases/[phaseId]/substep/3d/template?variant=A|B|C
  *
- * Descarga la **maqueta HTML** (la variante de estilo visual elegida con el
- * logotipo SVG incrustado) como `index.html`.
+ * Descarga el **template HTML** (set de componentes de la variante de estilo
+ * visual elegida, con el logotipo SVG incrustado) como `template.html`.
  */
 export async function GET(
   req: Request,
@@ -42,7 +42,7 @@ export async function GET(
       status: 200,
       headers: {
         "Content-Type": "text/html; charset=utf-8",
-        "Content-Disposition": `attachment; filename="index.html"`,
+        "Content-Disposition": `attachment; filename="template.html"`,
         "Cache-Control": "no-store",
       },
     });

@@ -6,8 +6,8 @@
  *  - la variante de estilo visual elegida (A/B/C) del sub-paso `visual`.
  *
  * Y produce, SIN depender del agente:
- *  1. **Maqueta HTML** (`index.html`): la variante elegida con el logotipo SVG
- *     incrustado.
+ *  1. **Template HTML** (`template.html`): set de componentes de la variante
+ *     elegida con el logotipo SVG incrustado.
  *  2. **Guía de Estilo**: documenta colores (HEX), fuentes y dirección visual,
  *     con el logotipo SVG incrustado. Se ofrece como HTML autocontenible (para
  *     "Ver" y para generar el PDF en cliente con el SVG renderizado) y como
@@ -22,7 +22,7 @@ import {
   extractMetaFromHtml,
   type VisualStyleGuide,
 } from "@/lib/identity-visual";
-import { getChosenLogoSvg } from "@/lib/identity-logo";
+import { getChosenLogoSvg, embedLogoInHtml } from "@/lib/identity-logo";
 import { BRAND_HEX } from "@/lib/brand-colors";
 
 export type VisualVariant = "A" | "B" | "C";
@@ -143,42 +143,8 @@ export function resolve3dAssets(
 /* Incrustación del logotipo en la maqueta                            */
 /* ------------------------------------------------------------------ */
 
-const LOGO_TOKENS = ["{{LOGO}}", "{{logo}}", "<!--LOGO-->", "<!-- LOGO -->", "[LOGO]"];
-
-/**
- * Incrusta el SVG del logotipo en la maqueta HTML.
- *  1. Sustituye tokens de marcador habituales si existen.
- *  2. Si no hay marcador, inyecta una cabecera con el logo justo tras `<body>`.
- *
- * Si `logoSvg` es null, devuelve el HTML original sin tocar.
- */
-export function embedLogoInHtml(
-  html: string,
-  logoSvg: string | null
-): string {
-  if (!logoSvg) return html;
-
-  let replaced = false;
-  let out = html;
-  for (const token of LOGO_TOKENS) {
-    if (out.includes(token)) {
-      out = out.split(token).join(logoSvg);
-      replaced = true;
-    }
-  }
-  if (replaced) return out;
-
-  const header = `<div data-injected-logo="1" style="display:flex;align-items:center;gap:12px;padding:14px 24px;border-bottom:1px solid rgba(0,0,0,0.08)"><span style="display:inline-flex;align-items:center;height:44px">${logoSvg}</span></div>`;
-
-  // Inyectar tras la etiqueta <body ...> de apertura.
-  const bodyOpen = out.match(/<body[^>]*>/i);
-  if (bodyOpen && bodyOpen.index != null) {
-    const at = bodyOpen.index + bodyOpen[0].length;
-    return out.slice(0, at) + header + out.slice(at);
-  }
-  // Sin <body>: anteponer.
-  return header + out;
-}
+// `embedLogoInHtml` vive en identity-logo.ts (función pura, reutilizada por el
+// preview cliente de las 3 muestras). Se importa arriba.
 
 /* ------------------------------------------------------------------ */
 /* Guía de estilo (HTML autocontenible)                               */
@@ -481,7 +447,7 @@ export function buildStyleGuideMarkdown(params: {
     "",
     "## 5. Aplicaciones",
     "",
-    "- **Web/Landing:** ver maqueta en `assets/maqueta.html` (con el logotipo incrustado).",
+    "- **Web:** ver el template de componentes en `assets/template.html` (con el logotipo incrustado).",
     "- **Redes:** usar primario en avatares y secundario en portadas.",
     "- **Documentos:** titulares con la fuente de titulares, cuerpo con la de cuerpo.",
     "",

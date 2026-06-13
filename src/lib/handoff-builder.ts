@@ -240,7 +240,7 @@ function buildAgentMd(ctx: HandoffOptions): string {
           `- **Tono:** ${mTone || "Profesional y cercano"}`,
           "",
           "Detalle completo en `contexto/3d.guia-de-estilo.md`. Logotipo en `assets/logo.svg`",
-          "y maqueta en `assets/maqueta.html` (con el logotipo incrustado).",
+          "y template de componentes en `assets/template.html` (con el logotipo incrustado).",
         ].join("\n")
       : "- Voz y tono en `contexto/3.voz-y-tono.md`; estilo visual en `contexto/3d.guia-de-estilo.md`.",
     "",
@@ -258,7 +258,7 @@ function buildAgentMd(ctx: HandoffOptions): string {
     "- `contexto/3d.guia-de-estilo.md` — paleta, tipografía y componentes.",
     "- `contexto/4.estrategia-distribucion.md` — canales y plan de contenidos.",
     "- `contexto/5.roadmap.md` — fases y prioridades de ejecución.",
-    "- `assets/` — logotipo (`logo.svg`, 1:1), maqueta (`maqueta.html`) y guía en PDF.",
+    "- `assets/` — logotipo (`logo.svg`, 1:1), template de componentes (`template.html`) y guía en PDF.",
     "- `skills/*.md` — guías accionables de marketing/desarrollo; cada una indica qué consultar.",
     "",
     "## 📋 Instrucciones para el Agente",
@@ -317,7 +317,7 @@ function buildReadme(ctx: HandoffOptions): string {
     `│   └── 5.roadmap.md`,
     `├── assets/                        <- Identidad visual`,
     `│   ├── logo.svg                   <- Logotipo elegido`,
-    `│   ├── maqueta.html               <- Maqueta con el logotipo incrustado`,
+    `│   ├── template.html              <- Template de componentes con el logotipo incrustado`,
     `│   └── guia-estilos.pdf           <- Guia de estilo en PDF`,
     `└── skills/                        <- Guias accionables (referencian ../contexto y ../assets)`,
     `    └── *.md`,
@@ -795,10 +795,10 @@ export async function buildHandoffZip(options: HandoffOptions): Promise<Buffer> 
     const threeD = getThreeDAssets(options);
     if (threeD) {
       archive.append(threeD.maquetaHtml, {
-        name: `${prefix}assets/maqueta.html`,
+        name: `${prefix}assets/template.html`,
       });
       // Guía de estilo en PDF (servidor): documenta colores y fuentes. El
-      // logotipo SVG va incrustado en maqueta.html y como logo.svg.
+      // logotipo SVG va incrustado en template.html y como logo.svg.
       try {
         const pdf = buildReportPdf({
           title: `Guia de Estilo - ${options.projectName}`,

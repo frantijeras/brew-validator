@@ -29,6 +29,8 @@ interface PhaseData {
     options?: Array<{ value: string; label: string }>;
   } | null;
   subStepChoice: string | null;
+  hasAnswers?: boolean;
+  chosenLogoSvg?: string | null;
   lastError?: PhaseError | null;
 }
 
@@ -485,7 +487,7 @@ function HandoffTab({
 │   └── 5.roadmap.md
 ├── assets/
 │   ├── logo.svg
-│   ├── maqueta.html
+│   ├── template.html
 │   └── guia-estilos.pdf
 └── skills/
 ${skillLines}`;

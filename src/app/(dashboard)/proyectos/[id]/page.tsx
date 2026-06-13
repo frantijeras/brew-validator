@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { ProjectTabs } from "./project-tabs";
 import { ProjectHeaderMenu } from "./project-header-menu";
 import { phaseDescription } from "@/lib/phase-descriptions";
+import { getChosenLogoSvg } from "@/lib/identity-logo";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -95,7 +96,23 @@ export default async function ProjectDetailPage({ params }: Props) {
         projectId={project.id}
         ideaId={project.ideaId}
         projectName={project.name}
-        phases={project.phases.map((p) => ({
+        phases={project.phases.map((p) => {
+          // Resuelve el SVG del logotipo elegido (3c) desde el historial de
+          // sub-pasos, para incrustarlo en las 3 muestras de estilo visual (3d).
+          const history =
+            p.subStepHistory &&
+            typeof p.subStepHistory === "object" &&
+            !Array.isArray(p.subStepHistory)
+              ? (p.subStepHistory as Record<
+                  string,
+                  { choice?: string; artifact?: { content?: string } | null }
+                >)
+              : null;
+          const logoEntry = history?.logo;
+          const chosenLogoSvg = logoEntry?.artifact?.content
+            ? getChosenLogoSvg(logoEntry.artifact.content, logoEntry.choice)
+            : null;
+          return {
           id: p.id,
           type: p.type,
           label: p.label,
@@ -121,11 +138,13 @@ export default async function ProjectDetailPage({ params }: Props) {
             | { type?: "html" | "markdown"; content?: string; options?: Array<{ value: string; label: string }> }
             | null,
           subStepChoice: p.subStepChoice,
+          chosenLogoSvg,
           lastError: p.lastError as import("@/lib/phase-errors").PhaseError | null,
           // Momento del último cambio de estado (≈ entrada en PROCESSING):
           // alimenta el contador de tiempo en vivo de las tarjetas.
           updatedAt: p.updatedAt.toISOString(),
-        }))}
+          };
+        })}
         memory={project.memory as import("@/lib/project-memory").ProjectMemory | null}
         hasCompletedPhases={allCompleted}
         handoffReady={project.handoffReady ?? false}
