@@ -74,11 +74,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
 
-    // Idempotency: a terminal job must not be reprocessed. Two callbacks for
-    // the same job (bridge retry / duplicate delivery) would otherwise double
-    // -unlock phases or overwrite state. Ack and skip.
+    // Idempotency: a terminal job must not be reprocessed. Two COMPLETED
+    // callbacks for the same job (bridge retry / duplicate delivery) would
+    // otherwise double-unlock phases or overwrite state. Ack and skip.
+    //
+    // EXCEPCIÓN — callback FAILED de reseteo: el daemon, cuando el agente falla
+    // o el parseo devuelve None, marca el Job como FAILED vía
+    // `/api/jobs/[id]/status` ANTES de postear este callback. Por tanto aquí el
+    // Job ya está FAILED. Si saltáramos, la fase quedaría atascada en PROCESSING
+    // para siempre ("se queda generando"). Dejamos pasar el FAILED para devolver
+    // la fase a AVAILABLE (operación idempotente: si ya está AVAILABLE, no hace
+    // nada). No lo permitimos si el Job ya está COMPLETED (no deshacer un éxito).
     if (job.status === "COMPLETED" || job.status === "FAILED") {
-      return NextResponse.json({ ok: true, skipped: "job already terminal" });
+      const isFailureReset = status === "FAILED" && job.status !== "COMPLETED";
+      if (!isFailureReset) {
+        return NextResponse.json({ ok: true, skipped: "job already terminal" });
+      }
     }
 
     // Find phase from job input — parse defensively: a corrupt string must not
