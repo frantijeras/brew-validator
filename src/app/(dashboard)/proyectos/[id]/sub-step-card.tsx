@@ -65,10 +65,12 @@ export interface SubStepCardProps {
   /** Texto del aviso de Fallback de dominio (por defecto el mensaje estándar). */
   domainFallbackMessage?: string;
   /**
-   * Acciones contextuales (p. ej. "Ver" / "Descargar") que se muestran cuando
-   * el sub-paso está COMPLETADO, para revisar/descargar lo generado.
+   * Acciones contextuales (p. ej. "Ver") que se muestran cuando el sub-paso
+   * está COMPLETADO. En móvil ocupan el ancho completo.
    */
   actions?: React.ReactNode;
+  /** Menú de 3 puntos (kebab) a la derecha del badge. */
+  menu?: React.ReactNode;
 }
 
 /**
@@ -235,6 +237,7 @@ export function SubStepCard({
   domainFallback = false,
   domainFallbackMessage,
   actions,
+  menu,
 }: SubStepCardProps) {
   const badge = statusBadgeConfig[status];
   const StatusIcon = badge.Icon;
@@ -261,7 +264,7 @@ export function SubStepCard({
           derecho (misma estructura que la tarjeta de fase padre). En
           "processing" muestra el mensaje contextual ("Definiendo
           personalidad…", "Generando informe…") + contador de tiempo. */}
-      {(status === "processing" || !!badge.label) && (
+      {(status === "processing" || !!badge.label || menu) && (
         <div className="flex items-center justify-end gap-2">
           {status === "processing" ? (
             <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-amber-300">
@@ -272,7 +275,7 @@ export function SubStepCard({
                 className="tabular-nums text-amber-400/70"
               />
             </span>
-          ) : (
+          ) : badge.label ? (
             <span
               className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${badge.className}`}
               aria-label={`Estado: ${badge.label}`}
@@ -280,7 +283,9 @@ export function SubStepCard({
               {StatusIcon && <StatusIcon className="size-3" />}
               {badge.label}
             </span>
-          )}
+          ) : null}
+          {/* Menú de 3 puntos (Descargar / Rehacer) de la sub-fase. */}
+          {menu}
         </div>
       )}
 
@@ -334,9 +339,11 @@ export function SubStepCard({
         {subStepMeta.description}
       </p>
 
-      {/* Acciones contextuales (Ver / Descargar) — normalmente al completar. */}
+      {/* Acciones contextuales (Ver) — al completar. En móvil, ancho completo. */}
       {actions && (
-        <div className="mt-3 flex flex-wrap items-center gap-2">{actions}</div>
+        <div className="mt-3 flex flex-col items-stretch gap-2 md:flex-row md:flex-wrap md:items-center">
+          {actions}
+        </div>
       )}
 
       {showButton && (

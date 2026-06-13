@@ -28,6 +28,8 @@ import { PhaseActionButton } from "./phase-action-button";
 import { PhaseQuestionsModal } from "./phase-questions-modal";
 import { PhaseSubstepModal, type SubStepArtifact } from "./phase-substep-modal";
 import { PhaseCard } from "./phase-card";
+import { KebabMenu, type KebabItem } from "@/components/kebab-menu";
+import { ContentViewerModal } from "@/components/content-viewer-modal";
 import {
   PHASE_SUBSTEPS,
   getSubStepIndex,
@@ -256,60 +258,50 @@ const btnStyles = {
     "inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/20 hover:border-red-500/50 hover:text-red-300",
 } as const;
 
-/** Estilo compacto para los botones Ver/Descargar de un sub-paso completado. */
-const ssActionBtn =
-  "inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800/60 px-2.5 py-1 text-xs font-medium text-slate-200 transition-colors hover:bg-slate-700/60 hover:text-white";
+/** Dispara una descarga nativa sin abrir pestaña. */
+function triggerDownload(href: string) {
+  const a = document.createElement("a");
+  a.href = href;
+  a.rel = "noopener noreferrer";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
 
 /**
- * Construye las acciones Ver/Descargar de un sub-paso de la Fase 3 ya
- * completado. Cada sub-paso tiene una salida distinta:
- *  - naming/voice → markdown: Ver (HTML renderizado) + Descargar (PDF).
+ * URLs de "Ver" y "Descargar" de un sub-paso de la Fase 3 ya completado.
+ * Cada sub-paso tiene una salida distinta:
+ *  - naming/voice → markdown: Ver (HTML) + Descargar (PDF).
  *  - logo (3c)    → HTML con 12 SVG: Ver (rejilla) + Descargar (SVG elegido).
  *  - visual (3d)  → maqueta + guía: Ver (integrado) + Descargar HTML + PDF.
  */
-function buildSubStepActions(
+function subStepViewSpec(
   projectId: string,
   phaseId: string,
   subStepId: string,
   visualChoice: string | null
-): React.ReactNode {
+): { viewUrl: string; downloads: Array<{ label: string; href: string }> } {
   const base = `/api/projects/${projectId}/phases/${phaseId}/substep`;
-  const view = (href: string) => (
-    <a key="view" href={href} target="_blank" rel="noopener noreferrer" className={ssActionBtn}>
-      <Eye className="size-3.5" /> Ver
-    </a>
-  );
-  const download = (href: string, label: string, key: string) => (
-    <a key={key} href={href} className={ssActionBtn} download>
-      <Download className="size-3.5" /> {label}
-    </a>
-  );
-
   if (subStepId === "visual") {
     const v = visualChoice && ["A", "B", "C"].includes(visualChoice) ? visualChoice : "A";
-    return (
-      <>
-        {view(`${base}/3d/view?variant=${v}`)}
-        {download(`${base}/3d/template?variant=${v}`, "HTML", "html")}
-        {download(`${base}/3d/styleguide?variant=${v}`, "PDF", "pdf")}
-      </>
-    );
+    return {
+      viewUrl: `${base}/3d/view?variant=${v}`,
+      downloads: [
+        { label: "Descargar HTML", href: `${base}/3d/template?variant=${v}` },
+        { label: "Descargar PDF", href: `${base}/3d/styleguide?variant=${v}` },
+      ],
+    };
   }
   if (subStepId === "logo") {
-    return (
-      <>
-        {view(`${base}/history?subStep=logo&action=view`)}
-        {download(`${base}/history?subStep=logo&action=download&svg=`, "SVG", "svg")}
-      </>
-    );
+    return {
+      viewUrl: `${base}/history?subStep=logo&action=view`,
+      downloads: [{ label: "Descargar SVG", href: `${base}/history?subStep=logo&action=download&svg=` }],
+    };
   }
-  // naming / voice (markdown)
-  return (
-    <>
-      {view(`${base}/history?subStep=${subStepId}&action=view`)}
-      {download(`${base}/history?subStep=${subStepId}&action=download`, "PDF", "pdf")}
-    </>
-  );
+  return {
+    viewUrl: `${base}/history?subStep=${subStepId}&action=view`,
+    downloads: [{ label: "Descargar PDF", href: `${base}/history?subStep=${subStepId}&action=download` }],
+  };
 }
 
 /**
@@ -350,7 +342,38 @@ export function ProjectPhasesWithModal({
   // Guard de doble click + spinner mientras se ejecuta el rollback.
   const [rollbackInFlight, setRollbackInFlight] = useState(false);
   const [rollbackError, setRollbackError] = useState<string | null>(null);
+  // Visor in-app (sin pestaña nueva) para "Ver" de fases y sub-fases.
+  const [viewer, setViewer] = useState<{ title: string; url: string } | null>(null);
+  // Rehacer sub-paso (cascada): confirmación pendiente.
+  const [substepRollback, setSubstepRollback] = useState<{
+    phaseId: string;
+    subStep: string;
+    label: string;
+  } | null>(null);
   const router = useRouter();
+
+  async function handleSubstepRollback() {
+    if (!substepRollback || rollbackInFlight) return;
+    setRollbackInFlight(true);
+    setRollbackError(null);
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/phases/${substepRollback.phaseId}/substep/${substepRollback.subStep}/rollback`,
+        { method: "POST" }
+      );
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || `Error ${res.status}`);
+      }
+      setSubstepRollback(null);
+      window.dispatchEvent(new CustomEvent("project-changed"));
+      router.refresh();
+    } catch (err) {
+      setRollbackError(err instanceof Error ? err.message : "Error al rehacer el sub-paso");
+    } finally {
+      setRollbackInFlight(false);
+    }
+  }
 
   // Launch an IDENTITY/quiz sub-step. Guards against double-submission and
   // surfaces network/API errors instead of swallowing them (previously a
@@ -666,15 +689,37 @@ export function ProjectPhasesWithModal({
 
               const subStepErrorKey = `${phase.id}:${meta.id}`;
 
-              // Acciones Ver/Descargar al COMPLETAR el sub-paso (Fase 3).
-              // Cada sub-paso tiene una salida distinta:
-              //  - naming/voice → markdown (Ver HTML / Descargar PDF)
-              //  - logo (3c)    → HTML con 12 SVG (Ver / Descargar SVG elegido)
-              //  - visual (3d)  → maqueta + guía (Ver integrado / HTML / PDF)
-              const completedActions =
-                sStatus === "completed" && phase.type === "IDENTITY"
-                  ? buildSubStepActions(projectId, phase.id, meta.id, phase.subStepChoice)
-                  : undefined;
+              // Al COMPLETAR el sub-paso (Fase 3): botón "Ver" (visor in-app) en
+              // la tarjeta + menú kebab con Descargar(s) y Rehacer (cascada).
+              let ssActions: React.ReactNode | undefined;
+              let ssMenu: React.ReactNode | undefined;
+              if (sStatus === "completed" && phase.type === "IDENTITY") {
+                const spec = subStepViewSpec(projectId, phase.id, meta.id, phase.subStepChoice);
+                ssActions = (
+                  <button
+                    type="button"
+                    onClick={() => setViewer({ title: meta.label, url: spec.viewUrl })}
+                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs font-medium text-slate-200 transition-colors hover:bg-slate-700/60 hover:text-white md:w-auto"
+                  >
+                    <Eye className="size-3.5" /> Ver
+                  </button>
+                );
+                const menuItems: KebabItem[] = [
+                  ...spec.downloads.map((d) => ({
+                    label: d.label,
+                    icon: <Download className="size-3.5" />,
+                    onClick: () => triggerDownload(d.href),
+                  })),
+                  {
+                    label: "Rehacer este paso",
+                    icon: <RotateCcw className="size-3.5" />,
+                    danger: true,
+                    onClick: () =>
+                      setSubstepRollback({ phaseId: phase.id, subStep: meta.id, label: meta.label }),
+                  },
+                ];
+                ssMenu = <KebabMenu items={menuItems} />;
+              }
 
               return (
                 <SubStepCard
@@ -690,7 +735,8 @@ export function ProjectPhasesWithModal({
                   processingMessage={processingMsg}
                   processingSince={phase.updatedAt}
                   errorMessage={subStepErrors[subStepErrorKey]}
-                  actions={completedActions}
+                  actions={ssActions}
+                  menu={ssMenu}
                 />
               );
             });
@@ -786,55 +832,52 @@ export function ProjectPhasesWithModal({
                     </button>
                   );
                 }
-                if (isCompleted && hasArtifacts) {
-                  // Orden de botones (acción más peligrosa a la IZQUIERDA):
-                  //   [Rehacer] [Descargar] [Ver]
-                  // "Rehacer" borra las fases posteriores, por eso va primero
-                  // (a la izquierda del grupo, alineado con el criterio de
-                  // "cancelar" como acción peligrosa a la izquierda).
-                  // Solo tiene sentido si EXISTE alguna fase posterior afectada.
-                  const hasLaterPhase = phases.some(
-                    (p) => p.sortOrder > phase.sortOrder
-                  );
-                  if (hasLaterPhase) {
-                    list.push(
-                      <button
-                        key="rollback"
-                        onClick={() => {
-                          setRollbackError(null);
-                          setRollbackPhase(phase);
-                        }}
-                        className={btnStyles.cancel}
-                        title="Rehacer esta fase (borra las fases posteriores)"
-                      >
-                        <RotateCcw className="size-4" />
-                        Rehacer esta fase
-                      </button>
-                    );
-                  }
+                // Fase COMPLETADA: solo el botón "Ver" en la tarjeta (Descargar y
+                // Rehacer van al menú kebab). En IDENTITY no hay acción a nivel
+                // fase: cada sub-fase tiene su propio Ver/Descargar/Rehacer.
+                if (isCompleted && hasArtifacts && phase.type !== "IDENTITY") {
                   list.push(
-                    <a
-                      key="download"
-                      href={`/api/projects/${projectId}/phases/${phase.id}/download`}
-                      className={btnStyles.download}
-                      download
-                    >
-                      <Download className="size-4" />
-                      {PHASE4_DOWNLOAD_LABEL}
-                    </a>
-                  );
-                  list.push(
-                    <Link
+                    <button
                       key="view"
-                      href={`/proyectos/${projectId}/fase/${phase.id}`}
+                      onClick={() =>
+                        setViewer({
+                          title: phase.label,
+                          url: `/api/projects/${projectId}/phases/${phase.id}/view`,
+                        })
+                      }
                       className={btnStyles.secondary}
                     >
                       <Eye className="size-4" />
                       {PHASE4_VIEW_LABEL}
-                    </Link>
+                    </button>
                   );
                 }
                 return <>{list}</>;
+              })()}
+              menu={(() => {
+                // Kebab (Descargar / Rehacer) a la derecha del badge. En IDENTITY
+                // no aparece a nivel fase (va en cada sub-fase).
+                if (!(isCompleted && hasArtifacts) || phase.type === "IDENTITY") {
+                  return undefined;
+                }
+                const items: KebabItem[] = [
+                  {
+                    label: PHASE4_DOWNLOAD_LABEL,
+                    icon: <Download className="size-3.5" />,
+                    onClick: () =>
+                      triggerDownload(`/api/projects/${projectId}/phases/${phase.id}/download`),
+                  },
+                  {
+                    label: "Rehacer esta fase",
+                    icon: <RotateCcw className="size-3.5" />,
+                    danger: true,
+                    onClick: () => {
+                      setRollbackError(null);
+                      setRollbackPhase(phase);
+                    },
+                  },
+                ];
+                return <KebabMenu items={items} />;
               })()}
             />
           );
@@ -1026,6 +1069,67 @@ export function ProjectPhasesWithModal({
               >
                 Cancelar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Visor de contenido in-app (sin pestaña nueva) para "Ver". */}
+      <ContentViewerModal
+        open={!!viewer}
+        title={viewer?.title ?? ""}
+        url={viewer?.url ?? "about:blank"}
+        onClose={() => setViewer(null)}
+      />
+
+      {/* Confirmación de Rehacer un sub-paso (cascada). */}
+      {substepRollback && (
+        <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-xl border border-slate-700 bg-slate-900 shadow-2xl">
+            <div className="border-b border-slate-800 px-5 py-4">
+              <h3 className="text-base font-semibold text-white flex items-center gap-2">
+                <RotateCcw className="size-4 text-red-400" />
+                Rehacer sub-paso
+              </h3>
+            </div>
+            <div className="px-5 py-5 space-y-3">
+              <p className="text-sm text-slate-300 leading-relaxed">
+                Vas a rehacer{" "}
+                <span className="font-semibold text-white">{substepRollback.label}</span>. Se
+                borrarán este sub-paso y los posteriores, además de las fases siguientes que
+                dependían de la identidad. El hand-off se invalidará.
+              </p>
+              {rollbackError && <p className="text-sm text-red-400">{rollbackError}</p>}
+              <div className="flex items-center gap-3 pt-1">
+                <button
+                  onClick={handleSubstepRollback}
+                  disabled={rollbackInFlight}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-red-500 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-400 disabled:opacity-50"
+                >
+                  {rollbackInFlight ? (
+                    <>
+                      <span className="inline-block size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      Rehaciendo...
+                    </>
+                  ) : (
+                    <>
+                      <RotateCcw className="size-4" />
+                      Sí, rehacer este paso
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    if (rollbackInFlight) return;
+                    setSubstepRollback(null);
+                    setRollbackError(null);
+                  }}
+                  disabled={rollbackInFlight}
+                  className="text-sm text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+              </div>
             </div>
           </div>
         </div>

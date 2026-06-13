@@ -165,6 +165,8 @@ export interface PhaseCardProps {
   artifacts?: Artifact[];
   /** Acciones a renderizar debajo del separador. Si está vacío, no se muestra el bloque. */
   actions?: React.ReactNode;
+  /** Menú de 3 puntos (kebab) a la derecha del badge de estado. */
+  menu?: React.ReactNode;
   /** Etiqueta alternativa para el badge de estado (ej. "Información" para la fase 0). */
   statusLabel?: string;
   /**
@@ -218,6 +220,7 @@ export function PhaseCard({
   tone,
   artifacts,
   actions,
+  menu,
   statusLabel,
   subProgress,
   miniProgressBar,
@@ -286,29 +289,32 @@ export function PhaseCard({
           superior derecho, POR ENCIMA de cualquier otro texto.
           Processing: Spinner + mensaje contextual + contador de tiempo `mm:ss`.
           Otros estados: badge estático con label. */}
-      {status !== "locked" && (
+      {(status !== "locked" || menu) && (
         <div className="flex items-center justify-end gap-2">
-          {loadingMessage ? (
-            <span className="inline-flex w-fit items-center gap-1.5 text-[11px] font-medium text-amber-400">
-              <Spinner
-                label={statusLabel || loadingMessage}
-                iconClassName="size-3"
-                className="w-fit"
-              />
-              {isProcessing && (
-                <ElapsedCounter
-                  since={processingSince}
-                  className="tabular-nums text-amber-400/70"
+          {status !== "locked" &&
+            (loadingMessage ? (
+              <span className="inline-flex w-fit items-center gap-1.5 text-[11px] font-medium text-amber-400">
+                <Spinner
+                  label={statusLabel || loadingMessage}
+                  iconClassName="size-3"
+                  className="w-fit"
                 />
-              )}
-            </span>
-          ) : (
-            <span
-              className={`inline-flex w-fit shrink-0 items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${badge.className}`}
-            >
-              {statusLabel || badge.label}
-            </span>
-          )}
+                {isProcessing && (
+                  <ElapsedCounter
+                    since={processingSince}
+                    className="tabular-nums text-amber-400/70"
+                  />
+                )}
+              </span>
+            ) : (
+              <span
+                className={`inline-flex w-fit shrink-0 items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${badge.className}`}
+              >
+                {statusLabel || badge.label}
+              </span>
+            ))}
+          {/* Menú de 3 puntos (Descargar / Rehacer) a la derecha del badge. */}
+          {menu}
         </div>
       )}
 
