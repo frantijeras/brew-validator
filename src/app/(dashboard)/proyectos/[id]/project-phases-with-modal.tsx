@@ -784,7 +784,17 @@ export function ProjectPhasesWithModal({
                   reviewLabel={reviewLabel}
                   processingMessage={processingMsg}
                   processingSince={phase.updatedAt}
-                  errorMessage={subStepErrors[subStepErrorKey]}
+                  // Error de cliente (al lanzar) o, si el agente falló en este
+                  // sub-paso, el lastError de la fase (vive a nivel fase, pero
+                  // se muestra SOLO en la sub-card que falló, no en la padre).
+                  errorMessage={
+                    subStepErrors[subStepErrorKey] ??
+                    (phase.lastError &&
+                    phase.subStep === meta.id &&
+                    sStatus === "available"
+                      ? phase.lastError.message
+                      : undefined)
+                  }
                   actions={ssActions}
                   menu={ssMenu}
                 />
@@ -850,8 +860,12 @@ export function ProjectPhasesWithModal({
                     />
                   );
                 }
-                // Cancel a la izquierda (secundaria)
-                if (hasQuestions || isProcessing || isSubstepReady) {
+                // Cancel a la izquierda (secundaria). En IDENTITY NO se muestra
+                // a nivel fase: cada sub-fase gestiona su propio cancelar/reintentar.
+                if (
+                  (hasQuestions || isProcessing || isSubstepReady) &&
+                  phase.type !== "IDENTITY"
+                ) {
                   list.push(
                     <button
                       key="cancel"

@@ -296,9 +296,11 @@ export function PhaseCard({
           superior derecho, POR ENCIMA de cualquier otro texto.
           Processing: Spinner + mensaje contextual + contador de tiempo `mm:ss`.
           Otros estados: badge estático con label. */}
-      {(status !== "locked" || menu) && (
+      {/* En fases con sub-fases (Identidad) el estado vive en cada sub-card:
+          NO mostramos el badge/estado de la tarjeta padre para no duplicarlo. */}
+      {((status !== "locked" && !subSteps) || menu) && (
         <div className="flex items-center justify-end gap-2">
-          {status !== "locked" &&
+          {status !== "locked" && !subSteps &&
             (loadingMessage ? (
               <span className="inline-flex w-fit items-center gap-1.5 text-[11px] font-medium text-amber-400">
                 <Spinner
@@ -387,8 +389,10 @@ export function PhaseCard({
         </div>
       )}
 
-      {/* Error feedback: show when phase is available after a failure */}
-      {lastError && status === "available" && (
+      {/* Error feedback: show when phase is available after a failure. En fases
+          con sub-fases (Identidad) el error se muestra en la sub-card que falló,
+          no en la tarjeta padre. */}
+      {lastError && status === "available" && !subSteps && (
         <div className="mt-2 ml-2 rounded-md border border-red-500/20 bg-red-500/5 px-3 py-2">
           <div className="flex items-center gap-2">
             <AlertTriangle className="size-3.5 text-red-400" />

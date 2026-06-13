@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { guardProject } from "@/lib/ownership";
 import { buildReportHtml } from "@/lib/report-renderer";
 import { buildReportPdf } from "@/lib/pdf-export";
-import { getChosenLogoSvg, numberLogoHtml } from "@/lib/identity-logo";
+import { getChosenLogoSvg, numberLogoHtml, parseLogoIndex } from "@/lib/identity-logo";
 
 /**
  * GET /api/projects/[id]/phases/[phaseId]/substep/history?subStep=<id>&action=view|download[&svg=N]
@@ -73,11 +73,15 @@ export async function GET(
     const title = `${TITLES[subStep] || subStep} — ${projectName}`;
     const isHtml = entry?.artifact?.type === "html" || subStep === "logo";
 
+    // Índice 1-based del logo elegido (para resaltarlo en la vista de logos).
+    const chosenLogoIdx =
+      subStep === "logo" ? parseLogoIndex(entry?.choice) : null;
+
     // ── JSON (para render inline en la subpágina oscura, sin iframe) ──
     if (action === "json") {
       if (subStep === "logo") {
         return NextResponse.json(
-          { title, content: numberLogoHtml(content), contentType: "html" },
+          { title, content: numberLogoHtml(content, chosenLogoIdx), contentType: "html" },
           { headers: { "Cache-Control": "no-store" } }
         );
       }
@@ -113,8 +117,8 @@ export async function GET(
           },
         });
       }
-      // view → el HTML de los 12 logos (numerados), inline.
-      return new NextResponse(numberLogoHtml(content), {
+      // view → el HTML de los 12 logos (numerados, con el elegido resaltado).
+      return new NextResponse(numberLogoHtml(content, chosenLogoIdx), {
         status: 200,
         headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
       });

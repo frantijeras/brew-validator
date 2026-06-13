@@ -12,12 +12,10 @@ import {
   Eye,
   Code2,
   ArrowRight,
-  Loader2,
   Pencil,
   Download,
   Type,
   Palette as PaletteIcon,
-  Printer,
 } from "lucide-react";
 import { renderMarkdown } from "@/components/markdown-renderer";
 import {
@@ -186,7 +184,6 @@ export function PhaseSubstepModal({
   const [selectedLogo, setSelectedLogo] = useState<number | null>(null);
 
   // Generación de PDF de la guía de estilo (3d) en cliente.
-  const [pdfBusy, setPdfBusy] = useState(false);
 
   // ── Rename preview / success state (IDENTITY naming only) ──
   const [pendingName, setPendingName] = useState<string | null>(null);
@@ -630,21 +627,6 @@ export function PhaseSubstepModal({
   }
 
   /**
-   * Descarga la **maqueta HTML** (3d): la variante elegida con el logotipo SVG
-   * incrustado, como `index.html`.
-   */
-  function handleDownloadVisual() {
-    if (!isVisualSubStep) return;
-    const url = `/api/projects/${projectId}/phases/${phaseId}/substep/3d/template?variant=${visualVariant}`;
-    const a = document.createElement("a");
-    a.href = url;
-    a.rel = "noopener noreferrer";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  }
-
-  /**
    * "Ver" (3d): abre la vista integrada (Guía de Estilo + maqueta con
    * logotipo) en una pestaña nueva, cada panel aislado en su iframe.
    */
@@ -652,80 +634,6 @@ export function PhaseSubstepModal({
     if (!isVisualSubStep) return;
     const url = `/api/projects/${projectId}/phases/${phaseId}/substep/3d/view?variant=${visualVariant}`;
     window.open(url, "_blank", "noopener,noreferrer");
-  }
-
-  /**
-   * "Descargar PDF" (3d): genera el PDF de la Guía de Estilo en el CLIENTE para
-   * que el logotipo SVG quede renderizado/incrustado. Pide al servidor el HTML
-   * autocontenible de la guía, lo renderiza en un iframe oculto y lo exporta
-   * con html2canvas + jsPDF. Si algo falla, cae al PDF de servidor (texto).
-   */
-  async function handleDownloadStyleGuidePdf() {
-    if (!isVisualSubStep) return;
-    const base = `/api/projects/${projectId}/phases/${phaseId}/substep/3d/styleguide?variant=${visualVariant}`;
-    setPdfBusy(true);
-    let iframe: HTMLIFrameElement | null = null;
-    try {
-      const res = await fetch(`${base}&format=html`);
-      if (!res.ok) throw new Error("styleguide html fetch failed");
-      const html = await res.text();
-
-      iframe = document.createElement("iframe");
-      iframe.setAttribute("sandbox", "allow-same-origin");
-      iframe.style.position = "fixed";
-      iframe.style.left = "-10000px";
-      iframe.style.top = "0";
-      iframe.style.width = "840px";
-      iframe.style.height = "10px";
-      document.body.appendChild(iframe);
-      await new Promise<void>((resolve) => {
-        iframe!.addEventListener("load", () => resolve(), { once: true });
-        iframe!.srcdoc = html;
-      });
-      // Pequeña espera para que fuentes/SVG terminen de pintar.
-      await new Promise((r) => setTimeout(r, 350));
-
-      const doc = iframe.contentDocument;
-      const body = doc?.body;
-      if (!doc || !body) throw new Error("iframe document not ready");
-
-      const html2canvas = (await import("html2canvas")).default;
-      const { jsPDF } = await import("jspdf");
-      const canvas = await html2canvas(body, {
-        scale: 2,
-        backgroundColor: "#ffffff",
-        windowWidth: 840,
-      });
-
-      const pdf = new jsPDF({ unit: "pt", format: "a4" });
-      const pageW = pdf.internal.pageSize.getWidth();
-      const pageH = pdf.internal.pageSize.getHeight();
-      const imgW = pageW;
-      const imgH = (canvas.height * imgW) / canvas.width;
-      const img = canvas.toDataURL("image/png");
-      if (imgH <= pageH) {
-        pdf.addImage(img, "PNG", 0, 0, imgW, imgH);
-      } else {
-        let y = 0;
-        while (y < imgH) {
-          pdf.addImage(img, "PNG", 0, -y, imgW, imgH);
-          y += pageH;
-          if (y < imgH) pdf.addPage();
-        }
-      }
-      pdf.save("guia-estilos.pdf");
-    } catch {
-      // Fallback: PDF de servidor (texto, sin SVG rasterizado).
-      const a = document.createElement("a");
-      a.href = base;
-      a.rel = "noopener noreferrer";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } finally {
-      if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
-      setPdfBusy(false);
-    }
   }
 
   /**
@@ -926,8 +834,6 @@ export function PhaseSubstepModal({
                     current={visualVariant}
                     onChange={setVisualVariant}
                     iframeRef={iframeRef}
-                    previewMode={previewMode}
-                    onPreviewModeChange={setPreviewMode}
                     projectId={projectId}
                     phaseId={phaseId}
                   />
@@ -1138,15 +1044,16 @@ export function PhaseSubstepModal({
               )}
             </div>
 
-            {/* Footer actions */}
+            {/* Footer actions — en móvil se apilan (primario arriba) y cada
+                botón ocupa el ancho completo para no desbordar la card. */}
             {!showIterate && (
-              <div className="border-t border-slate-800 px-5 py-3 flex items-center justify-end gap-2">
+              <div className="border-t border-slate-800 px-5 py-3 flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
                 {isLogoSubStep ? (
                   <>
                     <button
                       onClick={() => handleDownloadLogo()}
                       disabled={submitting}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 transition-all hover:bg-slate-700/60 hover:border-slate-600 disabled:opacity-50"
+                      className="inline-flex w-full justify-center sm:w-auto items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 transition-all hover:bg-slate-700/60 hover:border-slate-600 disabled:opacity-50"
                     >
                       <Download className="size-4" />
                       Descargar
@@ -1154,13 +1061,14 @@ export function PhaseSubstepModal({
                     <button
                       onClick={() => setShowIterate(true)}
                       disabled={submitting}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 transition-all hover:bg-slate-700/60 hover:border-slate-600 disabled:opacity-50"
+                      className="inline-flex w-full justify-center sm:w-auto items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 transition-all hover:bg-slate-700/60 hover:border-slate-600 disabled:opacity-50"
                     >
                       <RefreshCw className="size-4" />
                       Iterar
                     </button>
                     <Button
                       variant="primary"
+                      className="w-full sm:w-auto"
                       onClick={handleLogoChoose}
                       loading={submitting}
                       disabled={selectedLogo == null}
@@ -1177,50 +1085,26 @@ export function PhaseSubstepModal({
                   <>
                     <button
                       onClick={handleView3d}
-                      disabled={submitting || pdfBusy || !currentVisualOption}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 transition-all hover:bg-slate-700/60 hover:border-slate-600 disabled:opacity-50"
+                      disabled={submitting || !currentVisualOption}
+                      className="inline-flex w-full justify-center sm:w-auto items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 transition-all hover:bg-slate-700/60 hover:border-slate-600 disabled:opacity-50"
                     >
                       <Eye className="size-4" />
                       Ver
                     </button>
                     <button
-                      onClick={handleDownloadVisual}
-                      disabled={submitting || pdfBusy || !currentVisualOption}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 transition-all hover:bg-slate-700/60 hover:border-slate-600 disabled:opacity-50"
-                    >
-                      <Download className="size-4" />
-                      Descargar HTML
-                    </button>
-                    <button
-                      onClick={handleDownloadStyleGuidePdf}
-                      disabled={submitting || pdfBusy || !currentVisualOption}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 transition-all hover:bg-slate-700/60 hover:border-slate-600 disabled:opacity-50"
-                    >
-                      {pdfBusy ? (
-                        <>
-                          <Loader2 className="size-4 animate-spin" />
-                          Generando PDF…
-                        </>
-                      ) : (
-                        <>
-                          <Printer className="size-4" />
-                          Descargar PDF
-                        </>
-                      )}
-                    </button>
-                    <button
                       onClick={() => setShowIterate(true)}
-                      disabled={submitting || pdfBusy}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 transition-all hover:bg-slate-700/60 hover:border-slate-600 disabled:opacity-50"
+                      disabled={submitting}
+                      className="inline-flex w-full justify-center sm:w-auto items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 transition-all hover:bg-slate-700/60 hover:border-slate-600 disabled:opacity-50"
                     >
                       <RefreshCw className="size-4" />
                       Iterar
                     </button>
                     <Button
                       variant="primary"
+                      className="w-full sm:w-auto"
                       onClick={handleVisualChoose}
                       loading={submitting}
-                      disabled={pdfBusy || !currentVisualOption}
+                      disabled={!currentVisualOption}
                     >
                       {!submitting && <CheckCircle2 className="size-4" />}
                       {submitting ? "Enviando…" : "Usar este estilo"}
@@ -1231,13 +1115,14 @@ export function PhaseSubstepModal({
                     <button
                       onClick={() => setShowIterate(true)}
                       disabled={submitting || previewLoading}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 transition-all hover:bg-slate-700/60 hover:border-slate-600 disabled:opacity-50"
+                      className="inline-flex w-full justify-center sm:w-auto items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-100 transition-all hover:bg-slate-700/60 hover:border-slate-600 disabled:opacity-50"
                     >
                       <RefreshCw className="size-4" />
                       Iterar
                     </button>
                     <Button
                       variant="primary"
+                      className="w-full sm:w-auto"
                       onClick={handleChoose}
                       loading={submitting || previewLoading}
                     >
@@ -1350,8 +1235,6 @@ interface VisualSubStepPreviewProps {
   current: "A" | "B" | "C";
   onChange: (v: "A" | "B" | "C") => void;
   iframeRef: React.RefObject<HTMLIFrameElement | null>;
-  previewMode: "rendered" | "source";
-  onPreviewModeChange: (m: "rendered" | "source") => void;
   projectId: string;
   phaseId: string;
 }
@@ -1359,8 +1242,7 @@ interface VisualSubStepPreviewProps {
 /**
  * Dedicated renderer for the IDENTITY `visual` sub-step:
  *   - Tabs A / B / C to switch between the 3 style-guide variants
- *   - Toolbar: Vista previa / HTML
- *   - Iframe (rendered) or <pre> (source) for the selected variant
+ *   - Iframe (rendered) con la vista previa de la variante seleccionada
  *   - Meta card with palette swatches, fonts and mood tag
  *
  * Kept as a separate component for readability; receives only the
@@ -1371,8 +1253,6 @@ function VisualSubStepPreview({
   current,
   onChange,
   iframeRef,
-  previewMode,
-  onPreviewModeChange,
 }: VisualSubStepPreviewProps) {
   const currentOption =
     options.find((o) => o.variant === current) || options[0];
@@ -1417,48 +1297,19 @@ function VisualSubStepPreview({
           );
         })}
 
-        <div className="ml-auto flex items-center gap-2 text-xs">
-          <button
-            onClick={() => onPreviewModeChange("rendered")}
-            className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1 transition-colors ${
-              previewMode === "rendered"
-                ? "border-amber-500 bg-amber-500/10 text-amber-300"
-                : "border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-600"
-            }`}
-          >
-            <Eye className="size-3" />
-            Vista previa
-          </button>
-          <button
-            onClick={() => onPreviewModeChange("source")}
-            className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1 transition-colors ${
-              previewMode === "source"
-                ? "border-amber-500 bg-amber-500/10 text-amber-300"
-                : "border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-600"
-            }`}
-          >
-            <Code2 className="size-3" />
-            HTML
-          </button>
-        </div>
       </div>
 
-      {/* Iframe / source */}
-      {previewMode === "rendered" ? (
-        <div className="overflow-hidden rounded-lg border border-slate-700 bg-white">
-          <iframe
-            ref={iframeRef}
-            srcDoc={currentOption.html}
-            title={`Vista previa estilo ${current}`}
-            className="w-full min-h-[360px] border-0"
-            sandbox="allow-same-origin"
-          />
-        </div>
-      ) : (
-        <pre className="overflow-auto max-h-[480px] rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs text-slate-300">
-          <code>{currentOption.html}</code>
-        </pre>
-      )}
+      {/* Vista previa renderizada (sin alternar a HTML: la descarga del código
+          vive en el menú de la tarjeta de la sub-fase, no aquí). */}
+      <div className="overflow-hidden rounded-lg border border-slate-700 bg-white">
+        <iframe
+          ref={iframeRef}
+          srcDoc={currentOption.html}
+          title={`Vista previa estilo ${current}`}
+          className="w-full min-h-[360px] border-0"
+          sandbox="allow-same-origin"
+        />
+      </div>
 
       {/* Meta card */}
       <div className="rounded-lg border border-slate-700 bg-slate-800/40 p-4 space-y-3">
@@ -1613,7 +1464,7 @@ function LogoSubStepPreview({
         <div className="overflow-hidden rounded-lg border border-slate-700 bg-white">
           <iframe
             ref={iframeRef}
-            srcDoc={numberLogoHtml(html)}
+            srcDoc={numberLogoHtml(html, selected)}
             title="12 propuestas de logotipo"
             className="w-full min-h-[360px] border-0"
             sandbox="allow-same-origin"

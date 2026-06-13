@@ -37,13 +37,29 @@ export function countLogos(html: string | null | undefined): number {
  * HTML se muestra en un iframe sin scripts (`sandbox=allow-same-origin`), la
  * numeración debe ser ESTÁTICA en el markup, no por JavaScript.
  */
-export function numberLogoHtml(html: string | null | undefined): string {
+export function numberLogoHtml(
+  html: string | null | undefined,
+  selected?: number | null,
+): string {
   if (!html || typeof html !== "string") return html || "";
   let n = 0;
-  const badge = (i: number) =>
-    `<span style="display:inline-flex;align-items:center;justify-content:center;` +
-    `width:22px;height:22px;border-radius:6px;background:#0f172a;color:#fff;` +
-    `font:700 12px system-ui,sans-serif;margin:0 6px 6px 0">${i}</span>`;
+  const badge = (i: number) => {
+    const isSel = selected != null && i === selected;
+    if (isSel) {
+      // Logo elegido: badge ámbar con check y etiqueta, para que se vea de un
+      // vistazo cuál fue la decisión entre las 12 propuestas.
+      return (
+        `<span style="display:inline-flex;align-items:center;justify-content:center;gap:4px;` +
+        `height:22px;padding:0 8px;border-radius:6px;background:#f59e0b;color:#0f172a;` +
+        `font:700 12px system-ui,sans-serif;margin:0 6px 6px 0">&#10003; ${i} · Elegido</span>`
+      );
+    }
+    return (
+      `<span style="display:inline-flex;align-items:center;justify-content:center;` +
+      `width:22px;height:22px;border-radius:6px;background:#0f172a;color:#fff;` +
+      `font:700 12px system-ui,sans-serif;margin:0 6px 6px 0">${i}</span>`
+    );
+  };
   const numbered = html.replace(/<svg/gi, () => {
     n += 1;
     return badge(n) + "<svg";

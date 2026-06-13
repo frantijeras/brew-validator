@@ -499,7 +499,7 @@ function AIModelSection() {
             value={defaultModel}
             onChange={handleDefaultChange}
             modelOptions={modelOptions}
-            className="shrink-0 sm:w-72"
+            className="sm:w-72 sm:shrink-0"
           />
         </div>
       </div>
@@ -548,7 +548,7 @@ function ModelSelect({
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className={`rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 ${className}`}
+      className={`w-full max-w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 ${className}`}
     >
       {providers.map((provider) => (
         <optgroup key={provider} label={PROVIDER_LABELS[provider] ?? provider}>
@@ -625,11 +625,12 @@ function ExceptionGroup({
                 <p className="text-sm font-medium text-white">{agent.name}</p>
                 <p className="mt-0.5 text-xs leading-relaxed text-slate-400">{agent.description}</p>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="flex w-full items-center gap-2 sm:w-auto sm:shrink-0">
                 <ModelSelect
                   value={overrides[agent.id]}
                   onChange={(model) => onSetOverride(agent.id, model)}
                   modelOptions={modelOptions}
+                  className="sm:w-56"
                 />
                 <button
                   type="button"
@@ -645,7 +646,7 @@ function ExceptionGroup({
 
           {/* Añadir excepción */}
           {available.length > 0 && (
-            <div className="flex items-center gap-2 rounded-lg border border-dashed border-slate-700 px-4 py-3">
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-slate-700 px-4 py-3">
               <Plus className="size-4 shrink-0 text-slate-400" />
               <span className="text-sm text-slate-300">Añadir excepción</span>
               <select
@@ -653,7 +654,7 @@ function ExceptionGroup({
                 onChange={(e) => {
                   if (e.target.value) onSetOverride(e.target.value, defaultModel);
                 }}
-                className="ml-auto rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm text-white focus:border-amber-500 focus:outline-none"
+                className="w-full max-w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm text-white focus:border-amber-500 focus:outline-none sm:ml-auto sm:w-auto"
               >
                 <option value="" disabled>
                   Seleccionar agente...
