@@ -8,6 +8,30 @@ const statusSchema = z.object({
 });
 
 /**
+ * GET /api/jobs/:id/status — devuelve el estado del job (para que la UI sondee
+ * la mejora con IA de una skill). Solo metadatos de estado, sin el output.
+ */
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const job = await prisma.job.findUnique({
+      where: { id },
+      select: { id: true, status: true, error: true },
+    });
+    if (!job) {
+      return NextResponse.json({ error: "Job no encontrado" }, { status: 404 });
+    }
+    return NextResponse.json(job);
+  } catch (error) {
+    console.error("[GET /api/jobs/:id/status]", error);
+    return NextResponse.json({ error: "Error al consultar job" }, { status: 500 });
+  }
+}
+
+/**
  * POST /api/jobs/:id/status
  *
  * Updates a job's status. Used by the bridge daemon to mark

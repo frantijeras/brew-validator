@@ -315,6 +315,48 @@ export function SkillSelector({ projectId, onHandoffReady }: SkillSelectorProps)
     }
   };
 
+  // ── Mejorar con IA (Fase 2): encola job + sondea estado ─────────────
+  const enhanceSkill = async (id: string) => {
+    try {
+      setBusyId(id);
+      // Marca optimista "ai-pending" en la UI mientras el daemon trabaja.
+      setGenerated((prev) =>
+        prev.map((g) => (g.id === id ? { ...g, source: "ai-pending" } : g)),
+      );
+      const res = await fetch(`/api/projects/${projectId}/skills/${id}/enhance`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) throw new Error((await res.json()).error || `Error ${res.status}`);
+      const { jobId } = await res.json();
+      flash("Mejorando con IA… puede tardar 1-2 min");
+
+      // Sondea el estado del job hasta COMPLETED/FAILED (máx ~3 min).
+      const started = Date.now();
+      let done = false;
+      while (Date.now() - started < 180_000) {
+        await new Promise((r) => setTimeout(r, 4000));
+        const st = await fetch(`/api/jobs/${jobId}/status`).then((r) => r.json()).catch(() => null);
+        if (st?.status === "COMPLETED") {
+          done = true;
+          break;
+        }
+        if (st?.status === "FAILED") {
+          flash(st.error || "La mejora con IA falló. Revisa el modelo del agente.");
+          break;
+        }
+      }
+      // Recarga las skills generadas (el callback ya guardó el contenido).
+      await fetchSkills();
+      if (done) flash("Skill mejorada con IA");
+    } catch (err) {
+      flash(err instanceof Error ? err.message : "Error al mejorar con IA");
+      await fetchSkills();
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   // ── Saltar (desbloquea handoff sin generar) ─────────────────────────
   const skipSkills = async () => {
     try {
@@ -581,19 +623,27 @@ export function SkillSelector({ projectId, onHandoffReady }: SkillSelectorProps)
                 <span className="flex-1 min-w-0 truncate text-sm font-medium text-white">
                   {g.name}
                 </span>
-                <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                    g.source === "ai"
-                      ? "bg-purple-500/15 text-purple-300"
-                      : "bg-slate-700/60 text-slate-300"
-                  }`}
-                >
-                  {g.source === "ai" ? "IA" : "Plantilla"}
-                </span>
+                {g.source === "ai-pending" ? (
+                  <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-purple-500/15 px-2 py-0.5 text-[10px] font-medium text-purple-300">
+                    <Loader2 className="size-3 animate-spin" />
+                    Generando IA…
+                  </span>
+                ) : (
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                      g.source === "ai"
+                        ? "bg-purple-500/15 text-purple-300"
+                        : "bg-slate-700/60 text-slate-300"
+                    }`}
+                  >
+                    {g.source === "ai" ? "IA" : "Plantilla"}
+                  </span>
+                )}
                 <button
                   type="button"
                   onClick={() => setPreviewSkill(g)}
-                  className="inline-flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800/60 px-2 py-1 text-xs text-slate-200 transition-colors hover:bg-slate-700/60 hover:text-white"
+                  disabled={g.source === "ai-pending" || !g.content}
+                  className="inline-flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800/60 px-2 py-1 text-xs text-slate-200 transition-colors hover:bg-slate-700/60 hover:text-white disabled:opacity-50"
                   title="Ver contenido"
                 >
                   <Eye className="size-3.5" />
@@ -601,10 +651,20 @@ export function SkillSelector({ projectId, onHandoffReady }: SkillSelectorProps)
                 </button>
                 <button
                   type="button"
+                  onClick={() => enhanceSkill(g.id)}
+                  disabled={busyId === g.id || g.source === "ai-pending"}
+                  className="inline-flex items-center gap-1 rounded-md border border-purple-500/30 bg-purple-500/10 px-2 py-1 text-xs text-purple-200 transition-colors hover:bg-purple-500/20 disabled:opacity-50"
+                  title="Generar a medida con IA (puede tardar 1-2 min)"
+                >
+                  <Sparkles className="size-3.5" />
+                  Mejorar con IA
+                </button>
+                <button
+                  type="button"
                   onClick={() => regenerateSkill(g.id)}
-                  disabled={busyId === g.id}
+                  disabled={busyId === g.id || g.source === "ai-pending"}
                   className="inline-flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800/60 px-2 py-1 text-xs text-slate-200 transition-colors hover:bg-slate-700/60 hover:text-white disabled:opacity-50"
-                  title="Regenerar"
+                  title="Regenerar (plantilla)"
                 >
                   {busyId === g.id ? (
                     <Loader2 className="size-3.5 animate-spin" />
@@ -616,7 +676,7 @@ export function SkillSelector({ projectId, onHandoffReady }: SkillSelectorProps)
                 <button
                   type="button"
                   onClick={() => removeGeneratedSkill(g.id)}
-                  disabled={busyId === g.id}
+                  disabled={busyId === g.id || g.source === "ai-pending"}
                   className="inline-flex items-center gap-1 rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1 text-xs text-red-300 transition-colors hover:bg-red-500/20 disabled:opacity-50"
                   title="Quitar del paquete"
                 >

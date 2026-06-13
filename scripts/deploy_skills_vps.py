@@ -36,6 +36,7 @@ MAP = {
     "project-branding.md": "project-branding",
     "project-content.md": "project-content",
     "project-execution.md": "project-execution",
+    "project-skills.md": "project-skills",
     "phase-substep-protocol.md": "phase-substep-protocol",
 }
 

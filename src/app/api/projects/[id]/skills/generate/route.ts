@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { guardProject } from "@/lib/ownership";
 import type { ProjectMemory } from "@/lib/project-memory";
 import type { GeneratedSkill } from "@/lib/skill-types";
+import { buildProjectContext, type ProjectContext } from "@/lib/skill-context";
 
 const generateSkillsSchema = z.object({
   // An empty array es válido: "saltar generación" — no genera nada y solo
@@ -15,22 +16,6 @@ const generateSkillsSchema = z.object({
   // - remove → elimina skillIds de generatedSkills (Quitar).
   mode: z.enum(["all", "merge", "remove"]).default("all"),
 });
-
-interface ProjectContext {
-  projectName: string;
-  description: string;
-  targetUser: string;
-  valueProposition: string | null;
-  problem: string | null;
-  monetization: string;
-  businessModel: string | null;
-  completedPhases: Array<{ label: string; type: string }>;
-  memoryEntries: Array<[string, string]>;
-  brandColors: Array<{ name: string; value: string }>;
-  keywords: string[];
-  channels: string[];
-  tone: string | null;
-}
 
 // Skill template generator function type
 type SkillTemplateFn = (ctx: ProjectContext) => string;
@@ -319,54 +304,6 @@ const DEFAULT_SKILLS: Array<{
   { id: "content-writer", name: "Content Writer", description: "Escribir contenido de marketing", icon: "PenLine", category: "marketing" },
   { id: "project-handoff", name: "Project Handoff", description: "Contexto completo del proyecto para agentes AI", icon: "Target", category: "desarrollo" },
 ];
-
-function buildProjectContext(project: {
-  name: string;
-  description: string | null;
-  idea: {
-    targetUser: string;
-    valueProposition: string | null;
-    problem: string | null;
-    monetization: string;
-    businessModel: string | null;
-  };
-  phases: Array<{ label: string; type: string; status: string }>;
-  memory: ProjectMemory | null;
-}): ProjectContext {
-  const completedPhases = project.phases
-    .filter((p) => p.status === "COMPLETED")
-    .map((p) => ({ label: p.label, type: p.type }));
-
-  const memoryEntries: Array<[string, string]> = [];
-  if (project.memory) {
-    for (const [key, entry] of Object.entries(project.memory)) {
-      if (entry && entry.value !== null && entry.value !== undefined) {
-        const val = typeof entry.value === "string" ? entry.value : JSON.stringify(entry.value);
-        memoryEntries.push([key, val]);
-      }
-    }
-  }
-
-  const tone = project.memory?.tone?.value as string | null;
-  const channels = project.memory?.channels?.value as string[] | string | null;
-  const keywords = project.memory?.keywords?.value as string[] | string | null;
-
-  return {
-    projectName: project.name,
-    description: project.description || project.idea.valueProposition || "",
-    targetUser: project.idea.targetUser,
-    valueProposition: project.idea.valueProposition,
-    problem: project.idea.problem,
-    monetization: project.idea.monetization,
-    businessModel: project.idea.businessModel,
-    completedPhases,
-    memoryEntries,
-    brandColors: [],
-    keywords: Array.isArray(keywords) ? keywords : keywords ? [keywords] : [],
-    channels: Array.isArray(channels) ? channels : channels ? [channels] : [],
-    tone,
-  };
-}
 
 export async function POST(
   req: Request,
