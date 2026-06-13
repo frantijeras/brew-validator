@@ -1,5 +1,5 @@
 import { ZipArchive } from "archiver";
-import { ProjectMemory, getMemoryValue, formatMemoryValue } from "./project-memory";
+import { ProjectMemory, getMemoryValue, formatMemoryValue, memoryKeyLabels } from "./project-memory";
 import { SKILL_CATALOG } from "./skill-catalog";
 import { resolve3dAssets } from "./identity-3d";
 import { getChosenLogoSvg } from "./identity-logo";
@@ -174,7 +174,12 @@ function buildAgentMd(ctx: HandoffOptions): string {
 
   const memorySection = memoryEntries.length > 0
     ? memoryEntries
-        .map(([k, e]) => `- **${k}:** ${formatMemoryValue(e!.value)} (fuente: ${e!.source === "user" ? "usuario" : `Fase ${e!.source}`})`)
+        .map(([k, e]) => {
+          const label = memoryKeyLabels[k] ?? k;
+          const src = e!.source === "user" ? "usuario" : `Fase ${e!.source}`;
+          const why = e!.rationale ? ` — _${e!.rationale}_` : "";
+          return `- **${label}:** ${formatMemoryValue(e!.value)} (fuente: ${src})${why}`;
+        })
         .join("\n")
     : "- Sin decisiones registradas.";
 
