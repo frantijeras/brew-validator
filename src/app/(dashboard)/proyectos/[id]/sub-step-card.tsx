@@ -245,17 +245,46 @@ export function SubStepCard({
         ? reviewLabel
         : "Bloqueado";
 
-  const badgeIconAnimate =
-    status === "processing" ? "animate-spin" : "";
-
   return (
     <div
       role="region"
       aria-label={`Sub-paso ${number}: ${subStepMeta.label}`}
       className={`${cardContainerStyles[status]} p-4 md:p-3 lg:p-4 overflow-hidden`}
     >
-      {/* Header: número + icono + título + badge + botón (desktop) */}
-      <div className="flex items-center gap-3">
+      {/* Bloque superior: badge de estado, alineado al extremo superior
+          derecho (misma estructura que la tarjeta de fase padre). En
+          "processing" muestra el mensaje contextual ("Definiendo
+          personalidad…", "Generando informe…") + contador de tiempo. */}
+      {(status === "processing" || !!badge.label) && (
+        <div className="flex items-center justify-end gap-2">
+          {status === "processing" ? (
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-amber-300">
+              <Loader2 className="size-3 animate-spin" />
+              <span>{processingMessage}</span>
+              <ElapsedCounter
+                since={processingSince}
+                className="tabular-nums text-amber-400/70"
+              />
+            </span>
+          ) : (
+            <span
+              className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${badge.className}`}
+              aria-label={`Estado: ${badge.label}`}
+            >
+              {StatusIcon && <StatusIcon className="size-3" />}
+              {badge.label}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Fila central: número (cuadrado) + icono representativo + título,
+          en una sola línea. El botón (desktop) se alinea a la derecha. */}
+      <div
+        className={`flex items-center gap-2.5 ${
+          status === "processing" || badge.label ? "mt-2" : ""
+        }`}
+      >
         <span
           className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-xs font-bold md:h-7 md:w-7 md:text-[11px] ${getNumberStyles(status, tone)}`}
           aria-hidden="true"
@@ -270,27 +299,9 @@ export function SubStepCard({
           />
         )}
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={getTitleStyles(status)}>
-              {subStepMeta.label}
-            </span>
-            {badge.label && StatusIcon && (
-              <span
-                className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${badge.className}`}
-                aria-label={`Estado: ${badge.label}`}
-              >
-                <StatusIcon
-                  className={`size-3 ${badgeIconAnimate}`}
-                />
-                {badge.label}
-              </span>
-            )}
-          </div>
-          <p className={getDescriptionStyles(status)}>
-            {subStepMeta.description}
-          </p>
-        </div>
+        <span className={`min-w-0 flex-1 truncate ${getTitleStyles(status)}`}>
+          {subStepMeta.label}
+        </span>
 
         {hasDesktopButton && (
           <button
@@ -310,20 +321,12 @@ export function SubStepCard({
             {buttonLabel}
           </button>
         )}
-
-        {status === "processing" && (
-          <span className="hidden md:flex shrink-0 items-center gap-2 text-xs text-amber-400/80">
-            <Loader2 className="size-3 animate-spin" />
-            <span>{processingMessage}</span>
-            <ElapsedCounter
-              since={processingSince}
-              className="tabular-nums text-amber-400/60"
-            />
-          </span>
-        )}
-        {/* El estado "Hecho" ya se comunica con el badge de estado (arriba a la
-            derecha). Se eliminó el texto/icono redundante "Hecho". */}
       </div>
+
+      {/* Bloque inferior: descripción de la sub-fase (ancho completo). */}
+      <p className={`mt-1.5 ${getDescriptionStyles(status)}`}>
+        {subStepMeta.description}
+      </p>
 
       {showButton && (
         <div className="mt-3 w-full md:hidden">
@@ -343,17 +346,6 @@ export function SubStepCard({
             )}
             {buttonLabel}
           </button>
-        </div>
-      )}
-
-      {status === "processing" && (
-        <div className="mt-3 w-full md:hidden flex items-center gap-2 text-xs text-amber-400/80">
-          <Loader2 className="size-3 animate-spin" />
-          <span>{processingMessage}</span>
-          <ElapsedCounter
-            since={processingSince}
-            className="tabular-nums text-amber-400/60"
-          />
         </div>
       )}
 

@@ -4,15 +4,12 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  CheckCircle,
-  Lock,
   Sparkles,
   FileText,
   Brain,
   Palette,
   TrendingUp,
   Code,
-  RefreshCw,
   HelpCircle,
   X,
   XCircle,
@@ -638,14 +635,7 @@ export function ProjectPhasesWithModal({
               title={phase.label}
               description={phase.description ?? undefined}
               subSteps={subStepCards}
-              icon={(() => {
-                if (isCompleted) return <CheckCircle className="size-5" />;
-                if (isLocked) return <Lock className="size-5" />;
-                if (isProcessing) return <RefreshCw className="size-5 animate-spin" />;
-                if (isSubstepReady) return <Sparkles className="size-5" />;
-                if (hasQuestions) return <HelpCircle className="size-5" />;
-                return phaseIcons[phase.type] || <Brain className="size-5" />;
-              })()}
+              icon={phaseIcons[phase.type] || <Brain className="size-5" />}
               status={(() => {
                 if (isCompleted) return "completed" as const;
                 if (isLocked) return "locked" as const;
