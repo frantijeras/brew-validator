@@ -100,58 +100,58 @@ const SKILL_SECTION_GUIDES: Record<string, Record<string, string>> = {
     "Estructura de secciones":
       "Define el orden orientado a conversión y justifica cada sección para ESTE negocio: hero (promesa + CTA principal), prueba social, beneficios / cómo funciona, precios o planes (según la monetización), FAQ, CTA final y footer.",
     "Copy por seccion":
-      "Escribe el copy REAL de cada sección en el tono de la marca (nada de Lorem ipsum): titular + subtítulo + CTA del hero; bullets de beneficios; textos de prueba social; tabla de precios con los planes reales; 4-6 FAQs que resuelven las objeciones del target.",
+      "Escribe el copy REAL de cada sección en el tono de la marca (nada de Lorem ipsum). Reglas de estilo: simple sobre complejo, específico sobre vago (números concretos), voz activa, sin hedging, mostrar sobre contar; claridad antes que ingenio; beneficios antes que features. Titular del hero con una fórmula probada (\"{resultado} sin {dolor}\", \"El {categoría} para {audiencia}\", \"Nunca más {evento desagradable}\"). CTA = [verbo de acción] + [qué obtienen] (+ cualificador): p. ej. \"Reservar mi plaza\". Cubre: prueba social, problema/dolor, solución/beneficios, cómo funciona, manejo de objeciones (FAQs) y CTA final. Para cada bloque, da 2-3 alternativas.",
     "Stack tecnico sugerido":
       "Recomienda un stack realista para el equipo (p. ej. Next.js + Tailwind, o un CMS/no-code si encaja). El HTML debe cumplir las reglas de diseño web de la sección de abajo (accesibilidad, foco, responsive, rendimiento).",
   },
   "contenido-redes": {
     "Pilares de contenido":
-      "Define 3-4 pilares editoriales derivados del análisis de mercado y de los problemas del target. Para cada pilar: objetivo y 3 ejemplos de tema concretos.",
+      "Define 3-5 pilares con una distribución de mezcla (p. ej. 30% insights del sector, 25% behind-the-scenes, 25% educativo, 15% personal, 5% promocional), derivados del análisis de mercado y los problemas del target. Para cada pilar: objetivo y 3 temas concretos.",
     "Calendario 30 dias":
-      "Tabla de 30 días con columnas tema, pilar, canal y formato, repartida según los canales priorizados. Cadencia sostenible para el equipo.",
+      "Tabla de 30 días (tema, pilar, canal, formato) repartida según los canales priorizados. Propón un batching semanal realista (escribir varios posts de una vez) y la práctica de \"content atoms\": reutilizar una pieza larga en varios formatos.",
     "Formatos por canal":
-      "Por cada canal prioritario: estructura nativa del post (gancho, cuerpo, CTA), longitud, hashtags y mejores horas, todo en el tono de la marca.",
+      "Por canal prioritario, su formato y frecuencia nativos (LinkedIn 3-5/sem, carruseles; X/Twitter 3-10/día, hilos; Instagram reels/carruseles a diario; TikTok vídeo corto). Usa fórmulas de gancho: curiosidad (\"Estaba equivocado sobre…\"), historia, valor (\"Cómo {resultado} sin {dolor}\"), contrarian (\"Opinión impopular:\"). En vídeo, regla de los 3 segundos: gancho visual + verbal + texto en pantalla.",
     Metricas:
-      "KPIs por objetivo (alcance, engagement, conversión), cómo medirlos y qué revisar cada semana.",
+      "Awareness (impresiones, alcance, crecimiento de seguidores), engagement (tasa, comentarios, compartidos, guardados) y conversión (clics, visitas al perfil, leads). Revisión semanal: top/bottom performers y mejores horas.",
   },
   "seo-aso": {
     Keywords:
-      "Investiga keywords por intención (informacional, comercial, transaccional) para el sector y el target. Entrega una tabla: keyword, intención, volumen estimado, dificultad y página objetivo. Si el negocio es local, prioriza long-tail con la geo (ciudad/zona).",
+      "Prioriza por 5 niveles (crawlability/indexación → técnico → on-page → calidad de contenido → autoridad). Investiga keywords por intención (informacional, comercial, transaccional) para el sector y el target. Tabla: keyword, intención, volumen estimado, dificultad y página objetivo. Si el negocio es local, prioriza long-tail con la geo.",
     "On-page":
-      "Por cada página objetivo: title (<60 car.), meta description (<155), H1 único, esquema de H2/H3, slug, enlazado interno y alt de imágenes. Da ejemplos reales para la home y 2 páginas clave.",
+      "Title 50-60 car. con la keyword cerca del inicio; meta description 150-160 con propuesta de valor; UN solo H1 con la keyword; jerarquía H1→H2→H3; keyword en las primeras 100 palabras; anchor text descriptivo; sin páginas huérfanas. Core Web Vitals objetivo: LCP < 2.5s, INP < 200ms, CLS < 0.1. Ejemplos reales para home y 2 páginas clave.",
     "Schema.org":
-      "Elige el tipo correcto según el negocio (LocalBusiness, Product, Service, FAQPage…) y entrega el JSON-LD listo para pegar con los datos reales del proyecto.",
-    ASO: "Si hay app: título, subtítulo, campo de keywords, descripción y estrategia de reseñas para App Store y Google Play. Si NO hay app, indícalo y concéntrate en el SEO web.",
+      "Elige el tipo correcto (LocalBusiness, Product, Service, FAQPage…) y entrega el JSON-LD listo para pegar con los datos reales. Nota: el schema inyectado por JS no se detecta con fetch/curl — valida con el Rich Results Test de Google.",
+    ASO: "Si hay app: título, subtítulo, campo de keywords, descripción y estrategia de reseñas para App Store y Google Play. Si NO hay app, indícalo y concéntrate en el SEO web. Formato de hallazgos: Problema · Impacto (Alto/Medio/Bajo) · Evidencia · Fix · Prioridad.",
   },
   "email-marketing": {
     Segmentos:
-      "Define segmentos accionables (p. ej. RFM —recencia, frecuencia, valor—: nuevos, activos, en riesgo, perdidos; o por etapa del ciclo) según el modelo de negocio. Para cada uno: criterio de entrada y objetivo.",
+      "Principios: un email = un trabajo (un CTA); valor antes de pedir; relevancia sobre volumen; camino claro al siguiente paso. Define segmentos accionables (RFM —recencia, frecuencia, valor—: nuevos, activos, en riesgo, perdidos; o por etapa del ciclo). Para cada uno: criterio de entrada y objetivo.",
     Secuencias:
-      "Diseña al menos 3 flujos: bienvenida/activación, nurturing y reactivación. Para cada uno: disparador, nº de emails, cadencia y objetivo, adaptados a la monetización (p. ej. recordatorio de reserva, upsell a bono o suscripción).",
+      "Diseña los flujos con sus longitudes típicas: Bienvenida/activación 5-7 emails en 12-14 días; Nurturing 6-8 en 2-3 semanas (de explorar el problema a la oferta); Reactivación 3-4 en 2 semanas (disparada por 30-60 días de inactividad). Adáptalos a la monetización (recordatorio de reserva, upsell a bono o suscripción). Para cada flujo: disparador, cadencia y objetivo.",
     "Plantillas de email":
-      "Escribe 3-5 emails REALES (asunto + preheader + cuerpo + CTA) en el tono de la marca, listos para pegar. Nada de placeholders genéricos.",
+      "Escribe 3-5 emails REALES con la estructura Gancho → Contexto → Valor → CTA → Cierre (asunto + preheader incluidos), en el tono de la marca. Longitud: 50-125 palabras (transaccional), 150-300 (educativo), 300-500 (narrativo). Asuntos que convierten: preguntas, how-to, listas numeradas, afirmaciones directas.",
     Metricas:
       "Open rate, CTR, conversión y bajas por flujo; benchmark del sector y qué optimizar primero.",
   },
   analytics: {
     "KPIs por objetivo":
-      "Mapea los KPIs al embudo AARRR (Adquisición, Activación, Retención, Ingresos, Recomendación) y define la métrica norte del negocio. Evita vanity metrics (likes, impresiones sueltas).",
+      "Enfoque decision-driven: cada evento debe informar una decisión; evita vanity metrics (calidad > cantidad). Mapea los KPIs al embudo AARRR (Adquisición, Activación, Retención, Ingresos, Recomendación) y define la métrica norte. Diseña el plan trabajando hacia atrás desde las decisiones del negocio.",
     "Eventos a medir":
-      "Lista de eventos con nombre, propiedades y dónde se disparan (p. ej. `reserva_iniciada`, `reserva_completada`, `bono_comprado`), lista para implementar.",
+      "Clasifica en pageviews, acciones de usuario, eventos de sistema (signup/compra/suscripción) y conversiones custom. Nombra con patrón objeto-acción en minúsculas con guion bajo (`signup_completed`, `cta_hero_clicked`); el contexto va en PROPIEDADES, no en el nombre del evento.",
     Dashboards:
       "2-3 dashboards (adquisición, conversión, retención) con los widgets concretos y la herramienta sugerida (GA4, PostHog, Metabase…).",
     "Cadencia de reporte":
-      "Qué se revisa a diario / semanal / mensual, quién lo revisa y qué decisión dispara cada métrica.",
+      "Entregable: un Plan de Medición (tabla: evento, descripción, propiedades, disparador, definición de conversión). Qué se revisa a diario/semanal/mensual, quién y qué decisión dispara. Valida disparo correcto y cero fugas de PII (datos personales).",
   },
   "ads-manager": {
     Plataformas:
-      "Elige plataformas según dónde está el target (del análisis de mercado) y justifica cada una; descarta explícitamente las que no encajan.",
+      "Elige plataformas por su fortaleza de señal y dónde está el target: Google = keywords/intención de búsqueda; Meta = intereses/comportamientos/lookalike (sobre los clientes de mayor LTV, no todos); LinkedIn = cargos/empresas/industrias. Estructura jerárquica Cuenta > Campaña [objetivo-audiencia] > Conjunto [variación de targeting] > Anuncio 1-3; naming `[Plataforma]_[Objetivo]_[Audiencia]_[Oferta]_[Fecha]`.",
     Segmentacion:
-      "Audiencias concretas por plataforma: intereses, lookalike, retargeting y geolocalización local si el negocio lo es.",
+      "Audiencias concretas por plataforma (intereses, lookalike, retargeting, geo local si aplica). Regla crítica: EXCLUYE clientes actuales y conversores recientes (mostrarles ads desperdicia gasto).",
     "Presupuesto y pujas":
-      "Reparto de presupuesto por plataforma/campaña, estrategia de puja y CPA objetivo derivado de los unit economics (CAC vs LTV) de la fase de viabilidad.",
+      "Fase de testing (sem. 1-4): 70% campañas probadas, 30% nuevas audiencias/creatividades; al escalar, sube presupuesto 20-30% cada 3-5 días sobre las ganadoras. Puja: empieza manual/cost cap → tras 50+ conversiones pasa a automática. CPA objetivo derivado del CAC vs LTV de la fase de viabilidad.",
     Creatividades:
-      "3-5 conceptos con su ángulo, copy de anuncio (titular + texto + CTA) y guion visual, en el tono de la marca.",
+      "3-5 conceptos. Vídeo: gancho 0-3s (pattern interrupt) → problema → solución → CTA; subtítulos siempre (85% sin sonido); vertical en Stories, cuadrado en feed; estética nativa rinde más que pulida. Copy con fórmulas PAS (Problema-Agitar-Solución), BAB (Antes-Después-Puente) o Social Proof Lead. Orden de testeo: concepto/ángulo > gancho > visual > copy > CTA.",
   },
   "finance-contabilidad": {
     "Facturacion e impuestos":
