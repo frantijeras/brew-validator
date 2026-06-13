@@ -106,6 +106,15 @@ export default async function ProjectDetailPage({ params }: Props) {
           sortOrder: p.sortOrder,
           artifacts: p.artifacts as Array<{ title: string; type: string }> | null,
           questions: p.questions as Array<{ id: string; label: string; type: string }> | null,
+          // Marca si el usuario YA respondió el quiz (respuestas persistidas).
+          // Permite que el botón de una fase AVAILABLE-con-error reintente el
+          // informe en vez de regenerar el cuestionario.
+          hasAnswers: Boolean(
+            p.answers &&
+              typeof p.answers === "object" &&
+              !Array.isArray(p.answers) &&
+              Object.keys(p.answers as object).length > 0
+          ),
           subStep: p.subStep,
           subStepOrder: p.subStepOrder,
           subStepArtifact: p.subStepArtifact as

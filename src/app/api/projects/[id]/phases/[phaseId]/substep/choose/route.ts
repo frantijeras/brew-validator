@@ -6,6 +6,57 @@ import { enqueuePhaseJob } from "@/lib/bridge/phase-jobs";
 import { completePhaseAndAutostart } from "@/lib/bridge/complete-phase";
 import { PHASE_SUBSTEPS } from "@/lib/phase-substeps";
 import { buildIdentitySummaryMarkdown } from "@/lib/identity-summary";
+import {
+  mergeProjectMemory,
+  type MemorySource,
+  type MemoryEntry,
+  type ProjectMemory,
+} from "@/lib/project-memory";
+
+/**
+ * Consolida en `Project.memory` la decisión que cierra un sub-paso de identidad
+ * confirmado por el usuario, para que las fases posteriores no la repregunten:
+ *  - naming → `brandName` (el nombre elegido)
+ *  - voice  → `tone` (la voz/tono elegido)
+ * El sub-paso `visual` no se consolida aquí (la elección es solo la variante
+ * A/B/C); la identidad visual se materializa en los assets 3d.
+ */
+async function recordIdentityDecision(
+  projectId: string,
+  sortOrder: number,
+  subStepId: string,
+  choice: string,
+): Promise<void> {
+  const topic =
+    subStepId === "naming" ? "brandName" : subStepId === "voice" ? "tone" : null;
+  if (!topic) return;
+  try {
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { memory: true },
+    });
+    const current = (project?.memory as ProjectMemory | null) ?? {};
+    const source = String(Math.min(Math.max(sortOrder, 0), 6)).padStart(
+      2,
+      "0",
+    ) as MemorySource;
+    const entry: MemoryEntry = {
+      value: choice,
+      source,
+      updatedAt: new Date().toISOString(),
+    };
+    const merged = mergeProjectMemory(current, { [topic]: entry }, source);
+    await prisma.project.update({
+      where: { id: projectId },
+      data: { memory: merged as unknown as Prisma.InputJsonValue },
+    });
+  } catch (e) {
+    console.error(
+      `[substep/choose] no se pudo consolidar la decisión "${subStepId}" (projectId=${projectId}):`,
+      e,
+    );
+  }
+}
 
 /**
  * POST /api/projects/[id]/phases/[phaseId]/substep/choose
@@ -108,6 +159,12 @@ export async function POST(
       where: { id: phaseId },
       data: { subStepChoice: choice, subStepHistory: nextHistory },
     });
+
+    // Consolida la decisión de identidad (nombre / tono) en la memoria del
+    // proyecto. Best-effort: nunca debe tumbar la confirmación del sub-paso.
+    if (phase.type === "IDENTITY") {
+      await recordIdentityDecision(projectId, phase.sortOrder, subStepId, choice);
+    }
 
     // Determine the next sub-step based on current position in PHASE_SUBSTEPS
     let nextSubStepName = nextSubStep;

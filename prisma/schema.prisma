@@ -166,6 +166,7 @@ model ProjectPhase {
   sortOrder       Int       @default(0)
   artifacts       Json?
   questions       Json?
+  answers         Json?
   subStep         String?
   subStepArtifact Json?
   subStepChoice   String?

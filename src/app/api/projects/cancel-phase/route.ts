@@ -34,6 +34,7 @@ export async function POST(req: Request) {
       data: {
         status: "AVAILABLE",
         questions: Prisma.JsonNull,
+        answers: Prisma.JsonNull,
         subStepArtifact: Prisma.JsonNull,
         subStepChoice: null,
       },

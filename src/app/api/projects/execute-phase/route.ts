@@ -40,15 +40,33 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Phase not found" }, { status: 404 });
     }
 
+    // Respuestas del quiz YA persistidas (de un envío anterior). Si la fase
+    // falló DESPUÉS de responder el quiz, las recuperamos para reintentar SOLO
+    // el informe sin re-preguntar (bug: antes el reintento regeneraba el quiz).
+    const storedAnswers =
+      phase.answers &&
+      typeof phase.answers === "object" &&
+      !Array.isArray(phase.answers)
+        ? (phase.answers as Record<string, string>)
+        : null;
+    const hasStoredAnswers =
+      !!storedAnswers && Object.keys(storedAnswers).length > 0;
+
     // Validate phase status based on mode — explicit whitelist per mode.
     // IDENTITY sub-steps use "report" mode from AVAILABLE state (they generate
     // intermediate artifacts, not quiz questions). Other phases use "questions" mode.
+    // Un informe se permite también desde AVAILABLE cuando hay respuestas
+    // persistidas: ése es el caso de "reintentar el informe que falló".
     const isIdentityPhase = phaseType === "IDENTITY";
     const allowedStatuses =
       mode === "questions"
         ? ["AVAILABLE"]
         : mode === "report"
-          ? ["QUESTIONING", "SUBSTEP_READY", ...(isIdentityPhase ? ["AVAILABLE"] : [])]
+          ? [
+              "QUESTIONING",
+              "SUBSTEP_READY",
+              ...(isIdentityPhase || hasStoredAnswers ? ["AVAILABLE"] : []),
+            ]
           : null;
     if (!allowedStatuses) {
       return NextResponse.json({ error: `Modo desconocido: ${mode}` }, { status: 400 });
@@ -62,12 +80,21 @@ export async function POST(req: Request) {
       );
     }
 
+    // Respuestas efectivas: las del request (nuevo envío del quiz) o, si no
+    // vienen, las ya persistidas (reintento de informe tras fallo).
+    const requestAnswers =
+      answers && typeof answers === "object" && Object.keys(answers).length > 0
+        ? (answers as Record<string, string>)
+        : null;
+    const effectiveAnswers = requestAnswers ?? storedAnswers ?? undefined;
+
     // Quiz answers are mandatory when answering a questionnaire. Sub-step
     // launches (SUBSTEP_READY / IDENTITY from AVAILABLE) legitimately carry none.
     if (
       mode === "report" &&
-      phase.status === "QUESTIONING" &&
-      (!answers || typeof answers !== "object" || Object.keys(answers).length === 0)
+      (phase.status === "QUESTIONING" ||
+        (phase.status === "AVAILABLE" && !isIdentityPhase)) &&
+      (!effectiveAnswers || Object.keys(effectiveAnswers).length === 0)
     ) {
       return NextResponse.json(
         { error: "Faltan las respuestas del cuestionario" },
@@ -75,10 +102,17 @@ export async function POST(req: Request) {
       );
     }
 
-    // Clear any previous error before starting a new execution
+    // Clear any previous error before starting a new execution. Si arrancamos
+    // un informe con respuestas, las PERSISTIMOS en la fase para que un fallo
+    // posterior pueda reintentar este mismo paso sin volver a preguntar.
     await prisma.projectPhase.update({
       where: { id: phaseId },
-      data: { lastError: Prisma.JsonNull },
+      data: {
+        lastError: Prisma.JsonNull,
+        ...(mode === "report" && effectiveAnswers
+          ? { answers: effectiveAnswers as unknown as Prisma.InputJsonValue }
+          : {}),
+      },
     });
 
     // Resolve the sub-step to run. For IDENTITY we must NOT default to "quiz"
@@ -94,7 +128,7 @@ export async function POST(req: Request) {
       phaseType,
       mode,
       subStep: resolvedSubStep,
-      answers,
+      answers: effectiveAnswers,
       modelOverride,
     });
 

@@ -9,6 +9,12 @@ interface PhaseActionButtonProps {
   phaseId: string;
   phaseType: string;
   label: string;
+  /**
+   * Si la fase falló DESPUÉS de responder el quiz, reintentamos SOLO el informe
+   * (mode "report") reutilizando las respuestas ya persistidas, en vez de
+   * regenerar el cuestionario desde cero (mode "questions").
+   */
+  retryReport?: boolean;
 }
 
 /**
@@ -24,6 +30,7 @@ export function PhaseActionButton({
   phaseId,
   phaseType,
   label,
+  retryReport = false,
 }: PhaseActionButtonProps) {
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +43,14 @@ export function PhaseActionButton({
       const res = await fetch("/api/projects/execute-phase", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, phaseId, phaseType }),
+        // En reintento de informe, NO regeneramos el quiz: relanzamos el
+        // informe reutilizando las respuestas persistidas (el backend las lee
+        // de la fase cuando no llegan en el body).
+        body: JSON.stringify(
+          retryReport
+            ? { projectId, phaseId, phaseType, mode: "report" }
+            : { projectId, phaseId, phaseType }
+        ),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -68,7 +82,7 @@ export function PhaseActionButton({
         ) : (
           <>
             <Sparkles className="size-4" />
-            Iniciar fase
+            {retryReport ? "Reintentar informe" : "Iniciar fase"}
           </>
         )}
       </button>

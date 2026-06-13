@@ -55,6 +55,8 @@ interface PhaseData {
   sortOrder: number;
   artifacts: Array<{ title: string; type: string }> | null;
   questions: Array<{ id: string; label: string; type: string }> | null;
+  /** El usuario ya respondió el quiz (respuestas persistidas en la fase). */
+  hasAnswers?: boolean;
   subStep: string | null;
   subStepOrder: number | null;
   subStepArtifact: { type?: "html" | "markdown"; content?: string; options?: Array<{ value: string; label: string }> } | null;
@@ -842,6 +844,9 @@ export function ProjectPhasesWithModal({
                       phaseId={phase.id}
                       phaseType={phase.type}
                       label={phase.label}
+                      // Reintentar el informe (no regenerar el quiz) cuando la
+                      // fase quedó AVAILABLE tras un fallo y ya hay respuestas.
+                      retryReport={Boolean(phase.hasAnswers && phase.lastError)}
                     />
                   );
                 }

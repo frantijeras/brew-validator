@@ -46,6 +46,25 @@ export const subStepOptionSchema = z.object({
   label: z.string().min(1),
 });
 
+/**
+ * Una decisión consolidada que el agente declara haber tomado/cerrado en la
+ * fase. Se vuelca a `Project.memory` para que las fases posteriores NO la
+ * vuelvan a preguntar (ver agent-context-rules.ts). El `value` admite string,
+ * lista, número o booleano; `rationale` explica el porqué (opcional).
+ */
+export const decisionEntrySchema = z.object({
+  value: z.union([
+    z.string().min(1),
+    z.array(z.string()),
+    z.number(),
+    z.boolean(),
+  ]),
+  rationale: z.string().optional(),
+});
+
+/** Mapa topic → decisión. P. ej. { businessModel: { value: "Suscripción" } }. */
+export const decisionsSchema = z.record(z.string(), decisionEntrySchema);
+
 /** Artefacto intermedio de un sub-paso (lo revisa el usuario en SUBSTEP_READY). */
 export const subStepArtifactSchema = z.object({
   type: z.enum(["html", "markdown"]),
@@ -68,6 +87,9 @@ export const reportOutputSchema = z
     options: z.array(subStepOptionSchema).optional(),
     subStepArtifact: subStepArtifactSchema.optional(),
     subStepArtifactJson: subStepArtifactSchema.optional(),
+    // Decisiones consolidadas que el agente cierra en esta fase. Opcional: si
+    // viene, el callback las vuelca a Project.memory (mergeProjectMemory).
+    decisions: decisionsSchema.optional(),
   })
   .refine(
     (o) =>
@@ -82,6 +104,8 @@ export type QuizOutput = z.infer<typeof quizOutputSchema>;
 export type ReportOutput = z.infer<typeof reportOutputSchema>;
 export type Question = z.infer<typeof questionSchema>;
 export type SubStepArtifact = z.infer<typeof subStepArtifactSchema>;
+export type DecisionEntry = z.infer<typeof decisionEntrySchema>;
+export type Decisions = z.infer<typeof decisionsSchema>;
 
 /** Versión del esquema esperado (info técnica 3.3 — se guarda en BridgeLog). */
 export const PHASE_SCHEMA_VERSION = "1.0.0";

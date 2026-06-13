@@ -16,6 +16,12 @@ import {
 import { RESOLUTION_ACTION, isCritical } from "@/lib/bridge-retry";
 import { dispatchCriticalAlert } from "@/lib/critical-alert";
 import { enqueuePhaseJob } from "@/lib/bridge/phase-jobs";
+import {
+  mergeProjectMemory,
+  type MemorySource,
+  type MemoryEntry,
+  type ProjectMemory,
+} from "@/lib/project-memory";
 
 /**
  * Sub-step artifact shape. The agent emits this JSON when a sub-step produces
@@ -46,6 +52,62 @@ const ALL_INTERMEDIATE_SUBSTEPS = [
   ...IDENTITY_INTERMEDIATE_SUBSTEPS,
   ...EXECUTION_INTERMEDIATE_SUBSTEPS,
 ];
+
+/**
+ * Mapea el `sortOrder` de la fase (1..5) al código de fuente de memoria
+ * ("01".."05"). El idea/intake usa "00" y el usuario "user".
+ */
+function sourceFromSortOrder(sortOrder: number): MemorySource {
+  const code = String(Math.min(Math.max(sortOrder, 0), 6)).padStart(2, "0");
+  return code as MemorySource;
+}
+
+/**
+ * Vuelca las decisiones declaradas por el agente a `Project.memory`.
+ *
+ * Esto resuelve el problema de "la fase posterior repregunta lo ya decidido":
+ * cada vez que un agente cierra una decisión (modelo de negocio, pricing,
+ * canales...), la consolidamos en la memoria del proyecto con la fuente de la
+ * fase. `mergeProjectMemory` respeta "último gana" y nunca pisa un override del
+ * usuario. Best-effort: un fallo aquí NO debe tumbar el callback.
+ */
+async function applyPhaseDecisions(
+  projectId: string,
+  sortOrder: number,
+  decisions: Record<string, { value: unknown; rationale?: string }> | undefined,
+): Promise<void> {
+  if (!decisions || Object.keys(decisions).length === 0) return;
+  try {
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { memory: true },
+    });
+    const current = (project?.memory as ProjectMemory | null) ?? {};
+    const source = sourceFromSortOrder(sortOrder);
+    const now = new Date().toISOString();
+    const incoming: Record<string, MemoryEntry> = {};
+    for (const [topic, entry] of Object.entries(decisions)) {
+      if (!entry || entry.value === undefined || entry.value === null) continue;
+      incoming[topic] = {
+        value: entry.value,
+        source,
+        updatedAt: now,
+        ...(entry.rationale ? { rationale: entry.rationale } : {}),
+      };
+    }
+    if (Object.keys(incoming).length === 0) return;
+    const merged = mergeProjectMemory(current, incoming, source);
+    await prisma.project.update({
+      where: { id: projectId },
+      data: { memory: merged as unknown as Prisma.InputJsonValue },
+    });
+  } catch (e) {
+    console.error(
+      `[project-phase-callback] no se pudieron consolidar decisiones (projectId=${projectId}):`,
+      e,
+    );
+  }
+}
 
 /**
  * POST /api/webhooks/project-phase-callback
@@ -227,6 +289,9 @@ export async function POST(req: Request) {
               status: "QUESTIONING",
               questions: questions,
               subStep: subStep || "quiz",
+              // Quiz (re)generado: descarta respuestas previas obsoletas para
+              // que el reintento de informe no reutilice respuestas de otro set.
+              answers: Prisma.JsonNull,
             },
           });
         } else {
@@ -255,6 +320,20 @@ export async function POST(req: Request) {
         // Query phase early so phaseType is available for intermediate check
         const phase = await prisma.projectPhase.findUnique({ where: { id: phaseId } });
         const phaseType = phase?.type;
+
+        // ── Consolidación de decisiones ──
+        // Si el agente declaró decisiones cerradas en esta fase, las volcamos a
+        // Project.memory para que las fases posteriores NO repregunten lo ya
+        // decidido. Aplica tanto a sub-pasos intermedios como al informe final.
+        if (phase && projectId) {
+          await applyPhaseDecisions(
+            projectId,
+            phase.sortOrder,
+            parsedOutput.decisions as
+              | Record<string, { value: unknown; rationale?: string }>
+              | undefined,
+          );
+        }
         const isIntermediate =
           (phaseType === "IDENTITY" &&
             IDENTITY_INTERMEDIATE_SUBSTEPS.includes(outputSubStep ?? "")) ||
@@ -444,6 +523,8 @@ export async function POST(req: Request) {
                     completedAt: new Date(),
                     subStep: outputSubStep,
                     artifacts: [artifactEntry],
+                    // Fase cerrada: ya no necesitamos las respuestas del quiz.
+                    answers: Prisma.JsonNull,
                   },
                 });
 

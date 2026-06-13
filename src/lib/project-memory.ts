@@ -128,6 +128,7 @@ export const memoryKeyLabels: Record<string, string> = {
   target: "target",
   channels: "canales",
   tone: "tono",
+  brandName: "nombre de marca",
   visual: "visual",
   pricing: "pricing",
   businessModel: "modelo de negocio",
