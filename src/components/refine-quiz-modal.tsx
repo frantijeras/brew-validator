@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { TextExpander } from "@/components/text-expander";
 import { WizardProgress } from "@/components/wizard";
+import { Button } from "@/components/ui/button";
 
 // ── Types ──
 
@@ -546,33 +547,25 @@ export default function RefineQuizModal({
                 className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-slate-200 placeholder:text-slate-500 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/50 focus:outline-none resize-none"
               />
 
-              <div className="mt-4 flex items-center gap-3">
-                <button
-                  onClick={handleManualApply}
-                  disabled={applying || !manualText.trim()}
-                  className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {applying ? (
-                    <>
-                      <Spinner />
-                      Aplicando...
-                    </>
-                  ) : (
-                    <>
-                      <Check className="size-4" />
-                      Aplicar
-                    </>
-                  )}
-                </button>
-                <button
+              <div className="mt-4 flex items-center justify-end gap-3">
+                <Button
+                  variant="ghost"
                   onClick={() => {
                     setManualText("");
                     setScreen("choice");
                   }}
-                  className="text-sm text-slate-400 hover:text-slate-200 transition-colors"
                 >
                   Cancelar
-                </button>
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={handleManualApply}
+                  loading={applying}
+                  disabled={!manualText.trim()}
+                >
+                  {!applying && <Check className="size-4" />}
+                  {applying ? "Aplicando..." : "Aplicar"}
+                </Button>
               </div>
             </div>
           )}
@@ -670,13 +663,10 @@ export default function RefineQuizModal({
 
               {/* Submit button */}
               <div className="mt-6">
-                <button
-                  onClick={handleSubmitAnswers}
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-4 py-3 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600"
-                >
+                <Button variant="primary" fullWidth onClick={handleSubmitAnswers}>
                   Finalizar
                   <Check className="size-4" />
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -722,31 +712,19 @@ export default function RefineQuizModal({
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={handleApplyResult}
-                  disabled={applying}
-                  className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {applying ? (
-                    <>
-                      <Spinner />
-                      Aplicando...
-                    </>
-                  ) : (
-                    <>
-                      <Check className="size-4" />
-                      Aplicar cambios
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={handleRestart}
-                  className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-300 shadow transition-all hover:border-slate-600 hover:bg-slate-700"
-                >
+              <div className="flex items-center justify-end gap-3">
+                <Button variant="secondary" onClick={handleRestart}>
                   <RotateCcw className="size-4" />
                   Volver a empezar
-                </button>
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={handleApplyResult}
+                  loading={applying}
+                >
+                  {!applying && <Check className="size-4" />}
+                  {applying ? "Aplicando..." : "Aplicar cambios"}
+                </Button>
               </div>
             </div>
           )}
@@ -763,12 +741,9 @@ export default function RefineQuizModal({
               <p className="text-sm text-slate-400 mb-6">
                 La idea ha sido actualizada con la versión refinada.
               </p>
-              <button
-                onClick={handleClose}
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-300 shadow transition-all hover:border-slate-600 hover:bg-slate-700"
-              >
+              <Button variant="secondary" onClick={handleClose}>
                 Cerrar
-              </button>
+              </Button>
             </div>
           )}
         </div>
