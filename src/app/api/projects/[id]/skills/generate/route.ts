@@ -76,6 +76,31 @@ function sectionNote(sec: string, ctx: ProjectContext): string {
   );
 }
 
+/**
+ * Instrucción concreta de "cómo trabajar" por skill: en vez de inyectar la idea
+ * en bruto, le dice al agente QUÉ documento/asset consultar ANTES de producir.
+ * Esto conecta cada skill con el contexto real (tono, guía de estilo, template)
+ * por referencia, no por copia.
+ */
+const SKILL_HOWTO: Record<string, string> = {
+  "web-creator":
+    "Antes de maquetar, lee la guía de estilo (`../contexto/3d.guia-de-estilo.md`) y abre el template de componentes (`../assets/template.html`) y el logotipo (`../assets/logo.svg`): reutiliza su paleta, tipografías y componentes. Respeta la voz/tono de `../contexto/3.voz-y-tono.md`. El copy debe hablarle al target del análisis de mercado.",
+  "contenido-redes":
+    "Antes de redactar, lee la voz y tono (`../contexto/3.voz-y-tono.md`) — es OBLIGATORIO mantener ese registro — y la estrategia de distribución (`../contexto/4.estrategia-distribucion.md`) para alinear pilares y canales. Apóyate en el análisis de mercado para los temas que importan al target.",
+  "seo-aso":
+    "Parte de las keywords y el público del análisis de mercado (`../contexto/1.analisis-de-mercado.md`) y de los pilares de contenido (`../contexto/4.estrategia-distribucion.md`).",
+  "email-marketing":
+    "Mantén la voz y tono (`../contexto/3.voz-y-tono.md`). Segmenta según el target y el modelo de negocio (`../contexto/2.viabilidad-economica.md`).",
+  analytics:
+    "Deriva los KPI del modelo de negocio (`../contexto/2.viabilidad-economica.md`) y del roadmap (`../contexto/5.roadmap.md`).",
+  "ads-manager":
+    "Usa el target y la competencia (`../contexto/1.analisis-de-mercado.md`), los canales (`../contexto/4.estrategia-distribucion.md`) y los unit economics (`../contexto/2.viabilidad-economica.md`) para presupuestos y segmentación. Mantén la voz/tono en las creatividades.",
+  "finance-contabilidad":
+    "Parte de los números del análisis de viabilidad (`../contexto/2.viabilidad-economica.md`) y del roadmap (`../contexto/5.roadmap.md`).",
+  "project-handoff":
+    "Empieza SIEMPRE por `../AGENT.md` (eje central con decisiones). Consulta cada doc de `../contexto/` solo cuando la tarea lo requiera.",
+};
+
 /** Construye el documento markdown de una skill (data-driven, referencia el paquete). */
 function buildSkillMarkdown(skillId: string, ctx: ProjectContext): string {
   const def = SKILL_CATALOG.find((s) => s.id === skillId);
@@ -109,6 +134,13 @@ function buildSkillMarkdown(skillId: string, ctx: ProjectContext): string {
     );
     for (const r of refs) L.push(`- \`${CONTEXT_DOCS[r]}\` — ${CONTEXT_DOC_SUMMARY[r]}`);
     for (const a of assets) L.push(`- \`${a}\` — ${ASSET_SUMMARY[a] ?? "Asset de identidad."}`);
+    L.push("");
+  }
+
+  const howto = SKILL_HOWTO[skillId];
+  if (howto) {
+    L.push("## Cómo trabajar (antes de producir)");
+    L.push(howto);
     L.push("");
   }
 
