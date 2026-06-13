@@ -4,6 +4,7 @@ import { SKILL_CATALOG } from "./skill-catalog";
 import { resolve3dAssets } from "./identity-3d";
 import { getChosenLogoSvg } from "./identity-logo";
 import { buildReportPdf } from "./pdf-export";
+import { stripProcessSections } from "./phase-context-parser";
 
 /* ── Types ──────────────────────────────────────────────────────────── */
 
@@ -372,7 +373,7 @@ function buildMarketAnalysis(ctx: HandoffOptions, assets: PhaseAsset[]): string 
   return [
     `# Análisis de Mercado — ${ctx.projectName}`,
     "",
-    ...analysis.contents,
+    ...analysis.contents.map((c) => stripProcessSections(c)),
   ].join("\n");
 }
 
@@ -391,7 +392,7 @@ function buildDistributionStrategy(ctx: HandoffOptions, assets: PhaseAsset[]): s
     "",
     "## Canales y plataformas",
     "",
-    ...content.contents.map((c, i) => `### ${content.titles[i] || "Documento"}\n\n${c}`),
+    ...content.contents.map((c, i) => `### ${content.titles[i] || "Documento"}\n\n${stripProcessSections(c)}`),
   ].join("\n");
 }
 
@@ -403,7 +404,7 @@ function buildBusinessPlan(ctx: HandoffOptions, assets: PhaseAsset[]): string | 
     "",
     "## Lean Canvas · Modelo de Ingresos · Propuesta de Valor",
     "",
-    ...biz.contents.map((c, i) => `### ${biz.titles[i] || "Documento"}\n\n${c}`),
+    ...biz.contents.map((c, i) => `### ${biz.titles[i] || "Documento"}\n\n${stripProcessSections(c)}`),
   ].join("\n");
 }
 

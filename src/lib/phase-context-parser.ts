@@ -62,6 +62,22 @@ const NOISE_HEADING_PATTERNS: RegExp[] = [
 ];
 
 /**
+ * Patrones EXTRA específicos del HANDOFF (entrega final). El paquete final debe
+ * contener el proyecto consolidado, NO el proceso de selección: fuera las
+ * rondas de naming, las enumeraciones de opciones A/B/C, la validación de las
+ * respuestas del quiz y la narración "mi recomendación" (la decisión final ya
+ * vive consolidada en AGENT.md / Project.memory).
+ */
+const HANDOFF_PROCESS_HEADING_PATTERNS: RegExp[] = [
+  ...NOISE_HEADING_PATTERNS,
+  /\bronda\s*\d|lluvia|finalistas?|filtrad/i,
+  /^opci[oó]n\s+[a-cA-C]\b|opciones?\s+(de\s+)?(nombre|naming|estilo|logo)/i,
+  /validaci[oó]n\s+de\s+(tus\s+)?respuestas/i,
+  /\bmi\s+recomendaci[oó]n\b|recomendaci[oó]n\s+final/i,
+  /campo\s+manual/i,
+];
+
+/**
  * Detecta el nivel de un encabezado markdown (## …). Devuelve el número de
  * almohadillas (1-6) o 0 si la línea no es un encabezado.
  */
@@ -70,21 +86,21 @@ function headingLevel(line: string): number {
   return match ? match[1].length : 0;
 }
 
-/** Indica si el TEXTO de un encabezado coincide con algún patrón de ruido. */
-function isNoiseHeading(line: string): boolean {
+/** Indica si el TEXTO de un encabezado coincide con algún patrón dado. */
+function headingMatches(line: string, patterns: RegExp[]): boolean {
   const text = line.replace(/^#{1,6}\s+/, "");
-  return NOISE_HEADING_PATTERNS.some((re) => re.test(text));
+  return patterns.some((re) => re.test(text));
 }
 
 /**
- * Elimina del contenido las secciones markdown cuyo encabezado se considera
- * ruido. Una "sección" abarca desde su encabezado hasta el siguiente
- * encabezado de nivel igual o menor (más superficial), o el fin del texto.
+ * Núcleo: elimina las secciones markdown cuyo encabezado coincide con
+ * `patterns`. Una "sección" abarca desde su encabezado hasta el siguiente
+ * encabezado de nivel igual o más superficial, o el fin del texto.
  *
  * Si el contenido NO parece markdown (sin encabezados), se devuelve intacto:
  * preferimos no adivinar y conservar el resultado.
  */
-export function stripNoiseSections(content: string): string {
+function stripSectionsByPatterns(content: string, patterns: RegExp[]): string {
   const lines = content.split("\n");
   const out: string[] = [];
   let skipUntilLevel: number | null = null;
@@ -93,8 +109,6 @@ export function stripNoiseSections(content: string): string {
     const level = headingLevel(line);
 
     if (skipUntilLevel !== null) {
-      // Estamos descartando una sección de ruido. Salimos del modo "skip"
-      // al encontrar un encabezado de nivel igual o más superficial.
       if (level > 0 && level <= skipUntilLevel) {
         skipUntilLevel = null;
         // No hacemos "continue": esta línea debe re-evaluarse abajo.
@@ -103,7 +117,7 @@ export function stripNoiseSections(content: string): string {
       }
     }
 
-    if (level > 0 && isNoiseHeading(line)) {
+    if (level > 0 && headingMatches(line, patterns)) {
       skipUntilLevel = level;
       continue;
     }
@@ -112,6 +126,19 @@ export function stripNoiseSections(content: string): string {
   }
 
   return out.join("\n");
+}
+
+/** Elimina las secciones de RUIDO (quiz, opciones intermedias, debates…). */
+export function stripNoiseSections(content: string): string {
+  return stripSectionsByPatterns(content, NOISE_HEADING_PATTERNS);
+}
+
+/**
+ * Elimina el PROCESO DE SELECCIÓN para el handoff (rondas, opciones A/B/C,
+ * validación de respuestas, "mi recomendación"). Deja el resultado consolidado.
+ */
+export function stripProcessSections(content: string): string {
+  return stripSectionsByPatterns(content, HANDOFF_PROCESS_HEADING_PATTERNS);
 }
 
 /**
