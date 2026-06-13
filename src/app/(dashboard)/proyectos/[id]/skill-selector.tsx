@@ -16,9 +16,11 @@ import {
   Loader2,
   ArrowRight,
   Eye,
-  X,
 } from "lucide-react";
 import { renderMarkdown } from "@/components/markdown-renderer";
+import { useToast } from "@/components/toast";
+import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/ui/modal";
 import type { SkillData, GeneratedSkill } from "@/lib/skill-types";
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -51,20 +53,15 @@ interface SkillSelectorProps {
 
 export function SkillSelector({ projectId, onHandoffReady, onContinue }: SkillSelectorProps) {
   const router = useRouter();
+  const { showInfo, showError } = useToast();
   const [skills, setSkills] = useState<SkillData[]>([]);
   const [generated, setGenerated] = useState<GeneratedSkill[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [previewSkill, setPreviewSkill] = useState<GeneratedSkill | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
   // Guard para que la generación automática ocurra una sola vez por montaje.
   const autoGenRef = useRef(false);
-
-  const flash = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
-  };
 
   const fetchSkills = useCallback(async () => {
     try {
@@ -87,21 +84,8 @@ export function SkillSelector({ projectId, onHandoffReady, onContinue }: SkillSe
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Generación automática al finalizar el roadmap ──
-  // Esta sección solo es accesible cuando TODAS las fases del proyecto están
-  // completadas. Si al llegar aquí aún no hay skills generadas, se generan
-  // automáticamente desde plantilla (una sola vez).
-  useEffect(() => {
-    if (loading || generating || autoGenRef.current) return;
-    if (skills.length > 0 && generated.length === 0) {
-      autoGenRef.current = true;
-      regenerateAll();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, generating, skills, generated]);
-
   // ── Regenerar TODAS las skills usando estrictamente las plantillas base ──
-  const regenerateAll = async () => {
+  const regenerateAll = useCallback(async () => {
     const ids = skills.map((s) => s.id);
     if (ids.length === 0) return;
     try {
@@ -114,16 +98,27 @@ export function SkillSelector({ projectId, onHandoffReady, onContinue }: SkillSe
       if (!res.ok) throw new Error((await res.json()).error || `Error ${res.status}`);
       const data = await res.json();
       setGenerated((data.skills as GeneratedSkill[]) ?? []);
-      flash(`Skills regeneradas: ${data.skills?.length ?? 0}`);
+      showInfo(`Skills regeneradas: ${data.skills?.length ?? 0}`);
       onHandoffReady?.();
       window.dispatchEvent(new CustomEvent("project-changed"));
       router.refresh();
     } catch (err) {
-      flash(err instanceof Error ? err.message : "Error al regenerar skills");
+      showError(err instanceof Error ? err.message : "Error al regenerar skills");
     } finally {
       setGenerating(false);
     }
-  };
+  }, [projectId, skills, showInfo, showError, onHandoffReady, router]);
+
+  // ── Generación automática al finalizar el roadmap ──
+  // Esta sección solo es accesible cuando TODAS las fases están completadas. Si
+  // al llegar aquí aún no hay skills generadas, se generan desde plantilla (una vez).
+  useEffect(() => {
+    if (loading || generating || autoGenRef.current) return;
+    if (skills.length > 0 && generated.length === 0) {
+      autoGenRef.current = true;
+      regenerateAll();
+    }
+  }, [loading, generating, skills, generated, regenerateAll]);
 
   const Icon = (iconName: string, className?: string) => {
     const C = ICON_MAP[iconName] ?? Code;
@@ -157,12 +152,6 @@ export function SkillSelector({ projectId, onHandoffReady, onContinue }: SkillSe
 
   return (
     <div className="border border-slate-800 rounded-xl bg-slate-950/60 p-5">
-      {toast && (
-        <div className="fixed bottom-6 right-6 z-50 rounded-lg bg-slate-800 border border-slate-700 px-4 py-3 text-sm text-white shadow-lg">
-          {toast}
-        </div>
-      )}
-
       <h2 className="text-lg font-semibold text-white">Skills del Proyecto</h2>
       <p className="mt-1 mb-4 text-xs text-slate-500">
         Guías accionables que referencian los documentos del proyecto. Se generan automáticamente
@@ -184,58 +173,36 @@ export function SkillSelector({ projectId, onHandoffReady, onContinue }: SkillSe
 
       {/* Acciones del roadmap */}
       <div className="mt-5 pt-4 border-t border-slate-800 flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={regenerateAll}
-          disabled={generating}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-5 py-2.5 text-sm font-medium text-slate-200 transition-colors hover:border-slate-600 hover:text-white disabled:opacity-50"
-        >
-          {generating ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+        <Button variant="secondary" onClick={regenerateAll} loading={generating}>
+          {!generating && <Sparkles className="size-4" />}
           {generating ? "Regenerando..." : "Regenerar todas con plantillas"}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="primary"
           onClick={() => onContinue?.()}
           disabled={generating || generated.length === 0}
           title={
-            generated.length === 0
-              ? "Disponible cuando las skills estén generadas"
-              : ""
+            generated.length === 0 ? "Disponible cuando las skills estén generadas" : ""
           }
-          className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Continuar
           <ArrowRight className="size-4" />
-        </button>
+        </Button>
       </div>
 
-      {/* Modal de previsualización del markdown ("Ver la Skill") */}
-      {previewSkill && (
+      {/* Preview del markdown ("Ver la Skill") */}
+      <Modal
+        open={!!previewSkill}
+        onClose={() => setPreviewSkill(null)}
+        title={previewSkill?.name}
+        size="lg"
+        tall
+      >
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-          onClick={() => setPreviewSkill(null)}
-        >
-          <div
-            className="w-full max-w-3xl max-h-[85vh] flex flex-col rounded-xl border border-slate-700 bg-slate-900 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-slate-800 px-5 py-3">
-              <h3 className="text-sm font-semibold text-white truncate">{previewSkill.name}</h3>
-              <button
-                type="button"
-                onClick={() => setPreviewSkill(null)}
-                className="rounded-md p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-              >
-                <X className="size-4" />
-              </button>
-            </div>
-            <div
-              className="flex-1 overflow-y-auto px-5 py-4 markdown-body prose prose-invert prose-sm max-w-none"
-              dangerouslySetInnerHTML={{ __html: renderMarkdown(previewSkill.content || "") }}
-            />
-          </div>
-        </div>
-      )}
+          className="markdown-body prose prose-invert prose-sm max-w-none"
+          dangerouslySetInnerHTML={{ __html: renderMarkdown(previewSkill?.content || "") }}
+        />
+      </Modal>
     </div>
   );
 }
@@ -292,14 +259,15 @@ function SkillCard({
         )}
       </div>
 
-      <button
-        type="button"
+      <Button
+        variant="secondary"
+        size="sm"
+        fullWidth
         onClick={() => generated && onView(generated)}
         disabled={!isGenerated}
-        className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs font-medium text-slate-200 transition-colors hover:bg-slate-700/60 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <Eye className="size-3.5" /> Ver la Skill
-      </button>
+      </Button>
     </div>
   );
 }

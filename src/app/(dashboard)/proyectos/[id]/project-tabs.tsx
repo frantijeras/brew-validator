@@ -7,6 +7,8 @@ import { ProjectPhasesWithModal } from "./project-phases-with-modal";
 import { SkillSelector } from "./skill-selector";
 import type { ProjectMemory } from "@/lib/project-memory";
 import { ReportViewer } from "@/components/report-viewer";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 import type { PhaseError } from "@/lib/phase-errors";
 
@@ -514,7 +516,7 @@ ${skillLines}`;
   return (
     <div className="space-y-6">
       {/* 1. Estructura del Proyecto — árbol real del paquete final */}
-      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-5">
+      <Card>
         <h2 className="text-lg font-semibold text-white">Estructura del Proyecto</h2>
         <p className="mt-1 mb-4 text-sm text-slate-400">
           Así queda el paquete final que se descarga, con los archivos generados.
@@ -522,10 +524,10 @@ ${skillLines}`;
         <pre className="rounded-lg border border-slate-700 bg-slate-900/60 p-4 font-mono text-xs text-slate-400 overflow-x-auto">
 {projectTree}
         </pre>
-      </div>
+      </Card>
 
       {/* 2. Descargar el Proyecto Completo */}
-      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-5">
+      <Card>
         <div className="flex items-center justify-between gap-4">
           <div>
             <h2 className="text-lg font-semibold text-white">
@@ -535,16 +537,12 @@ ${skillLines}`;
               Genera un ZIP con los reportes, la identidad visual y las skills.
             </p>
           </div>
-          <button
-            onClick={handleDownload}
-            disabled={downloading}
-            className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-amber-500 disabled:opacity-50 shrink-0"
-          >
-            <Download className="size-4" />
+          <Button variant="primary" onClick={handleDownload} loading={downloading} className="shrink-0">
+            {!downloading && <Download className="size-4" />}
             {downloading ? "Generando..." : "Descargar .zip"}
-          </button>
+          </Button>
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

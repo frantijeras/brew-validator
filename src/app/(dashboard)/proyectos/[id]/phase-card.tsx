@@ -396,7 +396,7 @@ export function PhaseCard({
               {errorLabel(lastError.category)}
             </span>
           </div>
-          <p className="mt-1 text-[11px] text-red-300/70">
+          <p className="mt-1 text-[11px] text-red-300">
             {lastError.message}
           </p>
           <p className="mt-0.5 text-[10px] text-slate-500">

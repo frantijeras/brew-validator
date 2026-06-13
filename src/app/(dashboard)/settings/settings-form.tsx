@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight, RefreshCw, Pencil, X, Plus } from "lucide-react";
 import { updateProfile, changePassword, addUser, saveAgentModels } from "./actions";
+import { Button } from "@/components/ui/button";
 
 interface UserData {
   id: string;
@@ -194,24 +195,20 @@ function ProfileSection({ user }: { user: UserData | null }) {
 
             <Banner message={message} />
 
-            <div className="flex items-center gap-3">
-              <button
-                type="submit"
-                disabled={pending}
-                className="rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-400 disabled:opacity-50"
-              >
-                {pending ? "Guardando..." : "Guardar cambios"}
-              </button>
-              <button
+            <div className="flex items-center justify-end gap-3">
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={() => {
                   setEditing(false);
                   setMessage(null);
                 }}
-                className="rounded-lg border border-slate-700 px-5 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800"
               >
                 Cancelar
-              </button>
+              </Button>
+              <Button type="submit" variant="primary" loading={pending}>
+                {pending ? "Guardando..." : "Guardar cambios"}
+              </Button>
             </div>
           </form>
 
@@ -815,20 +812,12 @@ function AddUserModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
           <Banner message={message} />
 
           <div className="flex items-center justify-end gap-3 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800"
-            >
+            <Button type="button" variant="ghost" onClick={onClose}>
               Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={pending}
-              className="rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-400 disabled:opacity-50"
-            >
+            </Button>
+            <Button type="submit" variant="primary" loading={pending}>
               {pending ? "Añadiendo..." : "Añadir usuario"}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

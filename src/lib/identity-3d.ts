@@ -23,6 +23,7 @@ import {
   type VisualStyleGuide,
 } from "@/lib/identity-visual";
 import { getChosenLogoSvg } from "@/lib/identity-logo";
+import { BRAND_HEX } from "@/lib/brand-colors";
 
 export type VisualVariant = "A" | "B" | "C";
 
@@ -201,6 +202,9 @@ export function buildStyleGuideHtml(params: {
   const secondary = meta.secondaryColor;
   const heading = meta.fontHeading;
   const body = meta.fontBody;
+  // Neutros de marca centralizados (coherentes con los tokens de la app).
+  const neutralDark = BRAND_HEX.neutralDark;
+  const neutralLight = BRAND_HEX.neutralLight;
 
   // Fuentes de Google (best-effort): si las fuentes existen en Google Fonts se
   // cargan; si no, se cae al fallback del sistema sin romper nada.
@@ -218,9 +222,6 @@ export function buildStyleGuideHtml(params: {
         <div class="usage">${esc(usage)}</div>
       </div>
     </div>`;
-
-  const neutralDark = "#0F172A";
-  const neutralLight = "#F8FAFC";
 
   return `<!DOCTYPE html>
 <html lang="es">

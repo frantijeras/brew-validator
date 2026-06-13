@@ -1,5 +1,6 @@
 import { jsPDF } from "jspdf";
 import { ROBOTO_REGULAR_BASE64, ROBOTO_BOLD_BASE64 } from "@/fonts/roboto";
+import { BRAND_RGB } from "@/lib/brand-colors";
 
 /* ── Judge content cleanup ──────────────────────────────────────────── */
 // Matches the same cleanup the web UI does (markdown-renderer.tsx) so the
@@ -106,13 +107,14 @@ const MARGIN = 20;
 const PAGE_W = 210; // A4 mm
 const CONTENT_W = PAGE_W - MARGIN * 2;
 
-// Colors
-const C_BLACK = [0, 0, 0] as [number, number, number];
-const C_DARK = [50, 50, 50] as [number, number, number];
-const C_GREY = [100, 100, 100] as [number, number, number];
-const C_LIGHT = [150, 150, 150] as [number, number, number];
-const C_ACCENT = [180, 130, 20] as [number, number, number]; // amber-ish
-const C_BG = [245, 245, 245] as [number, number, number]; // light grey bg
+// Colors — derivados de la paleta de marca central (brand-colors.ts) para que
+// el PDF sea coherente con la app y los demás documentos generados.
+const C_BLACK: [number, number, number] = [...BRAND_RGB.black];
+const C_DARK: [number, number, number] = [...BRAND_RGB.dark];
+const C_GREY: [number, number, number] = [...BRAND_RGB.grey];
+const C_LIGHT: [number, number, number] = [...BRAND_RGB.light];
+const C_ACCENT: [number, number, number] = [...BRAND_RGB.accent]; // = primary
+const C_BG: [number, number, number] = [...BRAND_RGB.bg];
 
 /* ── Helpers ── */
 
