@@ -187,6 +187,12 @@ export interface PhaseCardProps {
    * acciones globales. Se renderizan en un contenedor con mt-4 space-y-2.
    */
   subSteps?: React.ReactNode;
+  /**
+   * Tarjeta a ancho completo (ej. Fase 3 con `md:col-span-2`). Cuando es
+   * `true`, las subfases se distribuyen en un grid de 2 columnas en desktop;
+   * en tarjetas normales (media fila) se apilan.
+   */
+  wide?: boolean;
   /** Último error del agente, mostrado cuando la fase está disponible tras un fallo. */
   lastError?: PhaseError | null;
   /**
@@ -225,6 +231,7 @@ export function PhaseCard({
   subProgress,
   miniProgressBar,
   subSteps,
+  wide,
   lastError,
   justUnlocked,
   hasQuestions,
@@ -413,9 +420,17 @@ export function PhaseCard({
       )}
 
       {/* Sub-step cards (nuevo) — renderizadas debajo de la descripción,
-          antes de los artefactos y las acciones globales. */}
+          antes de los artefactos y las acciones globales. En tarjetas a ancho
+          completo (`wide`, ej. Fase 3) las subfases van en grid de 2 columnas
+          en desktop; en tarjetas normales se apilan. */}
       {subSteps && (
-        <div className="mt-4 space-y-2">
+        <div
+          className={
+            wide
+              ? "mt-4 grid grid-cols-1 gap-2.5 md:grid-cols-2"
+              : "mt-4 space-y-2"
+          }
+        >
           {subSteps}
         </div>
       )}

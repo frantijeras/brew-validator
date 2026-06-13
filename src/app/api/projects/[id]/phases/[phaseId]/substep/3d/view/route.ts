@@ -31,13 +31,29 @@ export async function GET(
       return NextResponse.json({ error: "Phase not found" }, { status: 404 });
     }
 
-    const variant = new URL(req.url).searchParams.get("variant");
+    const urlObj = new URL(req.url);
+    const variant = urlObj.searchParams.get("variant");
+    const part = urlObj.searchParams.get("part");
     const assets = resolve3dAssets(phase, variant, project?.name || "Proyecto");
     if (!assets) {
       return NextResponse.json(
         { error: "No visual style artifact available for 3d" },
         { status: 404 }
       );
+    }
+
+    // `part=guia|maqueta` → documento HTML autónomo individual (para mostrar en
+    // pestañas separadas dentro de la subpágina). Sin `part` → vista integrada
+    // (compatibilidad: abrir en pestaña nueva muestra ambas).
+    if (part === "guia" || part === "maqueta") {
+      const single = part === "guia" ? assets.styleGuideHtml : assets.maquetaHtml;
+      return new NextResponse(single, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "no-store",
+        },
+      });
     }
 
     const html = buildIntegratedViewHtml({

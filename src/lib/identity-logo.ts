@@ -44,10 +44,35 @@ export function numberLogoHtml(html: string | null | undefined): string {
     `<span style="display:inline-flex;align-items:center;justify-content:center;` +
     `width:22px;height:22px;border-radius:6px;background:#0f172a;color:#fff;` +
     `font:700 12px system-ui,sans-serif;margin:0 6px 6px 0">${i}</span>`;
-  return html.replace(/<svg/gi, () => {
+  const numbered = html.replace(/<svg/gi, () => {
     n += 1;
     return badge(n) + "<svg";
   });
+  return enforceSquareLogoCanvas(numbered);
+}
+
+/**
+ * Fuerza que TODOS los logos/imagotipos se rendericen dentro de un lienzo
+ * cuadrado (proporción 1:1), inyectando un `<style>` que aplica
+ * `aspect-ratio:1/1` a cada `<svg>`. Refuerza, desde el contenedor, la misma
+ * regla que el prompt exige al agente (viewBox cuadrado). Es idempotente.
+ */
+export function enforceSquareLogoCanvas(html: string): string {
+  if (html.includes("brew-logo-1x1")) return html;
+  const style =
+    `<style id="brew-logo-1x1">` +
+    `svg{aspect-ratio:1/1!important;width:100%!important;height:auto!important;` +
+    `max-width:220px;display:block;margin:0 auto;object-fit:contain}` +
+    `</style>`;
+  if (/<\/head>/i.test(html)) {
+    return html.replace(/<\/head>/i, `${style}</head>`);
+  }
+  const bodyOpen = html.match(/<body[^>]*>/i);
+  if (bodyOpen && bodyOpen.index != null) {
+    const at = bodyOpen.index + bodyOpen[0].length;
+    return html.slice(0, at) + style + html.slice(at);
+  }
+  return style + html;
 }
 
 /**

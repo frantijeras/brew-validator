@@ -742,8 +742,7 @@ export interface BuildReportPdfParams {
 }
 
 export function buildReportPdf(params: BuildReportPdfParams): Buffer {
-  const { title, content, phaseType, projectName } = params;
-  const generatedAt = params.generatedAt ?? new Date();
+  const { title, content, projectName } = params;
 
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   // Register Roboto font
@@ -903,26 +902,10 @@ export function buildReportPdf(params: BuildReportPdfParams): Buffer {
     }
   }
 
-  // ── Header (first page only) ──
-  // projectName — title
-  // Phase: <phaseType>    Date: <DD/MM/YYYY>
-  doc.setFont("Roboto", "bold");
-  doc.setFontSize(9);
-  doc.setTextColor(...C_GREY);
-  const headerLine = `${projectName} — ${title}`;
-  doc.text(doc.splitTextToSize(headerLine, localContentW), MARGIN, y);
-  y += 5;
-  doc.setFont("Roboto", "normal");
-  doc.setFontSize(8);
-  doc.setTextColor(...C_LIGHT);
-  const dateStr = generatedAt.toLocaleDateString("es-ES", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-  doc.text(`Fase: ${phaseType}    ·    Generado: ${dateStr}`, MARGIN, y);
-  y += 6;
-  drawHr();
+  // ── Header eliminado ──
+  // Antes se dibujaba aquí un encabezado dinámico ("<proyecto> — <título> ·
+  // Fase: ... · Generado: <fecha>") seguido de una línea divisoria. El PDF
+  // ahora empieza limpio, directamente con el contenido del documento.
 
   // ── Body ──
   // If the content already has a top-level heading that matches the title

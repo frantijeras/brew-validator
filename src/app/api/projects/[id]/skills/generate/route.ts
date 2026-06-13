@@ -28,7 +28,26 @@ const CONTEXT_DOCS = {
 } as const;
 type ContextDocKey = keyof typeof CONTEXT_DOCS;
 
-// Qué documentos del paquete debe leer cada skill antes de ejecutarse.
+// Resumen de qué contiene cada documento del paquete (mapa de contexto). El
+// agente NO debe leerlos todos por defecto: usa este mapa para ir SOLO al
+// archivo que necesite para la tarea concreta.
+const CONTEXT_DOC_SUMMARY: Record<ContextDocKey, string> = {
+  ANALYSIS: "Análisis de mercado: competencia, tendencias y oportunidad.",
+  BUSINESS: "Viabilidad económica: costes, precios y unit economics.",
+  VOICE: "Voz y tono de la marca (cómo comunica).",
+  STYLE: "Guía de estilo: paleta de color, tipografía y componentes.",
+  CONTENT: "Estrategia de distribución: canales y plan de contenidos.",
+  ROADMAP: "Roadmap del proyecto: fases y prioridades de ejecución.",
+};
+
+// Resumen de los assets de identidad.
+const ASSET_SUMMARY: Record<string, string> = {
+  "../assets/logo.svg": "Logotipo vectorial elegido (SVG, 1:1).",
+  "../assets/maqueta.html": "Maqueta web con el logotipo incrustado.",
+  "../assets/guia-estilos.pdf": "Guía de estilo en PDF.",
+};
+
+// Qué documentos del paquete son relevantes para cada skill (consulta puntual).
 const SKILL_REFS: Record<string, ContextDocKey[]> = {
   "web-creator": ["ANALYSIS", "VOICE", "STYLE"],
   "contenido-redes": ["CONTENT", "VOICE", "ANALYSIS"],
@@ -82,10 +101,14 @@ function buildSkillMarkdown(skillId: string, ctx: ProjectContext): string {
   L.push("");
 
   if (refs.length || assets.length) {
-    L.push("## Documentos de referencia del paquete");
-    L.push("Lee estos archivos del paquete antes de ejecutar esta skill:");
-    for (const r of refs) L.push(`- \`${CONTEXT_DOCS[r]}\``);
-    for (const a of assets) L.push(`- \`${a}\``);
+    L.push("## Mapa del paquete (consulta puntual)");
+    L.push(
+      "No leas todo el contexto por defecto. Empieza por `../AGENT.md` (eje central " +
+        "con el resumen e instrucciones del proyecto) y, para esta tarea, ve SOLO al " +
+        "archivo de abajo cuya información necesites:"
+    );
+    for (const r of refs) L.push(`- \`${CONTEXT_DOCS[r]}\` — ${CONTEXT_DOC_SUMMARY[r]}`);
+    for (const a of assets) L.push(`- \`${a}\` — ${ASSET_SUMMARY[a] ?? "Asset de identidad."}`);
     L.push("");
   }
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter } from "next/navigation";
-import { Lock, Download, FileText, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
+import { Lock, Download, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 import { ProjectPhasesWithModal } from "./project-phases-with-modal";
 import { SkillSelector } from "./skill-selector";
 import type { ProjectMemory } from "@/lib/project-memory";
@@ -206,6 +206,7 @@ export function ProjectTabs({
             onHandoffReady={() => {
               router.refresh();
             }}
+            onContinue={() => setActiveTab("handoff")}
           />
         </Suspense>
       )}
@@ -214,7 +215,6 @@ export function ProjectTabs({
         <HandoffTab
           projectId={projectId}
           projectName={projectName}
-          phases={phases}
           existingSkills={existingSkills}
         />
       )}
@@ -442,19 +442,51 @@ function ValidationTab({
 function HandoffTab({
   projectId,
   projectName,
-  phases,
   existingSkills,
 }: {
   projectId: string;
   projectName: string;
-  phases: PhaseData[];
   existingSkills: SkillData[] | null;
 }) {
   const [downloading, setDownloading] = useState(false);
 
-  const completedPhases = phases.filter((p) => p.status === "COMPLETED");
-  const selectedSkills =
-    existingSkills?.filter((s) => s.selected) ?? [];
+  const selectedSkills = existingSkills?.filter((s) => s.selected) ?? [];
+
+  const slug = projectName
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  // Árbol de directorios REAL del paquete final: las skills generadas se listan
+  // según lo realmente seleccionado; el resto de la estructura es fija.
+  const skillLines =
+    selectedSkills.length > 0
+      ? selectedSkills
+          .map(
+            (s, i, arr) =>
+              `    ${i === arr.length - 1 ? "└──" : "├──"} ${s.id}.md`,
+          )
+          .join("\n")
+      : "    └── (genera las skills)";
+
+  const projectTree = `${slug}/
+├── AGENT.md
+├── README.md
+├── contexto/
+│   ├── 1.analisis-de-mercado.md
+│   ├── 2.viabilidad-economica.md
+│   ├── 3.voz-y-tono.md
+│   ├── 3d.guia-de-estilo.md
+│   ├── 4.estrategia-distribucion.md
+│   └── 5.roadmap.md
+├── assets/
+│   ├── logo.svg
+│   ├── maqueta.html
+│   └── guia-estilos.pdf
+└── skills/
+${skillLines}`;
 
   const handleDownload = async () => {
     try {
@@ -481,15 +513,26 @@ function HandoffTab({
 
   return (
     <div className="space-y-6">
-      {/* Download button */}
+      {/* 1. Estructura del Proyecto — árbol real del paquete final */}
       <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-5">
-        <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-white">Estructura del Proyecto</h2>
+        <p className="mt-1 mb-4 text-sm text-slate-400">
+          Así queda el paquete final que se descarga, con los archivos generados.
+        </p>
+        <pre className="rounded-lg border border-slate-700 bg-slate-900/60 p-4 font-mono text-xs text-slate-400 overflow-x-auto">
+{projectTree}
+        </pre>
+      </div>
+
+      {/* 2. Descargar el Proyecto Completo */}
+      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-5">
+        <div className="flex items-center justify-between gap-4">
           <div>
             <h2 className="text-lg font-semibold text-white">
-              Descargar proyecto completo
+              Descargar el Proyecto Completo
             </h2>
             <p className="text-sm text-slate-400 mt-1">
-              Genera un ZIP con todos los reportes, identidad y skills seleccionadas.
+              Genera un ZIP con los reportes, la identidad visual y las skills.
             </p>
           </div>
           <button
@@ -498,111 +541,9 @@ function HandoffTab({
             className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-amber-500 disabled:opacity-50 shrink-0"
           >
             <Download className="size-4" />
-            {downloading ? "Generando..." : "Descargar todo"}
+            {downloading ? "Generando..." : "Descargar .zip"}
           </button>
         </div>
-      </div>
-
-      {/* Fases */}
-      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-5">
-        <h3 className="text-sm font-semibold text-white mb-3">
-          Fases del proyecto
-        </h3>
-        {completedPhases.length > 0 ? (
-          <div className="space-y-2">
-            {completedPhases.map((phase) => {
-              const hasContent =
-                (phase.type === "IDENTITY" &&
-                  (phase.subStep === "final" || phase.subStep === "visual") &&
-                  phase.subStepArtifact?.content) ||
-                (phase.artifacts && phase.artifacts.length > 0 &&
-                  phase.artifacts.some((a) => a.type === "markdown"));
-
-              return (
-                <div
-                  key={phase.id}
-                  className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-3"
-                >
-                  <CheckCircle2 className="size-4 text-green-400 shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-white truncate">
-                      {phase.label}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      Fase {phase.sortOrder}
-                    </p>
-                  </div>
-                  <span className="text-xs text-slate-500 shrink-0">
-                    {hasContent ? "Markdown incluido" : "Sin contenido"}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="text-sm text-slate-500">
-            Ninguna fase completada aún.
-          </p>
-        )}
-      </div>
-
-      {/* Skills */}
-      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-5">
-        <h3 className="text-sm font-semibold text-white mb-3">
-          Skills seleccionadas
-        </h3>
-        {selectedSkills.length > 0 ? (
-          <div className="space-y-2">
-            {selectedSkills.map((skill) => (
-              <div
-                key={skill.id}
-                className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-3"
-              >
-                <FileText className="size-4 text-amber-400 shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-white truncate">
-                    {skill.name}
-                  </p>
-                  <p className="text-xs text-slate-500 truncate">
-                    {skill.description}
-                  </p>
-                </div>
-                <span className="text-xs text-slate-500 shrink-0">
-                  {skill.category}
-                </span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-slate-500">
-            No hay skills seleccionadas.
-          </p>
-        )}
-      </div>
-
-      {/* Package structure preview */}
-      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-5">
-        <h3 className="text-sm font-semibold text-white mb-3">
-          Estructura del paquete
-        </h3>
-        <pre className="rounded-lg border border-slate-700 bg-slate-900/60 p-4 font-mono text-xs text-slate-400 overflow-x-auto">
-{`${projectName.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}/
-├── AGENT.md
-├── README.md
-├── contexto/
-│   ├── 1.analisis-de-mercado.md
-│   ├── 2.viabilidad-economica.md
-│   ├── 3.voz-y-tono.md
-│   ├── 3d.guia-de-estilo.md
-│   ├── 4.estrategia-distribucion.md
-│   └── 5.roadmap.md
-├── assets/
-│   ├── logo.svg
-│   ├── maqueta.html
-│   └── guia-estilos.pdf
-└── skills/
-${selectedSkills.map((s) => s.id).map((id: string, i: number, arr: string[]) => `    ${i === arr.length - 1 ? "└──" : "├──"} ${id}.md`).join("\n") || "    └── (genera las skills)"}`}
-        </pre>
       </div>
     </div>
   );
