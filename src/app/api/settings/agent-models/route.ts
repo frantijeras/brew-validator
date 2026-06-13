@@ -27,6 +27,10 @@ const DEFAULT_MODELS: Record<string, string> = {
   refiner: "opencode-zen-free/deepseek-v4-flash-free",
   "project-analyst": "opencode-go/deepseek-v4-flash",
   "project-branding": "opencode-go/deepseek-v4-flash",
+  "project-naming": "opencode-go/deepseek-v4-flash",
+  "project-voice": "opencode-go/deepseek-v4-flash",
+  "project-logo": "opencode-go/deepseek-v4-flash",
+  "project-template": "opencode-go/deepseek-v4-flash",
   "project-content": "opencode-go/deepseek-v4-flash",
 }
 

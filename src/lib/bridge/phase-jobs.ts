@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { resolveModelForJobAgent } from "@/lib/agent-models";
+import { resolveModelForJobAgent, agentForIdentitySubStep } from "@/lib/agent-models";
 import { buildAgentContextRules } from "@/lib/agent-context-rules";
 import type { ProjectMemory } from "@/lib/project-memory";
 import { parsePreviousPhaseArtifacts } from "@/lib/phase-context-parser";
@@ -153,9 +153,6 @@ export async function enqueuePhaseJob(
       content: s.summary,
     }));
 
-  const agentName = PHASE_TO_AGENT[phaseType] || `project-${phaseType.toLowerCase()}`;
-  const model = modelOverride || (await resolveModelForJobAgent(agentName));
-
   // ── IDENTITY sub-step auto-advance ──
   // The IDENTITY phase is presented to the user as 4 sequential sub-steps
   // (naming → voice → logo → visual). When the client launches the next
@@ -188,6 +185,17 @@ export async function enqueuePhaseJob(
     phaseType === "IDENTITY"
       ? getIdentitySubStepIndex(effectiveSubStep)
       : null;
+
+  // Agente que ejecuta el job. IDENTITY (Fase 3) está separada en 4 sub-skills
+  // (project-naming/voice/logo/template): el agente se elige por el sub-paso que
+  // toca. El resto de fases usan su agente único. El bridge selecciona el
+  // SKILL.md del VPS por este `agentName`, y el modelo se resuelve por agente
+  // (cada sub-skill es configurable por separado en Ajustes).
+  const agentName =
+    phaseType === "IDENTITY"
+      ? agentForIdentitySubStep(effectiveSubStep)
+      : PHASE_TO_AGENT[phaseType] || `project-${phaseType.toLowerCase()}`;
+  const model = modelOverride || (await resolveModelForJobAgent(agentName));
 
   const contextRules = buildAgentContextRules(projectMemory);
 

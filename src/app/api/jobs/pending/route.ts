@@ -7,6 +7,8 @@ const MONITORED_AGENTS = [
   "idea-generator", "brew-qa-refiner",
   "project-analyst", "project-branding", "project-content",
   "project-business", "project-execution", "project-skills",
+  // Fase 3 separada en 4 sub-skills (project-branding se mantiene de fallback).
+  "project-naming", "project-voice", "project-logo", "project-template",
 ];
 
 /**

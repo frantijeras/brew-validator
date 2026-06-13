@@ -8,6 +8,11 @@ const AGENT_DEFAULTS: Record<string, string> = {
   refiner: "opencode-zen-free/deepseek-v4-flash-free",
   "project-analyst": "opencode-go/deepseek-v4-flash",
   "project-branding": "opencode-go/deepseek-v4-flash",
+  // Fase 3 separada en 4 sub-skills (cada una con su modelo elegible en Ajustes).
+  "project-naming": "opencode-go/deepseek-v4-flash",
+  "project-voice": "opencode-go/deepseek-v4-flash",
+  "project-logo": "opencode-go/deepseek-v4-flash",
+  "project-template": "opencode-go/deepseek-v4-flash",
   "project-content": "opencode-go/deepseek-v4-flash",
   "project-business": "opencode-go/deepseek-v4-flash",
   "project-execution": "opencode-go/deepseek-v4-flash",
@@ -23,6 +28,10 @@ const JOB_AGENT_TO_SETTINGS_KEY: Record<string, string> = {
   "idea-renamer": "generator",
   "project-analyst": "project-analyst",
   "project-branding": "project-branding",
+  "project-naming": "project-naming",
+  "project-voice": "project-voice",
+  "project-logo": "project-logo",
+  "project-template": "project-template",
   "project-content": "project-content",
   "project-business": "project-business",
   "project-execution": "project-execution",
@@ -31,12 +40,31 @@ const JOB_AGENT_TO_SETTINGS_KEY: Record<string, string> = {
 
 export const PROJECT_AGENTS = [
   "project-analyst",
-  "project-branding",
+  "project-naming",
+  "project-voice",
+  "project-logo",
+  "project-template",
   "project-content",
   "project-business",
   "project-execution",
   "project-skills",
 ];
+
+/**
+ * IDENTITY (Fase 3) se sirve con 4 sub-skills independientes, una por sub-paso.
+ * El bridge selecciona el SKILL.md por `agentName`, así que el job debe llevar
+ * el agente correcto según el sub-paso que toca ejecutar.
+ */
+export const IDENTITY_SUBSTEP_AGENT: Record<string, string> = {
+  naming: "project-naming",
+  voice: "project-voice",
+  logo: "project-logo",
+  visual: "project-template",
+};
+
+export function agentForIdentitySubStep(subStep: string | null | undefined): string {
+  return (subStep && IDENTITY_SUBSTEP_AGENT[subStep]) || "project-naming";
+}
 
 export function isProjectAgent(agentName: string): boolean {
   return PROJECT_AGENTS.includes(agentName);

@@ -34,6 +34,12 @@ MAP = {
     "project-analyst.md": "project-analyst",
     "project-business.md": "project-business",
     "project-branding.md": "project-branding",
+    # Fase 3 separada en 4 sub-skills independientes (naming/voice/logo/template).
+    # project-branding.md se mantiene como fallback durante la transición.
+    "project-naming.md": "project-naming",
+    "project-voice.md": "project-voice",
+    "project-logo.md": "project-logo",
+    "project-template.md": "project-template",
     "project-content.md": "project-content",
     "project-execution.md": "project-execution",
     "project-skills.md": "project-skills",
