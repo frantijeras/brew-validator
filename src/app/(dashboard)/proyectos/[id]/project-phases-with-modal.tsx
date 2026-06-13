@@ -1035,7 +1035,14 @@ export function ProjectPhasesWithModal({
               ))}
             </div>
 
-            <div className="shrink-0 border-t border-slate-800 px-5 py-4 flex items-center gap-3">
+            <div className="shrink-0 border-t border-slate-800 px-5 py-4 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setShowMemoryModal(false)}
+                disabled={savingMemory}
+                className="text-sm text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
               <button
                 onClick={handleSaveMemory}
                 disabled={savingMemory}
@@ -1052,13 +1059,6 @@ export function ProjectPhasesWithModal({
                     Guardar
                   </>
                 )}
-              </button>
-              <button
-                onClick={() => setShowMemoryModal(false)}
-                disabled={savingMemory}
-                className="text-sm text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-50"
-              >
-                Cancelar
               </button>
             </div>
           </div>
@@ -1103,7 +1103,17 @@ export function ProjectPhasesWithModal({
               )}
             </div>
 
-            <div className="border-t border-slate-800 px-5 py-4 flex items-center gap-3">
+            <div className="border-t border-slate-800 px-5 py-4 flex items-center justify-end gap-3">
+              <button
+                onClick={() => {
+                  if (rollbackInFlight) return;
+                  setRollbackPhase(null);
+                }}
+                disabled={rollbackInFlight}
+                className="text-sm text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
               <button
                 onClick={() => handleRollback(rollbackPhase)}
                 disabled={rollbackInFlight}
@@ -1120,16 +1130,6 @@ export function ProjectPhasesWithModal({
                     Sí, rehacer y borrar posteriores
                   </>
                 )}
-              </button>
-              <button
-                onClick={() => {
-                  if (rollbackInFlight) return;
-                  setRollbackPhase(null);
-                }}
-                disabled={rollbackInFlight}
-                className="text-sm text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-50"
-              >
-                Cancelar
               </button>
             </div>
           </div>
@@ -1154,7 +1154,18 @@ export function ProjectPhasesWithModal({
                 dependían de la identidad. El hand-off se invalidará.
               </p>
               {rollbackError && <p className="text-sm text-red-400">{rollbackError}</p>}
-              <div className="flex items-center gap-3 pt-1">
+              <div className="flex items-center justify-end gap-3 pt-1">
+                <button
+                  onClick={() => {
+                    if (rollbackInFlight) return;
+                    setSubstepRollback(null);
+                    setRollbackError(null);
+                  }}
+                  disabled={rollbackInFlight}
+                  className="text-sm text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
                 <button
                   onClick={handleSubstepRollback}
                   disabled={rollbackInFlight}
@@ -1171,17 +1182,6 @@ export function ProjectPhasesWithModal({
                       Sí, rehacer este paso
                     </>
                   )}
-                </button>
-                <button
-                  onClick={() => {
-                    if (rollbackInFlight) return;
-                    setSubstepRollback(null);
-                    setRollbackError(null);
-                  }}
-                  disabled={rollbackInFlight}
-                  className="text-sm text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-50"
-                >
-                  Cancelar
                 </button>
               </div>
             </div>
