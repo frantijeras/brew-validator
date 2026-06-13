@@ -24,7 +24,7 @@ import {
   getVisualOption,
   type VisualStyleGuide,
 } from "@/lib/identity-visual";
-import { extractLogoSvgs } from "@/lib/identity-logo";
+import { extractLogoSvgs, numberLogoHtml } from "@/lib/identity-logo";
 import { getNextIdentitySubStep } from "@/lib/identity-substeps";
 
 /**
@@ -1646,7 +1646,7 @@ function LogoSubStepPreview({
         <div className="overflow-hidden rounded-lg border border-slate-700 bg-white">
           <iframe
             ref={iframeRef}
-            srcDoc={html}
+            srcDoc={numberLogoHtml(html)}
             title="12 propuestas de logotipo"
             className="w-full min-h-[360px] border-0"
             sandbox="allow-same-origin"

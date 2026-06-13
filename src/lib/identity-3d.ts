@@ -275,25 +275,49 @@ export function buildStyleGuideMarkdown(params: {
 }): string {
   const { projectName, variant, meta } = params;
   return [
-    `# Guía de Estilo — ${projectName}`,
+    `# Guia de Estilo - ${projectName}`,
     "",
-    `Variante de estilo visual elegida: **${variant}**${
-      meta.name ? ` (${meta.name})` : ""
-    }.`,
+    `Variante de estilo visual elegida: **${variant}**${meta.name ? ` (${meta.name})` : ""}.`,
+    "Esta guia documenta la identidad visual para aplicarla de forma coherente en",
+    "web, redes, presentaciones y cualquier material de marca.",
     "",
-    "## Paleta de colores (HEX, Sistema hexadecimal)",
-    `- **Primario:** ${meta.primaryColor}`,
-    `- **Secundario:** ${meta.secondaryColor}`,
+    "## 1. Paleta de colores (HEX, Sistema hexadecimal)",
     "",
-    "## Tipografía",
-    `- **Titulares:** ${meta.fontHeading}`,
-    `- **Cuerpo:** ${meta.fontBody}`,
+    "| Rol | Color | Uso recomendado |",
+    "|---|---|---|",
+    `| Primario | \`${meta.primaryColor}\` | Color principal de marca: CTAs, enlaces, acentos clave. |`,
+    `| Secundario | \`${meta.secondaryColor}\` | Apoyo y contraste: fondos de seccion, destacados secundarios. |`,
+    "| Neutros | #0F172A / #F8FAFC | Texto y fondos. Usar neutros oscuros sobre claros para legibilidad. |",
     "",
-    "## Dirección visual",
-    meta.mood || "—",
+    "**Regla de contraste:** garantiza un ratio AA (4.5:1) entre texto y fondo.",
     "",
-    "> El logotipo en SVG (Gráficos vectoriales redimensionables) se entrega",
-    "> incrustado en la maqueta `index.html` y como `logo.svg` en el hand-off.",
+    "## 2. Tipografia",
+    "",
+    `- **Titulares:** ${meta.fontHeading} - usar para H1-H3, peso bold, tracking ajustado.`,
+    `- **Cuerpo:** ${meta.fontBody} - usar para parrafos y UI, peso regular, line-height 1.5.`,
+    "",
+    "**Escala sugerida:** H1 32px / H2 24px / H3 18px / cuerpo 16px / nota 13px.",
+    "",
+    "## 3. Direccion visual",
+    "",
+    meta.mood || "Estilo limpio y coherente con el target del proyecto.",
+    "",
+    "## 4. Logotipo",
+    "",
+    "- Se entrega como `assets/logo.svg` (vectorial, escalable sin perdida).",
+    "- Mantener un area de respeto alrededor equivalente a la altura de su simbolo.",
+    "- No deformar, rotar ni recolorear fuera de la paleta definida.",
+    "",
+    "## 5. Aplicaciones",
+    "",
+    "- **Web/Landing:** ver maqueta en `assets/maqueta.html` (con el logotipo incrustado).",
+    "- **Redes:** usar primario en avatares y secundario en portadas.",
+    "- **Documentos:** titulares con la fuente de titulares, cuerpo con la de cuerpo.",
+    "",
+    "## 6. Buenas practicas (SI / NO)",
+    "",
+    "- SI: respetar la paleta, mantener jerarquia tipografica, dejar aire alrededor del logo.",
+    "- NO: mezclar mas de 2 fuentes, saturar de colores, comprimir o estirar el logotipo.",
     "",
   ].join("\n");
 }
@@ -314,7 +338,10 @@ export function buildIntegratedViewHtml(params: {
   styleGuideHtml: string;
 }): string {
   const { projectName, variant, maquetaHtml, styleGuideHtml } = params;
-  const srcdoc = (html: string) => esc(html);
+  // El valor de `srcdoc="..."` es un atributo HTML: hay que escapar TAMBIÉN las
+  // comillas dobles (la maqueta/guía las contienen) o el atributo se rompe y el
+  // iframe sale en blanco ("no se ve nada al darle Ver" en 3d).
+  const srcdoc = (html: string) => esc(html).replace(/"/g, "&quot;");
   return `<!DOCTYPE html>
 <html lang="es">
 <head>

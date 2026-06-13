@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { guardProject } from "@/lib/ownership";
 import { buildReportHtml } from "@/lib/report-renderer";
 import { buildReportPdf } from "@/lib/pdf-export";
-import { getChosenLogoSvg } from "@/lib/identity-logo";
+import { getChosenLogoSvg, numberLogoHtml } from "@/lib/identity-logo";
 
 /**
  * GET /api/projects/[id]/phases/[phaseId]/substep/history?subStep=<id>&action=view|download[&svg=N]
@@ -99,8 +99,8 @@ export async function GET(
           },
         });
       }
-      // view → el HTML de los 12 logos, inline.
-      return new NextResponse(content, {
+      // view → el HTML de los 12 logos (numerados), inline.
+      return new NextResponse(numberLogoHtml(content), {
         status: 200,
         headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
       });

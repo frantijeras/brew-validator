@@ -32,6 +32,25 @@ export function countLogos(html: string | null | undefined): number {
 }
 
 /**
+ * Inyecta un badge numerado (1, 2, 3…) antes de cada `<svg>` para que el
+ * usuario pueda identificar cada propuesta y elegirla con su número. Como el
+ * HTML se muestra en un iframe sin scripts (`sandbox=allow-same-origin`), la
+ * numeración debe ser ESTÁTICA en el markup, no por JavaScript.
+ */
+export function numberLogoHtml(html: string | null | undefined): string {
+  if (!html || typeof html !== "string") return html || "";
+  let n = 0;
+  const badge = (i: number) =>
+    `<span style="display:inline-flex;align-items:center;justify-content:center;` +
+    `width:22px;height:22px;border-radius:6px;background:#0f172a;color:#fff;` +
+    `font:700 12px system-ui,sans-serif;margin:0 6px 6px 0">${i}</span>`;
+  return html.replace(/<svg/gi, () => {
+    n += 1;
+    return badge(n) + "<svg";
+  });
+}
+
+/**
  * Recupera el SVG elegido. `choice` puede ser:
  *  - un índice 1-based ("1".."12" o number),
  *  - o un identificador "logo-N".
