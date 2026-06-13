@@ -203,7 +203,6 @@ export function ProjectTabs({
         <Suspense fallback={<div className="animate-pulse bg-slate-800/50 rounded-xl h-48" />}>
           <SkillSelector
             projectId={projectId}
-            initialSkills={existingSkills && existingSkills.length > 0 ? existingSkills : undefined}
             onHandoffReady={() => {
               router.refresh();
             }}

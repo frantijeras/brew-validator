@@ -4,26 +4,30 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { guardProject } from "@/lib/ownership";
 import { inferSkills } from "@/lib/skill-inference";
-import type { InferenceInput, SkillRecommendation } from "@/lib/skill-inference";
+import type { InferenceInput } from "@/lib/skill-inference";
+import type { SkillData } from "@/lib/skill-types";
 
-const savedSkillSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  description: z.string(),
-  icon: z.string(),
-  category: z.enum([
-    "desarrollo",
-    "marketing",
-    "operaciones",
-    "legal",
-    "finanzas",
-  ]),
-  confidence: z.number().min(0).max(1),
-  reason: z.string(),
-  recommended: z.boolean(),
-  selected: z.boolean(),
-  custom: z.boolean(),
-});
+const savedSkillSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    description: z.string(),
+    icon: z.string(),
+    category: z.enum([
+      "desarrollo",
+      "marketing",
+      "operaciones",
+      "legal",
+      "finanzas",
+    ]),
+    confidence: z.number().min(0).max(1),
+    reason: z.string(),
+    recommended: z.boolean(),
+    selected: z.boolean(),
+    custom: z.boolean(),
+    matchedConditions: z.array(z.string()).optional(),
+  })
+  .passthrough();
 
 const putBodySchema = z.object({
   skills: z.array(savedSkillSchema),
@@ -156,10 +160,48 @@ export async function GET(
 
     const recommendations = inferSkills(inferenceInput);
 
-    // Sort by confidence descending
-    recommendations.sort((a, b) => b.confidence - a.confidence);
+    // ── APLANAR a SkillData + FUSIONAR con la selección guardada ──
+    // El motor devuelve `SkillRecommendation` anidado; la UI/PUT usan la forma
+    // PLANA `SkillData`. Aplanamos y respetamos `selected` previo (persistencia)
+    // y añadimos las skills `custom` que el usuario ya guardó.
+    const saved = (Array.isArray(project.skills)
+      ? (project.skills as unknown as SkillData[])
+      : []
+    ).filter((s) => s && typeof s.id === "string");
+    const savedById = new Map(saved.map((s) => [s.id, s]));
 
-    return NextResponse.json({ skills: recommendations });
+    const flat: SkillData[] = recommendations.map((r) => {
+      const prev = savedById.get(r.skill.id);
+      return {
+        id: r.skill.id,
+        name: r.skill.name,
+        description: r.skill.description,
+        icon: r.skill.icon,
+        category: r.skill.category,
+        confidence: r.confidence,
+        reason: r.reason,
+        recommended: r.recommended,
+        matchedConditions: r.matchedConditions,
+        // Selección: respeta lo guardado; por defecto, recomendadas fuertes.
+        selected: prev ? prev.selected === true : r.recommended && r.confidence >= 0.7,
+        custom: false,
+      };
+    });
+
+    // Skills custom guardadas (no están en el catálogo) → se conservan.
+    const catalogIds = new Set(recommendations.map((r) => r.skill.id));
+    const customSaved = saved.filter((s) => s.custom && !catalogIds.has(s.id));
+
+    const result = [...flat, ...customSaved].sort(
+      (a, b) => b.confidence - a.confidence
+    );
+
+    // Skills ya generadas (contenido) para la lista de revisión de la UI.
+    const generated = Array.isArray(project.generatedSkills)
+      ? project.generatedSkills
+      : [];
+
+    return NextResponse.json({ skills: result, generated });
   } catch (error) {
     console.error("GET /api/projects/[id]/skills error:", error);
     return NextResponse.json(

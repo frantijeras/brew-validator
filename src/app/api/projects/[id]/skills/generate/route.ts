@@ -4,19 +4,17 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { guardProject } from "@/lib/ownership";
 import type { ProjectMemory } from "@/lib/project-memory";
+import type { GeneratedSkill } from "@/lib/skill-types";
 
 const generateSkillsSchema = z.object({
-  // An empty array is valid: it means "skip skill generation" — the handler
-  // generates nothing and just unlocks the hand-off (handoffReady = true).
+  // An empty array es válido: "saltar generación" — no genera nada y solo
+  // desbloquea el hand-off (handoffReady = true).
   skillIds: z.array(z.string()),
-  mode: z.enum(["all", "sequential"]).default("all"),
+  // - all    → reemplaza generatedSkills con las de skillIds (Generar todas).
+  // - merge  → regenera/añade solo skillIds, conservando el resto (Regenerar).
+  // - remove → elimina skillIds de generatedSkills (Quitar).
+  mode: z.enum(["all", "merge", "remove"]).default("all"),
 });
-
-interface GeneratedSkill {
-  id: string;
-  name: string;
-  content: string;
-}
 
 interface ProjectContext {
   projectName: string;
@@ -388,7 +386,7 @@ export async function POST(
       );
     }
 
-    const { skillIds } = parsed.data;
+    const { skillIds, mode } = parsed.data;
 
     const project = await prisma.project.findUnique({
       where: { id },
@@ -425,6 +423,24 @@ export async function POST(
       );
     }
 
+    // Estado actual de las skills generadas (para merge/remove).
+    const existing: GeneratedSkill[] = Array.isArray(project.generatedSkills)
+      ? (project.generatedSkills as unknown as GeneratedSkill[])
+      : [];
+
+    // ── mode "remove": quita las skillIds y persiste (sin generar) ──
+    if (mode === "remove") {
+      const remaining = existing.filter((g) => !skillIds.includes(g.id));
+      await prisma.project.update({
+        where: { id },
+        data: {
+          generatedSkills: remaining as unknown as Prisma.InputJsonValue,
+          handoffReady: true,
+        },
+      });
+      return NextResponse.json({ success: true, skills: remaining });
+    }
+
     const ctx = buildProjectContext({
       name: project.name,
       description: project.description,
@@ -444,6 +460,7 @@ export async function POST(
           id: skillId,
           name: skillDef?.name || skillId,
           content: templateFn(ctx),
+          source: "template",
         });
       } else {
         const genericLines: string[] = [];
@@ -466,21 +483,35 @@ export async function POST(
           id: skillId,
           name: skillDef?.name || skillId,
           content: genericLines.join("\n"),
+          source: "template",
         });
       }
+    }
+
+    // ── Persistencia según modo ──
+    //  - merge: upsert (reemplaza las mismas ids, conserva el resto).
+    //  - all:   reemplaza por completo con lo recién generado.
+    let finalSkills: GeneratedSkill[];
+    if (mode === "merge") {
+      const byId = new Map(existing.map((g) => [g.id, g]));
+      for (const g of generatedSkills) byId.set(g.id, g);
+      finalSkills = Array.from(byId.values());
+    } else {
+      finalSkills = generatedSkills;
     }
 
     await prisma.project.update({
       where: { id },
       data: {
-        generatedSkills: generatedSkills as unknown as Prisma.InputJsonValue,
+        generatedSkills: finalSkills as unknown as Prisma.InputJsonValue,
         handoffReady: true,
       },
     });
 
     return NextResponse.json({
       success: true,
-      skills: generatedSkills,
+      // Devolvemos SIEMPRE el estado completo de generadas para la UI de revisión.
+      skills: finalSkills,
     });
   } catch (error) {
     console.error("POST /api/projects/[id]/skills/generate error:", error);

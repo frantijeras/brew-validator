@@ -275,3 +275,100 @@ export const SKILL_CATALOG: SkillDefinition[] = [
     ],
   },
 ];
+
+/**
+ * Metadatos de SALIDA por skill: qué documento markdown genera, su esquema de
+ * secciones y su extensión aproximada. Sirven para que el usuario sepa, ANTES
+ * de generar, qué va a obtener y cómo de extenso es ("Qué genera").
+ */
+export interface SkillOutputMeta {
+  /** Resumen 1-2 líneas de lo que produce el .md de la skill. */
+  outputSummary: string;
+  /** Esquema de secciones del documento generado. */
+  sections: string[];
+  length: "corta" | "media" | "extensa";
+}
+
+export const SKILL_OUTPUT_META: Record<string, SkillOutputMeta> = {
+  "web-creator": {
+    outputSummary: "Guía + copy para una landing page lista para construir (Hero, beneficios, prueba social, precios, FAQ, CTA).",
+    sections: ["Contexto e identidad", "Estructura de secciones", "Copy por sección", "Stack técnico sugerido"],
+    length: "extensa",
+  },
+  "codebot-dev": {
+    outputSummary: "Plan técnico del MVP: stack, arquitectura, modelo de datos y pasos de implementación.",
+    sections: ["Stack y arquitectura", "Modelo de datos", "Roadmap técnico", "Despliegue"],
+    length: "extensa",
+  },
+  "contenido-publicaciones": {
+    outputSummary: "Línea editorial y plantillas de posts/artículos según la estrategia de distribución.",
+    sections: ["Pilares de contenido", "Formatos", "Plantillas de copy", "Calendario base"],
+    length: "media",
+  },
+  "seo-aso": {
+    outputSummary: "Estrategia de posicionamiento orgánico: keywords, on-page, schema y ASO de tiendas.",
+    sections: ["Keywords", "On-page (meta, H1, slugs)", "Schema.org", "ASO"],
+    length: "media",
+  },
+  "email-marketing": {
+    outputSummary: "Secuencias de email (bienvenida, nurturing, reactivación) con asuntos y CTAs.",
+    sections: ["Segmentos", "Secuencias", "Plantillas de email", "Métricas"],
+    length: "media",
+  },
+  "social-media": {
+    outputSummary: "Estrategia y calendario editorial de 30 días para los canales priorizados.",
+    sections: ["Objetivos y canales", "Calendario 30 días", "Formatos por canal", "Métricas"],
+    length: "extensa",
+  },
+  analytics: {
+    outputSummary: "Plan de medición: KPIs clave, dashboards y cadencia de reporte.",
+    sections: ["KPIs por objetivo", "Eventos a medir", "Dashboards", "Cadencia de reporte"],
+    length: "media",
+  },
+  "customer-success": {
+    outputSummary: "Playbooks de onboarding, retención y satisfacción de clientes.",
+    sections: ["Onboarding", "Retención", "Soporte", "Métricas (churn, NPS)"],
+    length: "media",
+  },
+  "ads-manager": {
+    outputSummary: "Plan de paid media: campañas, segmentación, presupuestos y creatividades.",
+    sections: ["Plataformas", "Segmentación", "Presupuesto y pujas", "Creatividades"],
+    length: "media",
+  },
+  "community-manager": {
+    outputSummary: "Plan para construir y moderar comunidad (Discord/Telegram): normas, roles y dinamización.",
+    sections: ["Plataforma y estructura", "Normas y roles", "Dinamización", "Métricas"],
+    length: "corta",
+  },
+  "design-system": {
+    outputSummary: "Sistema de diseño desde la identidad: tokens, componentes y guías de uso.",
+    sections: ["Tokens (color, tipografía)", "Componentes", "Guías de uso"],
+    length: "media",
+  },
+  "legal-compliance": {
+    outputSummary: "Checklist legal: requisitos, protección de datos (RGPD) y textos base.",
+    sections: ["Requisitos legales", "RGPD / privacidad", "Términos y condiciones", "Checklist"],
+    length: "media",
+  },
+  "finance-contabilidad": {
+    outputSummary: "Guía de facturación, impuestos, cashflow y proyección de ingresos.",
+    sections: ["Facturación e impuestos", "Cashflow", "Proyección de ingresos", "Indicadores"],
+    length: "media",
+  },
+  "project-handoff": {
+    outputSummary: "Meta-skill: contexto completo del proyecto para que cualquier agente IA continúe el trabajo.",
+    sections: ["Idea y decisiones", "Fases completadas", "Cómo usar el paquete"],
+    length: "media",
+  },
+};
+
+/** Metadatos de salida de una skill (con fallback genérico). */
+export function getSkillOutputMeta(id: string): SkillOutputMeta {
+  return (
+    SKILL_OUTPUT_META[id] ?? {
+      outputSummary: "Documento de trabajo con el contexto del proyecto aplicado a esta skill.",
+      sections: ["Contexto", "Objetivo", "Pasos / entregables"],
+      length: "media",
+    }
+  );
+}
