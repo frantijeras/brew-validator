@@ -339,9 +339,10 @@ export function SubStepCard({
         {subStepMeta.description}
       </p>
 
-      {/* Acciones contextuales (Ver) — al completar. En móvil, ancho completo. */}
+      {/* Acciones contextuales (Ver) — al completar. En móvil, ancho completo;
+          en desktop alineadas a la derecha. */}
       {actions && (
-        <div className="mt-3 flex flex-col items-stretch gap-2 md:flex-row md:flex-wrap md:items-center">
+        <div className="mt-3 flex flex-col items-stretch gap-2 md:flex-row md:flex-wrap md:items-center md:justify-end">
           {actions}
         </div>
       )}

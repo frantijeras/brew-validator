@@ -29,7 +29,7 @@ import { PhaseQuestionsModal } from "./phase-questions-modal";
 import { PhaseSubstepModal, type SubStepArtifact } from "./phase-substep-modal";
 import { PhaseCard } from "./phase-card";
 import { KebabMenu, type KebabItem } from "@/components/kebab-menu";
-import { ContentViewerModal } from "@/components/content-viewer-modal";
+import { ContentSubpage, type SubpageView } from "./content-subpage";
 import {
   PHASE_SUBSTEPS,
   getSubStepIndex,
@@ -342,8 +342,9 @@ export function ProjectPhasesWithModal({
   // Guard de doble click + spinner mientras se ejecuta el rollback.
   const [rollbackInFlight, setRollbackInFlight] = useState(false);
   const [rollbackError, setRollbackError] = useState<string | null>(null);
-  // Visor in-app (sin pestaña nueva) para "Ver" de fases y sub-fases.
-  const [viewer, setViewer] = useState<{ title: string; url: string } | null>(null);
+  // Subpágina in-app (sin modal ni pestaña nueva) para "Ver" de fases y
+  // sub-fases — misma lógica de navegación que la Fase 1 (Validación).
+  const [subpage, setSubpage] = useState<SubpageView | null>(null);
   // Rehacer sub-paso (cascada): confirmación pendiente.
   const [substepRollback, setSubstepRollback] = useState<{
     phaseId: string;
@@ -487,6 +488,7 @@ export function ProjectPhasesWithModal({
       // pudieran apuntar a una fase ya reseteada y limpiamos errores de sub-paso.
       setModalPhase(null);
       setSubstepModalPhase(null);
+      setSubpage(null);
       setSubStepErrors({});
       inFlightSubSteps.current.clear();
       setRollbackPhase(null);
@@ -561,16 +563,27 @@ export function ProjectPhasesWithModal({
 
   return (
     <>
-      {/* Contenedor de TODAS las tarjetas de fase (Fase 0 + fases del proyecto).
-          El `space-y-3` aplica el mismo gap entre CUALQUIER par de tarjetas
-          consecutivas, incluida la pareja Fase 0 → Fase 1. Antes la Fase 0
-          estaba fuera de este contenedor y por eso se pegaba a la Fase 1. */}
-      <div className="space-y-3">
+      {/* Subpágina de contenido ("Ver"): cuando está activa REEMPLAZA la lista
+          de fases (misma lógica que la Fase 1). */}
+      {subpage && (
+        <ContentSubpage view={subpage} onBack={() => setSubpage(null)} />
+      )}
+
+      {/* Contenedor de TODAS las tarjetas de fase: grid de 2 columnas en
+          desktop (dos fases por fila). La Fase 3 (IDENTITY) y el banner de
+          decisiones ocupan la fila completa (`md:col-span-2`). En móvil cae a
+          una sola columna. `items-start` evita que tarjetas de distinta altura
+          se estiren entre sí. */}
+      <div
+        className={`grid grid-cols-1 items-start gap-3 md:grid-cols-2 ${
+          subpage ? "hidden" : ""
+        }`}
+      >
 {/* Fase 00 — Validación de Idea eliminada: ahora tiene su propia pestaña independiente (tab 1). */}
 
-        {/* 📌 Memory banner — decisiones vigentes */}
+        {/* 📌 Memory banner — decisiones vigentes (fila completa) */}
         {memoryEntries.length > 0 && (
-          <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3">
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 md:col-span-2">
             <div className="flex items-start gap-3">
               <Info className="mt-0.5 size-4 shrink-0 text-amber-400" />
               <div className="flex-1 min-w-0">
@@ -695,10 +708,45 @@ export function ProjectPhasesWithModal({
               let ssMenu: React.ReactNode | undefined;
               if (sStatus === "completed" && phase.type === "IDENTITY") {
                 const spec = subStepViewSpec(projectId, phase.id, meta.id, phase.subStepChoice);
+                // La subfase visual (3d) se ve con pestañas Guía de Estilo /
+                // Maqueta; el resto (naming/voice) inline en markdown oscuro;
+                // los logos (HTML autónomo) enmarcados.
+                const base = `/api/projects/${projectId}/phases/${phase.id}/substep`;
+                const variant =
+                  phase.subStepChoice && ["A", "B", "C"].includes(phase.subStepChoice)
+                    ? phase.subStepChoice
+                    : "A";
+                const openView = () => {
+                  if (meta.id === "visual") {
+                    setSubpage({
+                      kind: "frames",
+                      title: meta.label,
+                      tabs: [
+                        { id: "guia", label: "Guía de Estilo", url: `${base}/3d/view?variant=${variant}&part=guia` },
+                        { id: "maqueta", label: "Maqueta", url: `${base}/3d/view?variant=${variant}&part=maqueta` },
+                      ],
+                      downloads: spec.downloads,
+                    });
+                  } else if (meta.id === "logo") {
+                    setSubpage({
+                      kind: "frames",
+                      title: meta.label,
+                      tabs: [{ id: "logos", label: "Logotipos", url: spec.viewUrl }],
+                      downloads: spec.downloads,
+                    });
+                  } else {
+                    setSubpage({
+                      kind: "markdown",
+                      title: meta.label,
+                      url: `${base}/history?subStep=${meta.id}&action=json`,
+                      downloads: spec.downloads,
+                    });
+                  }
+                };
                 ssActions = (
                   <button
                     type="button"
-                    onClick={() => setViewer({ title: meta.label, url: spec.viewUrl })}
+                    onClick={openView}
                     className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs font-medium text-slate-200 transition-colors hover:bg-slate-700/60 hover:text-white md:w-auto"
                   >
                     <Eye className="size-3.5" /> Ver
@@ -742,13 +790,19 @@ export function ProjectPhasesWithModal({
             });
           }
 
+          // La Fase 3 (IDENTITY) ocupa la fila completa del grid y muestra sus
+          // subfases en 2 columnas internas (`wide`). El resto de fases caben
+          // en media fila con subfases apiladas.
+          const isWide = phase.type === "IDENTITY";
+
           return (
+            <div key={phase.id} className={isWide ? "md:col-span-2" : ""}>
             <PhaseCard
-              key={phase.id}
               number={phase.sortOrder}
               title={phase.label}
               description={phase.description ?? undefined}
               subSteps={subStepCards}
+              wide={isWide}
               icon={phaseIcons[phase.type] || <Brain className="size-5" />}
               status={(() => {
                 if (isCompleted) return "completed" as const;
@@ -840,9 +894,16 @@ export function ProjectPhasesWithModal({
                     <button
                       key="view"
                       onClick={() =>
-                        setViewer({
+                        setSubpage({
+                          kind: "markdown",
                           title: phase.label,
-                          url: `/api/projects/${projectId}/phases/${phase.id}/view`,
+                          url: `/api/projects/${projectId}/phases/${phase.id}/content`,
+                          downloads: [
+                            {
+                              label: PHASE4_DOWNLOAD_LABEL,
+                              href: `/api/projects/${projectId}/phases/${phase.id}/download`,
+                            },
+                          ],
                         })
                       }
                       className={btnStyles.secondary}
@@ -880,6 +941,7 @@ export function ProjectPhasesWithModal({
                 return <KebabMenu items={items} />;
               })()}
             />
+            </div>
           );
         })}
       </div>
@@ -1073,14 +1135,6 @@ export function ProjectPhasesWithModal({
           </div>
         </div>
       )}
-
-      {/* Visor de contenido in-app (sin pestaña nueva) para "Ver". */}
-      <ContentViewerModal
-        open={!!viewer}
-        title={viewer?.title ?? ""}
-        url={viewer?.url ?? "about:blank"}
-        onClose={() => setViewer(null)}
-      />
 
       {/* Confirmación de Rehacer un sub-paso (cascada). */}
       {substepRollback && (

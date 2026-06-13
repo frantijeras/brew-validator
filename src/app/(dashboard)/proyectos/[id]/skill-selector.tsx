@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Code,
@@ -12,19 +12,13 @@ import {
   DollarSign,
   Globe,
   Megaphone,
-  ChevronDown,
-  ChevronUp,
   Sparkles,
   Loader2,
   ArrowRight,
   Eye,
-  RefreshCw,
-  Trash2,
-  FileText,
   X,
 } from "lucide-react";
 import { renderMarkdown } from "@/components/markdown-renderer";
-import { getSkillOutputMeta } from "@/lib/skill-catalog";
 import type { SkillData, GeneratedSkill } from "@/lib/skill-types";
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -49,19 +43,23 @@ const categoryLabel: Record<string, string> = {
 
 interface SkillSelectorProps {
   projectId: string;
+  /** Llamado tras (re)generar las skills para refrescar el estado del proyecto. */
   onHandoffReady?: () => void;
+  /** "Continuar" → abrir la pestaña 4 (Hand-off). */
+  onContinue?: () => void;
 }
 
-export function SkillSelector({ projectId, onHandoffReady }: SkillSelectorProps) {
+export function SkillSelector({ projectId, onHandoffReady, onContinue }: SkillSelectorProps) {
   const router = useRouter();
   const [skills, setSkills] = useState<SkillData[]>([]);
   const [generated, setGenerated] = useState<GeneratedSkill[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
-  const [busyId, setBusyId] = useState<string | null>(null);
   const [previewSkill, setPreviewSkill] = useState<GeneratedSkill | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  // Guard para que la generación automática ocurra una sola vez por montaje.
+  const autoGenRef = useRef(false);
 
   const flash = (msg: string) => {
     setToast(msg);
@@ -89,8 +87,21 @@ export function SkillSelector({ projectId, onHandoffReady }: SkillSelectorProps)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Generar TODAS las skills ────────────────────────────────────────
-  const generateAll = async () => {
+  // ── Generación automática al finalizar el roadmap ──
+  // Esta sección solo es accesible cuando TODAS las fases del proyecto están
+  // completadas. Si al llegar aquí aún no hay skills generadas, se generan
+  // automáticamente desde plantilla (una sola vez).
+  useEffect(() => {
+    if (loading || generating || autoGenRef.current) return;
+    if (skills.length > 0 && generated.length === 0) {
+      autoGenRef.current = true;
+      regenerateAll();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, generating, skills, generated]);
+
+  // ── Regenerar TODAS las skills usando estrictamente las plantillas base ──
+  const regenerateAll = async () => {
     const ids = skills.map((s) => s.id);
     if (ids.length === 0) return;
     try {
@@ -103,106 +114,12 @@ export function SkillSelector({ projectId, onHandoffReady }: SkillSelectorProps)
       if (!res.ok) throw new Error((await res.json()).error || `Error ${res.status}`);
       const data = await res.json();
       setGenerated((data.skills as GeneratedSkill[]) ?? []);
-      flash(`Skills generadas: ${data.skills?.length ?? 0}`);
+      flash(`Skills regeneradas: ${data.skills?.length ?? 0}`);
       onHandoffReady?.();
       window.dispatchEvent(new CustomEvent("project-changed"));
       router.refresh();
     } catch (err) {
-      flash(err instanceof Error ? err.message : "Error al generar skills");
-    } finally {
-      setGenerating(false);
-    }
-  };
-
-  const regenerateSkill = async (id: string) => {
-    try {
-      setBusyId(id);
-      const res = await fetch(`/api/projects/${projectId}/skills/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ skillIds: [id], mode: "merge" }),
-      });
-      if (!res.ok) throw new Error((await res.json()).error || `Error ${res.status}`);
-      const data = await res.json();
-      setGenerated((data.skills as GeneratedSkill[]) ?? []);
-      flash("Skill regenerada");
-    } catch (err) {
-      flash(err instanceof Error ? err.message : "Error al regenerar");
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const removeGeneratedSkill = async (id: string) => {
-    try {
-      setBusyId(id);
-      const res = await fetch(`/api/projects/${projectId}/skills/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ skillIds: [id], mode: "remove" }),
-      });
-      if (!res.ok) throw new Error((await res.json()).error || `Error ${res.status}`);
-      const data = await res.json();
-      setGenerated((data.skills as GeneratedSkill[]) ?? []);
-      flash("Skill quitada del paquete");
-    } catch (err) {
-      flash(err instanceof Error ? err.message : "Error al quitar");
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  // ── Mejorar con IA (Fase 2): encola job + sondea estado ─────────────
-  const enhanceSkill = async (id: string) => {
-    try {
-      setBusyId(id);
-      setGenerated((prev) =>
-        prev.map((g) => (g.id === id ? { ...g, source: "ai-pending" } : g)),
-      );
-      const res = await fetch(`/api/projects/${projectId}/skills/${id}/enhance`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      if (!res.ok) throw new Error((await res.json()).error || `Error ${res.status}`);
-      const { jobId } = await res.json();
-      flash("Mejorando con IA… puede tardar 1-2 min");
-      const started = Date.now();
-      let done = false;
-      while (Date.now() - started < 180_000) {
-        await new Promise((r) => setTimeout(r, 4000));
-        const st = await fetch(`/api/jobs/${jobId}/status`).then((r) => r.json()).catch(() => null);
-        if (st?.status === "COMPLETED") { done = true; break; }
-        if (st?.status === "FAILED") {
-          flash(st.error || "La mejora con IA fallo. Revisa el modelo del agente.");
-          break;
-        }
-      }
-      await fetchSkills();
-      if (done) flash("Skill mejorada con IA");
-    } catch (err) {
-      flash(err instanceof Error ? err.message : "Error al mejorar con IA");
-      await fetchSkills();
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const skipSkills = async () => {
-    try {
-      setGenerating(true);
-      const res = await fetch(`/api/projects/${projectId}/skills/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ skillIds: [], mode: "all" }),
-      });
-      if (!res.ok) throw new Error((await res.json()).error || `Error ${res.status}`);
-      setGenerated([]);
-      flash("Skills saltadas — Hand-off desbloqueado");
-      onHandoffReady?.();
-      window.dispatchEvent(new CustomEvent("project-changed"));
-      router.refresh();
-    } catch (err) {
-      flash(err instanceof Error ? err.message : "Error");
+      flash(err instanceof Error ? err.message : "Error al regenerar skills");
     } finally {
       setGenerating(false);
     }
@@ -213,13 +130,16 @@ export function SkillSelector({ projectId, onHandoffReady }: SkillSelectorProps)
     return <C className={className} />;
   };
 
+  // Mapa id → skill generada (con su origen y contenido).
+  const genById = new Map(generated.map((g) => [g.id, g]));
+
   if (loading) {
     return (
       <div className="border border-slate-800 rounded-xl bg-slate-950/60 p-5">
         <h2 className="text-lg font-semibold text-white mb-4">Skills del Proyecto</h2>
-        <div className="flex flex-col gap-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="animate-pulse bg-slate-800 rounded h-16" />
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="animate-pulse bg-slate-800 rounded-lg h-24" />
           ))}
         </div>
       </div>
@@ -245,121 +165,51 @@ export function SkillSelector({ projectId, onHandoffReady }: SkillSelectorProps)
 
       <h2 className="text-lg font-semibold text-white">Skills del Proyecto</h2>
       <p className="mt-1 mb-4 text-xs text-slate-500">
-        Estas skills se incluyen en el Hand-off como guias accionables que referencian los
-        documentos del proyecto. Cada una puede mejorarse con IA para un documento a medida.
+        Guías accionables que referencian los documentos del proyecto. Se generan automáticamente
+        desde plantilla al completar el roadmap.
       </p>
 
-      <div className="flex flex-col gap-2">
+      {/* Grid de skills: media fila en desktop (8 skills → 4 filas). */}
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {skills.map((s) => (
-          <SkillCard key={s.id} skill={s} iconComponent={Icon} />
+          <SkillCard
+            key={s.id}
+            skill={s}
+            generated={genById.get(s.id)}
+            iconComponent={Icon}
+            onView={(g) => setPreviewSkill(g)}
+          />
         ))}
       </div>
 
-      <div className="mt-4 pt-4 border-t border-slate-800 flex flex-wrap items-center gap-3">
+      {/* Acciones del roadmap */}
+      <div className="mt-5 pt-4 border-t border-slate-800 flex flex-wrap items-center gap-3">
         <button
           type="button"
-          onClick={generateAll}
+          onClick={regenerateAll}
           disabled={generating}
-          className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-amber-500 disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-5 py-2.5 text-sm font-medium text-slate-200 transition-colors hover:border-slate-600 hover:text-white disabled:opacity-50"
         >
           {generating ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-          {generating
-            ? "Generando..."
-            : generated.length > 0
-              ? "Regenerar todas"
-              : `Generar las ${skills.length} skills`}
+          {generating ? "Regenerando..." : "Regenerar todas con plantillas"}
         </button>
         <button
           type="button"
-          onClick={skipSkills}
-          disabled={generating}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-5 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:border-slate-600 hover:text-white disabled:opacity-50"
+          onClick={() => onContinue?.()}
+          disabled={generating || generated.length === 0}
+          title={
+            generated.length === 0
+              ? "Disponible cuando las skills estén generadas"
+              : ""
+          }
+          className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Saltar
+          Continuar
           <ArrowRight className="size-4" />
         </button>
       </div>
 
-      {/* ── Revisión: skills generadas (Ver / Mejorar IA / Regenerar / Quitar) ── */}
-      {generated.length > 0 && (
-        <div className="mt-5 pt-4 border-t border-slate-800">
-          <div className="mb-2 flex items-center gap-2">
-            <h3 className="text-sm font-semibold text-white">Skills generadas</h3>
-            <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-slate-400">
-              {generated.length}
-            </span>
-          </div>
-          <p className="mb-3 text-xs text-slate-500">
-            Revisa el contenido antes de descargar el Hand-off. Puedes ver, mejorar con IA,
-            regenerar o quitar cada skill.
-          </p>
-          <div className="flex flex-col gap-2">
-            {generated.map((g) => (
-              <div
-                key={g.id}
-                className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2"
-              >
-                <FileText className="size-4 shrink-0 text-slate-400" />
-                <span className="flex-1 min-w-0 truncate text-sm font-medium text-white">
-                  {g.name}
-                </span>
-                {g.source === "ai-pending" ? (
-                  <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-purple-500/15 px-2 py-0.5 text-[10px] font-medium text-purple-300">
-                    <Loader2 className="size-3 animate-spin" />
-                    Generando IA…
-                  </span>
-                ) : (
-                  <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                      g.source === "ai" ? "bg-purple-500/15 text-purple-300" : "bg-slate-700/60 text-slate-300"
-                    }`}
-                  >
-                    {g.source === "ai" ? "IA" : "Plantilla"}
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setPreviewSkill(g)}
-                  disabled={g.source === "ai-pending" || !g.content}
-                  className="inline-flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800/60 px-2 py-1 text-xs text-slate-200 transition-colors hover:bg-slate-700/60 hover:text-white disabled:opacity-50"
-                >
-                  <Eye className="size-3.5" /> Ver
-                </button>
-                <button
-                  type="button"
-                  onClick={() => enhanceSkill(g.id)}
-                  disabled={busyId === g.id || g.source === "ai-pending"}
-                  className="inline-flex items-center gap-1 rounded-md border border-purple-500/30 bg-purple-500/10 px-2 py-1 text-xs text-purple-200 transition-colors hover:bg-purple-500/20 disabled:opacity-50"
-                  title="Generar a medida con IA (1-2 min)"
-                >
-                  <Sparkles className="size-3.5" /> Mejorar con IA
-                </button>
-                <button
-                  type="button"
-                  onClick={() => regenerateSkill(g.id)}
-                  disabled={busyId === g.id || g.source === "ai-pending"}
-                  className="inline-flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800/60 px-2 py-1 text-xs text-slate-200 transition-colors hover:bg-slate-700/60 hover:text-white disabled:opacity-50"
-                  title="Regenerar (plantilla)"
-                >
-                  {busyId === g.id ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
-                  Regenerar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => removeGeneratedSkill(g.id)}
-                  disabled={busyId === g.id || g.source === "ai-pending"}
-                  className="inline-flex items-center gap-1 rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1 text-xs text-red-300 transition-colors hover:bg-red-500/20 disabled:opacity-50"
-                  title="Quitar del paquete"
-                >
-                  <Trash2 className="size-3.5" /> Quitar
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Modal de previsualización del markdown */}
+      {/* Modal de previsualización del markdown ("Ver la Skill") */}
       {previewSkill && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
@@ -390,53 +240,66 @@ export function SkillSelector({ projectId, onHandoffReady }: SkillSelectorProps)
   );
 }
 
-// ── Skill Card (sin selección: solo nombre + categoria + "Que genera") ──
+// ── Skill Card: título + categoría + badge de origen + "Ver la Skill" ──
 
 function SkillCard({
   skill,
+  generated,
   iconComponent,
+  onView,
 }: {
   skill: SkillData;
+  generated?: GeneratedSkill;
   iconComponent: (iconName: string, className?: string) => React.ReactNode;
+  onView: (g: GeneratedSkill) => void;
 }) {
-  const [showMeta, setShowMeta] = useState(false);
-  const meta = getSkillOutputMeta(skill.id);
+  const isAi = generated?.source === "ai";
+  const isPending = generated?.source === "ai-pending";
+  const isGenerated = !!generated && !!generated.content && !isPending;
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-slate-800 bg-slate-900/40 p-3.5">
+    <div className="flex flex-col gap-3 rounded-lg border border-slate-800 bg-slate-900/40 p-4">
       <div className="flex items-center gap-2.5">
         <div className="shrink-0 flex items-center justify-center rounded-lg bg-slate-800 p-1.5 text-slate-300">
           {iconComponent(skill.icon, "size-5")}
         </div>
         <div className="flex-1 min-w-0">
-          <span className="block truncate text-sm font-bold text-white leading-tight">{skill.name}</span>
-          <span className="text-[10px] text-slate-500">{categoryLabel[skill.category] || skill.category}</span>
+          <span className="block truncate text-sm font-bold text-white leading-tight">
+            {skill.name}
+          </span>
+          <span className="text-[10px] text-slate-500">
+            {categoryLabel[skill.category] || skill.category}
+          </span>
         </div>
-        <span className="shrink-0 rounded-full bg-slate-800 px-2 py-0.5 text-[9px] uppercase tracking-wide text-slate-500">
-          {meta.length}
-        </span>
-      </div>
-      <p className="text-xs text-slate-400 leading-relaxed">{skill.description}</p>
-      <div>
-        <button
-          type="button"
-          onClick={() => setShowMeta((v) => !v)}
-          className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400 hover:text-slate-200 transition-colors"
-        >
-          {showMeta ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
-          Que genera
-        </button>
-        {showMeta && (
-          <div className="mt-1.5 rounded-md border border-slate-800 bg-slate-900/50 p-2.5">
-            <p className="text-[11px] text-slate-300 leading-relaxed">{meta.outputSummary}</p>
-            <ul className="mt-1.5 flex flex-col gap-0.5">
-              {meta.sections.map((s, i) => (
-                <li key={i} className="text-[10px] text-slate-500">· {s}</li>
-              ))}
-            </ul>
-          </div>
+        {/* Badge de origen */}
+        {isPending ? (
+          <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-purple-500/15 px-2 py-0.5 text-[10px] font-medium text-purple-300">
+            <Loader2 className="size-3 animate-spin" />
+            Generando IA…
+          </span>
+        ) : isGenerated ? (
+          <span
+            className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+              isAi ? "bg-purple-500/15 text-purple-300" : "bg-slate-700/60 text-slate-300"
+            }`}
+          >
+            {isAi ? "Mejorada con IA" : "Desde plantilla"}
+          </span>
+        ) : (
+          <span className="shrink-0 rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+            Pendiente
+          </span>
         )}
       </div>
+
+      <button
+        type="button"
+        onClick={() => generated && onView(generated)}
+        disabled={!isGenerated}
+        className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs font-medium text-slate-200 transition-colors hover:bg-slate-700/60 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <Eye className="size-3.5" /> Ver la Skill
+      </button>
     </div>
   );
 }

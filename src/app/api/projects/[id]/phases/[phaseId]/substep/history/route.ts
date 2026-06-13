@@ -73,6 +73,20 @@ export async function GET(
     const title = `${TITLES[subStep] || subStep} — ${projectName}`;
     const isHtml = entry?.artifact?.type === "html" || subStep === "logo";
 
+    // ── JSON (para render inline en la subpágina oscura, sin iframe) ──
+    if (action === "json") {
+      if (subStep === "logo") {
+        return NextResponse.json(
+          { title, content: numberLogoHtml(content), contentType: "html" },
+          { headers: { "Cache-Control": "no-store" } }
+        );
+      }
+      return NextResponse.json(
+        { title, content, contentType: isHtml ? "html" : "markdown" },
+        { headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
     // ── LOGO (HTML con 12 SVG) ──
     if (subStep === "logo") {
       if (action === "download") {

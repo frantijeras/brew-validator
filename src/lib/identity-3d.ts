@@ -197,72 +197,242 @@ export function buildStyleGuideHtml(params: {
   logoSvg: string | null;
 }): string {
   const { projectName, variant, meta, logoSvg } = params;
-  const swatch = (label: string, hex: string) => `
-    <div style="display:flex;align-items:center;gap:10px">
-      <span style="display:inline-block;width:44px;height:44px;border-radius:8px;border:1px solid #e2e8f0;background:${esc(
-        hex
-      )}"></span>
-      <div>
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#64748b">${esc(
-          label
-        )}</div>
-        <div style="font-family:monospace;font-size:13px;color:#0f172a">${esc(
-          hex
-        )}</div>
+  const primary = meta.primaryColor;
+  const secondary = meta.secondaryColor;
+  const heading = meta.fontHeading;
+  const body = meta.fontBody;
+
+  // Fuentes de Google (best-effort): si las fuentes existen en Google Fonts se
+  // cargan; si no, se cae al fallback del sistema sin romper nada.
+  const fontParam = (f: string) => f.trim().replace(/\s+/g, "+");
+  const fontsHref = `https://fonts.googleapis.com/css2?family=${fontParam(
+    heading
+  )}:wght@400;600;700;800&family=${fontParam(body)}:wght@400;500;600&display=swap`;
+
+  const swatch = (label: string, hex: string, usage: string) => `
+    <div class="swatch">
+      <span class="chip" style="background:${esc(hex)}"></span>
+      <div class="chip-meta">
+        <div class="lbl">${esc(label)}</div>
+        <div class="hex">${esc(hex)}</div>
+        <div class="usage">${esc(usage)}</div>
       </div>
     </div>`;
+
+  const neutralDark = "#0F172A";
+  const neutralLight = "#F8FAFC";
 
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="mood" content="${esc(meta.mood)}">
 <title>Guía de Estilo — ${esc(projectName)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="${esc(fontsHref)}">
 <style>
-  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#0f172a;background:#fff;padding:32px;max-width:840px;margin:0 auto}
-  h1{font-size:26px;margin:0 0 4px}
-  h2{font-size:15px;text-transform:uppercase;letter-spacing:.05em;color:#475569;margin:28px 0 12px;border-bottom:1px solid #e2e8f0;padding-bottom:6px}
-  .sub{color:#64748b;font-size:13px;margin:0 0 24px}
-  .logo{display:inline-flex;align-items:center;height:64px;margin-bottom:16px}
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
-  .card{border:1px solid #e2e8f0;border-radius:10px;padding:16px}
-  .label{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#64748b;margin-bottom:4px}
-  .val{font-size:15px;font-weight:600}
+  :root{
+    --brand-primary:${esc(primary)};
+    --brand-secondary:${esc(secondary)};
+    --neutral-dark:${neutralDark};
+    --neutral-light:${neutralLight};
+    --font-heading:'${esc(heading)}',system-ui,-apple-system,"Segoe UI",sans-serif;
+    --font-body:'${esc(body)}',system-ui,-apple-system,"Segoe UI",sans-serif;
+    --radius:12px;
+    --line:#e7eaf0;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:var(--font-body);color:#1e293b;background:#fff;line-height:1.55}
+  .page{max-width:900px;margin:0 auto;padding:40px 32px 80px}
+  .cover{display:flex;align-items:center;gap:18px;padding:28px;border-radius:var(--radius);
+    background:linear-gradient(135deg,var(--brand-primary),var(--brand-secondary));color:#fff;margin-bottom:8px}
+  .cover .logo{display:inline-flex;align-items:center;height:60px;max-width:200px;background:rgba(255,255,255,.12);
+    border-radius:10px;padding:8px 14px}
+  .cover h1{font-family:var(--font-heading);font-size:30px;font-weight:800;margin:0;letter-spacing:-.01em}
+  .cover .tag{margin-top:4px;font-size:13px;opacity:.92}
+  section{margin-top:40px}
+  h2{font-family:var(--font-heading);font-size:13px;font-weight:700;text-transform:uppercase;
+    letter-spacing:.08em;color:var(--brand-primary);margin:0 0 16px;display:flex;align-items:center;gap:8px}
+  h2::before{content:"";width:18px;height:3px;border-radius:2px;background:var(--brand-secondary)}
+  p.lead{color:#64748b;font-size:14px;margin:0 0 24px;max-width:60ch}
+  .grid{display:grid;gap:16px}
+  .cols-2{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+  .cols-3{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+  .card{border:1px solid var(--line);border-radius:var(--radius);padding:18px;background:#fff}
+  /* Paleta */
+  .swatch{display:flex;align-items:center;gap:14px;border:1px solid var(--line);border-radius:var(--radius);padding:14px}
+  .chip{width:56px;height:56px;border-radius:10px;border:1px solid rgba(0,0,0,.06);flex:none}
+  .chip-meta .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;font-weight:600}
+  .chip-meta .hex{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;color:#0f172a;font-weight:600}
+  .chip-meta .usage{font-size:12px;color:#64748b;margin-top:2px;max-width:30ch}
+  /* Tipografía */
+  .type-row{border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:12px}
+  .type-row .meta{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;margin-bottom:8px;font-weight:600}
+  .h1-demo{font-family:var(--font-heading);font-size:34px;font-weight:800;line-height:1.1;margin:0;color:#0f172a}
+  .h2-demo{font-family:var(--font-heading);font-size:24px;font-weight:700;margin:0;color:#0f172a}
+  .h3-demo{font-family:var(--font-heading);font-size:18px;font-weight:600;margin:0;color:#0f172a}
+  .body-demo{font-family:var(--font-body);font-size:16px;margin:0;color:#334155}
+  .small-demo{font-family:var(--font-body);font-size:13px;margin:0;color:#64748b}
+  /* Espaciado */
+  .space-item{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+  .space-bar{height:14px;border-radius:4px;background:var(--brand-secondary);opacity:.8}
+  .space-item code{font-family:ui-monospace,monospace;font-size:12px;color:#475569}
+  /* Componentes */
+  .btn{display:inline-flex;align-items:center;justify-content:center;font-family:var(--font-body);
+    font-weight:600;font-size:14px;padding:10px 18px;border-radius:10px;border:1px solid transparent;cursor:default}
+  .btn-primary{background:var(--brand-primary);color:#fff}
+  .btn-secondary{background:var(--brand-secondary);color:#0f172a}
+  .btn-ghost{background:transparent;color:var(--brand-primary);border-color:var(--brand-primary)}
+  .input-demo{display:block;width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;
+    font-family:var(--font-body);font-size:14px;color:#0f172a;background:#fff;margin-top:8px}
+  .badge{display:inline-flex;align-items:center;font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px}
+  .badge-p{background:color-mix(in srgb,var(--brand-primary) 14%,#fff);color:var(--brand-primary)}
+  .badge-s{background:color-mix(in srgb,var(--brand-secondary) 20%,#fff);color:#0f172a}
+  /* Do / Don't */
+  .rules{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:640px){.rules{grid-template-columns:1fr}}
+  .rule{border-radius:var(--radius);padding:16px;border:1px solid var(--line)}
+  .rule.do{border-color:#bbf7d0;background:#f0fdf4}
+  .rule.dont{border-color:#fecaca;background:#fef2f2}
+  .rule h3{margin:0 0 8px;font-size:13px;font-family:var(--font-heading)}
+  .rule.do h3{color:#15803d}
+  .rule.dont h3{color:#b91c1c}
+  .rule ul{margin:0;padding-left:18px;font-size:13px;color:#475569}
+  .rule li{margin-bottom:4px}
+  .logo-box{display:flex;flex-wrap:wrap;gap:16px}
+  .logo-frame{border:1px solid var(--line);border-radius:var(--radius);padding:20px;display:flex;
+    align-items:center;justify-content:center;min-width:160px;min-height:120px}
+  .logo-frame.dark{background:var(--neutral-dark)}
+  .logo-frame svg{max-width:160px;max-height:80px;height:auto}
 </style>
 </head>
 <body>
-  ${logoSvg ? `<div class="logo">${logoSvg}</div>` : ""}
-  <h1>Guía de Estilo — ${esc(projectName)}</h1>
-  <p class="sub">Variante de estilo visual: <strong>${esc(variant)}</strong>${
-    meta.name ? ` · ${esc(meta.name)}` : ""
-  }</p>
+  <div class="page">
+    <div class="cover">
+      ${logoSvg ? `<span class="logo">${logoSvg}</span>` : ""}
+      <div>
+        <h1>${esc(projectName)}</h1>
+        <div class="tag">Guía de Estilo · Variante ${esc(variant)}${
+          meta.name ? ` — ${esc(meta.name)}` : ""
+        }</div>
+      </div>
+    </div>
+    <p class="lead">${
+      esc(meta.mood) ||
+      "Sistema visual de la marca para aplicarlo de forma coherente en web, redes, presentaciones y cualquier material."
+    }</p>
 
-  <h2>Paleta de colores (HEX)</h2>
-  <div class="grid">
-    ${swatch("Primario", meta.primaryColor)}
-    ${swatch("Secundario", meta.secondaryColor)}
-  </div>
+    <section>
+      <h2>Paleta de colores</h2>
+      <p class="lead">Usa el primario para acciones y acentos clave; el secundario para apoyo y contraste; los neutros para texto y fondos. Mantén un contraste mínimo AA (4.5:1).</p>
+      <div class="grid cols-2">
+        ${swatch("Primario", primary, "CTAs, enlaces, acentos de marca")}
+        ${swatch("Secundario", secondary, "Apoyo, destacados, fondos de sección")}
+        ${swatch("Neutro oscuro", neutralDark, "Texto principal, fondos dark")}
+        ${swatch("Neutro claro", neutralLight, "Fondos, superficies, separadores")}
+      </div>
+    </section>
 
-  <h2>Tipografía</h2>
-  <div class="grid">
-    <div class="card"><div class="label">Titulares</div><div class="val" style="font-family:'${esc(
-      meta.fontHeading
-    )}',system-ui,sans-serif">${esc(meta.fontHeading)}</div></div>
-    <div class="card"><div class="label">Cuerpo</div><div class="val" style="font-family:'${esc(
-      meta.fontBody
-    )}',system-ui,sans-serif">${esc(meta.fontBody)}</div></div>
-  </div>
+    <section>
+      <h2>Tipografía</h2>
+      <p class="lead">Titulares en <strong>${esc(heading)}</strong>, cuerpo en <strong>${esc(
+        body
+      )}</strong>. No mezcles más de estas dos familias.</p>
+      <div class="type-row">
+        <div class="meta">H1 · ${esc(heading)} · 34px / 800</div>
+        <p class="h1-demo">${esc(projectName)}</p>
+      </div>
+      <div class="type-row">
+        <div class="meta">H2 · ${esc(heading)} · 24px / 700</div>
+        <p class="h2-demo">Titular de sección</p>
+      </div>
+      <div class="type-row">
+        <div class="meta">H3 · ${esc(heading)} · 18px / 600</div>
+        <p class="h3-demo">Subtítulo o etiqueta</p>
+      </div>
+      <div class="type-row">
+        <div class="meta">Cuerpo · ${esc(body)} · 16px / 400</div>
+        <p class="body-demo">Texto de párrafo para contenido extenso. Pensado para una lectura cómoda con un interlineado de 1.55.</p>
+        <p class="small-demo">Texto pequeño / notas · 13px</p>
+      </div>
+    </section>
 
-  <h2>Dirección visual</h2>
-  <div class="card">${esc(meta.mood) || "—"}</div>
+    <section>
+      <h2>Sistema de espaciado</h2>
+      <p class="lead">Escala base de 4px. Usa múltiplos para márgenes, paddings y gaps de forma consistente.</p>
+      <div class="card">
+        ${[4, 8, 12, 16, 24, 32, 48]
+          .map(
+            (n) =>
+              `<div class="space-item"><span class="space-bar" style="width:${n * 3}px"></span><code>${n}px</code></div>`
+          )
+          .join("")}
+      </div>
+    </section>
 
-  <h2>Logotipo</h2>
-  <div class="card">
-    ${
-      logoSvg
-        ? `<div style="display:inline-flex;align-items:center;height:72px">${logoSvg}</div>`
-        : "Sin logotipo seleccionado."
-    }
+    <section>
+      <h2>Componentes</h2>
+      <div class="grid cols-2">
+        <div class="card">
+          <div class="meta" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;font-weight:600;margin-bottom:12px">Botones</div>
+          <div style="display:flex;flex-wrap:wrap;gap:10px">
+            <span class="btn btn-primary">Primario</span>
+            <span class="btn btn-secondary">Secundario</span>
+            <span class="btn btn-ghost">Ghost</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="meta" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;font-weight:600;margin-bottom:12px">Badges</div>
+          <div style="display:flex;flex-wrap:wrap;gap:10px">
+            <span class="badge badge-p">Etiqueta</span>
+            <span class="badge badge-s">Destacado</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="meta" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;font-weight:600">Campo de formulario</div>
+          <input class="input-demo" value="Texto de ejemplo" readonly>
+        </div>
+        <div class="card" style="border-top:3px solid var(--brand-primary)">
+          <div class="h3-demo" style="font-size:16px">Tarjeta</div>
+          <p class="small-demo" style="margin-top:6px">Superficie con borde sutil, radio ${"12px"} y acento superior opcional.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Buenas prácticas</h2>
+      <div class="rules">
+        <div class="rule do">
+          <h3>✓ Sí</h3>
+          <ul>
+            <li>Respeta la paleta y la jerarquía tipográfica.</li>
+            <li>Deja aire alrededor del logotipo (área de respeto).</li>
+            <li>Garantiza contraste AA en texto sobre fondo.</li>
+            <li>Usa el secundario con moderación, como acento.</li>
+          </ul>
+        </div>
+        <div class="rule dont">
+          <h3>✕ No</h3>
+          <ul>
+            <li>No mezcles más de dos familias tipográficas.</li>
+            <li>No deformes, rotes ni recolorees el logotipo.</li>
+            <li>No satures la composición de colores de marca.</li>
+            <li>No uses el primario como fondo de texto largo.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Logotipo</h2>
+      <p class="lead">Se entrega como <code>assets/logo.svg</code> (vectorial, escalable sin pérdida). Funciona sobre fondo claro y oscuro.</p>
+      <div class="logo-box">
+        <div class="logo-frame">${logoSvg || "Sin logotipo"}</div>
+        <div class="logo-frame dark">${logoSvg || "Sin logotipo"}</div>
+      </div>
+    </section>
   </div>
 </body>
 </html>`;
