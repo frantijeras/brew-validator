@@ -114,6 +114,65 @@ const SKILL_SECTION_GUIDES: Record<string, Record<string, string>> = {
     Metricas:
       "KPIs por objetivo (alcance, engagement, conversión), cómo medirlos y qué revisar cada semana.",
   },
+  "seo-aso": {
+    Keywords:
+      "Investiga keywords por intención (informacional, comercial, transaccional) para el sector y el target. Entrega una tabla: keyword, intención, volumen estimado, dificultad y página objetivo. Si el negocio es local, prioriza long-tail con la geo (ciudad/zona).",
+    "On-page":
+      "Por cada página objetivo: title (<60 car.), meta description (<155), H1 único, esquema de H2/H3, slug, enlazado interno y alt de imágenes. Da ejemplos reales para la home y 2 páginas clave.",
+    "Schema.org":
+      "Elige el tipo correcto según el negocio (LocalBusiness, Product, Service, FAQPage…) y entrega el JSON-LD listo para pegar con los datos reales del proyecto.",
+    ASO: "Si hay app: título, subtítulo, campo de keywords, descripción y estrategia de reseñas para App Store y Google Play. Si NO hay app, indícalo y concéntrate en el SEO web.",
+  },
+  "email-marketing": {
+    Segmentos:
+      "Define segmentos accionables (p. ej. RFM —recencia, frecuencia, valor—: nuevos, activos, en riesgo, perdidos; o por etapa del ciclo) según el modelo de negocio. Para cada uno: criterio de entrada y objetivo.",
+    Secuencias:
+      "Diseña al menos 3 flujos: bienvenida/activación, nurturing y reactivación. Para cada uno: disparador, nº de emails, cadencia y objetivo, adaptados a la monetización (p. ej. recordatorio de reserva, upsell a bono o suscripción).",
+    "Plantillas de email":
+      "Escribe 3-5 emails REALES (asunto + preheader + cuerpo + CTA) en el tono de la marca, listos para pegar. Nada de placeholders genéricos.",
+    Metricas:
+      "Open rate, CTR, conversión y bajas por flujo; benchmark del sector y qué optimizar primero.",
+  },
+  analytics: {
+    "KPIs por objetivo":
+      "Mapea los KPIs al embudo AARRR (Adquisición, Activación, Retención, Ingresos, Recomendación) y define la métrica norte del negocio. Evita vanity metrics (likes, impresiones sueltas).",
+    "Eventos a medir":
+      "Lista de eventos con nombre, propiedades y dónde se disparan (p. ej. `reserva_iniciada`, `reserva_completada`, `bono_comprado`), lista para implementar.",
+    Dashboards:
+      "2-3 dashboards (adquisición, conversión, retención) con los widgets concretos y la herramienta sugerida (GA4, PostHog, Metabase…).",
+    "Cadencia de reporte":
+      "Qué se revisa a diario / semanal / mensual, quién lo revisa y qué decisión dispara cada métrica.",
+  },
+  "ads-manager": {
+    Plataformas:
+      "Elige plataformas según dónde está el target (del análisis de mercado) y justifica cada una; descarta explícitamente las que no encajan.",
+    Segmentacion:
+      "Audiencias concretas por plataforma: intereses, lookalike, retargeting y geolocalización local si el negocio lo es.",
+    "Presupuesto y pujas":
+      "Reparto de presupuesto por plataforma/campaña, estrategia de puja y CPA objetivo derivado de los unit economics (CAC vs LTV) de la fase de viabilidad.",
+    Creatividades:
+      "3-5 conceptos con su ángulo, copy de anuncio (titular + texto + CTA) y guion visual, en el tono de la marca.",
+  },
+  "finance-contabilidad": {
+    "Facturacion e impuestos":
+      "Régimen fiscal aplicable (autónomo o sociedad), IVA/IRPF, qué y cómo facturar según la forma jurídica y el país. Si faltan datos para concretar, indícalo en vez de inventar.",
+    Cashflow:
+      "Plantilla de cashflow mensual a 12 meses: entradas por cada línea de ingreso real del proyecto y salidas (costes fijos y variables identificados).",
+    "Proyeccion de ingresos":
+      "3 escenarios (pesimista, realista, optimista) coherentes con la viabilidad ya analizada, con el punto de equilibrio.",
+    Indicadores:
+      "Margen, burn rate (consumo de caja), runway (meses de caja), ticket medio; con semáforos de alerta.",
+  },
+  "project-handoff": {
+    "Que es el proyecto":
+      "Un párrafo: qué es, para quién y modelo de negocio (tómalo de AGENT.md). Resultado final, no el proceso.",
+    "Estructura del paquete":
+      "Árbol de carpetas (`contexto/`, `assets/`, `skills/`) con una línea por archivo y para qué sirve.",
+    "Orden de lectura":
+      "Empieza SIEMPRE por `../AGENT.md`; luego ve SOLO al doc de contexto que pida la tarea concreta. No leer todo por defecto.",
+    "Como ejecutar cada skill":
+      "Cada archivo de `skills/` indica su Rol y qué documentos consultar; ejecuta la que toque según la necesidad (web, contenido, ads…).",
+  },
 };
 
 /** Nota de guía por sección: usa la guía concreta si existe; si no, una
