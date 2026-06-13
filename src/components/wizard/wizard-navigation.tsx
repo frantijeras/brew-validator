@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface WizardNavigationProps {
   /** Whether the back button should be enabled. */
@@ -82,28 +83,22 @@ export function WizardNavigation({
   return (
     <div className="flex items-center justify-between gap-3">
       {canGoBack ? (
-        <button
-          type="button"
-          onClick={onBack}
-          disabled={isSubmitting}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
+        <Button variant="secondary" onClick={onBack} disabled={isSubmitting}>
           <ArrowLeft className="size-4" />
           {backLabel}
-        </button>
+        </Button>
       ) : (
         <span aria-hidden="true" />
       )}
 
-      <button
-        type="button"
+      <Button
+        variant="primary"
         onClick={onNext}
         disabled={!canGoForward || isSubmitting}
-        className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {isSubmitting && isSummary ? "Enviando…" : primaryLabel}
         {!isSubmitting && <PrimaryIcon className="size-4" />}
-      </button>
+      </Button>
     </div>
   );
 }

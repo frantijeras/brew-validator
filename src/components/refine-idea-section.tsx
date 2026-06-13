@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Check,
   HelpCircle,
@@ -738,13 +739,10 @@ export default function RefineIdeaSection({
                   La IA analizará tu idea y te hará preguntas para refinarla. Tus respuestas
                   ayudarán a generar una versión mejorada.
                 </p>
-                <button
-                  onClick={startQuiz}
-                  className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600"
-                >
+                <Button variant="primary" onClick={startQuiz}>
                   <Bot className="size-4" />
                   Generar preguntas con IA
-                </button>
+                </Button>
               </div>
             ) : isManualPolling || manualApplying ? (
               <div className="flex flex-col items-center justify-center py-10 gap-4">
@@ -770,14 +768,14 @@ export default function RefineIdeaSection({
                 />
 
                 <div className="mt-4 flex items-center gap-3">
-                  <button
+                  <Button
+                    variant="primary"
                     onClick={handleManualSubmit}
                     disabled={!manualText.trim()}
-                    className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Bot className="size-4" />
                     Mejorar con IA
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
@@ -918,20 +916,14 @@ export default function RefineIdeaSection({
               </div>
 
               {currentStep < questions.length - 1 ? (
-                <button
-                  onClick={handleNext}
-                  className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600"
-                >
+                <Button variant="primary" onClick={handleNext}>
                   Siguiente
-                </button>
+                </Button>
               ) : (
-                <button
-                  onClick={handleSubmitAnswers}
-                  className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600"
-                >
+                <Button variant="primary" onClick={handleSubmitAnswers}>
                   Finalizar
                   <Check className="size-4" />
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -1011,30 +1003,14 @@ export default function RefineIdeaSection({
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              <button
-                onClick={handleApplyResult}
-                disabled={applying}
-                className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {applying ? (
-                  <>
-                    <Spinner />
-                    Aplicando...
-                  </>
-                ) : (
-                  <>
-                    <Check className="size-4" />
-                    Aceptar y aplicar
-                  </>
-                )}
-              </button>
-              <button
-                onClick={handleDiscardProposal}
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-300 shadow transition-all hover:border-slate-600 hover:bg-slate-700"
-              >
+              <Button variant="secondary" onClick={handleDiscardProposal}>
                 <XCircle className="size-4" />
                 Descartar propuesta
-              </button>
+              </Button>
+              <Button variant="primary" onClick={handleApplyResult} loading={applying}>
+                {!applying && <Check className="size-4" />}
+                {applying ? "Aplicando..." : "Aceptar y aplicar"}
+              </Button>
             </div>
           </div>
         )}
@@ -1054,23 +1030,23 @@ export default function RefineIdeaSection({
               La idea ha vuelto a estado Borrador. Los informes anteriores se han eliminado.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-              <button
+              <Button
+                variant="secondary"
+                onClick={handleKeepRefining}
+              >
+                <Edit3 className="size-4" />
+                Seguir refinando
+              </Button>
+              <Button
+                variant="primary"
                 onClick={() => {
                   onValidate();
                   handleCollapse();
                 }}
-                className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-3 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600"
               >
                 <Zap className="size-4" />
                 Validar esta idea
-              </button>
-              <button
-                onClick={handleKeepRefining}
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-300 shadow transition-all hover:border-slate-600 hover:bg-slate-700"
-              >
-                <Edit3 className="size-4" />
-                Seguir refinando
-              </button>
+              </Button>
             </div>
           </div>
         )}

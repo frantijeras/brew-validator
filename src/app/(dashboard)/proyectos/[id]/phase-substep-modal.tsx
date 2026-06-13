@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import {
   X,
   Sparkles,
@@ -1105,34 +1106,26 @@ export function PhaseSubstepModal({
                     className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"
                   />
                   <div className="flex items-center gap-2">
-                    <button
+                    <Button
+                      variant="primary"
                       onClick={handleIterate}
-                      disabled={submitting || !feedback.trim()}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-400 disabled:opacity-50"
+                      loading={submitting}
+                      disabled={!feedback.trim()}
                     >
-                      {submitting ? (
-                        <>
-                          <RefreshCw className="size-4 animate-spin" />
-                          Iterando…
-                        </>
-                      ) : (
-                        <>
-                          <RefreshCw className="size-4" />
-                          Regenerar
-                        </>
-                      )}
-                    </button>
-                    <button
+                      {!submitting && <RefreshCw className="size-4" />}
+                      {submitting ? "Iterando…" : "Regenerar"}
+                    </Button>
+                    <Button
+                      variant="ghost"
                       onClick={() => {
                         setShowIterate(false);
                         setFeedback("");
                         setError(null);
                       }}
                       disabled={submitting}
-                      className="text-sm text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-50"
                     >
                       Cancelar iteración
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -1166,25 +1159,19 @@ export function PhaseSubstepModal({
                       <RefreshCw className="size-4" />
                       Iterar
                     </button>
-                    <button
+                    <Button
+                      variant="primary"
                       onClick={handleLogoChoose}
-                      disabled={submitting || selectedLogo == null}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-400 disabled:opacity-50"
+                      loading={submitting}
+                      disabled={selectedLogo == null}
                     >
-                      {submitting ? (
-                        <>
-                          <Loader2 className="size-4 animate-spin" />
-                          Enviando…
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle2 className="size-4" />
-                          {selectedLogo != null
-                            ? `Usar logo ${selectedLogo}`
-                            : "Usar este logo"}
-                        </>
-                      )}
-                    </button>
+                      {!submitting && <CheckCircle2 className="size-4" />}
+                      {submitting
+                        ? "Enviando…"
+                        : selectedLogo != null
+                          ? `Usar logo ${selectedLogo}`
+                          : "Usar este logo"}
+                    </Button>
                   </>
                 ) : isVisualSubStep ? (
                   <>
@@ -1229,23 +1216,15 @@ export function PhaseSubstepModal({
                       <RefreshCw className="size-4" />
                       Iterar
                     </button>
-                    <button
+                    <Button
+                      variant="primary"
                       onClick={handleVisualChoose}
-                      disabled={submitting || pdfBusy || !currentVisualOption}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-400 disabled:opacity-50"
+                      loading={submitting}
+                      disabled={pdfBusy || !currentVisualOption}
                     >
-                      {submitting ? (
-                        <>
-                          <Loader2 className="size-4 animate-spin" />
-                          Enviando…
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle2 className="size-4" />
-                          Usar este estilo
-                        </>
-                      )}
-                    </button>
+                      {!submitting && <CheckCircle2 className="size-4" />}
+                      {submitting ? "Enviando…" : "Usar este estilo"}
+                    </Button>
                   </>
                 ) : (
                   <>
@@ -1257,23 +1236,20 @@ export function PhaseSubstepModal({
                       <RefreshCw className="size-4" />
                       Iterar
                     </button>
-                    <button
+                    <Button
+                      variant="primary"
                       onClick={handleChoose}
-                      disabled={submitting || previewLoading}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-400 disabled:opacity-50"
+                      loading={submitting || previewLoading}
                     >
                       {submitting || previewLoading ? (
-                        <>
-                          <Loader2 className="size-4 animate-spin" />
-                          {previewLoading ? "Calculando impacto…" : "Enviando…"}
-                        </>
+                        previewLoading ? "Calculando impacto…" : "Enviando…"
                       ) : (
                         <>
                           <CheckCircle2 className="size-4" />
                           Confirmar elección
                         </>
                       )}
-                    </button>
+                    </Button>
                   </>
                 )}
               </div>
@@ -1341,23 +1317,14 @@ export function PhaseSubstepModal({
               )}
 
               <div className="flex items-center gap-2 pt-1">
-                <button
+                <Button
+                  variant="primary"
                   onClick={handleConfirmRenamePreview}
-                  disabled={submitting}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-400 disabled:opacity-50"
+                  loading={submitting}
                 >
-                  {submitting ? (
-                    <>
-                      <Loader2 className="size-4 animate-spin" />
-                      Aplicando…
-                    </>
-                  ) : (
-                    <>
-                      <ArrowRight className="size-4" />
-                      Confirmar renombrado
-                    </>
-                  )}
-                </button>
+                  {!submitting && <ArrowRight className="size-4" />}
+                  {submitting ? "Aplicando…" : "Confirmar renombrado"}
+                </Button>
                 <button
                   onClick={handleCancelRenamePreview}
                   disabled={submitting}
