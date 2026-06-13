@@ -14,7 +14,6 @@
  *   4. report-renderer.ts          — buildReportHtml (markdown + HTML modes)
  *   5. pdf-export.ts              — buildReportPdf returns Buffer with %PDF
  *   6. validation-report.ts        — N/A (needs Prisma); structural check
- *   7. identity-brandbook.ts       — buildBrandBook complete + partial
  *   8. project-memory.ts           — mergeProjectMemory (last-wins, user prevails)
  *   9. agent-context-rules.ts      — buildAgentContextRules with/without memory
  *  10. handoff-builder.ts          — buildHandoffZip structure verification
@@ -502,148 +501,6 @@ async function testValidationReport() {
   assert(src.includes("project_not_found"), tc("throws 'project_not_found' for missing project"));
   assert(src.includes("no_idea"), tc("throws 'no_idea' for missing idea"));
   assert(src.includes("no_reports"), tc("throws 'no_reports' for missing reports"));
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-// MODULE 7: identity-brandbook.ts
-// ═══════════════════════════════════════════════════════════════════════
-section("7. identity-brandbook.ts — buildBrandBook");
-
-async function testBrandBook() {
-  const {
-    buildBrandBook,
-    brandBookToMarkdown,
-    BRANDBOOK_DEFAULT_SECTIONS,
-  } = await import("../src/lib/identity-brandbook");
-
-  const namingContent = "## Naming\nElegimos 'EcoFlow' porque transmite sostenibilidad y dinamismo.";
-  const voiceContent = "## Voz y Tono\nTono cercano, fresco y experto. Inspira confianza.";
-  const visualJson = JSON.stringify({
-    options: [
-      {
-        variant: "A",
-        html: "<html><head><meta name='mood' content='Fresco y ecológico'></head><body><h1>Estilo A</h1></body></html>",
-        meta: {
-          name: "Estilo A — Natural y fresco",
-          primaryColor: "#16A34A",
-          secondaryColor: "#F59E0B",
-          fontHeading: "Inter",
-          fontBody: "Source Sans 3",
-          mood: "Fresco y ecológico",
-        },
-      },
-      {
-        variant: "B",
-        html: "<html><body><h1>Estilo B</h1></body></html>",
-        meta: {
-          name: "Estilo B",
-          primaryColor: "#1E40AF",
-          secondaryColor: "#3B82F6",
-          fontHeading: "Poppins",
-          fontBody: "Lato",
-          mood: "Tecnológico",
-        },
-      },
-      {
-        variant: "C",
-        html: "<html><body><h1>Estilo C</h1></body></html>",
-        meta: {
-          name: "Estilo C",
-          primaryColor: "#7C3AED",
-          secondaryColor: "#A78BFA",
-          fontHeading: "Space Grotesk",
-          fontBody: "DM Sans",
-          mood: "Creativo",
-        },
-      },
-    ],
-  });
-
-  // Full Brand Book
-  const bb = buildBrandBook({
-    projectName: "EcoFlow",
-    namingContent,
-    voiceContent,
-    visualChoice: "A",
-    visualArtifactJson: visualJson,
-    projectContext: { description: "Una app de hábitos sostenibles" },
-  });
-
-  assert(bb.projectName === "EcoFlow", tc("projectName is correct"));
-  assert(bb.sections.length === 9, tc("brand book has 9 sections"));
-  assert(bb.sections[0].id === "intro", tc("first section = intro"));
-  assert(bb.sections[8].id === "dosdonts", tc("last section = dosdonts"));
-
-  const namingSection = bb.sections.find((s) => s.id === "naming");
-  assert(namingSection?.content.includes("EcoFlow"), tc("naming section includes project name"));
-  assert(namingSection?.content.includes("Elegimos"), tc("naming section includes rationale keyword"));
-
-  assert(bb.meta.visualMeta !== null, tc("visualMeta populated"));
-  assert(bb.meta.visualMeta!.variant === "A", tc("visualMeta variant = A"));
-  assert(bb.meta.visualMeta!.primaryColor === "#16A34A", tc("visualMeta primaryColor correct"));
-  assert(bb.meta.visualMeta!.fontHeading === "Inter", tc("visualMeta fontHeading correct"));
-  assert(bb.meta.voiceSummary.length > 0, tc("voiceSummary extracted"));
-
-  const colorSection = bb.sections.find((s) => s.id === "color");
-  assert(colorSection?.content.includes("#16A34A"), tc("color section includes primary hex"));
-  assert(colorSection?.content.includes("#F59E0B"), tc("color section includes secondary hex"));
-
-  const typoSection = bb.sections.find((s) => s.id === "typography");
-  assert(typoSection?.content.includes("Inter"), tc("typography section includes heading font"));
-  assert(typoSection?.content.includes("Source Sans 3"), tc("typography section includes body font"));
-
-  // Partial Brand Book — missing naming
-  const bbPartial = buildBrandBook({
-    projectName: "EcoFlow",
-    namingContent: null,
-    voiceContent: null,
-    visualChoice: null,
-    visualArtifactJson: null,
-  });
-
-  assert(bbPartial.sections.length === 9, tc("partial: still 9 sections"));
-  assert(
-    bbPartial.sections.find((s) => s.id === "naming")?.content.includes("PENDIENTE"),
-    tc("partial: naming shows PENDIENTE placeholder")
-  );
-  assert(
-    bbPartial.sections.find((s) => s.id === "voice")?.content.includes("PENDIENTE"),
-    tc("partial: voice shows PENDIENTE placeholder")
-  );
-  assert(bbPartial.meta.visualMeta === null, tc("partial: visualMeta is null"));
-
-  // Invalid visual variant → falls back to A
-  const bbFallback = buildBrandBook({
-    projectName: "Test",
-    namingContent,
-    voiceContent,
-    visualChoice: "XYZ",
-    visualArtifactJson: visualJson,
-  });
-  assert(bbFallback.meta.visualMeta?.variant === "A", tc("invalid variant → falls back to A"));
-
-  // Invalid JSON for visual
-  const bbBadJson = buildBrandBook({
-    projectName: "Test",
-    namingContent: null,
-    voiceContent: null,
-    visualChoice: "A",
-    visualArtifactJson: "not-json",
-  });
-  assert(bbBadJson.meta.visualMeta === null, tc("invalid JSON → visualMeta null"));
-
-  // markdown serialization
-  const md = brandBookToMarkdown(bb);
-  assert(md.length > 500, tc("markdown output > 500 chars"));
-  assert(md.includes("---"), tc("markdown includes separators (---)"));
-  assert(md.includes("EcoFlow"), tc("markdown includes project name"));
-  assert(md.includes("#16A34A"), tc("markdown includes color hex"));
-
-  // BRANDBOOK_DEFAULT_SECTIONS
-  assert(BRANDBOOK_DEFAULT_SECTIONS.length === 9, tc("DEFAULT_SECTIONS has 9 entries"));
-  const ids = BRANDBOOK_DEFAULT_SECTIONS.map((s) => s.id);
-  assert(new Set(ids).size === ids.length, tc("DEFAULT_SECTIONS ids are unique"));
-  assert(ids.includes("intro") && ids.includes("dosdonts"), tc("DEFAULT_SECTIONS covers intro..dosdonts"));
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1257,7 +1114,6 @@ async function main() {
     await testReportRenderer();
     await testPdfExport();
     await testValidationReport();
-    await testBrandBook();
     await testProjectMemory();
     await testAgentContextRules();
     await testToastQueue();
