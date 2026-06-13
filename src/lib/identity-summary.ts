@@ -1,4 +1,4 @@
-import { parseLogoIndex } from "@/lib/identity-logo";
+import { parseVisualArtifactContent, getVisualOption } from "@/lib/identity-visual";
 
 /**
  * Resumen de identidad de marca para el artefacto de cierre de la Fase 3.
@@ -50,14 +50,21 @@ export function buildIdentitySummaryMarkdown(params: {
   const logo = getEntry(subStepHistory, "logo");
   const visual = getEntry(subStepHistory, "visual");
 
-  const logoIdx = parseLogoIndex(logo?.choice);
+  const hasLogo = !!(logo?.choice || logo?.artifact?.content);
   const visualVariant = (visual?.choice || visualChoice || "").toString().trim();
+
+  // Atributos finales del estilo visual (paleta, tipografías, tono) extraídos de
+  // la opción elegida. El handoff describe la identidad por sus atributos, NO
+  // por la letra de variante ni el proceso de selección.
+  const visualMeta = visual?.artifact?.content
+    ? getVisualOption(parseVisualArtifactContent(visual.artifact.content), visualVariant || "A")?.meta ?? null
+    : null;
 
   const parts: string[] = [];
   parts.push(`# Identidad de Marca — ${projectName}`);
   parts.push("");
   parts.push(
-    "Resumen de las decisiones de identidad tomadas en la Fase 3 (naming, voz y tono, logotipo y estilo visual). Los assets descargables (logos SVG, maqueta HTML y guía de estilo en PDF) están disponibles en la sub-fase 3d y en el hand-off."
+    "Identidad final de la marca: nombre, voz y tono, logotipo y sistema visual. Los assets están en `assets/` (logotipo `logo.svg`, template de componentes `template.html` y guía de estilo en PDF)."
   );
   parts.push("");
 
@@ -75,18 +82,30 @@ export function buildIdentitySummaryMarkdown(params: {
 
   parts.push("## Logotipo");
   parts.push(
-    logoIdx != null
-      ? `Propuesta elegida: **logotipo ${logoIdx}** (de 12 variantes SVG).`
-      : "_(No elegido)_"
+    hasLogo
+      ? "El logotipo de la marca en formato vectorial (`assets/logo.svg`, 1:1), ya incrustado en el template de componentes."
+      : "_(No definido)_"
   );
   parts.push("");
 
-  parts.push("## Estilo Visual");
-  parts.push(
-    visualVariant
-      ? `Variante elegida: **${visualVariant}**. La maqueta HTML (con el logotipo incrustado) y la guía de estilo en PDF se generan en la sub-fase 3d.`
-      : "_(No elegido)_"
-  );
+  parts.push("## Sistema Visual");
+  if (visualMeta) {
+    if (visualMeta.mood) parts.push(`**Tono visual:** ${visualMeta.mood}`);
+    const colors = [
+      visualMeta.primaryColor ? `primario \`${visualMeta.primaryColor}\`` : null,
+      visualMeta.secondaryColor ? `secundario \`${visualMeta.secondaryColor}\`` : null,
+    ].filter(Boolean);
+    if (colors.length) parts.push(`**Paleta:** ${colors.join(", ")}.`);
+    const fonts = [
+      visualMeta.fontHeading ? `titulares ${visualMeta.fontHeading}` : null,
+      visualMeta.fontBody ? `cuerpo ${visualMeta.fontBody}` : null,
+    ].filter(Boolean);
+    if (fonts.length) parts.push(`**Tipografías:** ${fonts.join(", ")}.`);
+    parts.push("");
+    parts.push("Detalle completo en la guía de estilo (`assets/guia-estilos.pdf`) y el template (`assets/template.html`).");
+  } else {
+    parts.push("_(No definido)_");
+  }
   parts.push("");
 
   return parts.join("\n");

@@ -163,7 +163,7 @@ export function buildStyleGuideHtml(params: {
   meta: VisualStyleGuide["meta"];
   logoSvg: string | null;
 }): string {
-  const { projectName, variant, meta, logoSvg } = params;
+  const { projectName, meta, logoSvg } = params;
   const primary = meta.primaryColor;
   const secondary = meta.secondaryColor;
   const heading = meta.fontHeading;
@@ -281,9 +281,7 @@ export function buildStyleGuideHtml(params: {
       ${logoSvg ? `<span class="logo">${logoSvg}</span>` : ""}
       <div>
         <h1>${esc(projectName)}</h1>
-        <div class="tag">Guía de Estilo · Variante ${esc(variant)}${
-          meta.name ? ` — ${esc(meta.name)}` : ""
-        }</div>
+        <div class="tag">Guía de Estilo${meta.mood ? ` · ${esc(meta.mood)}` : ""}</div>
       </div>
     </div>
     <p class="lead">${
@@ -410,11 +408,11 @@ export function buildStyleGuideMarkdown(params: {
   variant: VisualVariant;
   meta: VisualStyleGuide["meta"];
 }): string {
-  const { projectName, variant, meta } = params;
+  const { projectName, meta } = params;
   return [
     `# Guia de Estilo - ${projectName}`,
     "",
-    `Variante de estilo visual elegida: **${variant}**${meta.name ? ` (${meta.name})` : ""}.`,
+    `Direccion visual: ${meta.mood || "sistema visual de la marca"}.`,
     "Esta guia documenta la identidad visual para aplicarla de forma coherente en",
     "web, redes, presentaciones y cualquier material de marca.",
     "",
