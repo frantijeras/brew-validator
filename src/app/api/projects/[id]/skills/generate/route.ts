@@ -65,16 +65,83 @@ const SKILL_ASSETS: Record<string, string[]> = {
   "project-handoff": ["../assets/logo.svg", "../assets/template.html", "../assets/guia-estilos.pdf"],
 };
 
-/** Nota de guía por sección (genérica pero conectada al proyecto). */
-function sectionNote(sec: string, ctx: ProjectContext): string {
-  const target = ctx.targetUser || "tu publico objetivo";
-  const tone = ctx.tone ? ` Manten el tono "${ctx.tone}".` : "";
+/**
+ * Rol del agente por skill: una frase fuerte que define QUIÉN es y qué entrega,
+ * en vez del genérico "actúa como un experto en X".
+ */
+const SKILL_ROLE: Record<string, string> = {
+  "web-creator":
+    "Eres un diseñador y maquetador web senior orientado a conversión. Produces el copy y la estructura HTML de una web profesional, accesible y responsive, reutilizando la identidad ya definida (logo, paleta, tipografías y tono).",
+  "contenido-redes":
+    "Eres un estratega de contenido y community manager. Diseñas la línea editorial y el calendario, y escribes copy listo para publicar en el tono exacto de la marca.",
+  "seo-aso":
+    "Eres un especialista en SEO (posicionamiento en buscadores) y ASO (optimización en tiendas de apps). Trabajas con intención de búsqueda y datos, no con relleno.",
+  "email-marketing":
+    "Eres un especialista en email marketing y ciclo de vida del cliente. Diseñas segmentos y secuencias que convierten manteniendo la voz de la marca.",
+  analytics:
+    "Eres un analista de producto y growth. Defines métricas accionables ligadas a los objetivos del negocio, no vanity metrics.",
+  "ads-manager":
+    "Eres un media buyer / gestor de paid media. Planificas campañas con segmentación, presupuesto y creatividades basadas en datos reales del proyecto.",
+  "finance-contabilidad":
+    "Eres un asesor financiero para pequeños negocios. Trabajas sobre los números reales del análisis de viabilidad.",
+  "project-handoff":
+    "Eres la guía de arranque para un agente externo (o un nuevo miembro del equipo) que va a ejecutar el paquete del proyecto.",
+};
+
+/**
+ * Guía concreta POR SECCIÓN para las skills donde más importa (no relleno).
+ * Cada entrada dice exactamente qué producir, conectado al proyecto por
+ * referencia (sin repetir el target completo en cada sección).
+ */
+const SKILL_SECTION_GUIDES: Record<string, Record<string, string>> = {
+  "web-creator": {
+    "Contexto e identidad":
+      "En 3-4 líneas: a quién le habla la web y qué promesa hace (toma target y propuesta de valor del proyecto). Fija como sistema visual la paleta, las tipografías y el logo de la guía de estilo.",
+    "Estructura de secciones":
+      "Define el orden orientado a conversión y justifica cada sección para ESTE negocio: hero (promesa + CTA principal), prueba social, beneficios / cómo funciona, precios o planes (según la monetización), FAQ, CTA final y footer.",
+    "Copy por seccion":
+      "Escribe el copy REAL de cada sección en el tono de la marca (nada de Lorem ipsum): titular + subtítulo + CTA del hero; bullets de beneficios; textos de prueba social; tabla de precios con los planes reales; 4-6 FAQs que resuelven las objeciones del target.",
+    "Stack tecnico sugerido":
+      "Recomienda un stack realista para el equipo (p. ej. Next.js + Tailwind, o un CMS/no-code si encaja). El HTML debe cumplir las reglas de diseño web de la sección de abajo (accesibilidad, foco, responsive, rendimiento).",
+  },
+  "contenido-redes": {
+    "Pilares de contenido":
+      "Define 3-4 pilares editoriales derivados del análisis de mercado y de los problemas del target. Para cada pilar: objetivo y 3 ejemplos de tema concretos.",
+    "Calendario 30 dias":
+      "Tabla de 30 días con columnas tema, pilar, canal y formato, repartida según los canales priorizados. Cadencia sostenible para el equipo.",
+    "Formatos por canal":
+      "Por cada canal prioritario: estructura nativa del post (gancho, cuerpo, CTA), longitud, hashtags y mejores horas, todo en el tono de la marca.",
+    Metricas:
+      "KPIs por objetivo (alcance, engagement, conversión), cómo medirlos y qué revisar cada semana.",
+  },
+};
+
+/** Nota de guía por sección: usa la guía concreta si existe; si no, una
+ * instrucción breve que referencia el contexto del proyecto SIN repetirlo. */
+function sectionNote(skillId: string, sec: string, ctx: ProjectContext): string {
+  const specific = SKILL_SECTION_GUIDES[skillId]?.[sec];
+  if (specific) return specific;
+  const tone = ctx.tone ? ` Mantén el tono de marca.` : "";
   return (
-    `Desarrolla "${sec}" a medida de ${ctx.projectName}, conectado al target ` +
-    `(${target}) y al modelo de negocio (${ctx.businessModel || "por definir"}).${tone} ` +
-    `Incluye ejemplos concretos y pasos accionables (no teoria generica).`
+    `Desarrolla "${sec}" para el target y el modelo de negocio del proyecto (ver Contexto arriba).${tone} ` +
+    `Ejemplos concretos y pasos accionables, no teoría genérica.`
   );
 }
+
+/**
+ * Reglas de diseño web accionables (adaptadas de las Web Interface Guidelines de
+ * Vercel) que la skill de web debe cumplir al maquetar.
+ */
+const WEB_DESIGN_RULES = [
+  "## Reglas de diseño web (cumplir al maquetar)",
+  "- **Accesibilidad:** HTML semántico (`<button>`, `<a>`, `<label>`) antes que ARIA; imágenes con `alt`; iconos decorativos `aria-hidden`; jerarquía de encabezados `<h1>`–`<h6>`.",
+  "- **Foco e interacción:** estados de foco visibles (`:focus-visible`), nunca `outline:none` sin reemplazo; estados `hover` en botones y enlaces.",
+  "- **Formularios:** cada input con `<label>` clicable, `type` y `autocomplete` correctos; errores en línea; no bloquees el pegado; botón de envío con spinner.",
+  "- **Responsive:** móvil primero, unidades relativas; `min-w-0` en hijos flex para truncar; sin scroll horizontal indeseado; nada de `user-scalable=no`.",
+  "- **Imágenes/rendimiento:** `<img>` con `width`/`height` (evita CLS); `loading=\"lazy\"` bajo el pliegue; `preconnect` a CDNs.",
+  "- **Contenido:** voz activa y segunda persona; CTAs específicos (\"Reservar plaza\", no \"Continuar\"); estados vacíos contemplados; mensajes de error con el siguiente paso.",
+  "",
+].join("\n");
 
 /**
  * Instrucción concreta de "cómo trabajar" por skill: en vez de inyectar la idea
@@ -114,6 +181,12 @@ function buildSkillMarkdown(skillId: string, ctx: ProjectContext): string {
   L.push("");
   L.push(`> ${def?.description || meta.outputSummary}`);
   L.push("");
+  const role = SKILL_ROLE[skillId];
+  if (role) {
+    L.push("## Rol");
+    L.push(role);
+    L.push("");
+  }
   L.push("## Contexto del proyecto");
   L.push(`- Proyecto: ${ctx.projectName}`);
   L.push(`- Target: ${ctx.targetUser}`);
@@ -148,8 +221,13 @@ function buildSkillMarkdown(skillId: string, ctx: ProjectContext): string {
   L.push("");
   for (const sec of meta.sections) {
     L.push(`### ${sec}`);
-    L.push(sectionNote(sec, ctx));
+    L.push(sectionNote(skillId, sec, ctx));
     L.push("");
+  }
+
+  // La skill de web incluye las reglas de diseño concretas a cumplir al maquetar.
+  if (skillId === "web-creator") {
+    L.push(WEB_DESIGN_RULES);
   }
 
   L.push("---");
