@@ -64,6 +64,11 @@ export interface SubStepCardProps {
   domainFallback?: boolean;
   /** Texto del aviso de Fallback de dominio (por defecto el mensaje estándar). */
   domainFallbackMessage?: string;
+  /**
+   * Acciones contextuales (p. ej. "Ver" / "Descargar") que se muestran cuando
+   * el sub-paso está COMPLETADO, para revisar/descargar lo generado.
+   */
+  actions?: React.ReactNode;
 }
 
 /**
@@ -229,6 +234,7 @@ export function SubStepCard({
   errorMessage,
   domainFallback = false,
   domainFallbackMessage,
+  actions,
 }: SubStepCardProps) {
   const badge = statusBadgeConfig[status];
   const StatusIcon = badge.Icon;
@@ -327,6 +333,11 @@ export function SubStepCard({
       <p className={`mt-1.5 ${getDescriptionStyles(status)}`}>
         {subStepMeta.description}
       </p>
+
+      {/* Acciones contextuales (Ver / Descargar) — normalmente al completar. */}
+      {actions && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">{actions}</div>
+      )}
 
       {showButton && (
         <div className="mt-3 w-full md:hidden">

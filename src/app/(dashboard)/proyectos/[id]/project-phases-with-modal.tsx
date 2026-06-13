@@ -256,6 +256,62 @@ const btnStyles = {
     "inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/20 hover:border-red-500/50 hover:text-red-300",
 } as const;
 
+/** Estilo compacto para los botones Ver/Descargar de un sub-paso completado. */
+const ssActionBtn =
+  "inline-flex items-center gap-1.5 rounded-md border border-slate-700 bg-slate-800/60 px-2.5 py-1 text-xs font-medium text-slate-200 transition-colors hover:bg-slate-700/60 hover:text-white";
+
+/**
+ * Construye las acciones Ver/Descargar de un sub-paso de la Fase 3 ya
+ * completado. Cada sub-paso tiene una salida distinta:
+ *  - naming/voice → markdown: Ver (HTML renderizado) + Descargar (PDF).
+ *  - logo (3c)    → HTML con 12 SVG: Ver (rejilla) + Descargar (SVG elegido).
+ *  - visual (3d)  → maqueta + guía: Ver (integrado) + Descargar HTML + PDF.
+ */
+function buildSubStepActions(
+  projectId: string,
+  phaseId: string,
+  subStepId: string,
+  visualChoice: string | null
+): React.ReactNode {
+  const base = `/api/projects/${projectId}/phases/${phaseId}/substep`;
+  const view = (href: string) => (
+    <a key="view" href={href} target="_blank" rel="noopener noreferrer" className={ssActionBtn}>
+      <Eye className="size-3.5" /> Ver
+    </a>
+  );
+  const download = (href: string, label: string, key: string) => (
+    <a key={key} href={href} className={ssActionBtn} download>
+      <Download className="size-3.5" /> {label}
+    </a>
+  );
+
+  if (subStepId === "visual") {
+    const v = visualChoice && ["A", "B", "C"].includes(visualChoice) ? visualChoice : "A";
+    return (
+      <>
+        {view(`${base}/3d/view?variant=${v}`)}
+        {download(`${base}/3d/template?variant=${v}`, "HTML", "html")}
+        {download(`${base}/3d/styleguide?variant=${v}`, "PDF", "pdf")}
+      </>
+    );
+  }
+  if (subStepId === "logo") {
+    return (
+      <>
+        {view(`${base}/history?subStep=logo&action=view`)}
+        {download(`${base}/history?subStep=logo&action=download&svg=`, "SVG", "svg")}
+      </>
+    );
+  }
+  // naming / voice (markdown)
+  return (
+    <>
+      {view(`${base}/history?subStep=${subStepId}&action=view`)}
+      {download(`${base}/history?subStep=${subStepId}&action=download`, "PDF", "pdf")}
+    </>
+  );
+}
+
 /**
  * Wrapper de la zona de acciones de cada tarjeta de fase.
  *
@@ -609,6 +665,17 @@ export function ProjectPhasesWithModal({
               }
 
               const subStepErrorKey = `${phase.id}:${meta.id}`;
+
+              // Acciones Ver/Descargar al COMPLETAR el sub-paso (Fase 3).
+              // Cada sub-paso tiene una salida distinta:
+              //  - naming/voice → markdown (Ver HTML / Descargar PDF)
+              //  - logo (3c)    → HTML con 12 SVG (Ver / Descargar SVG elegido)
+              //  - visual (3d)  → maqueta + guía (Ver integrado / HTML / PDF)
+              const completedActions =
+                sStatus === "completed" && phase.type === "IDENTITY"
+                  ? buildSubStepActions(projectId, phase.id, meta.id, phase.subStepChoice)
+                  : undefined;
+
               return (
                 <SubStepCard
                   key={meta.id}
@@ -623,6 +690,7 @@ export function ProjectPhasesWithModal({
                   processingMessage={processingMsg}
                   processingSince={phase.updatedAt}
                   errorMessage={subStepErrors[subStepErrorKey]}
+                  actions={completedActions}
                 />
               );
             });

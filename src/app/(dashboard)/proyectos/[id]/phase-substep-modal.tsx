@@ -441,7 +441,11 @@ export function PhaseSubstepModal({
   }
 
   async function handleChoose() {
-    if (!selectedOption && !customValue.trim()) {
+    // Sub-pasos "solo revisión" (p. ej. voz y tono): no hay opciones que elegir
+    // ni campo libre — el usuario solo confirma (avanza) o itera. En ese caso
+    // NO exigimos selección y confirmamos con un valor centinela.
+    const isReviewOnly = options.length === 0 && !isFreeInput;
+    if (!isReviewOnly && !selectedOption && !customValue.trim()) {
       setError("Selecciona una opción o escribe un valor");
       return;
     }
@@ -449,7 +453,10 @@ export function PhaseSubstepModal({
       ? options.find((o) => o.value === selectedOption)
       : null;
     let choice =
-      customValue.trim() || selectedOpt?.label || selectedOption || "";
+      customValue.trim() ||
+      selectedOpt?.label ||
+      selectedOption ||
+      (isReviewOnly ? "confirmado" : "");
 
     // Naming: el agente (desde 2026-06) pone el nombre real de la marca en
     // option.value, asi que esa es la fuente fiable (los labels nuevos
@@ -997,8 +1004,18 @@ export function PhaseSubstepModal({
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                     {options.map((opt) => {
                       const selected = selectedOption === opt.value;
-                      // Extraer solo el nombre del label ("Opción A: Nombre — desc" → "Nombre")
-                      const displayName = opt.label.replace(/^Opci[oó]n\s+\w+:\s*/i, '').split(/[—–-]/)[0].trim() || opt.label;
+                      // En naming, el agente pone el NOMBRE real de la marca en
+                      // `opt.value` (ej. "Growza"), así que lo mostramos tal cual
+                      // en el botón en vez de "Opción A". Para el resto (o values
+                      // legacy "A"/"B"/"C") extraemos el nombre del label.
+                      const isNamingValue =
+                        phaseType === "IDENTITY" &&
+                        subStep === "naming" &&
+                        !!opt.value &&
+                        opt.value.trim().length > 2;
+                      const displayName = isNamingValue
+                        ? opt.value.trim()
+                        : opt.label.replace(/^Opci[oó]n\s+\w+:\s*/i, '').split(/[—–-]/)[0].trim() || opt.label;
                       return (
                         <button
                           key={opt.value}
