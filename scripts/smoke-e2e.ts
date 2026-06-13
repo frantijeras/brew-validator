@@ -890,7 +890,6 @@ async function testHandoffBuilder() {
     "4.estrategia-distribucion.md",
     "5.roadmap.md",
     "skills/3c-logos/logo.svg",
-    "skills/3c-logos/logos-options.html",
     "skills/3d-assets/index.html",
     "skills/3d-assets/guia-estilos.pdf",
     "skills/project-handoff.md",
@@ -902,6 +901,7 @@ async function testHandoffBuilder() {
   // NEGATIVOS: ni naming, ni Brand Book, ni nomenclatura antigua, ni fase LOCKED.
   assert(!has("03-identidad-marca.md"), tc("sin Brand Book consolidado (03-identidad-marca.md)"));
   assert(!has("1.naming") && !has("naming.md"), tc("proceso de naming excluido del paquete"));
+  assert(!has("logos-options"), tc("solo el logo elegido (sin las 12 propuestas)"));
   assert(!has("6."), tc("fase LOCKED (Landing) correctamente omitida"));
 }
 

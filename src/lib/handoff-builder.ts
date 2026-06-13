@@ -303,8 +303,7 @@ function buildReadme(ctx: HandoffOptions): string {
     `├── 5.roadmap.md               ← Plan de ejecución 30/60/90`,
     `└── skills/                    ← Assets técnicos + skills de marketing`,
     `    ├── 3c-logos/`,
-    `    │   ├── logo.svg           ← Logotipo elegido`,
-    `    │   └── logos-options.html ← Las 12 propuestas`,
+    `    │   └── logo.svg           ← Logotipo elegido`,
     `    ├── 3d-assets/`,
     `    │   ├── index.html         ← Maqueta con el logotipo incrustado`,
     `    │   └── guia-estilos.pdf   ← Guía de estilo en PDF`,
@@ -789,16 +788,10 @@ export async function buildHandoffZip(options: HandoffOptions): Promise<Buffer> 
     }
 
     // ── skills/3c-logos/ y skills/3d-assets/ — assets técnicos de identidad ──
+    // Solo el logotipo ELEGIDO (las 12 propuestas no aportan al entregable).
     const chosenLogo = getChosenLogo(options);
     if (chosenLogo) {
       archive.append(chosenLogo, { name: `${prefix}skills/3c-logos/logo.svg` });
-    }
-    const identityPhase = getIdentityPhase(options);
-    const logoOptionsHtml = getHistory(identityPhase)?.logo?.artifact?.content;
-    if (logoOptionsHtml) {
-      archive.append(logoOptionsHtml, {
-        name: `${prefix}skills/3c-logos/logos-options.html`,
-      });
     }
 
     const threeD = getThreeDAssets(options);
