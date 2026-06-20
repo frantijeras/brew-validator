@@ -121,7 +121,24 @@ const C_BG: [number, number, number] = [...BRAND_RGB.bg];
 const EMOJI_REGEX = /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{200D}📊⭐✅🎯🏆💪🔍❌📈📋✨🔥💡]/gu;
 
 function stripEmojis(text: string): string {
-  return text.replace(EMOJI_REGEX, "").replace(/\s+/g, " ").trim();
+  return stripInlineMd(text.replace(EMOJI_REGEX, ""))
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Limpia marcadores de markdown INLINE que jsPDF no interpreta y que, si no se
+ * quitan, aparecen literalmente en el PDF (p. ej. "**Total fijos**" mostraba los
+ * asteriscos). Convierte negrita/cursiva/código/enlaces a su texto. Se aplica en
+ * celdas de tabla, párrafos y listas vía `stripEmojis` (que lo invoca).
+ */
+function stripInlineMd(text: string): string {
+  return text
+    .replace(/\*\*([^*]+)\*\*/g, "$1") // **negrita**
+    .replace(/__([^_]+)__/g, "$1") // __negrita__
+    .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, "$1") // *cursiva*
+    .replace(/`([^`]+)`/g, "$1") // `código`
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1"); // [texto](url) → texto
 }
 
 function agentLabel(name: string): string {

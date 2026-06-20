@@ -5,6 +5,7 @@ import { guardProject } from "@/lib/ownership";
 import { buildProjectContext } from "@/lib/skill-context";
 import { resolveModelForJobAgent } from "@/lib/agent-models";
 import { SKILL_CATALOG, getSkillOutputMeta } from "@/lib/skill-catalog";
+import { getBridgeHealth, BRIDGE_OFFLINE_MESSAGE } from "@/lib/bridge/health";
 import type { ProjectMemory } from "@/lib/project-memory";
 import type { GeneratedSkill } from "@/lib/skill-types";
 
@@ -50,6 +51,18 @@ export async function POST(
     });
     if (!project || !project.idea) {
       return NextResponse.json({ error: "Proyecto no encontrado" }, { status: 404 });
+    }
+
+    // FAIL-FAST: no encolar mejora con IA si el bridge no está vivo (evita dejar
+    // la skill colgada en "ai-pending").
+    if (process.env.BRIDGE_FAILFAST !== "off") {
+      const health = await getBridgeHealth();
+      if (!health.reachable) {
+        return NextResponse.json(
+          { error: BRIDGE_OFFLINE_MESSAGE, reason: health.reason },
+          { status: 503 }
+        );
+      }
     }
 
     // Nombre/descripción de la skill (catálogo o custom guardada).

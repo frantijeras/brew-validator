@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { enqueuePhaseJob } from "@/lib/bridge/phase-jobs";
 import { guardProject } from "@/lib/ownership";
+import { getBridgeHealth, BRIDGE_OFFLINE_MESSAGE } from "@/lib/bridge/health";
 
 /**
  * POST /api/projects/execute-phase
@@ -100,6 +101,18 @@ export async function POST(req: Request) {
         { error: "Faltan las respuestas del cuestionario" },
         { status: 400 }
       );
+    }
+
+    // FAIL-FAST: si el bridge no está vivo, no encolamos (evita dejar la fase
+    // colgada en PROCESSING esperando un callback que no llegará).
+    if (process.env.BRIDGE_FAILFAST !== "off") {
+      const health = await getBridgeHealth();
+      if (!health.reachable) {
+        return NextResponse.json(
+          { error: BRIDGE_OFFLINE_MESSAGE, reason: health.reason },
+          { status: 503 }
+        );
+      }
     }
 
     // Clear any previous error before starting a new execution. Si arrancamos

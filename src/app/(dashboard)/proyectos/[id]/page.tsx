@@ -6,6 +6,7 @@ import { ProjectTabs } from "./project-tabs";
 import { ProjectHeaderMenu } from "./project-header-menu";
 import { phaseDescription } from "@/lib/phase-descriptions";
 import { getChosenLogoSvg } from "@/lib/identity-logo";
+import { reapStuckProcesses } from "@/lib/bridge/reaper";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -16,6 +17,10 @@ export const dynamic = "force-dynamic";
 
 export default async function ProjectDetailPage({ params }: Props) {
   const { id } = await params;
+
+  // Auto-saneado (lazy): al abrir el proyecto, recupera cualquier fase/idea/skill
+  // colgada cuyo job superó el timeout (bridge caído / sin callback). Best-effort.
+  await reapStuckProcesses({ projectId: id }).catch(() => {});
 
   const project = await prisma.project.findUnique({
     where: { id },
