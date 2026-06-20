@@ -9,10 +9,13 @@ const AGENT_DEFAULTS: Record<string, string> = {
   "project-analyst": "opencode-go/deepseek-v4-flash",
   "project-branding": "opencode-go/deepseek-v4-flash",
   // Fase 3 separada en 4 sub-skills (cada una con su modelo elegible en Ajustes).
-  "project-naming": "opencode-go/deepseek-v4-flash",
-  "project-voice": "opencode-go/deepseek-v4-flash",
-  "project-logo": "opencode-go/deepseek-v4-flash",
-  "project-template": "opencode-go/deepseek-v4-flash",
+  // Default alineado con el modelo operativo del resto de agentes: antes
+  // apuntaban a "opencode-go/deepseek-v4-flash" (proveedor no operativo en el
+  // bridge), por lo que sus jobs se quedaban PENDING para siempre.
+  "project-naming": "opencode-zen-free/mimo-v2.5-free",
+  "project-voice": "opencode-zen-free/mimo-v2.5-free",
+  "project-logo": "opencode-zen-free/mimo-v2.5-free",
+  "project-template": "opencode-zen-free/mimo-v2.5-free",
   "project-content": "opencode-go/deepseek-v4-flash",
   "project-business": "opencode-go/deepseek-v4-flash",
   "project-execution": "opencode-go/deepseek-v4-flash",
