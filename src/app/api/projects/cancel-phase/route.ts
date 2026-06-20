@@ -40,6 +40,21 @@ export async function POST(req: Request) {
       },
     });
 
+    // Marca como CANCELLED los jobs aún en vuelo de esta fase (su phaseId va en
+    // job.input). Evita jobs huérfanos PENDING/RUNNING; un callback tardío se
+    // ignora por idempotencia.
+    await prisma.job.updateMany({
+      where: {
+        status: { in: ["PENDING", "RUNNING"] },
+        input: { contains: phaseId },
+      },
+      data: {
+        status: "CANCELLED",
+        error: "Cancelado por el usuario",
+        finishedAt: new Date(),
+      },
+    });
+
     return NextResponse.json({ success: true, message: "Fase cancelada y disponible de nuevo" });
   } catch (error) {
     console.error("[POST /api/projects/cancel-phase]", error);

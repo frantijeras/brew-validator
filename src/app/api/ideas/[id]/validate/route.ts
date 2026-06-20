@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { resolveModelForJobAgent } from "@/lib/agent-models";
 import { isIdeaBusy } from "@/lib/idea-state";
 import { guardIdea } from "@/lib/ownership";
+import { getBridgeHealth, BRIDGE_OFFLINE_MESSAGE } from "@/lib/bridge/health";
 
 const AGENTS = ["skeptic", "advocate", "judge"];
 
@@ -33,6 +34,17 @@ export async function POST(
         { error: "La validación ya está en curso" },
         { status: 409 }
       );
+    }
+
+    // FAIL-FAST: no arrancar validación si el bridge no está vivo.
+    if (process.env.BRIDGE_FAILFAST !== "off") {
+      const health = await getBridgeHealth();
+      if (!health.reachable) {
+        return NextResponse.json(
+          { error: BRIDGE_OFFLINE_MESSAGE, reason: health.reason },
+          { status: 503 }
+        );
+      }
     }
 
     // Delete old reports and jobs but keep score/verdict so
