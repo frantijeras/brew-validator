@@ -25,13 +25,18 @@ const DEFAULT_MODELS: Record<string, string> = {
   defender: "opencode-zen-free/deepseek-v4-flash-free",
   judge: "opencode-zen-free/minimax-m3-free",
   refiner: "opencode-zen-free/deepseek-v4-flash-free",
-  "project-analyst": "opencode-go/deepseek-v4-flash",
-  "project-branding": "opencode-go/deepseek-v4-flash",
-  "project-naming": "opencode-go/deepseek-v4-flash",
-  "project-voice": "opencode-go/deepseek-v4-flash",
-  "project-logo": "opencode-go/deepseek-v4-flash",
-  "project-template": "opencode-go/deepseek-v4-flash",
-  "project-content": "opencode-go/deepseek-v4-flash",
+  // Alineado con el modelo operativo del bridge (antes "opencode-go/..." no
+  // operativo dejaba colgadas las fases de Identidad).
+  "project-analyst": "opencode-zen-free/mimo-v2.5-free",
+  "project-branding": "opencode-zen-free/mimo-v2.5-free",
+  "project-naming": "opencode-zen-free/mimo-v2.5-free",
+  "project-voice": "opencode-zen-free/mimo-v2.5-free",
+  "project-logo": "opencode-zen-free/mimo-v2.5-free",
+  "project-template": "opencode-zen-free/mimo-v2.5-free",
+  "project-content": "opencode-zen-free/mimo-v2.5-free",
+  "project-business": "opencode-zen-free/mimo-v2.5-free",
+  "project-execution": "opencode-zen-free/mimo-v2.5-free",
+  "project-skills": "opencode-zen-free/mimo-v2.5-free",
 }
 
 async function readConfigFromFile(): Promise<Record<string, string> | null> {
