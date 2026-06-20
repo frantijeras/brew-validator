@@ -555,6 +555,8 @@ export function ProjectPhasesWithModal({
   }
 
   // ── Build the banner text ──
+  // Banner de "Decisiones vigentes" oculto a petición del usuario.
+  const SHOW_MEMORY_BANNER = false;
   const memoryEntries = localMemory
     ? Object.entries(localMemory)
         .filter(([, e]) => e && e.value !== null && e.value !== undefined)
@@ -585,8 +587,11 @@ export function ProjectPhasesWithModal({
       >
 {/* Fase 00 — Validación de Idea eliminada: ahora tiene su propia pestaña independiente (tab 1). */}
 
-        {/* 📌 Memory banner — decisiones vigentes (fila completa) */}
-        {memoryEntries.length > 0 && (
+        {/* 📌 Memory banner — decisiones vigentes (fila completa).
+            Oculto a petición del usuario (no le veía utilidad). El sistema de
+            Project Memory sigue funcionando por debajo (coherencia entre fases);
+            solo se oculta este banner y su edición manual. */}
+        {SHOW_MEMORY_BANNER && memoryEntries.length > 0 && (
           <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 md:col-span-2">
             <div className="flex items-start gap-3">
               <Info className="mt-0.5 size-4 shrink-0 text-amber-400" />
