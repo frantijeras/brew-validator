@@ -86,7 +86,10 @@ function cleanContent(markdown: string, agentName?: string): string {
   // soft wraps within the same paragraph.
   // Strategy: normalize to single \n between non-blank lines that
   // don't start with markdown structures.
-  clean = clean.replace(/(?<!\n)\n(?!\n|#{1,6}\s|\*\*|\d+\.\s|-\s|\|\s*\|)/g, " ");
+  // NO unir si la línea siguiente empieza por `|` (fila o separador de tabla):
+  // antes el lookahead solo excluía filas vacías (`| |`), por lo que las filas
+  // reales se aplastaban en una sola línea y la tabla dejaba de detectarse.
+  clean = clean.replace(/(?<!\n)\n(?!\n|#{1,6}\s|\*\*|\d+\.\s|-\s|\|)/g, " ");
 
   // Clean up multiple blank lines
   clean = clean.replace(/\n{3,}/g, "\n\n");
