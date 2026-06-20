@@ -7,6 +7,7 @@ import { signOut, useSession } from "next-auth/react";
 import { NavItem } from "@/components/nav-item";
 import { ToastProvider } from "@/components/toast";
 import { NotificationBell } from "@/components/notification-bell";
+import { BridgeStatusBanner } from "@/components/bridge-status-banner";
 import { Lightbulb, Folder } from "lucide-react";
 
 export default function DashboardLayout({
@@ -173,6 +174,10 @@ export default function DashboardLayout({
       {/* ── Main content ── */}
       <main className="flex-1 pt-14 md:pt-0 md:pl-64 overflow-x-hidden">
         <div className="mx-auto max-w-5xl p-4 md:p-8">
+          {/* Aviso global del estado del bridge: caído, error, sin crédito,
+              API key inválida… Siempre visible mientras el servicio de IA no
+              esté sano, para que el usuario sepa por qué no avanza. */}
+          <BridgeStatusBanner />
           {children}
         </div>
       </main>

@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { getBridgeHealth } from "@/lib/bridge/health";
 
 /**
  * Reaper de procesos colgados (timeout / auto-saneado).
@@ -62,11 +63,17 @@ export async function reapStuckProcesses(opts?: {
   });
   if (stuck.length === 0) return result;
 
+  // Motivo del atasco: si el bridge está caído (sin heartbeat) lo decimos
+  // explícitamente; si está vivo, fue un timeout del job. Así el usuario ve EN
+  // LA FASE por qué se reinició, no solo "timeout" genérico.
   const minutes = Math.round(timeoutMs / 60000);
-  const errMsg = `Timeout: el bridge no respondió en ${minutes} min.`;
+  const health = await getBridgeHealth().catch(() => ({ reachable: false } as { reachable: boolean }));
+  const errMsg = health.reachable
+    ? `El proceso superó el tiempo límite (${minutes} min) sin respuesta del motor de IA. Se reinició: vuelve a intentarlo.`
+    : `El motor de IA (bridge) no respondió: el servicio parece estar caído. El proceso se reinició; reinténtalo cuando vuelva a estar disponible.`;
   const lastError = {
     message: errMsg,
-    category: "timeout",
+    category: health.reachable ? "timeout" : "server_error",
     timestamp: new Date().toISOString(),
   } as unknown as Prisma.InputJsonValue;
 
