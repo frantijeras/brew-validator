@@ -3,7 +3,7 @@
 > **Audience:** the team that maintains the `project-branding` agent in
 > the bridge repo. This document specifies what the agent must emit
 > during the `visual` sub-step of the IDENTITY phase so the modal in
-> `brew-validator` can render A / B / C style guides and the user can
+> `brewidea` can render A / B / C style guides and the user can
 > pick one, iterate on it or download the HTML.
 
 The frontend (modal + download endpoint) is already implemented in
@@ -192,7 +192,7 @@ following are mandatory:
 
 ## 5. How the user interacts with the result
 
-The modal in `brew-validator` shows:
+The modal in `brewidea` shows:
 
 1. Tabs **A / B / C** at the top (with the variant `meta.name` on the tab).
 2. An iframe that renders the active variant's `html` via `srcDoc`.

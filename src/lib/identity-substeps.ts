@@ -21,9 +21,10 @@
  *    one in this list ("naming" → "voice" → "logo" → "visual" → null).
  *  - `null` means the phase is fully complete (after "visual").
  *
- * IMPORTANT: keep this list and the agent's expected subStep values in
- * sync. The agent `project-branding` reads `subStep` from the job input to
- * decide what to emit.
+ * IMPORTANT: keep this list and the agents' expected subStep values in
+ * sync. Cada sub-paso lo sirve su propia sub-skill
+ * (naming→project-naming, voice→project-voice, logo→project-logo,
+ * visual→project-template); el bridge elige el SKILL.md por `agentName`.
  *
  * Los metadatos de sub-steps se derivan de PHASE_SUBSTEPS.IDENTITY en
  * phase-substeps.ts para evitar duplicación. Este archivo mantiene las

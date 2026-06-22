@@ -22,9 +22,12 @@ import {
  *  4. Returns { jobId, subStep, message }.
  */
 
+// Agente único por fase. IDENTITY NO está aquí a propósito: se sirve con 4
+// sub-skills (project-naming/voice/logo/template) elegidas por sub-paso vía
+// `agentForIdentitySubStep()` más abajo. La monolítica `project-branding` ya
+// no se usa en el flujo de identidad.
 export const PHASE_TO_AGENT: Record<string, string> = {
   ANALYSIS: "project-analyst",
-  IDENTITY: "project-branding",
   CONTENT: "project-content",
   BUSINESS: "project-business",
   EXECUTION: "project-execution",

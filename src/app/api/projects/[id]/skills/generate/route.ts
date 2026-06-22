@@ -290,7 +290,7 @@ function buildSkillMarkdown(skillId: string, ctx: ProjectContext): string {
 
   L.push("---");
   L.push(
-    "_Generado por BrewValidator. Para un documento profundo y a medida, usa \"Mejorar con IA\" en la app._"
+    "_Generado por BrewIdea. Para un documento profundo y a medida, usa \"Mejorar con IA\" en la app._"
   );
   return L.join("\n");
 }

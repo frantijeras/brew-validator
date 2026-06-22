@@ -2,7 +2,7 @@
  * IDENTITY phase — visual sub-step machinery.
  *
  * The `visual` sub-step of the IDENTITY phase produces 3 HTML style
- * guides (A / B / C). The agent `project-branding` emits them in the
+ * guides (A / B / C). The agent `project-template` emits them in the
  * `subStepArtifact.content` field as a single JSON string with shape:
  *
  *   { "options": [VisualStyleGuide, VisualStyleGuide, VisualStyleGuide] }
@@ -12,7 +12,7 @@
  * the navigation tabs. The visual-download endpoint uses the same
  * parser to serve the raw HTML.
  *
- * IMPORTANT: keep this file in sync with the `project-branding` agent
+ * IMPORTANT: keep this file in sync with the `project-template` agent
  * contract documented in `docs/identity-visual-spec.md`. Any change to
  * the JSON shape must be reflected on both sides.
  */

@@ -372,7 +372,7 @@ export async function POST(req: Request) {
             console.warn(
               `[project-phase-callback] IDENTITY sub-step "${outputSubStep}" (job ${jobId}) looks monolithic ` +
                 `(len=${artifact.content.length}${hit ? `, contains "${hit}"` : ""}). ` +
-                `The agent may be emitting multiple sub-steps at once — review the project-branding prompt.`
+                `The agent may be emitting multiple sub-steps at once — review the matching sub-skill prompt (project-naming/voice/logo/template).`
             );
           }
         }

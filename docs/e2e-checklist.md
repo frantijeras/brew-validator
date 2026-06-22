@@ -1,4 +1,4 @@
-# 🧪 Checklist de verificación manual — Brew Validator
+# 🧪 Checklist de verificación manual — BrewIdea
 
 > **Versión:** Fase 10 — Refactor IDENTITY  
 > **Fecha:** 2026-06-07  

@@ -3,6 +3,7 @@ node_modules/
 .env
 .env.local
 .env.*.local
+.env.production
 *.tsbuildinfo
 next-env.d.ts
 
@@ -15,3 +16,7 @@ prisma/dev.db-journal
 
 # git worktrees temporales de agentes
 .claude/worktrees/
+
+# helpers SSH locales para el despliegue (leen credenciales de .env.local)
+deploy/_ssh.py
+deploy/_scp.py

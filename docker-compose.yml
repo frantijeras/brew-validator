@@ -1,0 +1,40 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    # Permite que el contenedor alcance el bridge que corre en el host
+    # (BRIDGE_API_URL=http://host.docker.internal:9090).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Publicado SOLO en localhost del VPS (para el cron/curl del host).
+    # El tráfico de internet entra por Caddy, no por aquí.
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks:
+      - web
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - web
+
+networks:
+  web:
+
+volumes:
+  caddy_data:
+  caddy_config:

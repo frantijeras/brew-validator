@@ -1,7 +1,7 @@
-# Especificación de Diseño — Sub-step Cards (Brew Validator)
+# Especificación de Diseño — Sub-step Cards (BrewIdea)
 
 > **Documento de diseño UI/UX para CoderBot**  
-> **Proyecto:** Brew Validator (Next.js + Tailwind CSS)  
+> **Proyecto:** BrewIdea (Next.js + Tailwind CSS)  
 > **Fecha:** 2025-06-08  
 > **Versión:** 1.0  
 > **Autor:** UIDesigner (subagente)
@@ -895,5 +895,5 @@ Usuario                          SubStepCard                    PhaseSubstepModa
 
 ---
 
-> **Documento generado por UIDesigner (subagente) para el pipeline de Brew Validator.**  
+> **Documento generado por UIDesigner (subagente) para el pipeline de BrewIdea.**  
 > **Próximo paso:** CoderBot lee este documento e implementa los componentes `SubStepCard` y modifica `PhaseCard` según la especificación.

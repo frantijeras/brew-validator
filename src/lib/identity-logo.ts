@@ -1,7 +1,7 @@
 /**
  * IDENTITY `logo` (sub-fase 3c) helpers.
  *
- * El agente `project-branding` emite, en el sub-paso `logo`, un único
+ * El agente `project-logo` emite, en el sub-paso `logo`, un único
  * documento HTML renderizable con 12 propuestas de logotipo en SVG
  * (Gráficos vectoriales redimensionables), una por `.logo-card`. El usuario
  * elige una (índice 1..12) en el modal.

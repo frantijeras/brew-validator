@@ -1,4 +1,4 @@
-# Informe de revisión UI/UX — brew-validator
+# Informe de revisión UI/UX — brewidea
 **Fecha:** 2026-06-13 · **Alcance:** `src/app/**` + `src/components/**` (toda la UI) · **Modo:** solo lectura (no se modificó código de la app)
 
 ---
