@@ -1,4 +1,24 @@
 services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: brewidea
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?define POSTGRES_PASSWORD en .env}
+      POSTGRES_DB: brewidea
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Publicado solo en localhost del VPS (para migraciones/seed desde el host).
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U brewidea -d brewidea"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks:
+      - web
+
   app:
     build:
       context: .
@@ -6,29 +26,17 @@ services:
     restart: unless-stopped
     env_file:
       - .env.production
+    depends_on:
+      db:
+        condition: service_healthy
     # Permite que el contenedor alcance el bridge que corre en el host
     # (BRIDGE_API_URL=http://host.docker.internal:9090).
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    # Publicado SOLO en localhost del VPS (para el cron/curl del host).
-    # El tráfico de internet entra por Caddy, no por aquí.
+    # Publicado SOLO en localhost del VPS. El tráfico de internet entra por el
+    # Caddy NATIVO del host (no por Docker), que hace de reverse proxy a :3000.
     ports:
       - "127.0.0.1:3000:3000"
-    networks:
-      - web
-
-  caddy:
-    image: caddy:2
-    restart: unless-stopped
-    depends_on:
-      - app
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
     networks:
       - web
 
@@ -36,5 +44,4 @@ networks:
   web:
 
 volumes:
-  caddy_data:
-  caddy_config:
+  pgdata:

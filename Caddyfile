@@ -1,7 +1,9 @@
-# Caddy obtiene y renueva el certificado HTTPS (Let's Encrypt) automáticamente.
-# Requiere los puertos 80 y 443 abiertos en el firewall del VPS y que
-# brewidea.duckdns.org resuelva a la IP de este VPS.
+# NOTA: en el VPS se usa el Caddy NATIVO del host (systemd), no este archivo
+# como contenedor. Este bloque se añade a /etc/caddy/Caddyfile del VPS. Caddy
+# obtiene y renueva el certificado HTTPS (Let's Encrypt) automáticamente.
+# Requiere los puertos 80 y 443 abiertos y que brewidea.duckdns.org resuelva a
+# la IP del VPS. La app se publica en 127.0.0.1:3000 (docker-compose).
 brewidea.duckdns.org {
-	encode gzip
-	reverse_proxy app:3000
+	encode gzip zstd
+	reverse_proxy 127.0.0.1:3000
 }
