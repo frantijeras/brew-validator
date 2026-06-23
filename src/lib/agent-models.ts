@@ -4,7 +4,9 @@ const AGENT_DEFAULTS: Record<string, string> = {
   generator: "opencode-zen-free/deepseek-v4-flash-free",
   skeptic: "opencode-zen-free/deepseek-v4-flash-free",
   defender: "opencode-zen-free/deepseek-v4-flash-free",
-  judge: "opencode-zen-free/minimax-m3-free",
+  // minimax-m3-free no devuelve JSON válido para el juez (falla incluso con
+  // reintento); deepseek-v4-flash-free sí produce scorecard+veredicto fiables.
+  judge: "opencode-zen-free/deepseek-v4-flash-free",
   "project-analyst": "opencode-go/deepseek-v4-flash",
   "project-branding": "opencode-go/deepseek-v4-flash",
   // Fase 3 separada en 4 sub-skills (cada una con su modelo elegible en Ajustes).

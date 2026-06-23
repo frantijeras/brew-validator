@@ -23,7 +23,8 @@ const DEFAULT_MODELS: Record<string, string> = {
   generator: "opencode-zen-free/deepseek-v4-flash-free",
   skeptic: "opencode-zen-free/deepseek-v4-flash-free",
   defender: "opencode-zen-free/deepseek-v4-flash-free",
-  judge: "opencode-zen-free/minimax-m3-free",
+  // minimax-m3-free no devuelve JSON válido para el juez; deepseek sí.
+  judge: "opencode-zen-free/deepseek-v4-flash-free",
   // Alineado con el modelo operativo del bridge (antes "opencode-go/..." no
   // operativo dejaba colgadas las fases de Identidad).
   "project-analyst": "opencode-zen-free/mimo-v2.5-free",
