@@ -3,11 +3,10 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Archive, Trash2, Undo2, MoreHorizontal, Pencil, FileDown, Save, X, Info, AlertCircle, History, FolderKanban } from "lucide-react";
+import { Archive, Trash2, Undo2, MoreHorizontal, Pencil, FileDown, Save, X, AlertCircle, History, FolderKanban } from "lucide-react";
 import { ValidationProgress } from "@/components/validation-progress";
 import { ReportViewer } from "@/components/report-viewer";
 import { ConfirmModal } from "@/components/confirm-modal";
-import RefineIdeaSection from "@/components/refine-idea-section";
 import { VersionHistory } from "@/components/version-history";
 import { getScoreColor, STATUS_LABELS, STATUS_COLORS } from "@/lib/translations";
 import { BUSINESS_MODELS } from "@/lib/business-models";
@@ -71,12 +70,8 @@ export default function IdeaDetailPage() {
   const [archPending, setArchPending] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const initiallyOpened = useRef(false);
-  const [showRefineSection, setShowRefineSection] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [startingPolish, setStartingPolish] = useState(false);
-  const [cancellingPolish, setCancellingPolish] = useState(false);
   const [cancellingValidation, setCancellingValidation] = useState(false);
   const [showCancelValidationConfirm, setShowCancelValidationConfirm] = useState(false);
   const [editTitle, setEditTitle] = useState("");
@@ -301,60 +296,6 @@ export default function IdeaDetailPage() {
     }
   }
 
-  // ── Polish start / cancel ──
-
-  async function handleStartPolish() {
-    // The "Continuar pulido" button is shown both for fresh
-    // Pulir-idea (idea.status === "COMPLETED") and for resuming
-    // an in-progress polish (idea.status === "POLISHING"). The
-    // latter only needs to re-open the local card from
-    // localStorage, so it must work even when the bridge is down
-    // — the user can pick up where they left off without talking
-    // to the daemon. We only block when starting a new polish.
-    const resumingExisting = idea?.status === "POLISHING";
-    if (!resumingExisting && bridgeDown) {
-      setApiError(
-        "El servicio de IA no está disponible. El servidor local puede estar apagado. Inténtalo más tarde."
-      );
-      return;
-    }
-    setStartingPolish(true);
-    setApiError("");
-    try {
-      if (!resumingExisting) {
-        await fetch(`/api/ideas/${ideaId}/refine/start`, {
-          method: "POST",
-          credentials: "same-origin",
-        });
-      }
-      await fetchIdea();
-      setShowRefineSection(true);
-    } catch (err) {
-      setApiError(err instanceof Error ? err.message : "Error al iniciar el pulido");
-    } finally {
-      setStartingPolish(false);
-    }
-  }
-
-  async function handleCancelPolish() {
-    setCancellingPolish(true);
-    setApiError("");
-    try {
-      await fetch(`/api/ideas/${ideaId}/refine/cancel`, {
-        method: "PATCH",
-        credentials: "same-origin",
-      });
-      // Clear localStorage
-      localStorage.removeItem(`brew-refine-${ideaId}`);
-      setShowRefineSection(false);
-      await fetchIdea();
-    } catch (err) {
-      setApiError(err instanceof Error ? err.message : "Error al cancelar el pulido");
-    } finally {
-      setCancellingPolish(false);
-    }
-  }
-
   async function handleCancelValidation() {
     setShowCancelValidationConfirm(false);
     setCancellingValidation(true);
@@ -375,54 +316,6 @@ export default function IdeaDetailPage() {
       setCancellingValidation(false);
     }
   }
-
-  // ── States ──
-
-  // Auto-open refine section ONLY the first time the page loads with
-  // the idea in POLISHING. We use a ref to avoid re-opening after the
-  // user has explicitly closed the wizard (via X or after discarding
-  // the proposal). A "section collapsed" flag in localStorage tracks the
-  // user intent.
-  useEffect(() => {
-    if (!idea) return;
-    // First load? Auto-open if POLISHING or there's a saved session.
-    if (initiallyOpened.current) return;
-    initiallyOpened.current = true;
-    if (idea.status === "POLISHING") {
-      setShowRefineSection(true);
-      return;
-    }
-    try {
-      const raw = localStorage.getItem(`brew-refine-${idea.id}`);
-      if (!raw) return;
-      const saved = JSON.parse(raw);
-      if (
-        saved &&
-        saved.screen !== "choice" &&
-        saved.screen !== "applied"
-      ) {
-        setShowRefineSection(true);
-      }
-    } catch {
-      // Ignore parse errors
-    }
-  }, [idea]);
-
-  // Check if there's an active refine session (for REFINING badge)
-  const isRefining = (() => {
-    if (idea?.status === "POLISHING") return true;
-    try {
-      const raw = localStorage.getItem(`brew-refine-${ideaId}`);
-      if (!raw) return false;
-      const saved = JSON.parse(raw);
-      return (
-        saved &&
-        saved.screen !== "choice"
-      );
-    } catch {
-      return false;
-    }
-  })();
 
   if (loading) {
     return (
@@ -640,7 +533,7 @@ export default function IdeaDetailPage() {
               <span
                 className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[idea.status] ?? STATUS_COLORS["DRAFT"]}`}
               >
-                {(idea.status === "GENERATING" || idea.status === "VALIDATING" || idea.status === "REFINING" || isRefining) && (
+                {(idea.status === "GENERATING" || idea.status === "VALIDATING") && (
                   <span className="size-1.5 rounded-full bg-current animate-pulse" />
                 )}
                 {STATUS_LABELS[idea.status] ?? idea.status}
@@ -682,32 +575,6 @@ export default function IdeaDetailPage() {
                   )}
                 </button>
               )}
-              {/* Pulir idea — solo aparece cuando la idea ya está validada y no está puliendo, oculto en readonly */}
-              {!readonly && !showRefineSection && (idea.status === "COMPLETED" || idea.status === "POLISHING") && (
-                <button
-                  onClick={handleStartPolish}
-                  disabled={startingPolish || isViewingHistorical}
-                  title={
-                    isViewingHistorical
-                      ? "Vuelve a la versión actual para pulir"
-                      : undefined
-                  }
-                  className="inline-flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm font-medium text-amber-400 shadow transition-all hover:border-amber-400 hover:bg-amber-500/20 active:bg-amber-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {startingPolish ? (
-                    <>
-                      <Spinner />
-                      Iniciando…
-                    </>
-                  ) : (
-                    <>
-                      <SparklesIcon />
-                      {idea.status === "POLISHING" ? "Continuar pulido" : "Pulir idea"}
-                    </>
-                  )}
-                </button>
-              )}
-
               {/* Convertir en proyecto */}
               {!readonly && (idea.status === "COMPLETED" || idea.validationStatus === "DONE") && (
                 <ConvertToProjectButton ideaId={idea.id} />
@@ -761,25 +628,6 @@ export default function IdeaDetailPage() {
         </div>
       )}
 
-      {/* POLISHING banner — appears when idea is being polished */}
-      {idea.status === "POLISHING" && (
-        <div className="mb-6 rounded-lg border border-blue-500/30 bg-blue-500/5 px-4 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <Info className="size-4 shrink-0 text-blue-400" />
-            <span className="text-sm text-blue-300">
-              Estás puliendo esta idea. Si recargas o cambias de pantalla después podrás continuar donde lo dejaste.
-            </span>
-          </div>
-          <button
-            onClick={handleCancelPolish}
-            disabled={cancellingPolish}
-            className="shrink-0 rounded-md border border-blue-500/30 px-3 py-1.5 text-xs font-medium text-blue-400 hover:bg-blue-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {cancellingPolish ? "Cancelando…" : "Cancelar"}
-          </button>
-        </div>
-      )}
-
       {/* Validation progress — sticky at top while running, always visible on mobile */}
       {idea.validationStatus === "RUNNING" && (
         <div className="sticky top-0 z-50 mb-8">
@@ -809,26 +657,6 @@ export default function IdeaDetailPage() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Inline Refine Section */}
-      {showRefineSection && (
-        <RefineIdeaSection
-          idea={{
-            id: idea.id,
-            title: idea.title,
-            description: idea.description,
-            problem: idea.problem,
-            valueProposition: idea.valueProposition,
-            targetUser: idea.targetUser,
-            monetization: idea.monetization,
-          }}
-          onCollapse={() => setShowRefineSection(false)}
-          onApplied={() => {
-            fetchIdea();
-          }}
-          onValidate={handleValidate}
-        />
       )}
 
       {/* Idea original / Edit mode */}
@@ -1153,14 +981,6 @@ function AlertTriangleIcon() {
       <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
       <line x1="12" y1="9" x2="12" y2="13" />
       <line x1="12" y1="17" x2="12.01" y2="17" />
-    </svg>
-  );
-}
-
-function SparklesIcon() {
-  return (
-    <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
     </svg>
   );
 }

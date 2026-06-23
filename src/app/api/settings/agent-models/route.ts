@@ -24,7 +24,6 @@ const DEFAULT_MODELS: Record<string, string> = {
   skeptic: "opencode-zen-free/deepseek-v4-flash-free",
   defender: "opencode-zen-free/deepseek-v4-flash-free",
   judge: "opencode-zen-free/minimax-m3-free",
-  refiner: "opencode-zen-free/deepseek-v4-flash-free",
   // Alineado con el modelo operativo del bridge (antes "opencode-go/..." no
   // operativo dejaba colgadas las fases de Identidad).
   "project-analyst": "opencode-zen-free/mimo-v2.5-free",

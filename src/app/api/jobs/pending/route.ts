@@ -4,7 +4,7 @@ import { verifyBridgeSecret } from "@/lib/bridge-auth";
 
 const MONITORED_AGENTS = [
   "skeptic", "advocate", "judge",
-  "idea-generator", "brew-qa-refiner",
+  "idea-generator",
   "project-analyst", "project-branding", "project-content",
   "project-business", "project-execution", "project-skills",
   // Fase 3 separada en 4 sub-skills (project-branding se mantiene de fallback).

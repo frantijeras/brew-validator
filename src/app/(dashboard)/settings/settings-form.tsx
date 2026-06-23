@@ -321,7 +321,6 @@ const DEFAULT_AGENT_MODELS: Record<string, string> = {
   skeptic: "opencode-zen-free/deepseek-v4-flash-free",
   defender: "opencode-zen-free/deepseek-v4-flash-free",
   judge: "opencode-zen-free/minimax-m3-free",
-  refiner: "opencode-zen-free/deepseek-v4-flash-free",
   "project-analyst": "opencode-zen-free/deepseek-v4-flash-free",
   "project-naming": "opencode-zen-free/deepseek-v4-flash-free",
   "project-voice": "opencode-zen-free/deepseek-v4-flash-free",
@@ -338,7 +337,6 @@ const AGENT_INFO: { id: string; name: string; description: string }[] = [
   { id: "skeptic", name: "Validador (Escéptico)", description: "Analiza la idea desde una perspectiva crítica, detectando riesgos, debilidades y puntos ciegos." },
   { id: "defender", name: "Validador (Defensor)", description: "Busca argumentos a favor, oportunidades de mercado y ventajas competitivas de la idea." },
   { id: "judge", name: "Juez", description: "Evalúa los argumentos de ambos validadores y emite un veredicto con puntuación final." },
-  { id: "refiner", name: "Refinador (QA)", description: "Pule la idea final, mejora la redacción y asegura la calidad del resultado." },
 ];
 
 const PROJECT_AGENT_INFO: { id: string; name: string; description: string }[] = [

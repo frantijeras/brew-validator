@@ -23,8 +23,6 @@ const IDEA_AGENTS = new Set([
   "advocate",
   "judge",
   "idea-generator",
-  "brew-qa-refiner",
-  "idea-renamer",
 ]);
 
 export interface ReapResult {

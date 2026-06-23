@@ -20,3 +20,8 @@ prisma/dev.db-journal
 # helpers SSH locales para el despliegue (leen credenciales de .env.local)
 deploy/_ssh.py
 deploy/_scp.py
+deploy/_download.py
+
+# bytecode de Python (bridge.py se valida con py_compile)
+__pycache__/
+*.pyc

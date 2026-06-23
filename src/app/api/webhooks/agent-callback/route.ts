@@ -33,8 +33,6 @@ const callbackSchema = z.object({
 
 const VALIDATION_AGENTS = ["skeptic", "advocate", "judge"];
 const GENERATOR_AGENT = "idea-generator";
-const REFINER_AGENT = "brew-qa-refiner";
-const RENAMER_AGENT = "idea-renamer";
 
 export async function POST(req: NextRequest) {
   try {
@@ -56,8 +54,6 @@ export async function POST(req: NextRequest) {
 
     const isValidationAgent = VALIDATION_AGENTS.includes(job.agentName);
     const isGeneratorAgent = job.agentName === GENERATOR_AGENT;
-    const isRefinerAgent = job.agentName === REFINER_AGENT;
-    const isRenamerAgent = job.agentName === RENAMER_AGENT;
 
     // Telemetría estructurada del bridge (httpStatus, model, tokens, ...).
     const telemetry = extractBridgeTelemetry(body as Record<string, unknown>);
@@ -227,27 +223,6 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      return NextResponse.json({ success: true });
-    }
-
-    // ── QA Refiner callback ──
-    if (isRefinerAgent) {
-      const agentStatus = (output.status as string) || "";
-
-      if (agentStatus === "DONE") {
-        // Refiner output is a PROPOSAL. The user reviews it in the
-        // wizard and decides whether to apply it. The refiner must
-        // never mutate the Idea fields directly — that is the job of
-        // POST /api/ideas/:id/refine/apply, called by the user.
-        // We just acknowledge the callback; the frontend reads the
-        // result from GET /api/ideas/:id/refine?jobId=... on next poll.
-      }
-
-      return NextResponse.json({ success: true });
-    }
-
-    // ── Idea Renamer callback ──
-    if (isRenamerAgent) {
       return NextResponse.json({ success: true });
     }
 

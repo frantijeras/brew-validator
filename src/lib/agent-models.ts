@@ -5,7 +5,6 @@ const AGENT_DEFAULTS: Record<string, string> = {
   skeptic: "opencode-zen-free/deepseek-v4-flash-free",
   defender: "opencode-zen-free/deepseek-v4-flash-free",
   judge: "opencode-zen-free/minimax-m3-free",
-  refiner: "opencode-zen-free/deepseek-v4-flash-free",
   "project-analyst": "opencode-go/deepseek-v4-flash",
   "project-branding": "opencode-go/deepseek-v4-flash",
   // Fase 3 separada en 4 sub-skills (cada una con su modelo elegible en Ajustes).
@@ -27,8 +26,6 @@ const JOB_AGENT_TO_SETTINGS_KEY: Record<string, string> = {
   skeptic: "skeptic",
   advocate: "defender",
   judge: "judge",
-  "brew-qa-refiner": "refiner",
-  "idea-renamer": "generator",
   "project-analyst": "project-analyst",
   "project-branding": "project-branding",
   "project-naming": "project-naming",
