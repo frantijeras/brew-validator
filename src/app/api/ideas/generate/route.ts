@@ -95,13 +95,22 @@ export async function POST(req: NextRequest) {
     const agentName = "idea-generator";
     const bridgeModel = await resolveModelForJobAgent(agentName);
 
+    // Año dinámico: el generador busca tendencias del año actual/anterior en
+    // vez de fechas fijas en el prompt (que envejecen).
+    const currentYear = new Date().getFullYear();
+
     // Create PENDING job for the idea-generator agent
     const job = await prisma.job.create({
       data: {
         ideaId: idea.id,
         agentName,
         status: "PENDING",
-        input: JSON.stringify({ ...jobInput, _bridgeModel: bridgeModel }),
+        input: JSON.stringify({
+          ...jobInput,
+          _bridgeModel: bridgeModel,
+          _currentYear: currentYear,
+          _previousYear: currentYear - 1,
+        }),
       },
     });
 

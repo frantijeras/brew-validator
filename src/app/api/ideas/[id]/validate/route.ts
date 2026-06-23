@@ -61,12 +61,18 @@ export async function POST(
       }),
     ]);
 
-    // Create 3 PENDING jobs — each with its configured model from Settings
+    // Create 3 PENDING jobs — each with its configured model from Settings.
+    // Input enriquecido: además de lo básico, pasamos problema, propuesta de
+    // valor y tipo de negocio para que skeptic/advocate/judge investiguen y
+    // juzguen con el contexto completo (no solo título+descripción).
     const baseInput = {
       title: idea.title,
       description: idea.description,
+      problem: idea.problem || "",
+      valueProposition: idea.valueProposition || "",
       targetUser: idea.targetUser,
       monetization: idea.monetization,
+      businessModel: idea.businessModel || "",
     };
 
     const jobs = await Promise.all(

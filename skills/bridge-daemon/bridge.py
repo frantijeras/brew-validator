@@ -606,6 +606,28 @@ def execute_agent(instruction, agent_name="main", timeout=180, model_override=No
         log(f"  ⚠ Error: {e}")
         _set_error(f"Error ejecutando {agent_name}: {str(e)[:150]}")
         return None
+def execute_agent_with_retry(instruction, agent_name="main", timeout=180, model_override=None, idea_id=None, required_keys=None):
+    """execute_agent + 1 reintento si el modelo no devuelve JSON válido.
+
+    Los modelos gratuitos a veces responden con prosa o JSON roto. En vez de
+    fallar el job, reintentamos UNA vez con un recordatorio estricto de "solo
+    JSON". Devuelve el dict parseado, o None si ambos intentos fallan.
+    """
+    result = execute_agent(instruction, agent_name=agent_name, timeout=timeout, model_override=model_override, idea_id=idea_id)
+    ok = isinstance(result, dict) and (not required_keys or all(result.get(k) for k in required_keys))
+    if ok:
+        return result
+    log(f"  ↻ {agent_name}: salida no válida, reintento con recordatorio JSON")
+    retry_instruction = instruction + (
+        "\n\nIMPORTANTE: tu respuesta anterior no fue JSON válido. Devuelve "
+        "ÚNICAMENTE el objeto JSON pedido, sin texto antes ni después y sin ```."
+    )
+    result2 = execute_agent(retry_instruction, agent_name=agent_name, timeout=timeout, model_override=model_override, idea_id=idea_id)
+    if isinstance(result2, dict) and (not required_keys or all(result2.get(k) for k in required_keys)):
+        return result2
+    return result if isinstance(result, dict) else result2
+
+
 def process_idea_generator(job, idea):
     """Process a single idea-generator job.
     
@@ -626,6 +648,17 @@ def process_idea_generator(job, idea):
     hints = job_input.get("hints", "")
     is_random = (raw_idea == "random")
 
+    # Año dinámico (lo pasa la app en el job input). Evita fechas fijas en el
+    # prompt que envejecen.
+    cur_year = job_input.get("_currentYear")
+    prev_year = job_input.get("_previousYear")
+    year_ctx = (
+        f"\nCONTEXTO TEMPORAL: año actual {cur_year}, año anterior {prev_year}. "
+        f"Investiga tendencias recientes (últimos 6-12 meses) usando estos años, "
+        f"no fechas fijas.\n"
+        if cur_year else ""
+    )
+
     mode_label = "random" if is_random else "custom"
     log(f"▶ {agent_name} ({job_id[:12]}) — mode={mode_label}")
 
@@ -640,7 +673,7 @@ INSTRUCCIÓN: Eres un generador de ideas de negocio. Usa web_search para investi
 
 SKILL:
 {skill_content}
-
+{year_ctx}
 """
 
     if is_random:
@@ -689,7 +722,7 @@ Mantén la esencia de la idea del usuario pero mejórala con contexto de mercado
 
     instruction += '\n\nRESPONDE SOLO CON JSON EXACTO:\n{"title": "NombreCorto", "description": "Descripción estructurada", "problem": "Problema específico que resuelve", "valueProposition": "Propuesta de valor única", "targetUser": "Público objetivo específico", "monetization": "Modelo de monetización concreto"}\n\nIMPORTANTE: title debe ser SOLO el nombre de la idea, sin descripción, sin guiones, sin coletilla. Ej: "BarApp" no "BarApp — Comandas para bares". Los campos problem y valueProposition son obligatorios.'
 
-    result = execute_agent(instruction, agent_name="idea-generator", timeout=300, model_override=bridge_model, idea_id=idea_id)
+    result = execute_agent_with_retry(instruction, agent_name="idea-generator", timeout=300, model_override=bridge_model, idea_id=idea_id, required_keys=["title", "description"])
     if result and "title" in result and "description" in result:
         callback = {
             "jobId": job_id,
@@ -1312,11 +1345,11 @@ CONTEXTO:
         else:
             instruction += '\n\nRESPONDE SOLO CON JSON EXACTO:\n{"reportMarkdown": "...", "verdict": "Adelante|Pulir idea|Revisar|No viable"'
         if agent_name == "judge":
-            instruction += ', "suggestedName": "...", "scorecard": "[{\\"k\\":\\"Problema\\",\\"v\\":6.0,\\"d\\":\\"Necesidad real validada pero con competencia.\\"},{\\"k\\":\\"Mercado\\",\\"v\\":7.0,\\"d\\":\\"CAGR 10.9%, mercado desatendido.\\"},{\\"k\\":\\"Timing\\",\\"v\\":5.0,\\"d\\":\\"IA en auge pero mercado prematuro.\\"},{\\"k\\":\\"Diferenciación\\",\\"v\\":4.0,\\"d\\":\\"Segmentación novedosa pero replicable.\\"},{\\"k\\":\\"Ejecución\\",\\"v\\":3.5,\\"d\\":\\"Plan por fases bien estructurado.\\"},{\\"k\\":\\"Monetización\\",\\"v\\":4.5,\\"d\\":\\"Freemium viable pero requiere escala.\\"},{\\"k\\":\\"Defendibilidad\\",\\"v\\":3.0,\\"d\\":\\"Sin barreras técnicas ni de red.\\"},{\\"k\\":\\"Riesgo\\",\\"v\\":3.0,\\"d\\":\\"Alto por saturación y cambios regulatorios.\\"},{\\"k\\":\\"Total\\",\\"v\\":4.5,\\"d\\":\\"\\"}]"'
+            instruction += ', "scorecard": "[{\\"k\\":\\"Problema\\",\\"v\\":6.0,\\"d\\":\\"Necesidad real validada pero con competencia.\\"},{\\"k\\":\\"Mercado\\",\\"v\\":7.0,\\"d\\":\\"CAGR 10.9%, mercado desatendido.\\"},{\\"k\\":\\"Timing\\",\\"v\\":5.0,\\"d\\":\\"IA en auge pero mercado prematuro.\\"},{\\"k\\":\\"Diferenciación\\",\\"v\\":4.0,\\"d\\":\\"Segmentación novedosa pero replicable.\\"},{\\"k\\":\\"Ejecución\\",\\"v\\":3.5,\\"d\\":\\"Plan por fases bien estructurado.\\"},{\\"k\\":\\"Monetización\\",\\"v\\":4.5,\\"d\\":\\"Freemium viable pero requiere escala.\\"},{\\"k\\":\\"Defendibilidad\\",\\"v\\":3.0,\\"d\\":\\"Sin barreras técnicas ni de red.\\"},{\\"k\\":\\"Riesgo\\",\\"v\\":3.0,\\"d\\":\\"Alto por saturación y cambios regulatorios.\\"},{\\"k\\":\\"Total\\",\\"v\\":4.5,\\"d\\":\\"\\"}]"'
         instruction += "}"
 
         judge_timeout = 300 if agent_name == "judge" else 180
-        result = execute_agent(instruction, agent_name=agent_name, timeout=judge_timeout, model_override=bridge_model, idea_id=idea_id)
+        result = execute_agent_with_retry(instruction, agent_name=agent_name, timeout=judge_timeout, model_override=bridge_model, idea_id=idea_id, required_keys=["reportMarkdown"])
         if result:
             report_md = result.get("reportMarkdown", json.dumps(result))
 
@@ -1339,7 +1372,6 @@ CONTEXTO:
                 "output": {
                     "reportMarkdown": report_md,
                     "verdict": result.get("verdict", ""),
-                    "suggestedName": result.get("suggestedName", ""),
                     "scorecard": result.get("scorecard", ""),
                     "score": result.get("score", None),
                 },

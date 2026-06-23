@@ -342,10 +342,6 @@ export async function POST(req: NextRequest) {
 
       // Compute judge verdict and score from reports
       const judgeReport = allReports.find(r => r.agentName === "judge");
-      const judgeJob = await tx.job.findFirst({
-        where: { ideaId: job.ideaId, agentName: "judge", status: "COMPLETED" },
-        select: { output: true },
-      });
 
       const updateData: Record<string, unknown> = {
         validationStatus: "DONE",
@@ -444,19 +440,9 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Try to get suggestedName from judge job output
-      if (judgeJob?.output) {
-        try {
-          const parsed = JSON.parse(
-            typeof judgeJob.output === "string"
-              ? judgeJob.output
-              : JSON.stringify(judgeJob.output)
-          );
-          if (parsed.suggestedName) updateData.title = parsed.suggestedName;
-        } catch {
-          // ignore
-        }
-      }
+      // (Retirado) El juez ya NO renombra la idea con suggestedName: el título
+      // lo fija el idea-generator. Renombrar desde el juez pisaba el nombre
+      // elegido y no es competencia del juez.
 
       // Update the idea
       await tx.idea.update({
