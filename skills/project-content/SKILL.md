@@ -60,7 +60,26 @@ Tu trabajo es identificar, basándote en el target, modelo de negocio y competen
 - Cada pregunta debe tener contexto: "Basado en que tu target es X, recomiendo Y pero ¿cuál prefieres?".
 - Aplica la regla lingüística en cada label y opción (siglas con su significado en español la primera vez).
 
-> ⚠️ **Las preguntas y opciones del JSON de abajo son una PLANTILLA orientativa, NO un guion literal.** Lo OBLIGATORIO son los *ejes/temas* (disponibilidad de tiempo semanal, experiencia del equipo, preferencias de canales). DEBES reescribir el wording y **personalizar las opciones** al proyecto concreto usando `ideaContext`, `projectMemory` y `previousArtifacts`. Propón canales/opciones según el target real; no copies las opciones tal cual salvo que encajen. Los `id` puedes conservarlos para mantener el contrato con el frontend.
+### ⚠️ NO COPIES los ejemplos — GENERA las preguntas desde el contexto
+
+El JSON de ejemplo de abajo muestra **SOLO LA FORMA** (estructura `id`/`label`/`type`/`options`), con placeholders. **NO reutilices esas preguntas ni esas opciones.** DEBES **generar tus propias preguntas** derivándolas de `ideaContext`, el target y los canales reales del proyecto, y **variar el wording entre ejecuciones** (no produzcas siempre el mismo set). El ejemplo solo conserva el andamiaje de formato que el frontend espera.
+
+#### Ejes OBLIGATORIOS del quiz (de aquí salen las preguntas)
+
+Genera 5-6 preguntas que cubran, como mínimo, estos tres ejes. Cada pregunta se **deriva del proyecto concreto**, no de los ejemplos:
+
+1. **Disponibilidad de tiempo semanal** — eje UNIVERSAL (pregunta fija/adaptable): cuánto tiempo realista puede dedicar el usuario a crear y distribuir contenido. Calibra la intensidad de la estrategia.
+2. **Experiencia del equipo** — eje UNIVERSAL (pregunta fija/adaptable): nivel de experiencia creando/midiendo contenido para redes.
+3. **Preferencias de canales** — eje ESPECÍFICO (derívalo del contexto): propón canales CONCRETOS según el target real del proyecto y deja que el usuario elija entre ellos. NUNCA preguntes "¿qué redes quieres usar?" en abstracto.
+
+Puedes añadir 2-3 preguntas más (intensidad de distribución, formato de contenido, estilo visual, competidores de referencia, etc.) siempre **específicas**: deriva sus opciones del `ideaContext`, target, sector y competencia reales.
+
+- **Universal** = el tema es válido para cualquier proyecto → mantén la pregunta fija o adáptala ligeramente.
+- **Específica** = depende del proyecto → usa placeholders en el ejemplo y, al generar, **derívala del contexto** (target, canales, competidores reales). NUNCA dejes un placeholder sin rellenar en el output final.
+
+#### Ejemplo ILUSTRATIVO de formato — NO reutilices estas preguntas
+
+> Ejemplo ILUSTRATIVO de formato — NO reutilices estas preguntas; genera las tuyas desde `ideaContext`/target/canales reales. Varía entre ejecuciones.
 
 ```json
 {
@@ -68,78 +87,24 @@ Tu trabajo es identificar, basándote en el target, modelo de negocio y competen
   "subStep": "quiz",
   "questions": [
     {
-      "id": "intensidad_distribucion",
-      "label": "Distribución: basado en tu target y modelo de negocio, ¿cuál de estas estrategias se adapta más a tu situación?",
-      "type": "choice",
-      "options": [
-        "Profundidad — concentrar el 80% del esfuerzo en 1-2 canales que encajen con mi audiencia",
-        "Amplitud — testear 3-4 canales con bajo presupuesto para descubrir qué funciona",
-        "Orgánico primero — construir comunidad antes de invertir en publicidad",
-        "Paid-first — inversión inicial en ads para validar el canal más rápido"
-      ]
-    },
-    {
       "id": "disponibilidad_tiempo_semanal",
-      "label": "Disponibilidad: ¿cuánto tiempo semanal puedes dedicar de forma realista a crear y distribuir contenido? (calibra la intensidad de la estrategia)",
+      "label": "[Pregunta UNIVERSAL sobre disponibilidad de tiempo semanal — fija/adaptable]",
       "type": "choice",
       "options": [
-        "Menos de 2h/semana — necesito una estrategia mínima y muy automatizable",
-        "2-5h/semana — ritmo sostenible, mix de formatos ligeros",
-        "5-10h/semana — presencia activa, varios canales",
-        "Más de 10h/semana — apuesta fuerte por contenido como motor de captación"
-      ]
-    },
-    {
-      "id": "experiencia_equipo",
-      "label": "Experiencia del equipo: ¿qué nivel de experiencia tenéis creando contenido para redes?",
-      "type": "choice",
-      "options": [
-        "Principiante — nunca hemos publicado de forma constante",
-        "Intermedio — hemos publicado pero sin estrategia clara",
-        "Avanzado — sabemos crear y medir, nos falta enfocar",
-        "Tenemos a alguien dedicado / agencia"
-      ]
-    },
-    {
-      "id": "formato_contenido",
-      "label": "Formato: mira estos 3 estilos de contenido. ¿Cuál se siente más alineado con cómo quieres comunicar?",
-      "type": "choice",
-      "options": [
-        "Educativo / Explicativo — tutoriales, guías paso a paso, datos y cifras",
-        "Inspiracional / Storytelling (narrativa de marca) — historias personales, casos de éxito, detrás de cámaras",
-        "Opinión / Liderazgo de pensamiento — posturas, análisis, tendencias, provocación constructiva"
-      ]
-    },
-    {
-      "id": "estilo_comunicacion",
-      "label": "Estilo visual de comunicación: estas marcas tienen estilos muy distintos. ¿Cuál te representa más?",
-      "type": "choice",
-      "options": [
-        "Minimalista y limpio — como Apple o Notion. Poco texto, mucho espacio en blanco, tipografía elegante",
-        "Cercano y directo — como Gymshark o Duolingo. Emojis, tono informal, conversacional",
-        "Premium y aspiracional — como Tesla o Patagonia. Imágenes de alta calidad, narrativa emocional",
-        "Datos y resultados — como Stripe o Linear. Gráficos, métricas, comparativas, evidencia"
-      ]
-    },
-    {
-      "id": "competidores_admirados",
-      "label": "Competencia: hay 3 perfiles de comunicación en tu sector. ¿Cuál de estos estilos se acerca más a lo que quieres lograr?",
-      "type": "choice",
-      "options": [
-        "Marca 1 — comunicación enfocada en educación y posicionamiento como referente del sector",
-        "Marca 2 — comunicación cercana, impulsada por la comunidad, mucho Engagement (Interacción de la audiencia) y UGC (Contenido generado por el usuario)",
-        "Marca 3 — comunicación aspiracional, premium, Storytelling (narrativa de marca) emocional",
-        "Ninguno de estos — quiero un estilo diferente"
+        "[Tramo de tiempo bajo + qué implica para la estrategia]",
+        "[Tramo medio]",
+        "[Tramo alto]",
+        "[Tramo muy alto]"
       ]
     },
     {
       "id": "preferencias_canales",
-      "label": "Preferencias de canales: basado en que tu target está en [plataformas], ¿por cuál(es) de estos canales te inclinas para empezar?",
+      "label": "[Pregunta ESPECÍFICA — derívala del contexto: 'Basado en que tu target es [X], recomiendo [Y]; ¿por cuál(es) te inclinas?']",
       "type": "multi",
       "options": [
-        "[Canal recomendado 1 por el agente según target]",
-        "[Canal recomendado 2 por el agente según target]",
-        "[Canal recomendado 3 por el agente según target]",
+        "[Canal concreto 1 derivado del target real]",
+        "[Canal concreto 2 derivado del target real]",
+        "[Canal concreto 3 derivado del target real]",
         "Prefiero otro canal que no está en la lista"
       ]
     }
@@ -147,7 +112,11 @@ Tu trabajo es identificar, basándote en el target, modelo de negocio y competen
 }
 ```
 
-**Nota para el agente:** Las opciones de `preferencias_canales` deben ser DINÁMICAS. El agente debe generarlas en función del target del proyecto. Si el target es joven (18-25), las opciones serán TikTok, Instagram Reels, YouTube Shorts. Si es profesional B2B (empresa a empresa), serán LinkedIn, Newsletter (boletín por correo), Blog. NUNCA ofrecer canales que no encajen con el target.
+**Recordatorios de generación:**
+- Mantén el JSON VÁLIDO y los límites del quiz: **5-6 preguntas**, **mayoría `choice`** (solo `preferencias_canales` y similares pueden ser `multi`), **sin `text`/`textarea`**.
+- Los `id` de los ejes obligatorios (`disponibilidad_tiempo_semanal`, `experiencia_equipo`, `preferencias_canales`) consérvalos para mantener el contrato con el frontend; el resto de `id` los eliges tú.
+- Las opciones de `preferencias_canales` son SIEMPRE dinámicas según el target: si el target es joven (18-25), TikTok, Instagram Reels, YouTube Shorts; si es B2B (empresa a empresa), LinkedIn, Newsletter (boletín por correo), Blog. NUNCA ofrezcas canales que no encajen con el target.
+- Recuerda: el bloque de arriba es una **plantilla orientativa de formato, NO un guion literal**.
 
 ## 🔎 Presupuesto de búsqueda y contexto temporal (aplica a TODOS los jobs)
 

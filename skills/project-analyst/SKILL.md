@@ -84,7 +84,25 @@ Cuando `mode` es `"questions"`, generar **4-5 preguntas clave** orientadas a val
 }
 ```
 
-**Output preguntas:** SIEMPRE JSON con este formato. Las preguntas deben basarse en el contexto de la idea y apuntar a DECISIONES ESTRATÉGICAS que el usuario debe tomar.
+**Output preguntas:** SIEMPRE JSON con este formato. **GENERA las preguntas desde el contexto de la idea (`ideaContext`) y tu investigación interna**, no las copies de aquí. Cada pregunta debe apuntar a una DECISIÓN ESTRATÉGICA que ESTE usuario debe tomar, con opciones derivadas de lo que has encontrado para ESTE proyecto.
+
+#### Ejes que el quiz DEBE cubrir (deriva cada pregunta del proyecto concreto)
+
+Genera 4-5 preguntas que cubran estos ejes. Para cada eje, **redacta la pregunta y sus opciones a partir de `ideaContext` y tu investigación** — no uses las redacciones de esta skill como texto final.
+
+**Ejes ESPECÍFICOS (placeholders → derívalo de tu investigación, varía entre proyectos):**
+- **Mercado / posicionamiento** — el mercado geográfico o el hueco competitivo que mejor encaje (elige el ángulo que más aporte a ESTE proyecto). Opciones = mercados/huecos REALES que detectaste, con su evidencia.
+- **Canales de captación iniciales** — por dónde captar los primeros clientes. Opciones = canales REALES observados en los competidores de ESTE mercado (decisión de dirección; el plan detallado es de la Fase 4).
+
+**Ejes UNIVERSALES (puedes dejarlos fijos, pero márcalos "universal — adapta si procede"):**
+- **Barreras competitivas ocultas** — qué ventaja difícil de ver pero decisiva puede ser la suya.
+- **Normativa legal** aplicable al sector — qué marco regulatorio condiciona más su entrada.
+- **Validación de hipótesis** — cuál es la hipótesis más arriesgada a probar primero.
+- **Madurez de mercado** — en qué punto del ciclo de vida está su mercado.
+
+#### Ejemplo ILUSTRATIVO de formato (NO reutilizar)
+
+Lo que sigue muestra **SOLO LA FORMA** del JSON (claves `id`/`label`/`type`/`options`). **Ejemplo ILUSTRATIVO de formato — NO reutilices estas preguntas ni su texto; genera las tuyas desde `ideaContext` y tu investigación. Varía entre ejecuciones.** Los `[corchetes]` son placeholders que DEBES sustituir por hallazgos reales.
 
 ```json
 {
@@ -92,62 +110,17 @@ Cuando `mode` es `"questions"`, generar **4-5 preguntas clave** orientadas a val
   "questions": [
     {
       "id": "mercado_geo",
-      "label": "He identificado estos 3 mercados geográficos con mejor encaje. ¿Por dónde quieres empezar?",
+      "label": "[Pregunta sobre mercado/posicionamiento derivada del proyecto — específica, varía]",
       "type": "choice",
       "options": [
-        "[Mercado A] — [razón: madurez, regulación, tracción de competidores]",
-        "[Mercado B] — [razón: menor competencia, crecimiento, fit cultural]",
-        "[Mercado C] — [razón: máximo TAM pero más barreras]"
-      ]
-    },
-    {
-      "id": "posicionamiento",
-      "label": "Detecté estos 3 huecos de mercado. ¿Cuál encaja con tu visión?",
-      "type": "choice",
-      "options": [
-        "[Hueco 1] — basado en [evidencia: reviews competidores, búsquedas]",
-        "[Hueco 2] — basado en [evidencia: tendencia, segmentación]",
-        "[Hueco 3] — basado en [evidencia: pricing, audiencia desatendida]"
-      ]
-    },
-    {
-      "id": "barrera_competitiva_oculta",
-      "label": "Detecté estas barreras competitivas ocultas (ventajas difíciles de ver desde fuera pero decisivas). ¿Cuál crees que es la tuya?",
-      "type": "choice",
-      "options": [
-        "Know-how / IP (Propiedad intelectual) — patente, algoritmo o datos propios difíciles de replicar",
-        "Efecto red — el producto mejora cuanto más gente lo usa, ventaja del primero",
-        "Acceso a un canal o partner exclusivo que la competencia no tiene",
-        "Coste de cambio alto — una vez dentro, al cliente le cuesta irse",
-        "Comunidad / marca — conexión emocional difícil de copiar"
-      ]
-    },
-    {
-      "id": "normativa_legal",
-      "label": "He revisado la normativa legal aplicable a tu sector. ¿Cuál de estos marcos regulatorios condiciona más tu entrada?",
-      "type": "choice",
-      "options": [
-        "RGPD (Reglamento General de Protección de Datos) — tratas datos personales sensibles",
-        "Licencias o certificaciones sectoriales obligatorias antes de operar",
-        "Normativa de consumo / etiquetado / sanitaria según el producto",
-        "Fiscalidad específica (IVA reducido, modelos especiales, facturación)",
-        "Marco ligero — sin barreras regulatorias relevantes para empezar"
-      ]
-    },
-    {
-      "id": "canal_captacion_inicial",
-      "label": "De los canales de captación iniciales observados en tu mercado, ¿por cuál te inclinas para los primeros clientes? (decisión de dirección, el plan detallado es de la Fase 4)",
-      "type": "choice",
-      "options": [
-        "[Canal 1 observado en competidores] — [evidencia: dónde captan hoy]",
-        "[Canal 2 observado] — [evidencia]",
-        "[Canal 3 observado] — [evidencia]",
-        "Boca a boca / comunidad — orgánico antes de invertir"
+        "[Mercado A o Hueco 1] — [evidencia real de tu investigación]",
+        "[Mercado B o Hueco 2] — [evidencia real]",
+        "[Mercado C o Hueco 3] — [evidencia real]"
       ]
     },
     {
       "id": "hipotesis_a_validar",
-      "label": "Para validar tu negocio, ¿cuál es la hipótesis más arriesgada que deberías probar primero?",
+      "label": "Para validar tu negocio, ¿cuál es la hipótesis más arriesgada que deberías probar primero? (universal — adapta si procede)",
       "type": "choice",
       "options": [
         "Hipótesis de problema — que el dolor es real y suficientemente grande",
@@ -155,27 +128,18 @@ Cuando `mode` es `"questions"`, generar **4-5 preguntas clave** orientadas a val
         "Hipótesis de pago — que el cliente está dispuesto a pagar el precio previsto",
         "Hipótesis de canal — que puedes alcanzar al cliente a un coste rentable"
       ]
-    },
-    {
-      "id": "madurez_mercado",
-      "label": "¿En qué momento del ciclo de vida está tu mercado objetivo?",
-      "type": "choice",
-      "options": [
-        "Emergente — mercado nuevo, poca competencia, hay que educar al cliente",
-        "Crecimiento — mercado validado, creciendo rápido, compitiendo por cuota",
-        "Maduro — mercado establecido, competencia fuerte, diferenciación clave",
-        "Declive — mercado en contracción, oportunidad en nicho o reinvención"
-      ]
     }
   ]
 }
 ```
 
+> Las dos preguntas de arriba son SOLO un molde de forma. Tu salida real debe traer 4-5 preguntas que cubran los ejes de arriba, con `id` semánticos coherentes (sugeridos: `mercado_geo` o `posicionamiento`, `barrera_competitiva_oculta`, `normativa_legal`, `canal_captacion_inicial`, `hipotesis_a_validar`, `madurez_mercado`), las ESPECÍFICAS pobladas con tus hallazgos y las UNIVERSALES adaptadas si procede.
+
 > NOTA: 4-5 preguntas máximo. Si superas las 5, recorta priorizando barreras competitivas ocultas, normativa legal, canales de captación iniciales y validación de hipótesis (los cuatro ejes nuevos), más el de mercado/posicionamiento que mejor encaje. Todas de tipo `choice` salvo, como mucho, 1 `text` opcional al final.
 
 ### Reglas del Modo Preguntas
 
-1. **Cada opción debe ser específica del proyecto**, no genérica. Sustituye los placeholders [Mercado A], [Hueco 1] con lo que realmente has encontrado en tu investigación interna.
+1. **GENERA, no copies.** Las preguntas del ejemplo ilustrativo son SOLO un molde de forma — NO las reutilices ni su texto. Redacta cada pregunta y cada opción desde `ideaContext` y tu investigación, y **varía entre ejecuciones** (dos proyectos distintos no deben recibir preguntas iguales). En las ESPECÍFICAS sustituye los placeholders [Mercado A], [Hueco 1], [Canal 1] por lo que realmente encontraste; en las UNIVERSALES (madurez de mercado, hipótesis más arriesgada) puedes mantener la forma fija pero adáptala si el proyecto lo pide.
 2. **NO preguntes "¿tienes proveedor?", "¿tienes equipo?", "¿cuánto capital tienes?"** — esas son preguntas de descubrimiento. Aquí damos opciones estratégicas (preguntas de DECISIÓN, no de descubrimiento).
 3. **4-5 preguntas máximo.** Más de eso abruma. La fase 1 debe sentirse como "elegir camino", no como "rellenar formulario".
 4. **90% de las preguntas deben ser `choice`**, máximo 1 `text` opcional al final (ej: "¿hay algo que no te haya preguntado y debería saber?").

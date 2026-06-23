@@ -65,7 +65,25 @@ Tu único contexto previo garantizado es el resultado de la fase de **Análisis*
 
 **Output preguntas:** Siempre JSON. 5 preguntas máximo. Al menos 4 de tipo `choice`. Aplica la regla lingüística en cada label y opción.
 
-> ⚠️ **Las preguntas y opciones del JSON de abajo son una PLANTILLA orientativa, NO un guion literal.** Lo OBLIGATORIO son los *ejes/temas* (costes fijos mensuales, dedicación económica inicial, expectativas de precio, pasarelas de pago, modelo de ingresos). DEBES reescribir el wording y, sobre todo, **personalizar las opciones** al proyecto concreto usando `ideaContext`, `projectMemory` y `previousArtifacts` (el análisis de mercado de la fase de Análisis). No copies las opciones tal cual salvo que encajen perfectamente con este proyecto; los `id` puedes conservarlos para mantener el contrato con el frontend.
+> ⚠️ **GENERA tus propias preguntas — NO copies ningún ejemplo.** Lo OBLIGATORIO son los *ejes/temas* listados abajo, no un wording concreto. Cada pregunta (label y opciones) DEBES **derivarla del proyecto**: usa `ideaContext`, `projectMemory`, los competidores y benchmarks de `previousArtifacts` (análisis de mercado) y tu propia investigación. Dos ejecuciones sobre proyectos distintos —o incluso sobre el mismo— deben producir preguntas y opciones distintas y adaptadas. El bloque de ejemplo de más abajo es solo **andamiaje de FORMATO**: muestra la estructura (`id`/`label`/`type`/`options`), NO el contenido.
+
+**Ejes obligatorios que el quiz de viabilidad debe cubrir** (deriva CADA pregunta del proyecto concreto; no inventes opciones genéricas si el contexto permite concretarlas):
+
+| Eje | `id` sugerido | Tipo | Naturaleza |
+|---|---|---|---|
+| Modelo de ingresos | `modelo_ingresos` | `choice` | **Específico**: filtra las opciones a los modelos con encaje real en ESTE mercado/competencia (de la fase de Análisis); descarta los que no apliquen. |
+| Expectativa de precio / posicionamiento | `expectativa_precio` | `choice` | **Universal (adaptable)**: low-cost / mercado / premium / lujo es válido para todo negocio, pero **ancla cada nivel al precio real de los competidores** del sector (placeholder → derívalo del contexto). |
+| Costes fijos mensuales estimados | `costes_fijos_mensuales` | `choice` | **Universal (adaptable)**: los rangos en € son fijos, pero ajusta los ejemplos de coste (hosting, herramientas, licencias, local…) al tipo de producto. |
+| Dedicación económica inicial (capital propio) | `dedicacion_economica_inicial` | `choice` | **Universal (adaptable)**: rangos de capital válidos para cualquier negocio; ajusta solo el matiz del producto mínimo viable al proyecto. |
+| Pasarelas / método de cobro | `pasarelas_pago` | `multi` | **Específico**: las pasarelas y sus comisiones dependen del país, recurrencia y canal del proyecto (placeholder → derívalo del contexto y de tu investigación). |
+
+Reglas para generarlas:
+- **`id`:** conserva los `id` sugeridos para mantener el contrato con el frontend.
+- **Universal vs específico:** en los ejes marcados **universal**, mantén el esqueleto de opciones (rangos/niveles) pero adáptalo al proyecto. En los **específicos**, los placeholders (modelos, pasarelas, precios de sector, comisiones) DEBES rellenarlos derivándolos del contexto/investigación; nunca los dejes literales del ejemplo.
+- **Varía entre ejecuciones:** no reutilices el mismo wording de una ejecución a otra; reformula desde el `ideaContext` de cada proyecto.
+- **No repreguntes** lo ya cerrado en `projectMemory` ni lo ya resuelto en el análisis de mercado (target, competidores, tendencias).
+
+**Ejemplo ILUSTRATIVO de formato — NO reutilices estas preguntas; genera las tuyas desde `ideaContext`/competidores/tu investigación. Varía entre ejecuciones.** (solo muestra la FORMA: `id`/`label`/`type`/`options` con placeholders)
 
 ```json
 {
@@ -74,65 +92,29 @@ Tu único contexto previo garantizado es el resultado de la fase de **Análisis*
   "questions": [
     {
       "id": "modelo_ingresos",
-      "label": "Basado en tu mercado y competencia, estos son los modelos de ingresos con mejor encaje. ¿Cuál prefieres?",
+      "label": "[Pregunta derivada del proyecto sobre el MODELO DE INGRESOS, anclada a tu mercado y competencia]",
       "type": "choice",
       "options": [
-        "Suscripción (SaaS, Software como servicio) — recurrente, MRR (Ingresos recurrentes mensuales) predecible, requiere retención alta",
-        "Pago único / venta transaccional — margen por unidad, requiere volumen",
-        "Freemium — gratis + premium, gran base de usuarios, conversión 2-5%",
-        "Marketplace / comisión — conectas oferta y demanda, cobras un porcentaje",
-        "Híbrido — combinas varios modelos (ej: suscripción + comisiones)"
-      ]
-    },
-    {
-      "id": "costes_fijos_mensuales",
-      "label": "¿Qué costes fijos mensuales estimas para operar (hosting, herramientas, gestoría, sueldos mínimos)?",
-      "type": "choice",
-      "options": [
-        "Menos de 200€/mes — operación ultraligera, casi todo automatizado",
-        "200-1.000€/mes — algunas herramientas de pago y servicios externos",
-        "1.000-3.000€/mes — estructura pequeña con algún colaborador",
-        "Más de 3.000€/mes — equipo o infraestructura significativa",
-        "No lo sé todavía — recomiéndame un rango según el modelo"
-      ]
-    },
-    {
-      "id": "dedicacion_economica_inicial",
-      "label": "¿Cuál es tu dedicación económica inicial: cuánto capital propio puedes invertir antes de generar ingresos?",
-      "type": "choice",
-      "options": [
-        "Menos de 1.000€ — bootstrapping total, coste casi cero",
-        "1.000-5.000€ — capital justo para arrancar el producto mínimo viable",
-        "5.000-20.000€ — inversión seria para los primeros meses",
-        "Más de 20.000€ — ahorros relevantes o financiación externa"
-      ]
-    },
-    {
-      "id": "expectativa_precio",
-      "label": "¿Qué expectativa de precio tienes respecto a tu competencia?",
-      "type": "choice",
-      "options": [
-        "Low-cost — por debajo del mercado, volumen sobre margen",
-        "Precio de mercado — compites por calidad/servicio",
-        "Premium — por encima del mercado, justificado por valor diferencial",
-        "Lujo / ultra-premium — precio muy alto, exclusividad"
+        "[Modelo con encaje real en ESTE sector — por qué funciona aquí]",
+        "[Otro modelo plausible para este proyecto — su lógica]",
+        "[... solo los modelos que apliquen; descarta los que no]"
       ]
     },
     {
       "id": "pasarelas_pago",
-      "label": "¿Qué pasarela(s) de pago prefieres para cobrar? (condiciona comisiones y tipo de cobro)",
+      "label": "[Pregunta derivada sobre MÉTODO/PASARELA DE COBRO, según país, recurrencia y canal del proyecto]",
       "type": "multi",
       "options": [
-        "Stripe — tarjetas y suscripciones, comisión ~1,5% + 0,25€",
-        "PayPal — confianza del usuario, comisión más alta",
-        "Bizum / transferencia — local, comisión baja, sin recurrencia",
-        "Apple Pay / Google Pay — pago móvil, integración con app",
-        "No lo sé todavía — recomiéndame según el modelo de ingresos"
+        "[Pasarela concreta + comisión real (derivada de tu investigación, año en curso)]",
+        "[Otra pasarela que encaje con el modelo de ingresos del proyecto]",
+        "[No lo sé todavía — recomiéndame según el modelo de ingresos]"
       ]
     }
   ]
 }
 ```
+
+(El ejemplo muestra 2 ejes; tu salida debe cubrir los 5 ejes de la tabla, máximo 5 preguntas, mayoría `choice`.)
 
 ---
 
