@@ -1396,72 +1396,8 @@ CONTEXTO:
         time.sleep(2)
 
 
-def process_project_skill(job):
-    """Procesa un job de mejora de skill con IA (agentName 'project-skills').
-
-    job.input: { projectId, skillId, skillName, skillDescription, outputMeta,
-                 context, _bridgeModel }. El agente devuelve {"content": "<md>"}.
-    """
-    job_id = job["id"]
-    job_input = json.loads(job.get("input", "{}"))
-    bridge_model = job_input.pop("_bridgeModel", None)
-    project_id = job_input.get("projectId")
-    skill_id = job_input.get("skillId")
-    skill_name = job_input.get("skillName", skill_id)
-    skill_description = job_input.get("skillDescription", "")
-    output_meta = job_input.get("outputMeta", {}) or {}
-    ctx = job_input.get("context", {})
-    skill_content = read_skill("project-skills") or ""
-
-    log("project-skills (" + str(job_id)[:12] + ") skill=" + str(skill_id))
-    try:
-        api_post("/api/jobs/" + job_id + "/status", {"status": "RUNNING"})
-    except Exception:
-        pass
-
-    sections = output_meta.get("sections", []) or []
-    ctx_str = json.dumps(ctx, ensure_ascii=False, indent=2)
-    parts = []
-    parts.append(skill_content)
-    parts.append("")
-    parts.append("--- TAREA ---")
-    parts.append("Genera el documento markdown de la skill: " + str(skill_name) + ".")
-    parts.append("Descripcion: " + str(skill_description))
-    if sections:
-        parts.append("Secciones sugeridas: " + ", ".join(sections))
-    parts.append("")
-    parts.append("--- CONTEXTO DEL PROYECTO (JSON) ---")
-    parts.append(ctx_str)
-    parts.append("")
-    parts.append('Responde UNICAMENTE con este JSON, sin texto ni fences: {"content": "<documento markdown completo, en espanol>"}')
-    instruction = "\n".join(parts)
-
-    result = execute_agent(instruction, agent_name="project-skills", timeout=300, model_override=bridge_model, idea_id=job.get("ideaId"))
-
-    if result is None:
-        try:
-            api_post("/api/jobs/" + job_id + "/status", {"status": "FAILED", "error": "Agent returned no output"})
-        except Exception:
-            pass
-        try:
-            api_post("/api/webhooks/skill-callback", {"jobId": job_id, "status": "FAILED", "skillId": skill_id, "projectId": project_id, "skillName": skill_name, "error": "Agent returned no output"})
-        except Exception:
-            pass
-        return
-
-    if isinstance(result, dict):
-        content = result.get("content") or result.get("reportMarkdown") or result.get("markdown") or ""
-    else:
-        content = str(result)
-    log("  Skill content: " + str(len(content)) + " chars")
-    try:
-        api_post("/api/webhooks/skill-callback", {"jobId": job_id, "status": "COMPLETED", "skillId": skill_id, "projectId": project_id, "skillName": skill_name, "output": content})
-    except Exception as e:
-        log("  skill callback failed: " + str(e))
-        try:
-            api_post("/api/jobs/" + job_id + "/status", {"status": "FAILED", "error": "Callback failed: " + str(e)[:100]})
-        except Exception:
-            pass
+# (eliminado) process_project_skill: la opción "Mejorar skill con IA" se retiró;
+# las skills del handoff se generan solo desde plantilla determinista en la app.
 
 
 def process_jobs():
@@ -1536,28 +1472,7 @@ def process_jobs():
         except Exception as e:
             log(f"⚠ Project check: {e}")
 
-        # -- 1e. Process project-skills jobs (mejora con IA) --
-        try:
-            skill_data = api_get("/api/jobs/pending")
-            skill_jobs = [j for j in skill_data if j.get("agentName") == "project-skills"]
-            for job in skill_jobs:
-                picked_up_jobs = True
-                try:
-                    process_project_skill(job)
-                except Exception as e:
-                    sjid = job.get("id", "?")
-                    log("Project skill error on job=" + str(sjid) + ": " + str(e))
-                    try:
-                        api_post("/api/jobs/" + sjid + "/status", {"status": "FAILED", "error": str(e)[:200]})
-                    except Exception:
-                        pass
-                    continue
-                time.sleep(2)
-        except urllib.error.HTTPError as e:
-            if e.code != 404:
-                log("HTTP " + str(e.code) + " checking skill jobs")
-        except Exception as e:
-            log("Project skill check: " + str(e))
+        # (eliminado) 1e. project-skills: la mejora de skills con IA se retiró.
 
         # ── 2. Process validation jobs ──
         try:

@@ -13,7 +13,6 @@ import {
   Globe,
   Megaphone,
   Sparkles,
-  Loader2,
   ArrowRight,
   Eye,
 } from "lucide-react";
@@ -220,9 +219,7 @@ function SkillCard({
   iconComponent: (iconName: string, className?: string) => React.ReactNode;
   onView: (g: GeneratedSkill) => void;
 }) {
-  const isAi = generated?.source === "ai";
-  const isPending = generated?.source === "ai-pending";
-  const isGenerated = !!generated && !!generated.content && !isPending;
+  const isGenerated = !!generated && !!generated.content;
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-slate-800 bg-slate-900/40 p-4">
@@ -239,18 +236,9 @@ function SkillCard({
           </span>
         </div>
         {/* Badge de origen */}
-        {isPending ? (
-          <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-purple-500/15 px-2 py-0.5 text-[10px] font-medium text-purple-300">
-            <Loader2 className="size-3 animate-spin" />
-            Generando IA…
-          </span>
-        ) : isGenerated ? (
-          <span
-            className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-              isAi ? "bg-purple-500/15 text-purple-300" : "bg-slate-700/60 text-slate-300"
-            }`}
-          >
-            {isAi ? "Mejorada con IA" : "Desde plantilla"}
+        {isGenerated ? (
+          <span className="shrink-0 rounded-full bg-slate-700/60 px-2 py-0.5 text-[10px] font-medium text-slate-300">
+            Desde plantilla
           </span>
         ) : (
           <span className="shrink-0 rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-medium text-slate-500">

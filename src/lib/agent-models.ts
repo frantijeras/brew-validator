@@ -20,7 +20,6 @@ const AGENT_DEFAULTS: Record<string, string> = {
   "project-content": "opencode-zen-free/mimo-v2.5-free",
   "project-business": "opencode-zen-free/mimo-v2.5-free",
   "project-execution": "opencode-zen-free/mimo-v2.5-free",
-  "project-skills": "opencode-zen-free/mimo-v2.5-free",
 };
 
 const JOB_AGENT_TO_SETTINGS_KEY: Record<string, string> = {
@@ -37,7 +36,6 @@ const JOB_AGENT_TO_SETTINGS_KEY: Record<string, string> = {
   "project-content": "project-content",
   "project-business": "project-business",
   "project-execution": "project-execution",
-  "project-skills": "project-skills",
 };
 
 export const PROJECT_AGENTS = [
@@ -49,7 +47,6 @@ export const PROJECT_AGENTS = [
   "project-content",
   "project-business",
   "project-execution",
-  "project-skills",
 ];
 
 /**

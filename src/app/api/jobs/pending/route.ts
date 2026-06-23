@@ -6,7 +6,7 @@ const MONITORED_AGENTS = [
   "skeptic", "advocate", "judge",
   "idea-generator",
   "project-analyst", "project-branding", "project-content",
-  "project-business", "project-execution", "project-skills",
+  "project-business", "project-execution",
   // Fase 3 separada en 4 sub-skills (project-branding se mantiene de fallback).
   "project-naming", "project-voice", "project-logo", "project-template",
 ];

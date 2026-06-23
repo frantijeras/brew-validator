@@ -329,7 +329,6 @@ const DEFAULT_AGENT_MODELS: Record<string, string> = {
   "project-content": "opencode-zen-free/deepseek-v4-flash-free",
   "project-business": "opencode-zen-free/deepseek-v4-flash-free",
   "project-execution": "opencode-zen-free/deepseek-v4-flash-free",
-  "project-skills": "opencode-zen-free/deepseek-v4-flash-free",
 };
 
 const AGENT_INFO: { id: string; name: string; description: string }[] = [
@@ -348,7 +347,6 @@ const PROJECT_AGENT_INFO: { id: string; name: string; description: string }[] = 
   { id: "project-template", name: "Identidad · Template visual", description: "Fase 3 (3d): genera 3 templates de componentes web (hero, cards, formularios)." },
   { id: "project-content", name: "Contenido y Publicación", description: "Genera estrategia de contenido, skill de publicación y landing promocional." },
   { id: "project-execution", name: "Roadmap y Ejecución", description: "OKRs 30/60/90, plan financiero y próximos pasos." },
-  { id: "project-skills", name: "Generador de Skills", description: "Genera skills ejecutables para el proyecto basadas en las fases completadas." },
 ];
 
 type AgentInfo = { id: string; name: string; description: string };

@@ -7,7 +7,7 @@ import { getBridgeHealth } from "@/lib/bridge/health";
  *
  * El bridge es un daemon externo: si se cae, no responde o se queda sin tokens
  * y el callback nunca llega, los Jobs quedan PENDING/RUNNING y sus recursos
- * (fase PROCESSING, idea VALIDATING, skill "ai-pending") se quedan colgados
+ * (fase PROCESSING, idea VALIDATING) se quedan colgados
  * indefinidamente. Esta función marca como FAILED los jobs más viejos que el
  * timeout y RESETEA su recurso a un estado usable, con un error claro.
  *
@@ -29,7 +29,6 @@ export interface ReapResult {
   jobs: number;
   phases: number;
   ideas: number;
-  skills: number;
 }
 
 export async function reapStuckProcesses(opts?: {
@@ -38,7 +37,7 @@ export async function reapStuckProcesses(opts?: {
 }): Promise<ReapResult> {
   const timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const cutoff = new Date(Date.now() - timeoutMs);
-  const result: ReapResult = { jobs: 0, phases: 0, ideas: 0, skills: 0 };
+  const result: ReapResult = { jobs: 0, phases: 0, ideas: 0 };
 
   // Scope opcional por proyecto (los jobs cuelgan del ideaId del proyecto).
   let ideaIdFilter: string | undefined;
@@ -91,8 +90,6 @@ export async function reapStuckProcesses(opts?: {
       input = {};
     }
     const phaseId = typeof input.phaseId === "string" ? input.phaseId : null;
-    const projectId = typeof input.projectId === "string" ? input.projectId : null;
-    const skillId = typeof input.skillId === "string" ? input.skillId : null;
 
     try {
       if (phaseId) {
@@ -105,36 +102,6 @@ export async function reapStuckProcesses(opts?: {
           data: { status: "AVAILABLE", lastError },
         });
         result.phases += upd.count;
-      } else if (skillId && projectId) {
-        // Skill "Mejorar con IA" colgada → revierte ai-pending a su plantilla.
-        const project = await prisma.project.findUnique({
-          where: { id: projectId },
-          select: { generatedSkills: true },
-        });
-        const skills = Array.isArray(project?.generatedSkills)
-          ? (project!.generatedSkills as unknown as Array<{
-              id: string;
-              source?: string;
-              content?: string;
-            }>)
-          : null;
-        if (skills) {
-          let changed = false;
-          const next = skills.map((s) => {
-            if (s.id === skillId && s.source === "ai-pending") {
-              changed = true;
-              return { ...s, source: s.content ? "template" : s.source };
-            }
-            return s;
-          });
-          if (changed) {
-            await prisma.project.update({
-              where: { id: projectId },
-              data: { generatedSkills: next as unknown as Prisma.InputJsonValue },
-            });
-            result.skills += 1;
-          }
-        }
       } else if (IDEA_AGENTS.has(job.agentName)) {
         // Validación / generación / refinamiento de idea colgado.
         const unstuck = await prisma.idea.updateMany({

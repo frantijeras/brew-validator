@@ -36,7 +36,6 @@ const DEFAULT_MODELS: Record<string, string> = {
   "project-content": "opencode-zen-free/mimo-v2.5-free",
   "project-business": "opencode-zen-free/mimo-v2.5-free",
   "project-execution": "opencode-zen-free/mimo-v2.5-free",
-  "project-skills": "opencode-zen-free/mimo-v2.5-free",
 }
 
 async function readConfigFromFile(): Promise<Record<string, string> | null> {

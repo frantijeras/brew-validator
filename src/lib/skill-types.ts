@@ -37,8 +37,6 @@ export interface GeneratedSkill {
   /**
    * Origen del contenido:
    *  - "template": plantilla determinista.
-   *  - "ai": mejorada con IA vía Bridge.
-   *  - "ai-pending": marcador transitorio mientras el agente genera (no final).
    */
-  source?: "template" | "ai" | "ai-pending";
+  source?: "template";
 }
