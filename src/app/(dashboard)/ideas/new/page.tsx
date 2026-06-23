@@ -41,8 +41,14 @@ export default function NewIdeaPage() {
         throw new Error(data.error || "Error al generar la idea");
       }
 
-      const { ideaId } = await res.json();
+      await res.json();
+      // Navega a la lista y FUERZA un refetch del servidor. Sin el refresh, el
+      // Router Cache de Next sirve una lista vieja (sin la idea recién creada),
+      // por lo que no hay ninguna idea en estado GENERATING y el auto-refresh
+      // (useReactivePolling) no se activa: la tarjeta se queda congelada en
+      // "Generando idea aleatoria…" hasta que el usuario recarga a mano.
       router.push("/ideas");
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
     } finally {
