@@ -745,7 +745,7 @@ Mantén la esencia de la idea del usuario pero mejórala con contexto de mercado
     else:
         log(f"  ❌ {agent_name} no valid result (missing title/description)")
         try:
-            api_post(f"/api/jobs/{job_id}/status", {"status": "FAILED", "error": "No valid idea generated"})
+            api_post("/api/webhooks/agent-callback", {"jobId": job_id, "status": "FAILED", "error": "idea-generator: no se pudo generar una idea válida"})
         except Exception:
             pass
 
@@ -1384,10 +1384,15 @@ CONTEXTO:
                 log(f"  ❌ Callback fail: {e}")
         else:
             log(f"  ❌ {agent_name} no result")
+            # Falla la idea YA (vía agent-callback) en vez de dejar el job
+            # RUNNING y la idea girando hasta que el reaper la corte a los 10
+            # min. El webhook marca validationStatus=FAILED para que el usuario
+            # vea el error y pueda reintentar al instante.
             try:
-                api_post(f"/api/jobs/{job_id}/status", {"status": "FAILED", "error": "No result"})
+                api_post("/api/webhooks/agent-callback", {"jobId": job_id, "status": "FAILED", "error": f"{agent_name}: el modelo no devolvió resultado tras reintento"})
             except Exception:
                 pass
+            break
         time.sleep(2)
 
 
