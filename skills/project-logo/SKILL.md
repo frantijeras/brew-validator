@@ -38,7 +38,7 @@ Genera **un único documento HTML renderizable** con **12 propuestas de logos ve
 **EXIGENCIAS TÉCNICAS OBLIGATORIAS para cada logo SVG:**
 
 1. **SVG 100% semántico** — elementos vectoriales reales (`<path>`, `<circle>`, `<rect>`, `<polygon>`, `<text>`), nunca rasterizado ni `<image>`. Prefiere primitivas geométricas sobre `<path>` enrevesados.
-2. **`viewBox` CUADRADO 1:1 OBLIGATORIO** — `viewBox="0 0 100 100"` o `0 0 200 200`. Centra el logo. Nada de width/height absolutos ni viewBox rectangular.
+2. **`viewBox` CUADRADO 1:1 OBLIGATORIO** — `viewBox="0 0 100 100"` o `0 0 200 200`. Centra el logo. Nada de width/height absolutos ni viewBox rectangular. **Un único `<svg>` por logo (12 en total), NUNCA anidados** (la app extrae cada propuesta como bloque `<svg>…</svg>` de primer nivel y la numera contándolos).
 3. **Estructura limpia y reutilizable** — agrupa con `<g>`, reutiliza con `<defs>`, recorta con `<clipPath>` si aporta. Incluye `<title>` y `<desc>` por accesibilidad.
 4. **Colores en variables** — usa `currentColor` y/o CSS (Hojas de estilo en cascada) custom properties (`--brand-primary`, `--brand-accent`); que pasar a monocromo sea trivial. Paleta coherente con sector y voz/tono.
 5. **CERO dependencias externas** — nada de `<link rel="stylesheet">` ni Google Fonts remotas; todo embebido, renderiza offline, cada logo copiable por separado.

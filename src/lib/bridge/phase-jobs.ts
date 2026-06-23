@@ -201,6 +201,10 @@ export async function enqueuePhaseJob(
 
   const contextRules = buildAgentContextRules(projectMemory);
 
+  // Año dinámico para que las skills de fase investiguen tendencias/mercado del
+  // año en curso sin fechas fijas en el prompt.
+  const currentYear = new Date().getFullYear();
+
   const jobInput: Record<string, unknown> = {
     mode,
     subStep: effectiveSubStep,
@@ -212,6 +216,8 @@ export async function enqueuePhaseJob(
     previousArtifacts,
     projectMemory: projectMemory ?? {},
     contextRules,
+    _currentYear: currentYear,
+    _previousYear: currentYear - 1,
     _bridgeModel: model,
   };
 

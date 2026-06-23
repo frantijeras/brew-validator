@@ -86,10 +86,23 @@ Genera **3 templates visuales alternativos A/B/C maquetados en HTML**. Cada temp
 1. **Set de componentes completo** — navbar, hero, 3 cards, formulario, sección feature/contenido y footer; botones primario y secundario. No te quedes en un hero suelto.
 2. **Clases CSS (Hojas de estilo en cascada) limpias** — semánticas, no caóticas.
 3. **Responsive (adaptable a móvil)** — unidades relativas, `meta viewport` y media queries.
-4. **SIN dependencias externas** — nada de `<link>` a CDN ni Google Fonts remotas; usa `@font-face` embebido o pila del sistema (`system-ui`). Renderiza offline. CERO `<script>`.
+4. **SIN dependencias externas (web autocontenida)** — PROHIBIDO `<link>` a CDN, `@import` remoto y Google Fonts (nada de `fonts.googleapis.com`). Usa SOLO pilas del sistema (`system-ui`, `-apple-system`, `Segoe UI`, `Georgia`, `ui-serif`, `ui-monospace`...) o `@font-face` con la fuente embebida en `data:` (base64). Renderiza offline. CERO `<script>`.
 5. **Paleta HEX (Sistema hexadecimal) aplicada** — colores como CSS custom properties (`--color-primary`, `--color-secondary`, `--color-accent`) usados en TODO el template, coherentes con el sector.
-6. **Autónomo y < 50 KB** — documento HTML5 completo, independiente, sandbox-safe.
+6. **Autónomo y < 50 KB** — documento HTML5 completo, independiente, sandbox-safe. (Si embebes una fuente `@font-face` con `data:`, vigila no pasarte de 50 KB; ante la duda, usa pila del sistema.)
 7. **Las 3 variantes REALMENTE distintas** — distinta personalidad (p. ej. una sobria, otra cálida, otra audaz), no la misma con otro color. Resume cada personalidad en `meta.mood`.
+8. **`meta` EXPLÍCITO y COMPLETO por opción (OBLIGATORIO)** — como NO hay Google Fonts, la app NO puede deducir la tipografía del HTML. Por eso cada opción DEBE traer su propio objeto `meta` con `name`, `primaryColor` (hex), `secondaryColor` (hex), `fontHeading`, `fontBody` y `mood` rellenos. Estos valores deben COINCIDIR con lo que realmente usa el HTML (mismas familias en `font-family`, mismos hex en las variables CSS). La app lee `meta` directamente para la ficha de la muestra, el PDF y el 3D; si un campo falta, cae a un fallback genérico ("Inter") y la tipografía se pierde. Pon el nombre de familia "humano" (p. ej. `"Georgia"`, `"system-ui"`), no la pila CSS completa.
+
+### Forma de salida (DOBLE JSON — léelo con atención)
+
+La salida es el JSON del informe. Dentro, `subStepArtifact.content` es **otro JSON pero serializado como STRING** (texto con comillas escapadas), con esta forma exacta:
+
+```
+{"options":[guíaA, guíaB, guíaC]}
+```
+
+Cada guía tiene `variant` (`"A"`/`"B"`/`"C"`), `html` (el documento completo) y `meta` (objeto con los 6 campos del punto 8). El `content` DEBE ser **JSON válido y mínimo**: exactamente 3 opciones, comillas internas escapadas (`\"`), saltos de línea del HTML escapados (`\n`), sin comas finales ni comentarios. Si ese JSON se rompe al parsear, la interfaz NO muestra tus templates: cae a un placeholder de "no disponible". Verifica que el string parsea antes de devolverlo.
+
+Ejemplo (con `html` abreviado por claridad; en real va el documento completo `<!DOCTYPE html>...`):
 
 ```json
 {
@@ -98,7 +111,7 @@ Genera **3 templates visuales alternativos A/B/C maquetados en HTML**. Cada temp
   "reportMarkdown": "## Estilos visuales — 3 propuestas\n\nHe generado 3 templates de componentes para [Nombre], adaptados al sector [sector].\n\n- **Opción A** — [nombre]: [1 frase]\n- **Opción B** — [nombre]: [1 frase]\n- **Opción C** — [nombre]: [1 frase]\n\nResponsive, sin dependencias externas y con tu logotipo ya incrustado. Abre cada uno y elige.",
   "subStepArtifact": {
     "type": "html",
-    "content": "{\"options\":[{\"variant\":\"A\",\"html\":\"<!DOCTYPE html>... set de componentes, {{LOGO}} en navbar/footer, paleta en variables CSS ...\",\"meta\":{\"name\":\"Estilo A — Moderno\",\"primaryColor\":\"#hex\",\"secondaryColor\":\"#hex\",\"accentColor\":\"#hex\",\"fontHeading\":\"Inter\",\"fontBody\":\"Source Sans 3\",\"mood\":\"moderno y vibrante\"}},{\"variant\":\"B\",...},{\"variant\":\"C\",...}]}"
+    "content": "{\"options\":[{\"variant\":\"A\",\"html\":\"<!DOCTYPE html><html lang=\\\"es\\\">... navbar con {{LOGO}}, hero, 3 cards, formulario, feature, footer con {{LOGO}}; :root{--color-primary:#0F172A;--color-secondary:#F59E0B} y font-family:Georgia,ui-serif,serif ...\",\"meta\":{\"name\":\"Estilo A — Editorial sobrio\",\"primaryColor\":\"#0F172A\",\"secondaryColor\":\"#F59E0B\",\"fontHeading\":\"Georgia\",\"fontBody\":\"system-ui\",\"mood\":\"sobrio, editorial, de confianza\"}},{\"variant\":\"B\",\"html\":\"<!DOCTYPE html>...\",\"meta\":{\"name\":\"Estilo B — Cálido cercano\",\"primaryColor\":\"#7C2D12\",\"secondaryColor\":\"#FDBA74\",\"fontHeading\":\"system-ui\",\"fontBody\":\"system-ui\",\"mood\":\"cálido, humano, accesible\"}},{\"variant\":\"C\",\"html\":\"<!DOCTYPE html>...\",\"meta\":{\"name\":\"Estilo C — Audaz contemporáneo\",\"primaryColor\":\"#111827\",\"secondaryColor\":\"#22D3EE\",\"fontHeading\":\"ui-monospace\",\"fontBody\":\"system-ui\",\"mood\":\"audaz, tecnológico, con punch\"}}]}"
   }
 }
 ```

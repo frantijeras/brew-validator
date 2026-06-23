@@ -23,10 +23,12 @@ export interface VisualStyleGuide {
   variant: "A" | "B" | "C";
   /**
    * The COMPLETE HTML document for the style guide. It MUST be a
-   * self-contained HTML5 document and should only reference external
-   * resources via Google Fonts (`<link rel="preconnect">` + `<link>`
-   * to fonts.googleapis.com / fonts.gstatic.com). No external scripts
-   * and no remote images.
+   * self-contained HTML5 document with NO external resources: no remote
+   * scripts, no remote images, and no remote fonts (no Google Fonts links
+   * ni @import). Typography uses system font stacks or @font-face with
+   * data: URIs. The explicit `meta` below is the source of truth for
+   * palette + typography (the skill emits it per option); the HTML parse
+   * (`extractMetaFromHtml`) is only a fallback when `meta` is incomplete.
    */
   html: string;
   /**

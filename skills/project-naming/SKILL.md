@@ -30,6 +30,10 @@ Antes de proponer, revisa SIEMPRE:
 
 Genera 4-6 preguntas **SOLO sobre preferencias de naming** (tipo de nombre, sonoridad, palabras clave, idioma). NO preguntes sobre estilos visuales, colores, paletas ni tono — eso va en otras sub-fases.
 
+**Tipos de pregunta permitidos** (coherencia con las demás sub-skills):
+- Usa `choice` (una opción) o `multi` (varias) en la inmensa mayoría de las preguntas.
+- Como mucho **1** pregunta `text` libre y SIEMPRE opcional (la de palabras/conceptos). El resto deben ser de opción.
+
 ```json
 {
   "mode": "questions",
@@ -76,7 +80,7 @@ Genera 4-6 preguntas **SOLO sobre preferencias de naming** (tipo de nombre, sono
 
 ## Modo report
 
-Genera 3 rondas progresivas de nombres basadas en las respuestas + el contexto. El cierre son **3 nombres profesionales finalistas, cada uno con su significado conceptual**, más **1 campo manual**.
+Genera 3 rondas progresivas de nombres basadas en las respuestas + el contexto. El cierre son **3 nombres profesionales finalistas, cada uno con su significado conceptual**. (La app añade aparte un campo para que el usuario escriba su propio nombre; tú NO lo emites en el JSON.)
 
 **⚠️ Validación de dominios:** NO inventes ni afirmes disponibilidad de dominios. La app la comprueba por API. Tú solo devuelves nombres en JSON limpio.
 
@@ -84,7 +88,7 @@ Genera 3 rondas progresivas de nombres basadas en las respuestas + el contexto. 
 {
   "mode": "report",
   "subStep": "naming",
-  "reportMarkdown": "## Naming — 3 Rondas\n\n### Ronda 1 — Lluvia cruda (15-20 ideas)\n\n**[Categoría 1]**\n1. Nombre\n...\n\n### Ronda 2 — Filtrados (5-7 nombres)\n\n**1. Nombre**  \nPor qué: [sonoridad, fit con target, memorabilidad]\n\n### Ronda 3 — 3 Finalistas profesionales\n\n**Opción A: Nombre**  \n- Significado conceptual: [...]  \n- Pronunciación: [...]  \n- Logo textual sugerido: [...]  \n- Posicionamiento que sugiere: [...]\n\n**Opción B: Nombre**  \n...\n\n**Opción C: Nombre**  \n...\n\n### Campo manual\nSi ninguno encaja al 100%, escribe tu propio nombre.\n\n### Mi recomendación\n[Opción X] porque [razón]. La disponibilidad de dominio la confirma la app.",
+  "reportMarkdown": "## Naming — 3 Rondas\n\n### Ronda 1 — Lluvia cruda (15-20 ideas)\n\n**[Categoría 1]**\n1. Nombre\n...\n\n### Ronda 2 — Filtrados (5-7 nombres)\n\n**1. Nombre**  \nPor qué: [sonoridad, fit con target, memorabilidad]\n\n### Ronda 3 — 3 Finalistas profesionales\n\n**Opción A: Nombre**  \n- Significado conceptual: [...]  \n- Pronunciación: [...]  \n- Logo textual sugerido: [...]  \n- Posicionamiento que sugiere: [...]\n\n**Opción B: Nombre**  \n...\n\n**Opción C: Nombre**  \n...\n\n### Si ninguno encaja\nSi ninguno te convence al 100%, usa el campo de la app para escribir tu propio nombre.\n\n### Mi recomendación\n[Opción X] porque [razón]. La disponibilidad de dominio la confirma la app.",
   "subStepArtifact": {
     "type": "markdown",
     "content": "(mismo contenido que reportMarkdown)",
@@ -92,22 +96,23 @@ Genera 3 rondas progresivas de nombres basadas en las respuestas + el contexto. 
       { "value": "[Nombre A exacto]", "label": "Opcion A -- [Nombre A]: [significado en 5 palabras]" },
       { "value": "[Nombre B exacto]", "label": "Opcion B -- [Nombre B]: [significado en 5 palabras]" },
       { "value": "[Nombre C exacto]", "label": "Opcion C -- [Nombre C]: [significado en 5 palabras]" }
-    ],
-    "allowManualInput": true
+    ]
   }
 }
 ```
 
 **IMPORTANTE:**
-- `options` es OBLIGATORIO. El `value` DEBE ser el nombre EXACTO de la marca (ej: "Growza"), NUNCA la letra A/B/C: al hacer click se guarda como el nombre definitivo.
-- `allowManualInput: true` muestra el campo de texto manual en la UI.
+- `subStepArtifact` debe tener EXACTAMENTE estos campos: `type` ("markdown"), `content` (string) y `options`. No añadas otros campos: la app solo lee `type`, `content` y `options`.
+- `options` es OBLIGATORIO y cada elemento tiene EXACTAMENTE la forma `{ "value": ..., "label": ... }` (sin campos extra). Son 3 elementos (los 3 finalistas).
+- El `value` DEBE ser el nombre EXACTO de la marca (ej: "Growza"), NUNCA la letra A/B/C: al hacer click se guarda como el nombre definitivo.
+- El campo de texto para que el usuario escriba su propio nombre lo gestiona la app por su cuenta en el sub-paso `naming` (no depende de ningún campo del artefacto): tú solo aportas las 3 opciones.
 - NO devuelvas estados de dominio en el JSON.
 
 ## Reglas generales
 
-1. **Sin emojis.** Solo markdown limpio.
+1. **Sin emojis.** Solo markdown limpio, en ningún campo de la salida.
 2. **Salida estructurada estricta:** SIEMPRE el JSON exacto del modo, sin texto fuera del JSON.
 3. **Regla lingüística** (siglas con su significado la primera vez).
-4. **Solo naming.** No hables de voz, logos ni estilos visuales.
-5. **3 rondas + 3 finalistas + campo manual** es OBLIGATORIO en modo report.
+4. **REGLA DURA — tu salida es SOLO naming.** NO incluyas voz/tono, logo ni estilo visual (paletas, colores, tipografías, mood). Cada uno tiene su propia sub-skill. Si tu salida contiene cualquiera de esos temas, es incorrecta. (Excepción acotada: en cada finalista puedes sugerir un "logo textual" como mero apunte tipográfico del nombre, sin diseñar logo ni estilo.)
+5. **3 rondas + 3 finalistas** es OBLIGATORIO en modo report. El campo manual lo aporta la app, tú no lo emites.
 6. **Caracteres españoles OBLIGATORIOS** (tildes, ñ; UTF-8 válido).
