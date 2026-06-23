@@ -83,7 +83,6 @@ interface ExportData {
   createdAt: string;
   updatedAt: string;
   reports: ExportReport[];
-  versions: ExportVersion[];
 }
 
 interface ExportReport {
@@ -92,12 +91,6 @@ interface ExportReport {
   verdict: string | null;
   scorecard: string | null;
   content: string;
-  createdAt: string;
-}
-
-interface ExportVersion {
-  title: string;
-  phase: string;
   createdAt: string;
 }
 

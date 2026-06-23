@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { getNextVersionPhase } from "@/lib/versions";
 import { verifyBridgeSecret } from "@/lib/bridge-auth";
 import { resolveErrorType } from "@/lib/phase-errors";
 import {
@@ -163,8 +162,8 @@ export async function POST(req: NextRequest) {
     const cost = data.cost || 0.02;
 
     // Atomic claim (same pattern as FAILED): guarantees exactly one callback
-    // proceeds past this point for a given job, so reports/versions aren't
-    // created twice when duplicate callbacks race.
+    // proceeds past this point for a given job, so reports aren't created
+    // twice when duplicate callbacks race.
     const claim = await prisma.job.updateMany({
       where: { id: data.jobId, status: { notIn: ["COMPLETED", "FAILED"] } },
       data: {
@@ -265,15 +264,6 @@ export async function POST(req: NextRequest) {
         ? parseFloat(rawScore.toFixed(1))
         : null;
 
-    // Look up the idea's currentVersionId so the report is anchored to
-    // the version under validation. If the idea has no current version
-    // yet (brand-new idea, first validation), ideaVersionId is left null
-    // and gets set when the IdeaVersion is created below.
-    const ideaForReport = await prisma.idea.findUnique({
-      where: { id: job.ideaId },
-      select: { currentVersionId: true },
-    });
-
     const existingReport = await prisma.report.findFirst({
       where: { ideaId: job.ideaId, agentName: job.agentName },
     });
@@ -286,10 +276,6 @@ export async function POST(req: NextRequest) {
           ...(verdict ? { verdict } : {}),
           ...(scorecard ? { scorecard } : {}),
           ...(judgeScore !== null ? { score: judgeScore } : {}),
-          // Backfill version link on legacy reports (null → current)
-          ...(existingReport.ideaVersionId === null && ideaForReport?.currentVersionId
-            ? { ideaVersionId: ideaForReport.currentVersionId }
-            : {}),
         },
       });
     } else {
@@ -302,15 +288,12 @@ export async function POST(req: NextRequest) {
           ...(verdict ? { verdict } : {}),
           ...(scorecard ? { scorecard } : {}),
           ...(judgeScore !== null ? { score: judgeScore } : {}),
-          ...(ideaForReport?.currentVersionId
-            ? { ideaVersionId: ideaForReport.currentVersionId }
-            : {}),
         },
       });
     }
 
-    // ── VERSION CREATION: ONLY when all 3 agents are DONE ──
-    // Advisory lock prevents duplicate version creation when callbacks arrive
+    // ── IDEA FINALIZATION: ONLY when all 3 agents are DONE ──
+    // Advisory lock prevents duplicate finalization when callbacks arrive
     // simultaneously (race condition). The lock key is the ideaId as a bigint.
     await prisma.$transaction(async (tx) => {
       // Acquire an advisory lock scoped to this idea + transaction
@@ -329,15 +312,6 @@ export async function POST(req: NextRequest) {
       // All 3 validation agents completed
       const allReports = await tx.report.findMany({
         where: { ideaId: job.ideaId },
-      });
-
-      // Get current idea state for snapshot
-      const currentIdea = await tx.idea.findUnique({
-        where: { id: job.ideaId },
-        select: {
-          title: true, description: true, problem: true, valueProposition: true,
-          targetUser: true, monetization: true, score: true, verdict: true,
-        },
       });
 
       // Compute judge verdict and score from reports
@@ -449,64 +423,6 @@ export async function POST(req: NextRequest) {
         where: { id: job.ideaId },
         data: updateData,
       });
-
-      // ── Create version snapshot ──
-      const versionPhase = await getNextVersionPhase(job.ideaId, tx);
-
-      if (currentIdea) {
-        // Re-read the idea to get updated score/verdict
-        const updatedIdea = await tx.idea.findUnique({
-          where: { id: job.ideaId },
-          select: {
-            title: true, description: true, problem: true, valueProposition: true,
-            targetUser: true, monetization: true, score: true, verdict: true,
-          },
-        });
-
-        if (updatedIdea) {
-          const reportsForSnapshot = allReports.map((r) => ({
-            agentName: r.agentName,
-            title: r.title,
-            content: r.content,
-            verdict: r.verdict,
-            scorecard: r.scorecard,
-            score: r.score,
-            createdAt: r.createdAt,
-          }));
-
-          const newVersion = await tx.ideaVersion.create({
-            data: {
-              ideaId: job.ideaId,
-              title: updatedIdea.title,
-              description: updatedIdea.description,
-              problem: updatedIdea.problem,
-              valueProposition: updatedIdea.valueProposition,
-              targetUser: updatedIdea.targetUser,
-              monetization: updatedIdea.monetization,
-              phase: versionPhase,
-              score: updatedIdea.score,
-              verdict: updatedIdea.verdict,
-              reportsSnapshot: reportsForSnapshot.length > 0 ? reportsForSnapshot : undefined,
-            },
-          });
-
-          // If the idea didn't have a current version yet (first validation
-          // of a brand-new idea), the reports created above carry no
-          // ideaVersionId — attach them to the freshly created version now.
-          if (!ideaForReport?.currentVersionId) {
-            await tx.report.updateMany({
-              where: { ideaId: job.ideaId, ideaVersionId: null },
-              data: { ideaVersionId: newVersion.id },
-            });
-          }
-
-          // Set currentVersionId on the Idea
-          await tx.idea.update({
-            where: { id: job.ideaId },
-            data: { currentVersionId: newVersion.id },
-          });
-        }
-      }
     });
 
     return NextResponse.json({ success: true });

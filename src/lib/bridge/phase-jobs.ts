@@ -86,7 +86,6 @@ export async function enqueuePhaseJob(
       idea: {
         include: {
           reports: { orderBy: { createdAt: "desc" }, take: 1 },
-          currentVersion: true,
         },
       },
       phases: {

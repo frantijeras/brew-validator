@@ -35,20 +35,11 @@ export async function GET(
     const guard = await guardIdeaOrBridge(req, id);
     if (!guard.ok) return guard.response;
 
-    const { searchParams } = new URL(req.url);
-    const requestedVersionId = searchParams.get("versionId");
-
     const idea = await prisma.idea.findUnique({
       where: { id },
       include: {
         reports: {
           orderBy: { createdAt: "asc" },
-        },
-        currentVersion: {
-          select: { phase: true },
-        },
-        _count: {
-          select: { versions: true },
         },
       },
     });
@@ -57,68 +48,7 @@ export async function GET(
       return NextResponse.json({ error: "Idea no encontrada" }, { status: 404 });
     }
 
-    // If a specific version was requested, reshape the response so the
-    // UI shows what this idea looked like AT that version: snap the
-    // idea's text fields to the IdeaVersion snapshot, filter the
-    // reports to those linked to that version, and override the version
-    // phase accordingly.
-    let activeVersionId: string | null = idea.currentVersionId;
-    let activeVersionPhase: string | null = idea.currentVersion?.phase ?? null;
-    let activeReports = idea.reports;
-    let overrideFields: Partial<{
-      title: string;
-      description: string;
-      problem: string | null;
-      valueProposition: string | null;
-      targetUser: string;
-      monetization: string;
-      score: number | null;
-      verdict: string | null;
-      status: string;
-      validationStatus: string;
-    }> = {};
-
-    if (requestedVersionId) {
-      const version = await prisma.ideaVersion.findUnique({
-        where: { id: requestedVersionId },
-      });
-      if (version && version.ideaId === id) {
-        activeVersionId = version.id;
-        activeVersionPhase = version.phase;
-        activeReports = idea.reports.filter(
-          (r) => r.ideaVersionId === version.id
-        );
-        // Map IdeaVersion snapshot back to the idea-shaped response so
-        // the page renders the version's text/fields verbatim.
-        // Status is inferred: a version with a score/verdict was
-        // validated (COMPLETED/DONE); otherwise it's a DRAFT produced
-        // by the refiner.
-        const wasValidated = version.score !== null || version.verdict !== null;
-        overrideFields = {
-          title: version.title,
-          description: version.description,
-          problem: version.problem,
-          valueProposition: version.valueProposition,
-          targetUser: version.targetUser,
-          monetization: version.monetization,
-          score: version.score,
-          verdict: version.verdict,
-          status: wasValidated ? "COMPLETED" : "DRAFT",
-          validationStatus: wasValidated ? "DONE" : "PENDING",
-        };
-      }
-    }
-
-    // Flatten _count and currentVersion into response
-    const { _count, currentVersion: _cv, ...ideaData } = idea;
-    return NextResponse.json({
-      ...ideaData,
-      ...overrideFields,
-      reports: activeReports,
-      _versionCount: _count.versions,
-      currentVersionPhase: activeVersionPhase,
-      activeVersionId,
-    });
+    return NextResponse.json(idea);
   } catch (error) {
     console.error("[GET /api/ideas/:id]", error);
     return NextResponse.json(
@@ -201,9 +131,8 @@ export async function DELETE(
       return NextResponse.json({ error: "Idea no encontrada" }, { status: 404 });
     }
 
-    // Cascade: delete versions, reports and jobs first, then the idea
+    // Cascade: delete reports and jobs first, then the idea
     await prisma.$transaction([
-      prisma.ideaVersion.deleteMany({ where: { ideaId: id } }),
       prisma.report.deleteMany({ where: { ideaId: id } }),
       prisma.job.deleteMany({ where: { ideaId: id } }),
       prisma.idea.delete({ where: { id } }),

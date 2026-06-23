@@ -95,7 +95,6 @@ interface RenameResponse {
     ideaTitleChanged: boolean;
     projectNameChanged: boolean;
     artifactsUpdated: number;
-    versionsUpdated: number;
     reportsUpdated: number;
     totalReplacements: number;
     occurrencesByLocation: Array<{ kind: string; id: string; count: number; title: string }>;

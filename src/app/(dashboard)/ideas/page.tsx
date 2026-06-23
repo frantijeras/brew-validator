@@ -163,7 +163,6 @@ interface IdeaCardData {
   verdict: string | null;
   score: number | null;
   businessModel: string | null;
-  currentVersionPhase?: string | null;
   isArchived: boolean;
   createdAt: Date;
   updatedAt: Date;

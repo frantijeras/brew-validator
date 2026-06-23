@@ -79,13 +79,10 @@ model Idea {
   originalIdea     String?
   metadata         Json?
   isArchived       Boolean       @default(false)
-  currentVersionId String?
   userId           String?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
-  currentVersion   IdeaVersion?  @relation("CurrentVersion", fields: [currentVersionId], references: [id])
   user             User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  versions         IdeaVersion[]
   jobs             Job[]
   project          Project?
   reports          Report[]
@@ -112,7 +109,6 @@ model Job {
 model Report {
   id            String       @id @default(cuid())
   ideaId        String
-  ideaVersionId String?
   agentName     String
   title         String
   content       String
@@ -122,26 +118,6 @@ model Report {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   idea          Idea         @relation(fields: [ideaId], references: [id], onDelete: Cascade)
-  ideaVersion   IdeaVersion? @relation(fields: [ideaVersionId], references: [id])
-}
-
-model IdeaVersion {
-  id               String   @id @default(cuid())
-  ideaId           String
-  title            String
-  description      String
-  problem          String?
-  valueProposition String?
-  targetUser       String
-  monetization     String
-  phase            String   @default("v0")
-  score            Float?
-  verdict          String?
-  reportsSnapshot  Json?
-  createdAt        DateTime @default(now())
-  currentOf        Idea[]   @relation("CurrentVersion")
-  idea             Idea     @relation(fields: [ideaId], references: [id], onDelete: Cascade)
-  reports          Report[]
 }
 
 model Project {

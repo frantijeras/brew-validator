@@ -3,11 +3,10 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Archive, Trash2, Undo2, MoreHorizontal, Pencil, FileDown, Save, X, AlertCircle, History, FolderKanban } from "lucide-react";
+import { Archive, Trash2, Undo2, MoreHorizontal, Pencil, FileDown, Save, X, AlertCircle, FolderKanban } from "lucide-react";
 import { ValidationProgress } from "@/components/validation-progress";
 import { ReportViewer } from "@/components/report-viewer";
 import { ConfirmModal } from "@/components/confirm-modal";
-import { VersionHistory } from "@/components/version-history";
 import { getScoreColor, STATUS_LABELS, STATUS_COLORS } from "@/lib/translations";
 import { BUSINESS_MODELS } from "@/lib/business-models";
 import { BusinessModelIcon } from "@/components/business-model-icon";
@@ -31,17 +30,9 @@ interface IdeaData {
   score: number | null;
   businessModel: string | null;
   isArchived: boolean;
-  currentVersionId: string | null;
-  currentVersionPhase: string | null;
-  /**
-   * Echoed by GET /api/ideas/:id?versionId=… — the version currently
-   * rendered. Null when no versionId was passed (= live/current).
-   */
-  activeVersionId: string | null;
   createdAt: string;
   updatedAt: string;
   reports: ReportData[];
-  _versionCount?: number;
 }
 
 interface ReportData {
@@ -80,9 +71,6 @@ export default function IdeaDetailPage() {
   const [editValueProposition, setEditValueProposition] = useState("");
   const [editTargetUser, setEditTargetUser] = useState("");
   const [editMonetization, setEditMonetization] = useState("");
-  // When set, the page is rendering a historical version of the idea
-  // (not the current one). Cleared when the user goes back to "actual".
-  const [viewingVersionId, setViewingVersionId] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -104,12 +92,7 @@ export default function IdeaDetailPage() {
 
   const fetchIdea = useCallback(async () => {
     try {
-      // If the user is viewing a historical version, scope the GET to it
-      // so the page renders that version's text/fields/reports.
-      const query = viewingVersionId
-        ? `?versionId=${encodeURIComponent(viewingVersionId)}`
-        : "";
-      const res = await fetch(`/api/ideas/${ideaId}${query}`, {
+      const res = await fetch(`/api/ideas/${ideaId}`, {
         credentials: "same-origin",
       });
       if (!res.ok) {
@@ -127,22 +110,12 @@ export default function IdeaDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [ideaId, router, viewingVersionId]);
+  }, [ideaId, router]);
 
   // Initial load
   useEffect(() => {
     fetchIdea();
   }, [fetchIdea]);
-
-  // Refetch whenever the user navigates to a different version in the
-  // history panel. fetchIdea already depends on viewingVersionId, so this
-  // is just a safety net in case the callback runs after the page mount.
-  useEffect(() => {
-    if (viewingVersionId !== null) {
-      fetchIdea();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewingVersionId]);
 
   // Polling when validating or when idea generation is in progress
   const shouldPoll =
@@ -347,28 +320,6 @@ export default function IdeaDetailPage() {
     idea.validationStatus !== "RUNNING" &&
     idea.validationStatus !== "DONE";
   const isDraft = idea.status === "DRAFT";
-  // When the user is browsing a historical version the action buttons
-  // are disabled — they would otherwise mutate the LIVE idea (the
-  // backend doesn't know how to operate on a past version). The user
-  // has to go back to the current version first.
-  const isViewingHistorical =
-    viewingVersionId !== null &&
-    idea.activeVersionId !== null &&
-    viewingVersionId !== idea.currentVersionId;
-
-  // Version badge: dynamic according to state (DRAFT / COMPLETED)
-  // POLISHING state uses the status badge (already shows "Puliendo")
-  const versionBadge = (() => {
-    if (!isCompleted) {
-      return { label: "Borrador", color: "bg-slate-700/30 text-slate-400 border-slate-700" };
-    }
-    // Estado COMPLETED
-    const phase = idea.currentVersionPhase;
-    return { label: phase ? phase.toUpperCase() : "V?", color: "bg-amber-500/10 text-amber-400 border-amber-500/30" };
-  })();
-
-  // No subtext — the status badge (DRAFT / Puliendo / etc) already says enough
-  const versionSubtext: string | null = null;
 
   const formattedCreated = new Date(idea.createdAt).toLocaleDateString("es-ES", {
     day: "numeric",
@@ -500,21 +451,9 @@ export default function IdeaDetailPage() {
               )}
             </div>
 
-            {/* Badges: Version | Business type | Status | Score */}
+            {/* Badges: Business type | Status | Score */}
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              {/* 1. Version badge */}
-              <div>
-                <span
-                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${versionBadge.color}`}
-                >
-                  {versionBadge.label}
-                </span>
-                {versionSubtext && (
-                  <p className="mt-1 text-xs text-slate-500">{versionSubtext}</p>
-                )}
-              </div>
-
-              {/* 2. Business type badge */}
+              {/* Business type badge */}
               {idea.businessModel && (() => {
                 const model = BUSINESS_MODELS.find((m) => m.value === idea.businessModel);
                 return model ? (
@@ -552,13 +491,11 @@ export default function IdeaDetailPage() {
               {canValidate && (
                 <button
                   onClick={handleValidate}
-                  disabled={validating || isViewingHistorical}
+                  disabled={validating}
                   title={
-                    isViewingHistorical
-                      ? "Vuelve a la versión actual para validar"
-                      : bridgeDown
-                        ? "El servicio de IA no está disponible"
-                        : undefined
+                    bridgeDown
+                      ? "El servicio de IA no está disponible"
+                      : undefined
                   }
                   className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -582,13 +519,11 @@ export default function IdeaDetailPage() {
 
               <button
                 onClick={handleExportPdf}
-                disabled={isViewingHistorical || isBusy}
+                disabled={isBusy}
                 title={
-                  isViewingHistorical
-                    ? "Vuelve a la versión actual para exportar"
-                    : isBusy
-                      ? "Espera a que termine el procesamiento actual"
-                      : undefined
+                  isBusy
+                    ? "Espera a que termine el procesamiento actual"
+                    : undefined
                 }
                 className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900/60 px-4 py-2.5 text-sm font-medium text-slate-300 shadow transition-all hover:border-slate-600 hover:text-slate-200 active:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -606,27 +541,6 @@ export default function IdeaDetailPage() {
           </div>
         </div>
       </div>
-
-      {/* HISTORICAL VERSION banner — shown when viewing a non-current version */}
-      {viewingVersionId && idea.activeVersionId && viewingVersionId === idea.activeVersionId && viewingVersionId !== idea.currentVersionId && (
-        <div className="mb-6 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <History className="size-4 shrink-0 text-amber-400" />
-            <span className="text-sm text-amber-200">
-              Estás viendo una versión histórica. Los reportes y datos que ves pertenecen a esta versión, no a la actual.
-            </span>
-          </div>
-          <button
-            onClick={() => {
-              setViewingVersionId(null);
-              fetchIdea();
-            }}
-            className="shrink-0 rounded-md border border-amber-500/30 px-3 py-1.5 text-xs font-medium text-amber-400 hover:bg-amber-500/10 transition-colors"
-          >
-            Volver a versión actual
-          </button>
-        </div>
-      )}
 
       {/* Validation progress — sticky at top while running, always visible on mobile */}
       {idea.validationStatus === "RUNNING" && (
@@ -870,19 +784,6 @@ export default function IdeaDetailPage() {
           </div>
         );
       })()}
-
-      {/* Version history */}
-      <div className="mt-8">
-        <VersionHistory
-          readonly={readonly}
-          ideaId={idea.id}
-          currentVersionId={idea.currentVersionId}
-          activeVersionId={idea.activeVersionId}
-          onVersionChange={(versionId) => {
-            setViewingVersionId(versionId);
-          }}
-        />
-      </div>
 
       {/* Failed state */}
       {idea.validationStatus === "FAILED" && (

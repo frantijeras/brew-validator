@@ -93,7 +93,6 @@ export async function POST(
           ideaTitleChanged: false,
           projectNameChanged: false,
           artifactsUpdated: 0,
-          versionsUpdated: 0,
           reportsUpdated: 0,
           totalReplacements: 0,
           occurrencesByLocation: [],
@@ -112,7 +111,7 @@ export async function POST(
 
     // Lightweight log for ops/debugging — no PII, just counters.
     console.log(
-      `[POST /api/projects/[id]/rename] project=${projectId} idea=${project.ideaId} "${oldName}" → "${cleanName}" | ${stats.totalReplacements} replacements across ${stats.occurrencesByLocation.length} locations (artifacts=${stats.artifactsUpdated} reports=${stats.reportsUpdated} versions=${stats.versionsUpdated})`
+      `[POST /api/projects/[id]/rename] project=${projectId} idea=${project.ideaId} "${oldName}" → "${cleanName}" | ${stats.totalReplacements} replacements across ${stats.occurrencesByLocation.length} locations (artifacts=${stats.artifactsUpdated} reports=${stats.reportsUpdated})`
     );
 
     return NextResponse.json({

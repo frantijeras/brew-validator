@@ -31,9 +31,6 @@ export async function POST(req: NextRequest) {
 
     const idea = await prisma.idea.create({ data: ideaData });
 
-    // No initial version created here — versions are append-only after validation.
-    // currentVersionId stays null until the first successful validation creates V1.
-
     return NextResponse.json(idea, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -74,20 +71,9 @@ export async function GET(req: NextRequest) {
     const ideas = await prisma.idea.findMany({
       where: ideaOwnerWhere(auth.userId),
       orderBy: { updatedAt: "desc" },
-      include: {
-        currentVersion: {
-          select: { phase: true },
-        },
-      },
     });
 
-    // Flatten currentVersion.phase into response
-    const result = ideas.map(({ currentVersion, ...idea }) => ({
-      ...idea,
-      currentVersionPhase: currentVersion?.phase ?? null,
-    }));
-
-    return NextResponse.json(result);
+    return NextResponse.json(ideas);
   } catch (error) {
     console.error("[GET /api/ideas]", error);
     return NextResponse.json(

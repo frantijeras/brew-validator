@@ -20,8 +20,6 @@ import { prisma } from "@/lib/db";
  *  - Best-effort: only replaces if `oldName.length >= 2` (avoids false
  *    positives with single letters like "A").
  *  - Never touches `Job.input` / `Job.output` (immutable bridge logs).
- *  - Never touches `IdeaVersion.reportsSnapshot` (historical snapshots
- *    of past versions — must remain stable).
  *  - Whole operation is wrapped in a `prisma.$transaction(async (tx) => …)`
  *    so a mid-flight failure rolls everything back.
  */
@@ -37,7 +35,6 @@ export interface RenameStats {
   ideaTitleChanged: boolean;
   projectNameChanged: boolean;
   artifactsUpdated: number;
-  versionsUpdated: number;
   reportsUpdated: number;
   totalReplacements: number;
   // Per-location breakdown for UI feedback
@@ -161,8 +158,6 @@ function deepCountInJson(value: unknown, oldName: string): number {
  *   - Project.name / description
  *   - ProjectPhase.artifacts / questions / subStepArtifact (per phase)
  *   - Report.title / content / scorecard
- *   - IdeaVersion.title / description / problem / valueProposition
- *     (NOT reportsSnapshot — immutable)
  *
  * Returns counters for UI feedback.
  *
@@ -181,7 +176,6 @@ export async function propagateRename(
     ideaTitleChanged: false,
     projectNameChanged: false,
     artifactsUpdated: 0,
-    versionsUpdated: 0,
     reportsUpdated: 0,
     totalReplacements: 0,
     occurrencesByLocation: [],
@@ -407,55 +401,6 @@ export async function propagateRename(
         });
       }
     }
-
-    // 5) IdeaVersions (NOT reportsSnapshot — it's an immutable history)
-    const versions = await tx.ideaVersion.findMany({
-      where: { ideaId },
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        problem: true,
-        valueProposition: true,
-      },
-    });
-    for (const v of versions) {
-      const newTitle = replaceAllWith(v.title, cleanOld, cleanNew);
-      const newDesc = replaceAllWith(v.description, cleanOld, cleanNew);
-      const newProblem =
-        v.problem == null
-          ? { value: v.problem, count: 0 }
-          : replaceAllWith(v.problem, cleanOld, cleanNew);
-      const newValueProp =
-        v.valueProposition == null
-          ? { value: v.valueProposition, count: 0 }
-          : replaceAllWith(v.valueProposition, cleanOld, cleanNew);
-
-      const total =
-        newTitle.count +
-        newDesc.count +
-        newProblem.count +
-        newValueProp.count;
-      if (total > 0) {
-        await tx.ideaVersion.update({
-          where: { id: v.id },
-          data: {
-            title: newTitle.value,
-            description: newDesc.value,
-            problem: newProblem.value,
-            valueProposition: newValueProp.value,
-          },
-        });
-        stats.versionsUpdated += 1;
-        stats.totalReplacements += total;
-        stats.occurrencesByLocation.push({
-          kind: "IdeaVersion",
-          id: v.id,
-          count: total,
-          title: v.title,
-        });
-      }
-    }
   });
 
   return stats;
@@ -587,39 +532,6 @@ export async function previewRename(params: {
         id: report.id,
         count,
         title: report.title,
-      });
-    }
-  }
-
-  // 5) IdeaVersions (NOT reportsSnapshot)
-  const versions = await prisma.ideaVersion.findMany({
-    where: { ideaId },
-    select: {
-      id: true,
-      title: true,
-      description: true,
-      problem: true,
-      valueProposition: true,
-    },
-  });
-  for (const v of versions) {
-    let count = 0;
-    for (const col of [
-      v.title,
-      v.description,
-      v.problem,
-      v.valueProposition,
-    ]) {
-      if (!col) continue;
-      count += deepCountInJson(col, cleanOld);
-    }
-    if (count > 0) {
-      total += count;
-      occurrencesByLocation.push({
-        kind: "IdeaVersion",
-        id: v.id,
-        count,
-        title: v.title,
       });
     }
   }

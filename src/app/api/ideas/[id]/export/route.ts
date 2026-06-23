@@ -17,7 +17,6 @@ export async function GET(
       where: { id },
       include: {
         reports: { orderBy: { createdAt: "asc" } },
-        versions: { orderBy: { createdAt: "desc" } },
       },
     });
 
@@ -39,12 +38,6 @@ export async function GET(
       scorecard: r.scorecard,
       content: r.content,
       createdAt: new Date(r.createdAt).toLocaleDateString("es-ES"),
-    }));
-
-    const versionsData = idea.versions.map((v) => ({
-      title: v.title,
-      phase: v.phase,
-      createdAt: new Date(v.createdAt).toLocaleDateString("es-ES"),
     }));
 
     const exportData = {
@@ -73,7 +66,6 @@ export async function GET(
         minute: "2-digit",
       }),
       reports: reportsData,
-      versions: versionsData,
     };
 
     return NextResponse.json(exportData);
