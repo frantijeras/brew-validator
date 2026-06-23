@@ -31,7 +31,11 @@ ENV HOSTNAME=0.0.0.0
 RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
     && addgroup --system --gid 1001 nodejs \
-    && adduser --system --uid 1001 nextjs
+    && adduser --system --uid 1001 nextjs \
+    # Neon resuelve a IPv6 + IPv4, pero la red bridge de Docker es solo IPv4.
+    # glibc prefiere IPv6 por defecto, así que Prisma intenta la AAAA y falla
+    # ("Can't reach database server"). Forzamos preferencia IPv4 vía gai.conf.
+    && printf 'precedence ::ffff:0:0/96  100\n' > /etc/gai.conf
 
 # Salida standalone de Next (incluye un node_modules mínimo).
 COPY --from=builder /app/public ./public
