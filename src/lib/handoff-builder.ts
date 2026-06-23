@@ -1,10 +1,11 @@
 import { ZipArchive } from "archiver";
 import { ProjectMemory, getMemoryValue, formatMemoryValue, memoryKeyLabels } from "./project-memory";
-import { SKILL_CATALOG } from "./skill-catalog";
 import { resolve3dAssets } from "./identity-3d";
 import { getChosenLogoSvg } from "./identity-logo";
 import { buildReportPdf } from "./pdf-export";
 import { stripProcessSections } from "./phase-context-parser";
+import { buildProjectContext } from "./skill-context";
+import { buildSkillMarkdown } from "./skill-templates";
 
 /* ── Types ──────────────────────────────────────────────────────────── */
 
@@ -420,298 +421,6 @@ function buildRoadmap(ctx: HandoffOptions, assets: PhaseAsset[]): string | null 
   ].join("\n");
 }
 
-/* ── Skill document builders ─────────────────────────────────────────── */
-
-function buildLandingPageSkill(ctx: HandoffOptions): string {
-  const { projectName, ideaContext, memory } = ctx;
-  const mTarget = getMemoryValue<string>(memory, "target") || ideaContext.targetUser;
-  const mTone = getMemoryValue<string>(memory, "tone") || "profesional y cercano";
-
-  const visualMeta = getThreeDAssets(ctx)?.meta;
-  const primaryColor = visualMeta?.primaryColor || "#1a1a2e";
-  const secondaryColor = visualMeta?.secondaryColor || "#e94560";
-  const fontHeading = visualMeta?.fontHeading || "Inter";
-  const fontBody = visualMeta?.fontBody || "Inter";
-
-  return [
-    `# Landing Page — ${projectName}`,
-    "",
-    `> Skill para construir la landing page de **${projectName}**.`,
-    "",
-    "---",
-    "",
-    "## Contexto",
-    "",
-    `- **Proyecto:** ${projectName}`,
-    `- **Target:** ${mTarget}`,
-    `- **Propuesta de valor:** ${ideaContext.valueProposition || "No definida"}`,
-    `- **Problema:** ${ideaContext.problem || "No definido"}`,
-    `- **Monetización:** ${ideaContext.monetization}`,
-    `- **Modelo de negocio:** ${ideaContext.businessModel || "No especificado"}`,
-    "",
-    "---",
-    "",
-    "## Identidad Visual",
-    "",
-    `- **Color primario:** \`${primaryColor}\``,
-    `- **Color secundario:** \`${secondaryColor}\``,
-    `- **Tipografía headings:** ${fontHeading}`,
-    `- **Tipografía body:** ${fontBody}`,
-    `- **Tono:** ${mTone}`,
-    "",
-    "---",
-    "",
-    "## Instrucciones",
-    "",
-    "Genera una landing page completa, responsive y lista para producción.",
-    "",
-    "### Secciones obligatorias",
-    "",
-    "1. **Hero** — Título impactante + subtítulo + CTA principal",
-    "2. **Problema** — El dolor que resuelve el producto",
-    "3. **Solución** — Cómo lo resuelve",
-    "4. **Features** — 3-6 funcionalidades clave con iconos",
-    "5. **Social Proof** — Testimonios / logos",
-    "6. **Pricing** — Tabla de precios (placeholder si no definido)",
-    "7. **FAQ** — 5-8 preguntas frecuentes",
-    "8. **CTA final** — Repite el CTA principal",
-    "9. **Footer** — Links, legal, redes",
-    "",
-    "### Stack técnico",
-    "",
-    "- Next.js 14+ (App Router)",
-    "- Tailwind CSS",
-    "- Lucide React icons",
-    "- Responsive mobile-first",
-    "",
-    "---",
-    "",
-    `_Generado por BrewIdea Validator_`,
-  ].join("\n");
-}
-
-function buildContentEditorialSkill(ctx: HandoffOptions): string {
-  const { projectName, ideaContext, memory } = ctx;
-  const mTarget = getMemoryValue<string>(memory, "target") || ideaContext.targetUser;
-  const mTone = getMemoryValue<string>(memory, "tone") || "profesional y cercano";
-
-  return [
-    `# Contenido Editorial — ${projectName}`,
-    "",
-    `> Skill para escribir contenido de marketing para **${projectName}**.`,
-    "",
-    "---",
-    "",
-    "## Contexto",
-    "",
-    `- **Proyecto:** ${projectName}`,
-    `- **Target:** ${mTarget}`,
-    `- **Tono:** ${mTone}`,
-    `- **Idioma:** Español`,
-    "",
-    "---",
-    "",
-    "## Formatos",
-    "",
-    "### Posts de redes sociales",
-    "- Hook → Problema → Solución → CTA",
-    "- Twitter/X: máx 280 chars",
-    "- LinkedIn: 800-1200 chars, storytelling",
-    "- Instagram: carrusel educativo o Reel",
-    "",
-    "### Email marketing",
-    "- Subject: 40-50 chars, curiosidad o beneficio",
-    "- Body: 150-300 palabras",
-    "- CTA claro al final",
-    "",
-    "### Anuncios (ads)",
-    "- Headline: 30 chars máx",
-    "- Body: 90 chars máx",
-    "- CTA accionable",
-    "",
-    "### Blog posts",
-    "- 800-2000 palabras",
-    "- SEO-friendly: H1, H2, H3, bullets",
-    "- Incluir keywords del análisis de mercado",
-    "",
-    "---",
-    "",
-    `_Generado por BrewIdea Validator_`,
-  ].join("\n");
-}
-
-function buildSocialMediaSkill(ctx: HandoffOptions): string {
-  const { projectName, ideaContext, memory } = ctx;
-  const mTarget = getMemoryValue<string>(memory, "target") || ideaContext.targetUser;
-  const mChannels = getMemoryValue<string | string[]>(memory, "channels");
-  const mTone = getMemoryValue<string>(memory, "tone") || "profesional y cercano";
-
-  const channelsList = mChannels
-    ? (Array.isArray(mChannels) ? mChannels : [mChannels])
-    : ["Twitter/X", "LinkedIn", "Instagram"];
-
-  return [
-    `# Social Media Strategy — ${projectName}`,
-    "",
-    `> Skill para la estrategia en redes sociales de **${projectName}**.`,
-    "",
-    "---",
-    "",
-    "## Objetivos",
-    "",
-    `- **Proyecto:** ${projectName}`,
-    `- **Target:** ${mTarget}`,
-    `- **Canales:** ${channelsList.join(", ")}`,
-    `- **Tono:** ${mTone}`,
-    "",
-    "---",
-    "",
-    "## Calendario editorial (30 días)",
-    "",
-    "### Semana 1 — Awareness",
-    "- D1-2: Presentación del proyecto",
-    "- D3-4: Contenido educativo sobre el problema",
-    "- D5-7: CTA a lista de espera",
-    "",
-    "### Semana 2 — Engagement",
-    "- D8-10: Tutoriales / hilos",
-    "- D11-12: Encuestas a la comunidad",
-    "- D13-14: Colaboraciones",
-    "",
-    "### Semana 3 — Conversión",
-    "- D15-17: Casos de uso",
-    "- D18-19: Comparativas",
-    "- D20-21: Oferta early bird",
-    "",
-    "### Semana 4 — Retención",
-    "- D22-24: UGC y testimonios",
-    "- D25-26: Roadmap / features",
-    "- D27-30: Resumen + próximos pasos",
-    "",
-    "---",
-    "",
-    "## Métricas",
-    "",
-    "| Métrica | Mes 1 | Mes 3 |",
-    "|---------|-------|-------|",
-    "| Seguidores | +100 | +500 |",
-    "| Engagement | >3% | >5% |",
-    "| Clicks web | 200 | 1000 |",
-    "",
-    "---",
-    "",
-    `_Generado por BrewIdea Validator_`,
-  ].join("\n");
-}
-
-function buildProjectHandoffSkill(ctx: HandoffOptions): string {
-  const { projectName, ideaContext, memory } = ctx;
-
-  const entries = memory
-    ? Object.entries(memory)
-        .filter(([, e]) => e && e.value !== null && e.value !== undefined)
-    : [];
-
-  const selectedSkills = ctx.selectedSkills?.filter(s => s.selected !== false) ?? [];
-  const skillList = selectedSkills.length > 0
-    ? selectedSkills.map(s => `  - **${s.name}** (\`skills/${sanitizeSkillFilename(s.name)}.md\`)`).join("\n")
-    : "  - _(ninguna seleccionada)_";
-
-  return [
-    `# Project Handoff — ${projectName}`,
-    "",
-    `> Meta-skill: contexto completo de **${projectName}** para cualquier agente AI.`,
-    "> Arrastra este archivo al chat de Cursor/Cline/Copilot para que tenga todo el contexto.",
-    "",
-    "---",
-    "",
-    "## Idea Original",
-    "",
-    `- **Nombre:** ${projectName}`,
-    `- **Descripción:** ${ideaContext.description}`,
-    `- **Problema:** ${ideaContext.problem || "—"}`,
-    `- **Propuesta de valor:** ${ideaContext.valueProposition || "—"}`,
-    `- **Target:** ${ideaContext.targetUser}`,
-    `- **Monetización:** ${ideaContext.monetization}`,
-    `- **Modelo de negocio:** ${ideaContext.businessModel || "—"}`,
-    "",
-    "---",
-    "",
-    "## Decisiones del Proyecto",
-    "",
-    ...(entries.length > 0
-      ? entries.map(
-          ([k, e]) =>
-            `- **${k}:** ${formatMemoryValue(e!.value)} (${e!.source === "user" ? "usuario" : `Fase ${e!.source}`})`
-        )
-      : ["- Sin decisiones registradas."]),
-    "",
-    "---",
-    "",
-    "## Skills Disponibles",
-    "",
-    skillList,
-    "",
-    "---",
-    "",
-    "## Cómo Usar",
-    "",
-    "1. Abre el proyecto en tu IDE",
-    '2. Arrastra `AGENT.md` al chat del agente',
-    "3. El agente tiene TODO el contexto del proyecto",
-    "4. Para tareas específicas, referencia la skill:",
-    '   - "Usa `skills/landing-page.md` para construir la landing"',
-    '   - "Usa `skills/contenido-editorial.md` para escribir posts"',
-    "",
-    "---",
-    "",
-    `_Generado por BrewIdea Validator_`,
-  ].join("\n");
-}
-
-/**
- * Build a skill file for any catalog skill that doesn't have a dedicated template.
- * Uses the skill catalog definition for context.
- */
-function buildGenericSkill(ctx: HandoffOptions, skill: { id: string; name: string; description: string; icon: string; category: string }): string {
-  const { projectName, ideaContext } = ctx;
-  const catalogSkill = SKILL_CATALOG.find(s => s.id === skill.id);
-
-  return [
-    `# ${skill.name} — ${projectName}`,
-    "",
-    `> Skill de **${skill.category}** para **${projectName}**.`,
-    "",
-    "---",
-    "",
-    "## Contexto",
-    "",
-    `- **Proyecto:** ${projectName}`,
-    `- **Target:** ${ideaContext.targetUser}`,
-    `- **Modelo de negocio:** ${ideaContext.businessModel || "—"}`,
-    `- **Descripción:** ${ideaContext.description}`,
-    "",
-    "---",
-    "",
-    "## Objetivo",
-    "",
-    catalogSkill?.description || skill.description,
-    "",
-    "---",
-    "",
-    "## Instrucciones",
-    "",
-    "1. Lee el contexto del proyecto en `AGENT.md`",
-    "2. Aplica las decisiones tomadas (target, tono, canales, etc.)",
-    "3. Genera el deliverable específico de esta skill",
-    "4. Usa español para todo el contenido",
-    "",
-    "---",
-    "",
-    `_Generado por BrewIdea Validator_`,
-  ].join("\n");
-}
-
 /* ── Main builder ───────────────────────────────────────────────────── */
 
 /**
@@ -824,6 +533,23 @@ export async function buildHandoffZip(options: HandoffOptions): Promise<Buffer> 
       generatedMap.set(gs.id, gs);
     }
 
+    // Contexto del proyecto para el generador determinista (única fuente de
+    // verdad, compartida con el endpoint de generación). Solo se usa como
+    // FALLBACK cuando una skill seleccionada no tiene contenido ya generado.
+    const ctx = buildProjectContext({
+      name: options.projectName,
+      description: options.ideaContext.description,
+      idea: {
+        targetUser: options.ideaContext.targetUser,
+        valueProposition: options.ideaContext.valueProposition,
+        problem: options.ideaContext.problem,
+        monetization: options.ideaContext.monetization,
+        businessModel: options.ideaContext.businessModel,
+      },
+      phases: options.phases.map((p) => ({ label: p.label, type: p.type, status: p.status })),
+      memory: options.memory,
+    });
+
     // Core skills that always appear (handoff + landing)
     const hasSkills = selectedSkills.length > 0 || generatedSkills.length > 0;
 
@@ -832,42 +558,23 @@ export async function buildHandoffZip(options: HandoffOptions): Promise<Buffer> 
       for (const skill of selectedSkills) {
         const filename = sanitizeSkillFilename(skill.name) + ".md";
 
-        // Try to find a generated content first
+        // Prefer the content already generated in the app (what the user sees).
         const generated = generatedMap.get(skill.id);
         if (generated && generated.content) {
           archive.append(generated.content, { name: `${prefix}skills/${filename}` });
           continue;
         }
 
-        // Then try dedicated builders
-        switch (skill.id) {
-          case "web-creator":
-            archive.append(buildLandingPageSkill(options), { name: `${prefix}skills/${filename}` });
-            break;
-          case "project-handoff":
-            archive.append(buildProjectHandoffSkill(options), { name: `${prefix}skills/${filename}` });
-            break;
-          case "contenido-publicaciones":
-            archive.append(buildContentEditorialSkill(options), { name: `${prefix}skills/${filename}` });
-            break;
-          case "social-media":
-            archive.append(buildSocialMediaSkill(options), { name: `${prefix}skills/${filename}` });
-            break;
-          case "seo-aso":
-            // SEO skill doesn't have a dedicated builder yet, use generic
-            archive.append(buildGenericSkill(options, skill), { name: `${prefix}skills/${filename}` });
-            break;
-          default:
-            // Generic skill file from catalog definition
-            archive.append(buildGenericSkill(options, skill), { name: `${prefix}skills/${filename}` });
-            break;
-        }
+        // Fallback: generate deterministically with the SAME builder as the app.
+        archive.append(buildSkillMarkdown(skill.id, ctx), { name: `${prefix}skills/${filename}` });
       }
     } else {
       // No skills selected/generated (user skipped, or none matched). Include
       // only the project-handoff meta-context skill so the package is still
       // usable — we do NOT ship skills the user didn't ask for (e.g. landing).
-      archive.append(buildProjectHandoffSkill(options), { name: `${prefix}skills/project-handoff.md` });
+      archive.append(buildSkillMarkdown("project-handoff", ctx), {
+        name: `${prefix}skills/project-handoff.md`,
+      });
     }
 
     // Ensure the project-handoff meta-context skill is present exactly once.
@@ -875,7 +582,9 @@ export async function buildHandoffZip(options: HandoffOptions): Promise<Buffer> 
     // (When it WAS selected, the loop above already wrote it; when there were
     // no skills, the else branch above already wrote it.)
     if (hasSkills && !selectedSkills.some(s => s.id === "project-handoff")) {
-      archive.append(buildProjectHandoffSkill(options), { name: `${prefix}skills/project-handoff.md` });
+      archive.append(buildSkillMarkdown("project-handoff", ctx), {
+        name: `${prefix}skills/project-handoff.md`,
+      });
     }
 
     void archive.finalize();
