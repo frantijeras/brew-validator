@@ -622,7 +622,10 @@ function AIModelSection() {
         <div className="mt-3 flex flex-col gap-3 border-t border-amber-500/15 pt-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-medium text-amber-300">Razonamiento por defecto</p>
-            <p className="mt-0.5 text-xs text-slate-400">Nivel de razonamiento aplicado a todos los agentes sin excepción</p>
+            <p className="mt-0.5 text-xs text-slate-400">
+              Nivel solicitado al modelo (vía <code className="text-amber-300/80">--thinking</code>) para todos los agentes sin excepción.
+              Los modelos que no razonan lo ignoran sin fallar.
+            </p>
           </div>
           <ThinkingSelect
             value={defaultThinking}
