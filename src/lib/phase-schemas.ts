@@ -36,7 +36,10 @@ export const questionSchema = z.object({
 
 /** Output del job en modo "questions": lista de preguntas no vacía. */
 export const quizOutputSchema = z.object({
-  mode: z.literal("questions").optional(),
+  // `mode` es informativo (el callback ya sabe el modo por el estado de la
+  // fase). Aceptamos cualquier string/ausencia: exigir z.literal rechazaba
+  // outputs válidos cuando el agente emitía un mode distinto ("Invalid input").
+  mode: z.string().optional(),
   questions: z.array(questionSchema).min(1, "El quiz no tiene preguntas"),
 });
 
@@ -79,7 +82,11 @@ export const subStepArtifactSchema = z.object({
  */
 export const reportOutputSchema = z
   .object({
-    mode: z.literal("report").optional(),
+    // `mode` es informativo (el callback determina el modo por el estado de la
+    // fase). Aceptamos cualquier string/ausencia: con z.literal("report"), si el
+    // agente emitía mode "pilares"/"estrategia"/etc. se rechazaba TODO el
+    // informe válido ("mode: Invalid input") y la fase quedaba bloqueada.
+    mode: z.string().optional(),
     subStep: z.string().nullable().optional(),
     type: z.enum(["html", "markdown"]).optional(),
     reportMarkdown: z.string().optional(),
