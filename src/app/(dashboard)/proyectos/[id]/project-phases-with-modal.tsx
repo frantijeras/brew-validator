@@ -431,6 +431,33 @@ export function ProjectPhasesWithModal({
     setLocalMemory(memory);
   }, [memory]);
 
+  // Reactividad en tiempo real de los modales abiertos. El polling refresca
+  // `phases` (props del Server Component) y las TARJETAS se actualizan solas,
+  // pero los modales guardaban un snapshot al abrirse y NO reflejaban el nuevo
+  // estado hasta cerrar/reabrir. Aquí re-sincronizamos el modal abierto con la
+  // fase VIVA (por id) en cada refresco: así, cuando termina el job, el modal
+  // muestra el resultado al instante.
+  useEffect(() => {
+    setModalPhase((prev) =>
+      prev ? phases.find((p) => p.id === prev.id) ?? null : prev
+    );
+    setSubstepModalPhase((prev) => {
+      if (!prev) return prev;
+      const live = phases.find((p) => p.id === prev.id);
+      if (!live) return null;
+      // Mantén el artefacto previo durante un PROCESSING transitorio (live sin
+      // artefacto todavía); en cuanto llega el nuevo, se muestra.
+      const normalized = live.subStepArtifact
+        ? {
+            type: (live.subStepArtifact.type as "html" | "markdown") || "markdown",
+            content: live.subStepArtifact.content || "",
+            options: live.subStepArtifact.options,
+          }
+        : prev.subStepArtifact;
+      return { ...live, subStepArtifact: normalized };
+    });
+  }, [phases]);
+
 
 
   // Auto-poll: refresh when a phase is PROCESSING / QUESTIONING / SUBSTEP_READY
@@ -446,7 +473,7 @@ export function ProjectPhasesWithModal({
 
   // Poll while a phase is active, and refresh instantly when the user returns
   // to the tab (fixes "the phase finished but the UI is stale until I reload").
-  useReactivePolling(isAnyProcessingOrQuestioning, 3000);
+  useReactivePolling(isAnyProcessingOrQuestioning, 2000);
 
   async function handleCancelPhase(phaseId: string) {
     try {
