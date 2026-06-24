@@ -654,7 +654,14 @@ def execute_agent(instruction, agent_name="main", timeout=180, model_override=No
         if proc.returncode != 0:
             err_msg = (stderr or "").strip()[:300]
             log(f"  ⚠ CLI exit {proc.returncode}: {err_msg[:200]}")
-            _err_first_line = next((l.strip() for l in (stderr or "").splitlines() if l.strip()), "")
+            # El stderr del CLI SIEMPRE trae líneas benignas (aviso de plugins,
+            # tool-policy, fin de run) incluso cuando termina con éxito —
+            # verificado empíricamente: exit=0 con esas mismas líneas. Las
+            # filtramos para quedarnos con la causa REAL del fallo, no con ruido.
+            _benign = ("[plugins]", "[agents/tool-policy]", "[agent] run")
+            _stderr_lines = [l.strip() for l in (stderr or "").splitlines() if l.strip()]
+            _meaningful = [l for l in _stderr_lines if not l.startswith(_benign)]
+            _err_real = _meaningful[0] if _meaningful else ""
             # Detect specific errors for user-friendly messages (Spanish)
             _model_short = model.split('/')[-1]
             if "401" in err_msg and "promotion has ended" in err_msg:
@@ -666,6 +673,8 @@ def execute_agent(instruction, agent_name="main", timeout=180, model_override=No
             else:
                 _set_error(f"Error en {_AGENT_LABELS.get(agent_name, agent_name)}.")
             # ── Faithful failure reason (based on the REAL CLI signals) ──
+            # OJO: NO usamos "[plugins]" como causa — es un aviso benigno presente
+            # en TODAS las ejecuciones (incluidas las correctas).
             if "is not allowed for agent" in err_msg:
                 LAST_AGENT_ERROR = {
                     "category": "model_not_allowed",
@@ -673,10 +682,10 @@ def execute_agent(instruction, agent_name="main", timeout=180, model_override=No
                     "model": model,
                     "thinking": _thinking_used,
                 }
-            elif "[plugins]" in err_msg:
+            elif "401" in err_msg and "promotion has ended" in err_msg:
                 LAST_AGENT_ERROR = {
-                    "category": "plugin_error",
-                    "message": f"Error de plugins del CLI: {_err_first_line}.",
+                    "category": "model_not_free",
+                    "message": f"El modelo {model} ya no es gratuito (401: promotion has ended). Cámbialo en Ajustes.",
                     "model": model,
                     "thinking": _thinking_used,
                 }
@@ -688,9 +697,10 @@ def execute_agent(instruction, agent_name="main", timeout=180, model_override=No
                     "thinking": _thinking_used,
                 }
             else:
+                _detail = _err_real if _err_real else "sin un error claro en stderr (posible corte por tamaño de salida o recursos del servidor)"
                 LAST_AGENT_ERROR = {
                     "category": "cli_error",
-                    "message": f"El CLI falló (exit {proc.returncode}): {_err_first_line}.",
+                    "message": f"El CLI falló (exit {proc.returncode}): {_detail}.",
                     "model": model,
                     "thinking": _thinking_used,
                 }
