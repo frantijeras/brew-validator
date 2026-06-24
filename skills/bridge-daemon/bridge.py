@@ -533,7 +533,13 @@ def parse_agent_output(output):
 
 
 VALID_THINKING_LEVELS = ("off", "minimal", "low", "medium", "high")
-FALLBACK_MODEL = "opencode-zen-free/deepseek-v4-flash-free"
+
+# Faithful failure reason from the last execute_agent() call.
+# Set at EVERY failure path inside execute_agent() (and cleared on success)
+# so callers can build a truthful FAILED error explaining the real cause
+# plus which model/thinking was used. Shape:
+#   {"category": str, "message": str, "model": str, "thinking": str}
+LAST_AGENT_ERROR = None
 
 
 def execute_agent(instruction, agent_name="main", timeout=180, model_override=None, idea_id=None, thinking=None):
@@ -580,6 +586,10 @@ def execute_agent(instruction, agent_name="main", timeout=180, model_override=No
     if thinking and thinking in VALID_THINKING_LEVELS:
         cmd += ["--thinking", thinking]
     log(f"  Running {agent_name} with model: {model} (session={session_id[:24]}...)")
+    # Reset faithful error tracker for this execution.
+    global LAST_AGENT_ERROR
+    LAST_AGENT_ERROR = None
+    _thinking_used = thinking if (thinking and thinking in VALID_THINKING_LEVELS) else "default"
     # Update live state tracker (reported in heartbeat to Vercel)
     global BRIDGE_STATE, BRIDGE_STATE_DETAIL, BRIDGE_CURRENT_AGENT, BRIDGE_CURRENT_MODEL
     BRIDGE_STATE = "processing"
@@ -634,10 +644,17 @@ def execute_agent(instruction, agent_name="main", timeout=180, model_override=No
             proc.wait(timeout=5)
             log(f"  ⚠ Timeout — killed process group for {agent_name}")
             _set_error(f"Timeout after {timeout}s — {agent_name} with {model.split('/')[-1]}")
+            LAST_AGENT_ERROR = {
+                "category": "timeout",
+                "message": f"El modelo {model} superó el tiempo límite ({timeout}s).",
+                "model": model,
+                "thinking": _thinking_used,
+            }
             return None
         if proc.returncode != 0:
             err_msg = (stderr or "").strip()[:300]
             log(f"  ⚠ CLI exit {proc.returncode}: {err_msg[:200]}")
+            _err_first_line = next((l.strip() for l in (stderr or "").splitlines() if l.strip()), "")
             # Detect specific errors for user-friendly messages (Spanish)
             _model_short = model.split('/')[-1]
             if "401" in err_msg and "promotion has ended" in err_msg:
@@ -648,6 +665,35 @@ def execute_agent(instruction, agent_name="main", timeout=180, model_override=No
                 _set_error(f"Tiempo de espera agotado en {_AGENT_LABELS.get(agent_name, 'el agente')}.")
             else:
                 _set_error(f"Error en {_AGENT_LABELS.get(agent_name, agent_name)}.")
+            # ── Faithful failure reason (based on the REAL CLI signals) ──
+            if "is not allowed for agent" in err_msg:
+                LAST_AGENT_ERROR = {
+                    "category": "model_not_allowed",
+                    "message": f"El modelo {model} no está permitido para este agente. Elige otro en Ajustes.",
+                    "model": model,
+                    "thinking": _thinking_used,
+                }
+            elif "[plugins]" in err_msg:
+                LAST_AGENT_ERROR = {
+                    "category": "plugin_error",
+                    "message": f"Error de plugins del CLI: {_err_first_line}.",
+                    "model": model,
+                    "thinking": _thinking_used,
+                }
+            elif "timeout" in err_msg.lower() or "timed out" in err_msg.lower():
+                LAST_AGENT_ERROR = {
+                    "category": "timeout",
+                    "message": f"El modelo {model} superó el tiempo límite ({timeout}s).",
+                    "model": model,
+                    "thinking": _thinking_used,
+                }
+            else:
+                LAST_AGENT_ERROR = {
+                    "category": "cli_error",
+                    "message": f"El CLI falló (exit {proc.returncode}): {_err_first_line}.",
+                    "model": model,
+                    "thinking": _thinking_used,
+                }
             return None
         output = (stdout or "").strip()
         log(f"  Output: {len(output)} chars")
@@ -655,6 +701,28 @@ def execute_agent(instruction, agent_name="main", timeout=180, model_override=No
             open("/tmp/last_agent_output.txt", "w").write(output)
         except Exception:
             pass
+        # CLI ran ok but produced no content at all.
+        if not output:
+            log(f"  ⚠ {agent_name}: CLI ok but empty output")
+            _set_error(f"{_AGENT_LABELS.get(agent_name, agent_name)}: sin contenido.")
+            LAST_AGENT_ERROR = {
+                "category": "empty",
+                "message": f"El modelo {model} terminó sin contenido.",
+                "model": model,
+                "thinking": _thinking_used,
+            }
+            return None
+        parsed = parse_agent_output(output)
+        if parsed is None:
+            log(f"  ⚠ {agent_name}: CLI ok but no valid JSON parsed")
+            _set_error(f"{_AGENT_LABELS.get(agent_name, agent_name)}: JSON no válido.")
+            LAST_AGENT_ERROR = {
+                "category": "invalid_json",
+                "message": f"El modelo {model} no devolvió un JSON válido (puede que el output sea demasiado largo o el modelo no sea fiable para esta tarea).",
+                "model": model,
+                "thinking": _thinking_used,
+            }
+            return None
         # Success — clear error state
         global BRIDGE_JOBS_COMPLETED
         BRIDGE_STATE = "idle"
@@ -662,26 +730,39 @@ def execute_agent(instruction, agent_name="main", timeout=180, model_override=No
         BRIDGE_CURRENT_AGENT = ""
         BRIDGE_LAST_ERROR = ""
         BRIDGE_JOBS_COMPLETED += 1
-        return parse_agent_output(output)
+        LAST_AGENT_ERROR = None
+        return parsed
     except FileNotFoundError:
         log(f"  ❌ openclaw CLI not found in PATH")
         _set_error("openclaw CLI no encontrado en el servidor")
+        LAST_AGENT_ERROR = {
+            "category": "cli_error",
+            "message": "El CLI 'openclaw' no se encontró en el servidor.",
+            "model": model,
+            "thinking": _thinking_used,
+        }
         return None
     except Exception as e:
         log(f"  ⚠ Error: {e}")
         _set_error(f"Error ejecutando {agent_name}: {str(e)[:150]}")
+        LAST_AGENT_ERROR = {
+            "category": "cli_error",
+            "message": f"Error ejecutando el agente: {str(e)[:150]}.",
+            "model": model,
+            "thinking": _thinking_used,
+        }
         return None
 def execute_agent_with_retry(instruction, agent_name="main", timeout=180, model_override=None, idea_id=None, required_keys=None, thinking=None):
-    """execute_agent + 1 reintento si el modelo no devuelve JSON válido.
+    """execute_agent + 1 reintento (MISMO modelo) si no devuelve JSON válido.
 
     Los modelos gratuitos a veces responden con prosa o JSON roto. En vez de
-    fallar el job, reintentamos UNA vez con un recordatorio estricto de "solo
-    JSON". Devuelve el dict parseado, o None si ambos intentos fallan.
+    fallar el job al primer intento, reintentamos UNA vez con el MISMO modelo
+    y un recordatorio estricto de "solo JSON". Devuelve el dict parseado, o
+    None si ambos intentos fallan.
 
-    Robustez extra: si tras el reintento la salida SIGUE sin ser válida y el
-    modelo usado no es el conocido-bueno (FALLBACK_MODEL), hace UN último
-    intento con ese modelo libre fiable a thinking "low", para que un modelo
-    inestable no tumbe el job entero.
+    NO hay fallback a otro modelo: si el modelo elegido no funciona, el job
+    debe FALLAR con un error fiel (ver LAST_AGENT_ERROR) en lugar de ocultar
+    el problema cambiando de modelo a espaldas del usuario.
     """
     def _valid(r):
         return isinstance(r, dict) and (not required_keys or all(r.get(k) for k in required_keys))
@@ -689,7 +770,7 @@ def execute_agent_with_retry(instruction, agent_name="main", timeout=180, model_
     result = execute_agent(instruction, agent_name=agent_name, timeout=timeout, model_override=model_override, idea_id=idea_id, thinking=thinking)
     if _valid(result):
         return result
-    log(f"  ↻ {agent_name}: salida no válida, reintento con recordatorio JSON")
+    log(f"  ↻ {agent_name}: salida no válida, reintento (mismo modelo) con recordatorio JSON")
     retry_instruction = instruction + (
         "\n\nIMPORTANTE: tu respuesta anterior no fue JSON válido. Devuelve "
         "ÚNICAMENTE el objeto JSON pedido, sin texto antes ni después y sin ```."
@@ -698,22 +779,29 @@ def execute_agent_with_retry(instruction, agent_name="main", timeout=180, model_
     if _valid(result2):
         return result2
 
-    # ── Fallback de modelo: último intento con un modelo libre conocido-bueno ──
-    # Determina el modelo que se acaba de usar (mismo criterio que execute_agent).
-    used_model = model_override or get_agent_model(agent_name)
-    if used_model != FALLBACK_MODEL:
-        log(f"  ⤇ {agent_name}: modelo {used_model.split('/')[-1]} sigue fallando — fallback a {FALLBACK_MODEL.split('/')[-1]} (thinking=low)")
-        result3 = execute_agent(retry_instruction, agent_name=agent_name, timeout=timeout, model_override=FALLBACK_MODEL, idea_id=idea_id, thinking="low")
-        if _valid(result3):
-            log(f"  ✅ {agent_name}: fallback con {FALLBACK_MODEL.split('/')[-1]} OK")
-            return result3
-        # Devuelve lo mejor disponible (preferimos un dict aunque incompleto)
-        for r in (result, result2, result3):
-            if isinstance(r, dict):
-                return r
-        return None
+    # Ambos intentos (mismo modelo) fallaron. NO cambiamos de modelo.
+    # Devolvemos el mejor dict disponible (aunque incompleto) o None;
+    # LAST_AGENT_ERROR conserva el motivo fiel del último fallo.
+    for r in (result, result2):
+        if isinstance(r, dict):
+            return r
+    return None
 
-    return result if isinstance(result, dict) else result2
+
+def _faithful_error(generic="El agente no devolvió un resultado válido."):
+    """Build a truthful FAILED error string from LAST_AGENT_ERROR.
+
+    Includes the real cause + which model/thinking was used, e.g.:
+      "El modelo X superó el tiempo límite (180s). (modelo: X, razonamiento: low)"
+    Falls back to a generic string if LAST_AGENT_ERROR is None.
+    """
+    err = LAST_AGENT_ERROR
+    if not err:
+        return generic
+    return (
+        f"{err.get('message', generic)} "
+        f"(modelo: {err.get('model', '?')}, razonamiento: {err.get('thinking', '?')})"
+    )
 
 
 def process_idea_generator(job, idea):
@@ -833,8 +921,9 @@ Mantén la esencia de la idea del usuario pero mejórala con contexto de mercado
             log(f"  ❌ Callback fail: {e}")
     else:
         log(f"  ❌ {agent_name} no valid result (missing title/description)")
+        err = _faithful_error("idea-generator: no se pudo generar una idea válida")
         try:
-            api_post("/api/webhooks/agent-callback", {"jobId": job_id, "status": "FAILED", "error": "idea-generator: no se pudo generar una idea válida"})
+            api_post("/api/webhooks/agent-callback", {"jobId": job_id, "status": "FAILED", "error": err})
         except Exception:
             pass
 
@@ -988,7 +1077,7 @@ Responde SOLO con JSON:
     else:
         log(f"  ❌ qa-refiner (quiz) no valid result")
         try:
-            api_post(f"/api/jobs/{job_id}/status", {"status": "FAILED", "error": "No valid result from agent"})
+            api_post(f"/api/jobs/{job_id}/status", {"status": "FAILED", "error": _faithful_error("No valid result from agent")})
         except Exception:
             pass
 
@@ -1057,7 +1146,7 @@ Responde SOLO con JSON:
     else:
         log(f"  ❌ qa-refiner (manual) no valid result")
         try:
-            api_post(f"/api/jobs/{job_id}/status", {"status": "FAILED", "error": "No valid result from agent"})
+            api_post(f"/api/jobs/{job_id}/status", {"status": "FAILED", "error": _faithful_error("No valid result from agent")})
         except Exception:
             pass
 
@@ -1123,7 +1212,7 @@ NO hagas preguntas genéricas ya respondidas. Responde SOLO con JSON:
     else:
         log(f"  ❌ qa-refiner (chat) no valid result")
         try:
-            api_post(f"/api/jobs/{job_id}/status", {"status": "FAILED", "error": "No valid result from agent"})
+            api_post(f"/api/jobs/{job_id}/status", {"status": "FAILED", "error": _faithful_error("No valid result from agent")})
         except Exception:
             pass
 
@@ -1195,7 +1284,7 @@ RESPONDE SOLO CON JSON EXACTO:
 
     log(f"  ❌ {agent_name} no valid suggestions")
     try:
-        api_post(f"/api/jobs/{job_id}/status", {"status": "FAILED", "error": "No valid suggestions generated"})
+        api_post(f"/api/jobs/{job_id}/status", {"status": "FAILED", "error": _faithful_error("No valid suggestions generated")})
     except Exception:
         pass
 
@@ -1352,12 +1441,13 @@ def process_project_phase(job):
         # The job-status endpoint only updates the Job row; the webhook
         # also resets the phase status back to AVAILABLE so the user
         # can retry instead of seeing an infinite "processing" state.
+        err = _faithful_error("Agent returned no output")
         try:
-            api_post(f"/api/jobs/{job_id}/status", {"status": "FAILED", "error": "Agent returned no output"})
+            api_post(f"/api/jobs/{job_id}/status", {"status": "FAILED", "error": err})
         except Exception:
             pass
         try:
-            api_post("/api/webhooks/project-phase-callback", {"jobId": job_id, "status": "FAILED", "error": "Agent returned no output"})
+            api_post("/api/webhooks/project-phase-callback", {"jobId": job_id, "status": "FAILED", "error": err})
         except Exception:
             pass
         return
@@ -1484,8 +1574,9 @@ CONTEXTO:
             # RUNNING y la idea girando hasta que el reaper la corte a los 10
             # min. El webhook marca validationStatus=FAILED para que el usuario
             # vea el error y pueda reintentar al instante.
+            err = _faithful_error(f"{agent_name}: el modelo no devolvió resultado tras reintento")
             try:
-                api_post("/api/webhooks/agent-callback", {"jobId": job_id, "status": "FAILED", "error": f"{agent_name}: el modelo no devolvió resultado tras reintento"})
+                api_post("/api/webhooks/agent-callback", {"jobId": job_id, "status": "FAILED", "error": err})
             except Exception:
                 pass
             break

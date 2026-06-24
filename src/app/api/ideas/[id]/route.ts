@@ -48,7 +48,18 @@ export async function GET(
       return NextResponse.json({ error: "Idea no encontrada" }, { status: 404 });
     }
 
-    return NextResponse.json(idea);
+    // Surface the faithful failure reason from the bridge: the most recent
+    // FAILED job's error for this idea (generation or validation).
+    const failedJob = await prisma.job.findFirst({
+      where: { ideaId: id, status: "FAILED" },
+      orderBy: { createdAt: "desc" },
+      select: { error: true },
+    });
+
+    return NextResponse.json({
+      ...idea,
+      failureReason: failedJob?.error ?? null,
+    });
   } catch (error) {
     console.error("[GET /api/ideas/:id]", error);
     return NextResponse.json(

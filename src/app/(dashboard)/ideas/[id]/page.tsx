@@ -34,6 +34,7 @@ interface IdeaData {
   createdAt: string;
   updatedAt: string;
   reports: ReportData[];
+  failureReason: string | null;
 }
 
 interface ReportData {
@@ -867,6 +868,11 @@ export default function IdeaDetailPage() {
                 No se pudo generar la idea. Puedes reintentar la generación con
                 los mismos datos.
               </p>
+              {idea.failureReason && (
+                <p className="mt-2 text-sm text-red-300/80 break-words">
+                  {idea.failureReason}
+                </p>
+              )}
               <Button
                 variant="danger"
                 onClick={handleRegenerate}
@@ -898,6 +904,11 @@ export default function IdeaDetailPage() {
                 Ocurrió un error durante el proceso de validación. Puedes
                 reintentarlo.
               </p>
+              {idea.failureReason && (
+                <p className="mt-2 text-sm text-red-300/80 break-words">
+                  {idea.failureReason}
+                </p>
+              )}
               <Button
                 variant="danger"
                 onClick={handleValidate}
