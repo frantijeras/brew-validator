@@ -42,8 +42,11 @@ const AGENT_LABELS: Record<string, string> = {
 /**
  * Convert a scorecard JSON (string) to a markdown table.
  * Handles both array format [{k,v,d}] and object format {key:value}.
+ *
+ * Exported so the ideas-export PDF (`generatePdf` in pdf-export.ts) can
+ * reuse the exact same table rendering as the project validation PDF.
  */
-function scorecardToMarkdownTable(scorecard: string | null): string {
+export function scorecardToMarkdownTable(scorecard: string | null): string {
   if (!scorecard) return "";
   try {
     const parsed = JSON.parse(scorecard);

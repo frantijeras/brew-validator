@@ -77,6 +77,46 @@ const FALLBACK_META: ExtractedVisualMeta = {
   mood: "",
 };
 
+/** Generic CSS font keywords that are not a real typeface name. */
+const GENERIC_FONT_KEYWORDS = new Set([
+  "sans-serif",
+  "serif",
+  "monospace",
+  "system-ui",
+  "ui-sans-serif",
+  "ui-serif",
+  "ui-monospace",
+  "ui-rounded",
+  "cursive",
+  "fantasy",
+  "inherit",
+  "initial",
+  "unset",
+  "-apple-system",
+  "blinkmacsystemfont",
+]);
+
+/**
+ * Returns the first named (non-generic) font family from the first
+ * `font-family:` declaration in the HTML, or null. Handles quoted families
+ * and comma-separated stacks, skipping leading generic keywords / system
+ * fallbacks until a real family name is found.
+ */
+function extractFirstNamedFontFamily(html: string): string | null {
+  const declMatch = html.match(/font-family\s*:\s*([^;}"']*(?:"[^"]*"[^;}]*)*)/i);
+  if (!declMatch) return null;
+  const stack = declMatch[1]
+    .split(",")
+    .map((part) => part.trim().replace(/^['"]|['"]$/g, "").trim())
+    .filter((part) => part.length > 0);
+  for (const family of stack) {
+    if (!GENERIC_FONT_KEYWORDS.has(family.toLowerCase())) {
+      return family;
+    }
+  }
+  return null;
+}
+
 /**
  * Extracts palette / typography / mood from a raw HTML string.
  *
@@ -88,25 +128,47 @@ export function extractMetaFromHtml(html: string): ExtractedVisualMeta {
   if (!html || typeof html !== "string") {
     return { ...FALLBACK_META };
   }
-  const colors = Array.from(html.matchAll(new RegExp(HEX_COLOR, "g"))).map(
-    (m) => m[0]
-  );
-  const primaryColor = colors[0] || FALLBACK_META.primaryColor;
+  // Colors: prefer explicit CSS custom properties (the current templates
+  // declare `--color-primary` / `--color-secondary`), then fall back to the
+  // first two distinct #hex literals found anywhere in the document.
+  const cssVarColor = (name: string): string | null => {
+    const m = html.match(
+      new RegExp(`--color-${name}\\s*:\\s*(${HEX_COLOR.source})`, "i")
+    );
+    return m ? m[1] : null;
+  };
+  const hexColors = Array.from(
+    html.matchAll(new RegExp(HEX_COLOR, "g"))
+  ).map((m) => m[0]);
+  const primaryColor =
+    cssVarColor("primary") || hexColors[0] || FALLBACK_META.primaryColor;
   const secondaryColor =
-    colors.find((c) => c.toLowerCase() !== primaryColor.toLowerCase()) ||
+    cssVarColor("secondary") ||
+    hexColors.find((c) => c.toLowerCase() !== primaryColor.toLowerCase()) ||
     FALLBACK_META.secondaryColor;
 
-  // Google Fonts: look at the href query string for family=... and
-  // strip the optional `:wght@400;700` weight specifier that the
-  // css2 endpoint appends. The first family in the URL is usually
-  // the heading, the rest are bodies.
+  // Fonts: first try Google-Fonts `family=...` URLs (legacy templates),
+  // stripping the optional `:wght@400;700` weight spec. If none are present
+  // (current system-font templates), derive from the first `font-family:`
+  // declaration in any <style>/inline CSS, taking the first named family
+  // and skipping generic keywords (sans-serif, serif, system-ui, ...).
   const familyMatches = Array.from(
     html.matchAll(/family=([^&"']+)/g)
   ).map((m) =>
     decodeURIComponent(m[1].replace(/\+/g, " ")).split(":")[0].trim()
   );
-  const fontHeading = familyMatches[0] || FALLBACK_META.fontHeading;
-  const fontBody = familyMatches[1] || fontHeading;
+  let fontHeading = familyMatches[0] || "";
+  let fontBody = familyMatches[1] || fontHeading;
+
+  if (!fontHeading) {
+    const fromDecl = extractFirstNamedFontFamily(html);
+    if (fromDecl) {
+      fontHeading = fromDecl;
+      fontBody = fontBody || fromDecl;
+    }
+  }
+  fontHeading = fontHeading || FALLBACK_META.fontHeading;
+  fontBody = fontBody || fontHeading;
 
   // Mood: look for a <meta name="mood"> tag, fall back to first <p> in body.
   const moodMatch =

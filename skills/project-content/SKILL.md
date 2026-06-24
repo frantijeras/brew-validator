@@ -50,7 +50,14 @@ Tu trabajo es identificar, basándote en el target, modelo de negocio y competen
 
 ## JOB 1: Quiz (`subStep: "quiz"`, `mode: "questions"`)
 
-**Output preguntas:** 5-6 preguntas variadas. Los ejes obligatorios de esta fase son: **disponibilidad de tiempo semanal, experiencia del equipo y preferencias de canales**.
+### 🔒 REGLA DURA — Pregunta solo lo que el usuario SABE/DECIDE
+
+El quiz pregunta **SOLO lo que el usuario sabe o decide**; lo que requiere conocimiento de mercado/plataforma lo **RECOMIENDA la skill** y lo presenta como recomendación (en el informe, o como opción ya recomendada/marcada).
+
+- ✅ **SÍ preguntar** (recursos y preferencias del usuario): **tiempo semanal disponible**, **experiencia del equipo** creando/midiendo contenido, **preferencias de marca/tono** (apetito, estilo) y entre canales que TÚ ya propusiste.
+- ❌ **NO preguntar a ciegas** (la skill lo recomienda): **qué canales usar** en abstracto. TÚ RECOMIENDAS los canales según el proyecto/target (en el informe o como opción ya recomendada) y el usuario solo confirma/ajusta entre las opciones que ya propusiste. NUNCA preguntes "¿qué redes quieres usar?" sin criterio.
+
+**Output preguntas:** 5-6 preguntas variadas. Los ejes obligatorios de esta fase son: **disponibilidad de tiempo semanal, experiencia del equipo y preferencias de canales (entre los que la skill RECOMIENDA según el target, nunca en abstracto)**.
 
 **⚠️ REGLAS PARA EL QUIZ:**
 - NUNCA usar inputs de texto libre (type: "text" o "textarea"). Todas las respuestas deben ser choice/multi.
@@ -70,7 +77,7 @@ Genera 5-6 preguntas que cubran, como mínimo, estos tres ejes. Cada pregunta se
 
 1. **Disponibilidad de tiempo semanal** — eje UNIVERSAL (pregunta fija/adaptable): cuánto tiempo realista puede dedicar el usuario a crear y distribuir contenido. Calibra la intensidad de la estrategia.
 2. **Experiencia del equipo** — eje UNIVERSAL (pregunta fija/adaptable): nivel de experiencia creando/midiendo contenido para redes.
-3. **Preferencias de canales** — eje ESPECÍFICO (derívalo del contexto): propón canales CONCRETOS según el target real del proyecto y deja que el usuario elija entre ellos. NUNCA preguntes "¿qué redes quieres usar?" en abstracto.
+3. **Preferencias de canales** — eje ESPECÍFICO (derívalo del contexto): la skill RECOMIENDA los canales según el target/proyecto y el usuario solo confirma/ajusta. Propón canales CONCRETOS según el target real, **marca el/los recomendado(s) con su razón** ("Recomendada — [razón]") y deja que el usuario elija entre ellos. NUNCA preguntes "¿qué redes quieres usar?" en abstracto ni le pidas elegir un canal sin tu recomendación.
 
 Puedes añadir 2-3 preguntas más (intensidad de distribución, formato de contenido, estilo visual, competidores de referencia, etc.) siempre **específicas**: deriva sus opciones del `ideaContext`, target, sector y competencia reales.
 
@@ -99,11 +106,11 @@ Puedes añadir 2-3 preguntas más (intensidad de distribución, formato de conte
     },
     {
       "id": "preferencias_canales",
-      "label": "[Pregunta ESPECÍFICA — derívala del contexto: 'Basado en que tu target es [X], recomiendo [Y]; ¿por cuál(es) te inclinas?']",
+      "label": "[Pregunta ESPECÍFICA — derívala del contexto: 'Basado en que tu target es [X], te RECOMIENDO [Y] porque [razón]; ¿lo confirmas o prefieres ajustar?']",
       "type": "multi",
       "options": [
-        "[Canal concreto 1 derivado del target real]",
-        "[Canal concreto 2 derivado del target real]",
+        "[Canal concreto 1 derivado del target real] (Recomendada — [razón])",
+        "[Canal concreto 2 derivado del target real] (Recomendada — [razón])",
         "[Canal concreto 3 derivado del target real]",
         "Prefiero otro canal que no está en la lista"
       ]

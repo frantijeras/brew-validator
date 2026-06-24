@@ -52,8 +52,8 @@ Tu único contexto previo garantizado es el resultado de la fase de **Análisis*
 
 ## Estructura de la fase
 
-1. **Job 1 — Quiz** (costes fijos mensuales estimados, dedicación económica inicial, expectativas de precio, pasarelas de pago, modelo de ingresos)
-2. **Job 2 — Informe de Viabilidad Financiera** (modelo de ingresos → pricing → simulador unit economics → LTV/CAC → escenarios)
+1. **Job 1 — Quiz** (capital propio que vas a invertir, modelo de ingresos, posicionamiento/expectativa de precio) — pregunta SOLO recursos y preferencias del usuario.
+2. **Job 2 — Informe de Viabilidad Financiera** (modelo de ingresos → pricing → simulador unit economics → LTV/CAC → escenarios). Aquí la skill **estima** los costes fijos, **recomienda** la pasarela de pago y **calcula** el umbral de viabilidad / break-even — NO se preguntan en el quiz.
 
 ---
 
@@ -61,21 +61,31 @@ Tu único contexto previo garantizado es el resultado de la fase de **Análisis*
 
 **Input:** `ideaContext` + `previousArtifacts` (análisis de mercado de la fase de Análisis).
 
-**Misión:** generar **5 preguntas** que capturen las decisiones clave de viabilidad financiera. NO preguntes cosas que ya están en el análisis de mercado (target, competidores, tendencias). Los ejes obligatorios son: costes fijos mensuales estimados, dedicación económica inicial, expectativas de precio y pasarelas de pago.
+### 🔒 REGLA DURA — Pregunta solo lo que el usuario SABE/DECIDE
 
-**Output preguntas:** Siempre JSON. 5 preguntas máximo. Al menos 4 de tipo `choice`. Aplica la regla lingüística en cada label y opción.
+El quiz pregunta **SOLO lo que el usuario sabe o decide**; lo que requiere conocimiento de mercado o cálculo lo **estima/calcula/recomienda la skill** y lo PRESENTA en el INFORME (Job 2), no en el quiz.
+
+- ✅ **SÍ preguntar** (recursos y preferencias del usuario): **capital propio que vas a invertir** (recurso del usuario) y **posicionamiento/expectativa de precio** (preferencia del usuario, que tú contextualizas con los precios reales de la competencia de la fase de Análisis).
+- ❌ **NO preguntar — la skill lo resuelve en el informe:**
+  - **Estimación de costes fijos mensuales** → la skill los ESTIMA a partir del proyecto/zona/tipo de producto (en el Simulador del Job 2).
+  - **Pasarela / método de pago** → la skill RECOMIENDA la pasarela (p. ej. Stripe / Redsys) con sus comisiones reales (en el Modelo de Ingresos / Simulador del Job 2).
+  - **Umbral de viabilidad / horas de ocupación / break-even** → la skill CALCULA el break-even con costes + precio + capital (en Escenarios / LTV vs CAC del Job 2).
+
+**Misión:** generar **2-3 preguntas** que capturen SOLO las decisiones que el usuario sabe/decide. NO preguntes cosas que ya están en el análisis de mercado (target, competidores, tendencias) ni nada de la lista de "NO preguntar" de arriba (costes fijos, pasarela de pago, umbral/break-even). Los ejes obligatorios son: **capital propio a invertir**, **modelo de ingresos** y **posicionamiento/expectativa de precio**.
+
+**Output preguntas:** Siempre JSON. 3 preguntas máximo. Al menos 2 de tipo `choice`. Aplica la regla lingüística en cada label y opción.
 
 > ⚠️ **GENERA tus propias preguntas — NO copies ningún ejemplo.** Lo OBLIGATORIO son los *ejes/temas* listados abajo, no un wording concreto. Cada pregunta (label y opciones) DEBES **derivarla del proyecto**: usa `ideaContext`, `projectMemory`, los competidores y benchmarks de `previousArtifacts` (análisis de mercado) y tu propia investigación. Dos ejecuciones sobre proyectos distintos —o incluso sobre el mismo— deben producir preguntas y opciones distintas y adaptadas. El bloque de ejemplo de más abajo es solo **andamiaje de FORMATO**: muestra la estructura (`id`/`label`/`type`/`options`), NO el contenido.
 
-**Ejes obligatorios que el quiz de viabilidad debe cubrir** (deriva CADA pregunta del proyecto concreto; no inventes opciones genéricas si el contexto permite concretarlas):
+**Ejes obligatorios que el quiz de viabilidad debe cubrir** (deriva CADA pregunta del proyecto concreto; no inventes opciones genéricas si el contexto permite concretarlas). SOLO recursos y preferencias del usuario — lo que es cálculo/recomendación va al informe (ver regla dura):
 
 | Eje | `id` sugerido | Tipo | Naturaleza |
 |---|---|---|---|
+| Capital propio que vas a invertir (dedicación económica inicial) | `dedicacion_economica_inicial` | `choice` | **Recurso del usuario (SE QUEDA)**: rangos de capital válidos para cualquier negocio; ajusta solo el matiz del producto mínimo viable al proyecto. |
 | Modelo de ingresos | `modelo_ingresos` | `choice` | **Específico**: filtra las opciones a los modelos con encaje real en ESTE mercado/competencia (de la fase de Análisis); descarta los que no apliquen. |
-| Expectativa de precio / posicionamiento | `expectativa_precio` | `choice` | **Universal (adaptable)**: low-cost / mercado / premium / lujo es válido para todo negocio, pero **ancla cada nivel al precio real de los competidores** del sector (placeholder → derívalo del contexto). |
-| Costes fijos mensuales estimados | `costes_fijos_mensuales` | `choice` | **Universal (adaptable)**: los rangos en € son fijos, pero ajusta los ejemplos de coste (hosting, herramientas, licencias, local…) al tipo de producto. |
-| Dedicación económica inicial (capital propio) | `dedicacion_economica_inicial` | `choice` | **Universal (adaptable)**: rangos de capital válidos para cualquier negocio; ajusta solo el matiz del producto mínimo viable al proyecto. |
-| Pasarelas / método de cobro | `pasarelas_pago` | `multi` | **Específico**: las pasarelas y sus comisiones dependen del país, recurrencia y canal del proyecto (placeholder → derívalo del contexto y de tu investigación). |
+| Expectativa de precio / posicionamiento | `expectativa_precio` | `choice` | **Preferencia del usuario (SE QUEDA)**: low-cost / mercado / premium / lujo es válido para todo negocio; preséntalo **anclando cada nivel al precio real de los competidores** del sector (ese contexto lo aporta la skill desde la fase de Análisis; el usuario elige su posicionamiento deseado). |
+
+> ⚠️ **NO incluyas en el quiz** (van al INFORME, Job 2, como cálculo/recomendación): `costes_fijos_mensuales` (la skill los estima del proyecto/zona), `pasarelas_pago` (la skill recomienda Stripe/Redsys + comisiones) y cualquier `umbral_viabilidad` / horas de ocupación / break-even (la skill lo calcula con costes + precio + capital). Esas tres NO se preguntan.
 
 Reglas para generarlas:
 - **`id`:** conserva los `id` sugeridos para mantener el contrato con el frontend.
@@ -91,6 +101,16 @@ Reglas para generarlas:
   "subStep": "quiz",
   "questions": [
     {
+      "id": "dedicacion_economica_inicial",
+      "label": "[Pregunta derivada sobre el CAPITAL PROPIO que el usuario va a invertir — recurso del usuario]",
+      "type": "choice",
+      "options": [
+        "[Rango de capital bajo — qué producto mínimo viable permite en ESTE proyecto]",
+        "[Rango medio]",
+        "[Rango alto]"
+      ]
+    },
+    {
       "id": "modelo_ingresos",
       "label": "[Pregunta derivada del proyecto sobre el MODELO DE INGRESOS, anclada a tu mercado y competencia]",
       "type": "choice",
@@ -101,20 +121,20 @@ Reglas para generarlas:
       ]
     },
     {
-      "id": "pasarelas_pago",
-      "label": "[Pregunta derivada sobre MÉTODO/PASARELA DE COBRO, según país, recurrencia y canal del proyecto]",
-      "type": "multi",
+      "id": "expectativa_precio",
+      "label": "[Pregunta derivada sobre POSICIONAMIENTO de precio — preferencia del usuario, anclada al precio real de competidores que aporta la skill]",
+      "type": "choice",
       "options": [
-        "[Pasarela concreta + comisión real (derivada de tu investigación, año en curso)]",
-        "[Otra pasarela que encaje con el modelo de ingresos del proyecto]",
-        "[No lo sé todavía — recomiéndame según el modelo de ingresos]"
+        "[Low-cost — vs. precio competidor X]",
+        "[En mercado — vs. precio competidor Y]",
+        "[Premium — vs. precio competidor Z]"
       ]
     }
   ]
 }
 ```
 
-(El ejemplo muestra 2 ejes; tu salida debe cubrir los 5 ejes de la tabla, máximo 5 preguntas, mayoría `choice`.)
+(El ejemplo muestra los 3 ejes; tu salida debe cubrir los 3 ejes de la tabla, máximo 3 preguntas, mayoría `choice`. NO añadas `pasarelas_pago` ni `costes_fijos_mensuales`: van al informe.)
 
 ---
 
@@ -134,7 +154,7 @@ Tu input incluye `_currentYear` (año en curso) y `_previousYear` (año anterior
 Tienes un **PRESUPUESTO de 3 a 5 búsquedas web**, priorizadas — no busques a lo loco ni "siempre". Prioriza, en este orden, hasta agotar el presupuesto:
 1. Benchmarks de pricing del sector concreto del proyecto (planes/precios de competidores reales de la fase de Análisis).
 2. CAC (Coste de adquisición de cliente) y/o ratio LTV/CAC típico del modelo de negocio elegido en este sector.
-3. Comisiones reales de la(s) pasarela(s) de pago elegidas en el quiz.
+3. Comisiones reales de la(s) pasarela(s) de pago que la skill RECOMIENDA para este proyecto (no se preguntan en el quiz; las eliges tú según país, recurrencia y canal).
 4. Costes fijos típicos (hosting, herramientas) del tipo de producto.
 5. Tasas de conversión / churn de referencia del modelo (p. ej. freemium, suscripción).
 
@@ -144,6 +164,8 @@ Reglas de búsqueda:
 - **Si no encuentras un dato real, escribe "dato no disponible"** y explica el supuesto que usas en su lugar. **NUNCA inventes CAC, LTV, benchmarks, comisiones ni cifras de mercado.** Es preferible un informe honesto con "dato no disponible" que cifras fabricadas.
 
 **Misión:** generar el **informe de viabilidad financiera** respetando un **ORDEN ESTRICTO de 5 secciones (requisito duro del producto)**. NO alteres el orden 1→5. Mantén la estructura de las 5 secciones, pero **PROHIBIDO inventar**: cada cifra debe venir de una búsqueda real, del quiz, del análisis de mercado o de un cálculo explícito sobre supuestos declarados.
+
+> ℹ️ **Lo que NO se preguntó en el quiz, aquí se resuelve (no se omite):** el quiz solo capturó capital propio, modelo de ingresos y posicionamiento de precio. En este informe TÚ **estimas los costes fijos** (a partir del proyecto/zona/tipo de producto), **recomiendas la pasarela de pago** (p. ej. Stripe / Redsys, con sus comisiones reales) y **calculas el umbral de viabilidad / break-even** (con costes + precio + capital). Preséntalos como recomendación/cálculo de la skill, no como dato que aportó el usuario.
 
 1. **Modelo de Ingresos (Suscripción, pago único, transaccional)** — Modelo elegido y por qué encaja con el mercado de la fase de Análisis.
 2. **Estrategia de Pricing (Estructura y niveles de precios recomendados)** — Tabla de planes/tiers con precios concretos y justificación frente a competidores (benchmarks reales del año en curso).
@@ -161,7 +183,7 @@ Responde SIEMPRE con este JSON exacto. Sin emojis. Sin texto fuera del JSON. Sin
 {
   "mode": "report",
   "subStep": "final",
-  "reportMarkdown": "# Viabilidad Financiera — [Nombre Proyecto]\n\n> Basado en el análisis de mercado de la Fase 01 y las decisiones del quiz de esta fase.\n\n---\n\n## 1. Modelo de Ingresos (Suscripción, pago único, transaccional)\n\n**Modelo elegido:** [del quiz]\n\n**Por qué encaja:** [conexión con el mercado, target y competencia de la Fase 01]\n\n**Cómo se cobra:** [pasarela(s) de pago del quiz, recurrencia, ciclo de cobro]\n\n---\n\n## 2. Estrategia de Pricing (Estructura y niveles de precios recomendados)\n\n| Plan / Nivel | Precio | Qué incluye | Para quién |\n|---|---|---|---|\n| [Básico] | [X€/mes o €/unidad] | [Features] | [segmento] |\n| [Pro] | [Y€] | [Features] | [segmento] |\n| [Premium/Enterprise] | [Z€] | [Features] | [segmento] |\n\n**Justificación vs. competencia:** [posicionamiento de precio basado en los competidores de la Fase 01]\n\n---\n\n## 3. Simulador Financiero basado en Unit Economics (Métricas financieras unitarias)\n\n- **Precio medio:** [X€]\n- **Coste unitario (producción/entrega):** [Y€] ([Z%] del precio)\n- **Margen bruto por venta:** [W€] ([V%])\n- **ARPU (Ingreso medio por usuario):** [€/mes]\n\n### Costes fijos mensuales\n| Concepto | Coste/mes |\n|---|---|\n| [Servidores/hosting] | [€] |\n| [Herramientas/SaaS (Software como servicio)] | [€] |\n| [Legal/gestoría] | [€] |\n| **Total fijos** | **[€]** |\n\n### Costes variables\n| Concepto | Coste/venta |\n|---|---|\n| [Comisión pasarela de pago] | [%] |\n| [Soporte/onboarding] | [€] |\n\n### Inversión inicial necesaria\n| Concepto | Coste |\n|---|---|\n| [Desarrollo del producto mínimo viable] | [€] |\n| [Branding inicial] | [€] |\n| [Legal y registro] | [€] |\n| **Total** | **[€]** |\n\n---\n\n## 4. Proyección LTV (Valor de vida del cliente) frente a CAC (Coste de adquisición de cliente)\n\n- **CAC (Coste de adquisición de cliente):** [A€ con fuente, o 'dato no disponible'] — [canal probable / benchmark del sector del año en curso]\n- **LTV (Valor de vida del cliente):** [B€, o 'dato no disponible'] — [fórmula: margen x frecuencia x duración de la relación]\n- **Ratio LTV/CAC:** [ratio si hay datos reales; si CAC o LTV es 'dato no disponible', NO inventes el ratio] (objetivo > 3 — sano; 2-3 — ajustado; < 2 — inviable sin cambios)\n- **Payback period (Plazo de recuperación del CAC):** [M meses, o 'dato no disponible']\n\n**Cálculo mostrado:**\n[Explica la aritmética: cómo se obtiene LTV y CAC paso a paso, con los supuestos declarados. Si faltan datos reales, dilo aquí en vez de fabricar cifras.]\n\n---\n\n## 5. Análisis de Viabilidad en Escenarios (Pesimista, Realista y Optimista)\n\n[Si tienes datos reales suficientes, presenta los TRES escenarios con la estructura de abajo. Si NO los tienes, presenta SOLO el Escenario REALISTA + una 'Nota de supuestos' final; no inventes tres tablas.]\n\n### Escenario REALISTA (caso más probable)\n| Mes | Clientes nuevos | Clientes totales | Ingresos | Costes | Cash acumulado |\n|---|---|---|---|---|---|\n| 1 | [n] | [n] | [€] | [€] | [€] |\n| 6 | [n] | [n] | [€] | [€] | [€] |\n| 12 | [n] | [n] | [€] | [€] | [€] |\n\n- **Break-even (Punto de equilibrio):** [mes X o no alcanzado]\n- **ROI (Retorno de la inversión) año 1:** [%]\n\n### Escenario PESIMISTA (peor caso realista) — solo si hay base de datos\n[Misma estructura, números conservadores]\n\n### Escenario OPTIMISTA (mejor caso plausible) — solo si hay base de datos\n[Misma estructura, mejor caso con product-market fit claro]\n\n**Nota de supuestos:** [En qué se basan estas cifras y qué queda por validar. Obligatoria si presentas un único escenario.]\n\n---\n\n## Mi recomendación\n\n[2-3 párrafos: qué modelo, qué pricing, si el ratio LTV/CAC es viable, con qué escenario planificar. Si trabajas con un solo escenario, explica que es por falta de datos y qué habría que validar.]\n\n---\n\n## Fuentes consultadas\n- [URL real consultada — dato X (año)]\n- [Si no se consultó ninguna fuente válida, indícalo: 'Sin fuentes externas validadas; cifras basadas en supuestos declarados.']\n",
+  "reportMarkdown": "# Viabilidad Financiera — [Nombre Proyecto]\n\n> Basado en el análisis de mercado de la Fase 01 y las decisiones del quiz de esta fase.\n\n---\n\n## 1. Modelo de Ingresos (Suscripción, pago único, transaccional)\n\n**Modelo elegido:** [del quiz]\n\n**Por qué encaja:** [conexión con el mercado, target y competencia de la Fase 01]\n\n**Cómo se cobra:** [pasarela(s) de pago RECOMENDADA(S) por la skill — p. ej. Stripe / Redsys con su comisión real del año en curso —, recurrencia, ciclo de cobro]\n\n---\n\n## 2. Estrategia de Pricing (Estructura y niveles de precios recomendados)\n\n| Plan / Nivel | Precio | Qué incluye | Para quién |\n|---|---|---|---|\n| [Básico] | [X€/mes o €/unidad] | [Features] | [segmento] |\n| [Pro] | [Y€] | [Features] | [segmento] |\n| [Premium/Enterprise] | [Z€] | [Features] | [segmento] |\n\n**Justificación vs. competencia:** [posicionamiento de precio basado en los competidores de la Fase 01]\n\n---\n\n## 3. Simulador Financiero basado en Unit Economics (Métricas financieras unitarias)\n\n- **Precio medio:** [X€]\n- **Coste unitario (producción/entrega):** [Y€] ([Z%] del precio)\n- **Margen bruto por venta:** [W€] ([V%])\n- **ARPU (Ingreso medio por usuario):** [€/mes]\n\n### Costes fijos mensuales\n| Concepto | Coste/mes |\n|---|---|\n| [Servidores/hosting] | [€] |\n| [Herramientas/SaaS (Software como servicio)] | [€] |\n| [Legal/gestoría] | [€] |\n| **Total fijos** | **[€]** |\n\n### Costes variables\n| Concepto | Coste/venta |\n|---|---|\n| [Comisión pasarela de pago] | [%] |\n| [Soporte/onboarding] | [€] |\n\n### Inversión inicial necesaria\n| Concepto | Coste |\n|---|---|\n| [Desarrollo del producto mínimo viable] | [€] |\n| [Branding inicial] | [€] |\n| [Legal y registro] | [€] |\n| **Total** | **[€]** |\n\n---\n\n## 4. Proyección LTV (Valor de vida del cliente) frente a CAC (Coste de adquisición de cliente)\n\n- **CAC (Coste de adquisición de cliente):** [A€ con fuente, o 'dato no disponible'] — [canal probable / benchmark del sector del año en curso]\n- **LTV (Valor de vida del cliente):** [B€, o 'dato no disponible'] — [fórmula: margen x frecuencia x duración de la relación]\n- **Ratio LTV/CAC:** [ratio si hay datos reales; si CAC o LTV es 'dato no disponible', NO inventes el ratio] (objetivo > 3 — sano; 2-3 — ajustado; < 2 — inviable sin cambios)\n- **Payback period (Plazo de recuperación del CAC):** [M meses, o 'dato no disponible']\n\n**Cálculo mostrado:**\n[Explica la aritmética: cómo se obtiene LTV y CAC paso a paso, con los supuestos declarados. Si faltan datos reales, dilo aquí en vez de fabricar cifras.]\n\n---\n\n## 5. Análisis de Viabilidad en Escenarios (Pesimista, Realista y Optimista)\n\n[Si tienes datos reales suficientes, presenta los TRES escenarios con la estructura de abajo. Si NO los tienes, presenta SOLO el Escenario REALISTA + una 'Nota de supuestos' final; no inventes tres tablas.]\n\n### Escenario REALISTA (caso más probable)\n| Mes | Clientes nuevos | Clientes totales | Ingresos | Costes | Cash acumulado |\n|---|---|---|---|---|---|\n| 1 | [n] | [n] | [€] | [€] | [€] |\n| 6 | [n] | [n] | [€] | [€] | [€] |\n| 12 | [n] | [n] | [€] | [€] | [€] |\n\n- **Break-even (Punto de equilibrio):** [mes X o no alcanzado]\n- **ROI (Retorno de la inversión) año 1:** [%]\n\n### Escenario PESIMISTA (peor caso realista) — solo si hay base de datos\n[Misma estructura, números conservadores]\n\n### Escenario OPTIMISTA (mejor caso plausible) — solo si hay base de datos\n[Misma estructura, mejor caso con product-market fit claro]\n\n**Nota de supuestos:** [En qué se basan estas cifras y qué queda por validar. Obligatoria si presentas un único escenario.]\n\n---\n\n## Mi recomendación\n\n[2-3 párrafos: qué modelo, qué pricing, si el ratio LTV/CAC es viable, con qué escenario planificar. Si trabajas con un solo escenario, explica que es por falta de datos y qué habría que validar.]\n\n---\n\n## Fuentes consultadas\n- [URL real consultada — dato X (año)]\n- [Si no se consultó ninguna fuente válida, indícalo: 'Sin fuentes externas validadas; cifras basadas en supuestos declarados.']\n",
   "decisions": {
     "businessModel": { "value": "[modelo elegido: Suscripción | Pago único | Transaccional | Freemium...]", "rationale": "[1 frase: por qué]" },
     "pricing": { "value": "[estructura/niveles resumidos, p. ej. 'Freemium + Pro 19€/mes + Enterprise']", "rationale": "[1 frase]" }

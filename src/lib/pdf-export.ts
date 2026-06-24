@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
 import { ROBOTO_REGULAR_BASE64, ROBOTO_BOLD_BASE64 } from "@/fonts/roboto";
 import { BRAND_RGB } from "@/lib/brand-colors";
+import { scorecardToMarkdownTable } from "./validation-report";
 
 /* ── Judge content cleanup ──────────────────────────────────────────── */
 // Matches the same cleanup the web UI does (markdown-renderer.tsx) so the
@@ -10,7 +11,18 @@ import { BRAND_RGB } from "@/lib/brand-colors";
 
 const JUDGE_EMOJI_REGEX_PDF = /[📊⭐✅🎯🏆💪🔍❌📈📋✨🔥💡⚖️🛡️🚀💰]/g;
 
-function cleanJudgeReportPdf(content: string): string {
+/**
+ * Limpia el contenido markdown del informe del juez para el PDF.
+ *
+ * @param content   markdown crudo del informe.
+ * @param hasJsonScorecard  si existe un `report.scorecard` (JSON) que se va a
+ *   renderizar como tabla aparte. SOLO en ese caso quitamos del cuerpo la
+ *   scorecard/secciones de puntuación y los encabezados de rol del juez, para
+ *   no duplicar la tabla. Si NO hay scorecard JSON, conservamos esos
+ *   contenidos: de lo contrario perderíamos la única scorecard/narrativa que
+ *   trae el juez.
+ */
+function cleanJudgeReportPdf(content: string, hasJsonScorecard = false): string {
   let clean = content;
 
   // Strip replacement characters
@@ -35,28 +47,35 @@ function cleanJudgeReportPdf(content: string): string {
   // creates a visible "Veredicto Veredicto" duplication
   clean = clean.replace(/^## Veredicto\s*\n+/gm, "");
 
-  // Remove any "## Puntuación*" / "## Scorecard*" / "## Tabla de Puntuaciones"
-  // section — the scorecard is rendered separately from the JSON
-  const sectionHeaderRe = /^##\s+[^\n]*(puntuación|puntuacion|scorecard|tabla\s+de\s+puntuaciones?|tabla\s+de\s+scores)[^\n]*$/gim;
-  clean = clean.replace(sectionHeaderRe, "");
+  // ── Strippers destructivos: SOLO si hay scorecard JSON que sustituye al
+  // cuerpo. Sin scorecard JSON, conservamos la scorecard/tabla del cuerpo y
+  // la sección del juez para no perder su contenido. ──
+  if (hasJsonScorecard) {
+    // Remove any "## Puntuación*" / "## Scorecard*" / "## Tabla de Puntuaciones"
+    // section — the scorecard is rendered separately from the JSON
+    const sectionHeaderRe = /^##\s+[^\n]*(puntuación|puntuacion|scorecard|tabla\s+de\s+puntuaciones?|tabla\s+de\s+scores)[^\n]*$/gim;
+    clean = clean.replace(sectionHeaderRe, "");
 
-  // Remove loose scorecard tables (header has "Dimensión" + "Puntuación")
-  const looseTableRe = /^\|[^\n]*\|[^\n]*\|\s*\n\|[\s:|-]+\|[\s:|-]+\|\s*\n(?:\|[^\n]*\|\s*\n?)+/gm;
-  clean = clean.replace(looseTableRe, (match) => {
-    const firstLine = match.split("\n")[0].toLowerCase();
-    if (/dimensi[oó]n/.test(firstLine) && /(puntuaci[oó]n|puntuacion|score)/.test(firstLine)) return "";
-    return match;
-  });
+    // Remove loose scorecard tables (header has "Dimensión" + "Puntuación")
+    const looseTableRe = /^\|[^\n]*\|[^\n]*\|\s*\n\|[\s:|-]+\|[\s:|-]+\|\s*\n(?:\|[^\n]*\|\s*\n?)+/gm;
+    clean = clean.replace(looseTableRe, (match) => {
+      const firstLine = match.split("\n")[0].toLowerCase();
+      if (/dimensi[oó]n/.test(firstLine) && /(puntuaci[oó]n|puntuacion|score)/.test(firstLine)) return "";
+      return match;
+    });
 
-  // ── Andamiaje interno multi-agente (NO va en el entregable) ──
-  // Los informes pueden arrastrar términos del proceso interno de validación
-  // por debate de roles (Escéptico/Defensor/Abogado del diablo/Juez). Eso es
-  // ruido para el usuario final: lo quitamos del PDF descargable.
-  // Quitamos secciones cuyo encabezado ES uno de esos roles internos.
-  const internalSectionRe =
-    /^#{1,4}\s*(debate(\s+interno)?|escéptic[oa]|defensor[a]?|abogad[oa]\s+del\s+diablo|juez|veredicto\s+del\s+juez|deliberaci[oó]n|skeptic|advocate|judge)\b[^\n]*\n[\s\S]*?(?=^#{1,4}\s|\n---|$)/gim;
-  clean = clean.replace(internalSectionRe, "");
-  // Quitamos etiquetas internas sueltas a principio de línea.
+    // ── Andamiaje interno multi-agente (NO va en el entregable) ──
+    // Los informes pueden arrastrar términos del proceso interno de validación
+    // por debate de roles (Escéptico/Defensor/Abogado del diablo/Juez). Eso es
+    // ruido para el usuario final: lo quitamos del PDF descargable.
+    // Quitamos secciones cuyo encabezado ES uno de esos roles internos.
+    const internalSectionRe =
+      /^#{1,4}\s*(debate(\s+interno)?|escéptic[oa]|defensor[a]?|abogad[oa]\s+del\s+diablo|juez|veredicto\s+del\s+juez|deliberaci[oó]n|skeptic|advocate|judge)\b[^\n]*\n[\s\S]*?(?=^#{1,4}\s|\n---|$)/gim;
+    clean = clean.replace(internalSectionRe, "");
+  }
+
+  // Quitamos etiquetas internas sueltas a principio de línea. Bajo riesgo
+  // (andamiaje, no narrativa principal), así que se aplica siempre.
   const internalLabelRe =
     /^\s*[*_]{0,2}(veredicto\s+del\s+juez|puntuaci[oó]n\s+interna|score\s+interno|abogad[oa]\s+del\s+diablo|nota\s+del\s+juez|el\s+juez\s+(dictamina|concluye)|el\s+escéptico|el\s+defensor)[*_]{0,2}\s*:?.*$/gim;
   clean = clean.replace(internalLabelRe, "");
@@ -619,76 +638,34 @@ export function generatePdf(filename: string, data: ExportData): void {
     doc.text(meta, MARGIN, y);
     y += 5;
 
-    // Scorecard (if available)
+    // Scorecard (if available) — render the SAME markdown table the project
+    // validation PDF and the app HTML use ("| Dimensión | Puntuación |
+    // Justificación |"), instead of a flat text list. We build the table
+    // markdown with the shared `scorecardToMarkdownTable` helper and feed it
+    // through the existing markdown pipeline (parseMarkdownBlocks +
+    // drawMarkdownTable via writeMdBlocks) so it gets the styled table.
     if (report.scorecard) {
-      try {
-        const parsed = JSON.parse(report.scorecard);
-        // Normalize to [key, value, description?] entries.
-        // Supports:
-        //   - flat object: {"Problema": 6.0, ..., "Total": 4.5}  (legacy)
-        //   - array k/v/d: [{k: "Problema", v: 6.0, d: "..."}, ...]  (judge v4, new)
-        //   - array key/value/description: [{key, value, description}, ...]  (legacy)
-        type ScEntry = [string, number | string, string | undefined];
-        const entries: ScEntry[] = [];
-        if (Array.isArray(parsed)) {
-          for (const item of parsed) {
-            if (typeof item !== "object" || item === null || Array.isArray(item)) continue;
-            const obj = item as Record<string, unknown>;
-            if (obj.k !== undefined) {
-              // New k/v/d format
-              entries.push([
-                String(obj.k),
-                typeof obj.v === "number" || typeof obj.v === "string" ? obj.v : 0,
-                typeof obj.d === "string" ? obj.d : undefined,
-              ]);
-            } else if (obj.key !== undefined) {
-              // Legacy key/value/description
-              entries.push([
-                String(obj.key),
-                typeof obj.value === "number" || typeof obj.value === "string" ? obj.value : 0,
-                typeof obj.description === "string" ? obj.description : undefined,
-              ]);
-            }
-          }
-        } else if (typeof parsed === "object" && parsed !== null) {
-          for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
-            entries.push([k, typeof v === "number" || typeof v === "string" ? v : 0, undefined]);
-          }
-        }
-        if (entries.length > 0) {
-          checkSpace(8);
-          doc.setFont("Roboto", "bold");
-          doc.setFontSize(9);
-          doc.setTextColor(...C_ACCENT);
-          doc.text("Puntuación:", MARGIN, y);
-          y += 5;
-          doc.setFont("Roboto", "normal");
-          doc.setFontSize(8);
-          doc.setTextColor(...C_DARK);
-          for (const [key, val, desc] of entries) {
-            const scoreStr = typeof val === "number" ? val.toFixed(1) : String(val);
-            const lineText = desc
-              ? `${key}: ${scoreStr}/10 — ${desc}`
-              : `${key}: ${scoreStr}/10`;
-            // Wrap long lines so dimension names + descriptions never get clipped
-            // (e.g. "Monetización: 4.5/10 — Freemium viable...").
-            const lines = doc.splitTextToSize(lineText, CONTENT_W - 3);
-            for (const line of lines) {
-              checkSpace(4);
-              doc.text(line, MARGIN + 3, y);
-              y += 4;
-            }
-          }
-          y += 2;
-        }
-      } catch {
-        // Not valid JSON, skip
+      const scorecardMd = scorecardToMarkdownTable(report.scorecard);
+      if (scorecardMd.trim()) {
+        checkSpace(8);
+        doc.setFont("Roboto", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(...C_ACCENT);
+        doc.text("Puntuación", MARGIN, y);
+        y += 5;
+        const scorecardBlocks = parseMarkdownBlocks(scorecardMd);
+        writeMdBlocks(scorecardBlocks);
+        y += 2;
       }
     }
 
     // Report content (parsed markdown)
-    // Apply same cleanup as the web UI for judge reports so the output is consistent
-    const reportContent = report.agentName === "judge" ? cleanJudgeReportPdf(report.content) : report.content;
+    // Apply same cleanup as the web UI for judge reports so the output is
+    // consistent. Only strip the body scorecard / role sections when we have a
+    // JSON scorecard rendered above (so we don't duplicate it); otherwise keep
+    // the body intact so the judge's scorecard/narrative isn't lost.
+    const hasJsonScorecard = !!(report.scorecard && scorecardToMarkdownTable(report.scorecard).trim());
+    const reportContent = report.agentName === "judge" ? cleanJudgeReportPdf(report.content, hasJsonScorecard) : report.content;
     const blocks = parseMarkdownBlocks(reportContent);
     writeMdBlocks(blocks);
 
@@ -939,8 +916,13 @@ export function buildReportPdf(params: BuildReportPdfParams): Buffer {
     y += titleLines.length * 8 + 4;
   }
 
-  // Clean and parse
-  const cleanContent = cleanJudgeReportPdf(trimmed);
+  // Clean and parse.
+  // `buildReportPdf` recibe el markdown ya consolidado por `buildValidationReport`,
+  // que inyecta la tabla de scorecard del juez (derivada del JSON) ANTES del
+  // contenido. Por eso aquí mantenemos el comportamiento destructivo previo
+  // (hasJsonScorecard = true): así no duplicamos la scorecard ni mostramos el
+  // andamiaje de roles internos en el cuerpo.
+  const cleanContent = cleanJudgeReportPdf(trimmed, true);
   const blocks = parseMarkdownBlocks(cleanContent);
   writeMdBlocks(blocks);
 

@@ -57,6 +57,17 @@ La Fase 00 ya validó la idea: problema, propuesta de valor, target, veredicto d
 
 **FILOSOFÍA:** La IA investiga y propone. Las preguntas son para confirmar dirección, no para recolectar información que ya deberías haber buscado.
 
+### 🔒 REGLA DURA — Pregunta solo lo que el usuario SABE/DECIDE
+
+El quiz pregunta **SOLO lo que el usuario sabe o decide**; lo que requiere conocimiento de mercado o cálculo lo **INVESTIGA/CALCULA la skill** y lo **PRESENTA como recomendación** (en el informe, o como opción ya analizada y marcada "Recomendada").
+
+- ✅ **SÍ preguntar** (el usuario lo sabe): sus recursos (capital que va a invertir, tiempo/dedicación, equipo), su intención/visión, sus preferencias (posicionamiento deseado, apetito de riesgo, tono/marca).
+- ❌ **NO preguntar** (la skill lo recomienda/calcula): estimación de costes, canal óptimo, pasarela de pago, umbral/break-even, tamaño de mercado, benchmarks de precio.
+
+Aplicado a esta fase:
+- Las preguntas de **dirección estratégica** (barrera competitiva oculta, normativa, hipótesis a validar, decisión operativa, mercado/posicionamiento) SE QUEDAN — pero **cada opción debe traer el análisis que tú ya hiciste** y debes **marcar una opción como "Recomendada"** (con su razón), para que el usuario decida con criterio, no a ciegas.
+- El **canal de captación NO se pregunta a ciegas**: tú RECOMIENDAS el canal con su razón (derivado de los competidores y el target reales) y el usuario solo **confirma o ajusta**. Reformula esa pregunta como "Recomiendo [canal] porque [razón]; ¿lo confirmas o prefieres ajustar?" con la opción recomendada marcada — o muévela directamente al informe como recomendación.
+
 Cuando `mode` es `"questions"`, generar **4-5 preguntas clave** orientadas a validación de dirección estratégica, no a "¿qué tienes tú?". La mayoría de preguntas deben ser de tipo `choice` con 3-5 opciones predefinidas basadas en la investigación previa (que tú mismo has hecho en tu razonamiento interno con búsqueda web).
 
 **Input:**
@@ -91,10 +102,10 @@ Cuando `mode` es `"questions"`, generar **4-5 preguntas clave** orientadas a val
 Genera 4-5 preguntas que cubran estos ejes. Para cada eje, **redacta la pregunta y sus opciones a partir de `ideaContext` y tu investigación** — no uses las redacciones de esta skill como texto final.
 
 **Ejes ESPECÍFICOS (placeholders → derívalo de tu investigación, varía entre proyectos):**
-- **Mercado / posicionamiento** — el mercado geográfico o el hueco competitivo que mejor encaje (elige el ángulo que más aporte a ESTE proyecto). Opciones = mercados/huecos REALES que detectaste, con su evidencia.
-- **Canales de captación iniciales** — por dónde captar los primeros clientes. Opciones = canales REALES observados en los competidores de ESTE mercado (decisión de dirección; el plan detallado es de la Fase 4).
+- **Mercado / posicionamiento** — el mercado geográfico o el hueco competitivo que mejor encaje (elige el ángulo que más aporte a ESTE proyecto). Opciones = mercados/huecos REALES que detectaste, con su evidencia. **Marca una opción "Recomendada"** con su razón.
+- **Canal de captación inicial (CONFIRMACIÓN, no elección a ciegas)** — NO pidas al usuario que elija un canal sin criterio. TÚ recomiendas el canal con su razón (derivado de los competidores y el target reales) y el usuario solo confirma o ajusta. Redáctala como "Recomiendo [canal] porque [razón observada en competidores]; ¿lo confirmas o prefieres ajustar?" con la opción recomendada marcada. Si prefieres, OMITE esta pregunta del quiz y lleva la recomendación de canal al informe. El plan detallado de captación es de la fase de Distribución.
 
-**Ejes UNIVERSALES (puedes dejarlos fijos, pero márcalos "universal — adapta si procede"):**
+**Ejes UNIVERSALES (puedes dejarlos fijos, pero márcalos "universal — adapta si procede"):** En todos ellos, **cada opción debe traer el análisis que tú hiciste** y debes **marcar una opción como "Recomendada"** con su razón (no dejes que el usuario elija sin criterio).
 - **Barreras competitivas ocultas** — qué ventaja difícil de ver pero decisiva puede ser la suya.
 - **Normativa legal** aplicable al sector — qué marco regulatorio condiciona más su entrada.
 - **Validación de hipótesis** — cuál es la hipótesis más arriesgada a probar primero.
@@ -113,9 +124,19 @@ Lo que sigue muestra **SOLO LA FORMA** del JSON (claves `id`/`label`/`type`/`opt
       "label": "[Pregunta sobre mercado/posicionamiento derivada del proyecto — específica, varía]",
       "type": "choice",
       "options": [
-        "[Mercado A o Hueco 1] — [evidencia real de tu investigación]",
+        "[Mercado A o Hueco 1] — [evidencia real de tu investigación] (Recomendada — [razón])",
         "[Mercado B o Hueco 2] — [evidencia real]",
         "[Mercado C o Hueco 3] — [evidencia real]"
+      ]
+    },
+    {
+      "id": "canal_captacion_inicial",
+      "label": "[CONFIRMACIÓN, no elección a ciegas] Recomiendo [canal] para captar tus primeros clientes porque [razón observada en los competidores de ESTE mercado]. ¿Lo confirmas o prefieres ajustar?",
+      "type": "choice",
+      "options": [
+        "[Canal recomendado] — [razón real derivada de competidores/target] (Recomendada)",
+        "[Canal alternativo 1] — [cuándo tendría sentido]",
+        "[Canal alternativo 2] — [cuándo tendría sentido]"
       ]
     },
     {
@@ -123,7 +144,7 @@ Lo que sigue muestra **SOLO LA FORMA** del JSON (claves `id`/`label`/`type`/`opt
       "label": "Para validar tu negocio, ¿cuál es la hipótesis más arriesgada que deberías probar primero? (universal — adapta si procede)",
       "type": "choice",
       "options": [
-        "Hipótesis de problema — que el dolor es real y suficientemente grande",
+        "Hipótesis de problema — que el dolor es real y suficientemente grande (Recomendada — [razón ligada a ESTE proyecto])",
         "Hipótesis de solución — que tu producto resuelve ese dolor mejor que las alternativas",
         "Hipótesis de pago — que el cliente está dispuesto a pagar el precio previsto",
         "Hipótesis de canal — que puedes alcanzar al cliente a un coste rentable"
@@ -140,7 +161,7 @@ Lo que sigue muestra **SOLO LA FORMA** del JSON (claves `id`/`label`/`type`/`opt
 ### Reglas del Modo Preguntas
 
 1. **GENERA, no copies.** Las preguntas del ejemplo ilustrativo son SOLO un molde de forma — NO las reutilices ni su texto. Redacta cada pregunta y cada opción desde `ideaContext` y tu investigación, y **varía entre ejecuciones** (dos proyectos distintos no deben recibir preguntas iguales). En las ESPECÍFICAS sustituye los placeholders [Mercado A], [Hueco 1], [Canal 1] por lo que realmente encontraste; en las UNIVERSALES (madurez de mercado, hipótesis más arriesgada) puedes mantener la forma fija pero adáptala si el proyecto lo pide.
-2. **NO preguntes "¿tienes proveedor?", "¿tienes equipo?", "¿cuánto capital tienes?"** — esas son preguntas de descubrimiento. Aquí damos opciones estratégicas (preguntas de DECISIÓN, no de descubrimiento).
+2. **Pregunta solo lo que el usuario SABE/DECIDE (regla dura, ver arriba).** Las preguntas de descubrimiento de recursos ("¿tienes proveedor?", "¿tienes equipo?") no van aquí; aquí damos decisiones de dirección estratégica. Y lo que es conocimiento de mercado o cálculo (canal óptimo, tamaño de mercado, benchmarks de precio) NO se pregunta a ciegas: lo recomienda la skill. En las preguntas de dirección que SÍ se quedan, **cada opción trae tu análisis y una opción va marcada "Recomendada"**. El **canal de captación** se redacta como confirmación de tu recomendación, no como elección en blanco (o se mueve al informe).
 3. **4-5 preguntas máximo.** Más de eso abruma. La fase 1 debe sentirse como "elegir camino", no como "rellenar formulario".
 4. **90% de las preguntas deben ser `choice`**, máximo 1 `text` opcional al final (ej: "¿hay algo que no te haya preguntado y debería saber?").
 5. **El quiz dinámico DEBE cubrir** (ajustando al proyecto): barreras competitivas ocultas, normativa legal aplicable al sector, canales de captación iniciales y validación de hipótesis. Son los ejes obligatorios de esta fase.

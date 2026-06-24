@@ -815,7 +815,7 @@ export function PhaseSubstepModal({
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-3xl rounded-xl border border-slate-700 bg-slate-900 shadow-xl flex flex-col max-h-[90vh]">
+          <div className="w-full max-w-5xl rounded-xl border border-slate-700 bg-slate-900 shadow-xl flex flex-col max-h-[90vh]">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
               <h3 className="text-base font-semibold text-white flex items-center gap-2">
@@ -1275,6 +1275,43 @@ function VisualSubStepPreview({
     options.find((o) => o.variant === current) || options[0];
   const tabs: Array<"A" | "B" | "C"> = ["A", "B", "C"];
 
+  // Auto-resize the preview iframe to fit the full mockup. Re-measures on
+  // iframe `load` and whenever the active variant's HTML changes, so the
+  // whole landing is visible (no clipping) and switching A/B/C re-fits.
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    const resize = () => {
+      try {
+        const doc = iframe.contentDocument;
+        const body = doc?.body;
+        const html = doc?.documentElement;
+        if (body || html) {
+          const h = Math.max(
+            body?.scrollHeight ?? 0,
+            html?.scrollHeight ?? 0,
+            360
+          );
+          iframe.style.height = `${h + 16}px`;
+        }
+      } catch {
+        // Ignore cross-origin / not-ready errors; the min-height fallback applies.
+      }
+    };
+
+    iframe.addEventListener("load", resize);
+    // The srcDoc swap may finish slightly after this effect runs, so also
+    // re-measure a couple of ticks later to catch fonts/layout settling.
+    const t1 = setTimeout(resize, 100);
+    const t2 = setTimeout(resize, 400);
+    return () => {
+      iframe.removeEventListener("load", resize);
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [iframeRef, currentOption.html]);
+
   return (
     <div className="space-y-3">
       {/* Tabs A / B / C */}
@@ -1324,6 +1361,7 @@ function VisualSubStepPreview({
           srcDoc={currentOption.html}
           title={`Vista previa estilo ${current}`}
           className="w-full min-h-[360px] border-0"
+          style={{ height: 360 }}
           sandbox="allow-same-origin"
         />
       </div>
@@ -1371,13 +1409,19 @@ function VisualSubStepPreview({
             <dl className="space-y-1.5 text-xs">
               <div className="flex items-center justify-between gap-2">
                 <dt className="text-slate-400">Heading</dt>
-                <dd className="text-slate-100 font-medium">
+                <dd
+                  className="text-slate-100 font-medium"
+                  style={{ fontFamily: currentOption.meta.fontHeading }}
+                >
                   {currentOption.meta.fontHeading}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-2">
                 <dt className="text-slate-400">Body</dt>
-                <dd className="text-slate-100 font-medium">
+                <dd
+                  className="text-slate-100 font-medium"
+                  style={{ fontFamily: currentOption.meta.fontBody }}
+                >
                   {currentOption.meta.fontBody}
                 </dd>
               </div>
