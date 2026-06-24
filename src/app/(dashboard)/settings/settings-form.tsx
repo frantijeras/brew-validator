@@ -764,22 +764,12 @@ function ExceptionGroup({
                 <p className="mt-0.5 text-xs leading-relaxed text-slate-400">{agent.description}</p>
               </div>
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:shrink-0 sm:flex-row sm:items-center">
-                <div className="flex w-full items-center gap-2 sm:w-auto">
-                  <ModelSelect
-                    value={overrides[agent.id]}
-                    onChange={(model) => onSetOverride(agent.id, model)}
-                    modelOptions={modelOptions}
-                    className="sm:w-56"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => onRemoveOverride(agent.id)}
-                    title="Quitar excepción (volver al modelo por defecto)"
-                    className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-slate-700 text-slate-400 transition-colors hover:bg-slate-800 hover:text-red-400"
-                  >
-                    <X className="size-4" />
-                  </button>
-                </div>
+                <ModelSelect
+                  value={overrides[agent.id]}
+                  onChange={(model) => onSetOverride(agent.id, model)}
+                  modelOptions={modelOptions}
+                  className="sm:w-56"
+                />
                 <div className="flex w-full items-center gap-2 sm:w-auto">
                   <span className="shrink-0 text-xs text-slate-500" title="Nivel de razonamiento">
                     Razonamiento
@@ -790,6 +780,14 @@ function ExceptionGroup({
                     className="sm:w-40"
                   />
                 </div>
+                <button
+                  type="button"
+                  onClick={() => onRemoveOverride(agent.id)}
+                  title="Quitar excepción (volver al modelo por defecto)"
+                  className="flex size-9 shrink-0 items-center justify-center self-end rounded-lg border border-slate-700 text-slate-400 transition-colors hover:bg-slate-800 hover:text-red-400 sm:self-auto"
+                >
+                  <X className="size-4" />
+                </button>
               </div>
             </div>
           ))}
