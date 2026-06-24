@@ -66,6 +66,12 @@ Apóyate en los **12 Arquetipos de Jung (Arquetipos de marca de Carl Jung)** y j
 4. **Solo voz y tono** (ver REGLA DURA DE ALCANCE). No menciones naming, logos, colores, paleta, tipografía ni estilo visual: son skills aparte.
 5. **Coherencia con el target y el nombre** ya definidos.
 6. **Caracteres españoles OBLIGATORIOS** (tildes, ñ; UTF-8 válido) y español correcto.
+7. **FORMATO MARKDOWN (obligatorio para `reportMarkdown`):**
+    - Títulos con `##` / `###` (nunca un párrafo en negrita como si fuera título).
+    - `**negrita**` SOLO para etiquetas/términos cortos (≤4-5 palabras), p. ej. `**Arquetipo principal:**`, `**Registro:**`. NUNCA pongas frases ni párrafos enteros en negrita.
+    - Cierra SIEMPRE cada `**` en la misma línea/frase en que lo abres.
+    - Texto normal para las explicaciones; separa bloques con una línea en blanco.
+    - Listas con `- ` o `1. `.
 
 ## 🔎 Investigación (web_search)
 

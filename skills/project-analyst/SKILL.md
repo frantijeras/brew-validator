@@ -240,3 +240,9 @@ El valor de `reportMarkdown` es una sola cadena con saltos `\n`. El esqueleto (r
 8. **El output debe ser descargable como `01-analisis-mercado.md`** para que el usuario lo saque de la plataforma.
 9. **Caracteres españoles OBLIGATORIOS.** Usa SIEMPRE tildes, ñ y caracteres especiales del español correcto: análisis, estrategia, competencia, producción, información, gestión, año, tamaño, página, etc. NUNCA escribas "analisis" sin tilde. El texto DEBE ser UTF-8 válido con todos los acentos y eñes correctos.
 10. **Decisiones consolidadas (`decisions`) OBLIGATORIO.** Además del informe, declara en `decisions` las decisiones que esta fase CIERRA (`target`, `competitors`). Son decisiones FINALES, no el proceso: la app las guarda en la memoria del proyecto para que las fases siguientes NO las repregunten. `value` debe ser conciso (etiqueta, frase corta o lista breve), nunca un párrafo. Si una decisión queda abierta a propósito, OMÍTELA.
+11. **FORMATO MARKDOWN (obligatorio para `reportMarkdown`):**
+    - Títulos con `##` / `###` (nunca un párrafo en negrita como si fuera título).
+    - `**negrita**` SOLO para etiquetas/términos cortos (≤4-5 palabras), p. ej. `**Resultado:**`, `**TAM:**`. NUNCA pongas frases ni párrafos enteros en negrita.
+    - Cierra SIEMPRE cada `**` en la misma línea/frase en que lo abres.
+    - Texto normal para las explicaciones; separa bloques con una línea en blanco.
+    - Listas con `- ` o `1. `.

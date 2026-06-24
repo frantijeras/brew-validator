@@ -178,3 +178,9 @@ Cada Objetivo sigue la estructura `"Alcanzar [resultado medible] para [propósit
 9. **Outputs descargables:**
    - `05-roadmap-30-60-90.md` (hoja de ruta + OKRs)
    - `05-proximos-pasos.md` (checklist inmediato)
+10. **FORMATO MARKDOWN (obligatorio para `reportMarkdown`):**
+    - Títulos con `##` / `###` (nunca un párrafo en negrita como si fuera título).
+    - `**negrita**` SOLO para etiquetas/términos cortos (≤4-5 palabras), p. ej. `**Objetivo:**`, `**KR1:**`. NUNCA pongas frases ni párrafos enteros en negrita.
+    - Cierra SIEMPRE cada `**` en la misma línea/frase en que lo abres.
+    - Texto normal para las explicaciones; separa bloques con una línea en blanco.
+    - Listas con `- ` o `1. `.

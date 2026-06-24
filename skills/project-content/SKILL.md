@@ -198,3 +198,9 @@ Puedes añadir 2-3 preguntas más (intensidad de distribución, formato de conte
    - Pilares de contenido (output del Job 2).
    - Estrategia de distribución y tracción (output del Job 3, informe final).
 9. **Decisiones consolidadas (`decisions`) OBLIGATORIO en el Job 3 (final).** Declara en `decisions` los `channels` prioritarios definitivos. Son la decisión FINAL, no el proceso: la app los guarda en la memoria del proyecto para que no se repregunten. `value` es una lista breve de canales; nada de párrafos.
+10. **FORMATO MARKDOWN (obligatorio para `reportMarkdown`):**
+    - Títulos con `##` / `###` (nunca un párrafo en negrita como si fuera título).
+    - `**negrita**` SOLO para etiquetas/términos cortos (≤4-5 palabras), p. ej. `**Resultado:**`, `**Canal:**`. NUNCA pongas frases ni párrafos enteros en negrita.
+    - Cierra SIEMPRE cada `**` en la misma línea/frase en que lo abres.
+    - Texto normal para las explicaciones; separa bloques con una línea en blanco.
+    - Listas con `- ` o `1. `.

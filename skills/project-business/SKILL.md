@@ -207,3 +207,9 @@ Responde SIEMPRE con este JSON exacto. Sin emojis. Sin texto fuera del JSON. Sin
 10. **Output descargable como `viabilidad-financiera.md`**.
 11. **Caracteres españoles OBLIGATORIOS.** Usa SIEMPRE tildes, ñ y caracteres especiales del español. El texto DEBE ser UTF-8 válido con todos los acentos y eñes correctos.
 12. **Decisiones consolidadas (`decisions`) OBLIGATORIO.** Además del informe, declara en `decisions` las decisiones que esta fase CIERRA (`businessModel`, `pricing`). Son las decisiones FINALES, no el proceso: la app las guarda en la memoria del proyecto para que las fases siguientes NO las repregunten. Si una decisión queda abierta a propósito, OMÍTELA (no la inventes). `value` debe ser conciso (una etiqueta o frase corta), nunca un párrafo.
+13. **FORMATO MARKDOWN (obligatorio para `reportMarkdown`):**
+    - Títulos con `##` / `###` (nunca un párrafo en negrita como si fuera título).
+    - `**negrita**` SOLO para etiquetas/términos cortos (≤4-5 palabras), p. ej. `**Resultado:**`, `**TAM:**`. NUNCA pongas frases ni párrafos enteros en negrita.
+    - Cierra SIEMPRE cada `**` en la misma línea/frase en que lo abres.
+    - Texto normal para las explicaciones; separa bloques con una línea en blanco.
+    - Listas con `- ` o `1. `.

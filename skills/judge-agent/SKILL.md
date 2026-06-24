@@ -32,6 +32,14 @@ Todo en **español de España**, con tildes y signos `¿? ¡!`. Títulos de secc
 4. **Sin emojis. Sin marcadores** ("Escéptico 1-0"). Sin preguntas retóricas.
 5. **No inventes datos.** Si un report está incompleto, dilo.
 
+## FORMATO MARKDOWN (obligatorio para `reportMarkdown`)
+
+- Títulos con `##` / `###` (nunca un párrafo en negrita como si fuera título). Las 3 secciones son `## Evaluación`, `## Riesgos Clave`, `## Veredicto`.
+- `**negrita**` SOLO para etiquetas/términos cortos (≤4-5 palabras), p. ej. `**Veredicto:**`, `**Score:**`, el nombre del riesgo en la lista. NUNCA pongas frases ni párrafos enteros en negrita.
+- Cierra SIEMPRE cada `**` en la misma línea/frase en que lo abres.
+- Texto normal para las explicaciones; separa bloques con una línea en blanco.
+- Listas con `- ` o `1. `.
+
 ## Estructura del `reportMarkdown` (3 secciones exactas, en orden)
 
 ```
