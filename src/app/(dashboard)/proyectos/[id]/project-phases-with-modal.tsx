@@ -460,20 +460,19 @@ export function ProjectPhasesWithModal({
 
 
 
-  // Auto-poll: refresh when a phase is PROCESSING / QUESTIONING / SUBSTEP_READY
-  // so cancel/refresh is visible. We also poll when the sub-step modal is
-  // open and the user has just confirmed — the parent will see PROCESSING
-  // and then SUBSTEP_READY again when the next job finishes.
-  const isAnyProcessingOrQuestioning = phases.some(
-    (p) =>
-      p.status === "PROCESSING" ||
-      p.status === "QUESTIONING" ||
-      p.status === "SUBSTEP_READY"
-  );
+  // Auto-poll SOLO mientras hay un JOB corriendo en el bridge (PROCESSING).
+  // En QUESTIONING y SUBSTEP_READY estamos esperando al USUARIO (rellenando el
+  // quiz o eligiendo una opción): ahí no corre nada en segundo plano, y
+  // refrescar cada 2s re-derivaba el modal y le ROBABA EL FOCO al input
+  // mientras se escribía (casi no daba tiempo a teclear). Cuando el usuario
+  // envía/confirma, la fase vuelve a PROCESSING y el polling se reactiva solo;
+  // el refresco que captura el resultado (QUESTIONING/SUBSTEP_READY) ya lo
+  // renderiza al instante, y entonces el polling se detiene.
+  const isAnyProcessing = phases.some((p) => p.status === "PROCESSING");
 
-  // Poll while a phase is active, and refresh instantly when the user returns
+  // Poll while a job runs, and refresh instantly when the user returns
   // to the tab (fixes "the phase finished but the UI is stale until I reload").
-  useReactivePolling(isAnyProcessingOrQuestioning, 2000);
+  useReactivePolling(isAnyProcessing, 2000);
 
   async function handleCancelPhase(phaseId: string) {
     try {
