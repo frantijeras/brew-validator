@@ -145,13 +145,21 @@ export function renderMarkdown(markdown: string, agentName?: string, skipClean?:
     '<code class="rounded bg-slate-800 px-1.5 py-0.5 text-sm text-amber-300 font-mono">$1</code>'
   );
 
-  // Bold (**text** or __text__)
-  html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-  html = html.replace(/__([^_]+)__/g, "<strong>$1</strong>");
+  // Bold (**text** / __text__). Dos protecciones contra el bug de "párrafos
+  // enteros en negrita" (el modelo abre `**` y lo cierra al final del bloque):
+  //  1) `[^*\n]` → la negrita no cruza saltos de línea.
+  //  2) heurística: si el contenido parece un párrafo (largo o con varias frases,
+  //     ". "), es casi seguro un `**` mal usado → se muestra en texto NORMAL.
+  //     La negrita queda para etiquetas cortas (**Resultado:**, **TAM:**).
+  //     Esto corrige incluso informes ya generados.
+  const boldOrPlain = (t: string) =>
+    t.length > 120 || /\.\s+\S/.test(t) ? t : `<strong>${t}</strong>`;
+  html = html.replace(/\*\*([^*\n]+)\*\*/g, (_m, t: string) => boldOrPlain(t));
+  html = html.replace(/__([^_\n]+)__/g, (_m, t: string) => boldOrPlain(t));
 
-  // Italic (*text* or _text_) — but not inside words
-  html = html.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, "<em>$1</em>");
-  html = html.replace(/(?<!_)_([^_]+)_(?!_)/g, "<em>$1</em>");
+  // Italic (*text* or _text_) — but not inside words, y sin cruzar líneas
+  html = html.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, "<em>$1</em>");
+  html = html.replace(/(?<!_)_([^_\n]+)_(?!_)/g, "<em>$1</em>");
 
   // Tables (before list processing)
   html = renderTables(html);
