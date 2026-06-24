@@ -1249,7 +1249,10 @@ def process_project_phase(job):
         model = get_agent_model(agent_name)
 
     timeout = 300 if mode == "report" else 120
-    result = execute_agent(instruction, agent_name=agent_name, timeout=timeout, model_override=model, idea_id=idea_id)
+    # Reintento tolerante: el informe de fase (sobre todo Estrategia/Distribución)
+    # puede ser enorme y el parser falla de forma intermitente por el escapado del
+    # markdown dentro del JSON; si el 1er intento no parsea, reintenta pidiendo SOLO JSON.
+    result = execute_agent_with_retry(instruction, agent_name=agent_name, timeout=timeout, model_override=model, idea_id=idea_id)
 
     if result is None:
         log(f"  \u26a0 {agent_name} returned None — marking FAILED")

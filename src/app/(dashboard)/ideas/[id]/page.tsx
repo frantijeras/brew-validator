@@ -14,6 +14,7 @@ import { generatePdf } from "@/lib/pdf-export";
 import { TextExpander } from "@/components/text-expander";
 import { useBridgeStatus } from "@/hooks/use-bridge-status";
 import { isIdeaBusy } from "@/lib/idea-state";
+import { Button } from "@/components/ui/button";
 
 interface IdeaData {
   id: string;
@@ -489,35 +490,34 @@ export default function IdeaDetailPage() {
             {/* Action buttons: Validate + Reformulate + Export + Revalidate */}
             <div className="mt-4 flex flex-wrap items-center gap-3">
               {canValidate && (
-                <button
+                <Button
+                  variant="primary"
                   onClick={handleValidate}
-                  disabled={validating}
+                  loading={validating}
                   title={
                     bridgeDown
                       ? "El servicio de IA no está disponible"
                       : undefined
                   }
-                  className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="gap-2 py-2.5 shadow"
                 >
                   {validating ? (
-                    <>
-                      <Spinner />
-                      Iniciando…
-                    </>
+                    "Iniciando…"
                   ) : (
                     <>
                       <ZapIcon />
                       {isDraft ? "Validar esta idea" : "Validar con IA"}
                     </>
                   )}
-                </button>
+                </Button>
               )}
               {/* Convertir en proyecto */}
               {!readonly && (idea.status === "COMPLETED" || idea.validationStatus === "DONE") && (
                 <ConvertToProjectButton ideaId={idea.id} />
               )}
 
-              <button
+              <Button
+                variant="secondary"
                 onClick={handleExportPdf}
                 disabled={isBusy}
                 title={
@@ -525,11 +525,11 @@ export default function IdeaDetailPage() {
                     ? "Espera a que termine el procesamiento actual"
                     : undefined
                 }
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900/60 px-4 py-2.5 text-sm font-medium text-slate-300 shadow transition-all hover:border-slate-600 hover:text-slate-200 active:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="gap-2 py-2.5 shadow"
               >
                 <FileDown className="size-4" />
                 Descargar PDF
-              </button>
+              </Button>
             </div>
 
             {apiError && (
@@ -581,30 +581,30 @@ export default function IdeaDetailPage() {
           </h2>
           {isEditing && (
             <div className="flex items-center gap-2">
-              <button
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={cancelEdit}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
               >
                 <X className="size-3.5" />
                 Cancelar
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
                 onClick={handleSaveEdit}
-                disabled={saving}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-slate-950 shadow transition-colors hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50"
+                loading={saving}
+                className="shadow"
               >
                 {saving ? (
-                  <>
-                    <Spinner />
-                    Guardando…
-                  </>
+                  "Guardando…"
                 ) : (
                   <>
                     <Save className="size-3.5" />
                     Guardar
                   </>
                 )}
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -798,13 +798,14 @@ export default function IdeaDetailPage() {
                 Ocurrió un error durante el proceso de validación. Puedes
                 reintentarlo.
               </p>
-              <button
+              <Button
+                variant="danger"
                 onClick={handleValidate}
                 disabled={validating}
-                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-red-500/20 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-500/30 transition-colors disabled:opacity-50"
+                className="mt-4 bg-red-500/20 font-medium text-red-400 hover:bg-red-500/30"
               >
                 {validating ? "Reintentando…" : "Reintentar validación"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -922,14 +923,15 @@ function ConvertToProjectButton({ ideaId }: { ideaId: string }) {
 
   return (
     <>
-      <button
+      <Button
+        variant="secondary"
         onClick={handleConvert}
         disabled={loading}
-        className="inline-flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm font-medium text-amber-400 shadow transition-all hover:border-amber-400 hover:bg-amber-500/20 active:bg-amber-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="gap-2 py-2.5 border-amber-500/40 bg-amber-500/10 font-medium text-amber-400 shadow hover:border-amber-400 hover:bg-amber-500/20"
       >
         <FolderKanban className="size-4" />
         {loading ? "Creando proyecto…" : "Convertir en proyecto"}
-      </button>
+      </Button>
       {error && (
         <p className="mt-1 text-xs text-red-400">{error}</p>
       )}

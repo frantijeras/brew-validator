@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Dices, Target, PencilLine, AlertCircle } from "lucide-react";
 import { BusinessModelDropdown } from "@/components/business-model-dropdown";
 import { useBridgeStatus } from "@/hooks/use-bridge-status";
+import { Button } from "@/components/ui/button";
 
 type Mode = "random" | "custom" | null;
 
@@ -170,23 +171,21 @@ export default function NewIdeaPage() {
             />
           </div>
 
-          <button
+          <Button
+            variant="primary"
             onClick={() => generateIdea({ mode: "random", businessModel: selectedModel || undefined })}
-            disabled={loading}
-            className="mt-6 inline-flex items-center gap-2 rounded-lg bg-amber-500 px-6 py-3 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            loading={loading}
+            className="mt-6 gap-2 px-6 py-3 shadow"
           >
             {loading ? (
-              <>
-                <SpinnerIcon />
-                Creando…
-              </>
+              "Creando…"
             ) : (
               <>
                 <SparklesIcon />
                 Generar idea
               </>
             )}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -327,23 +326,21 @@ function CustomForm({
           </div>
         </div>
 
-        <button
+        <Button
           type="submit"
-          disabled={loading}
-          className="mt-6 inline-flex items-center gap-2 rounded-lg bg-amber-500 px-6 py-2.5 text-sm font-semibold text-slate-950 shadow transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          variant="primary"
+          loading={loading}
+          className="mt-6 gap-2 px-6 py-2.5 shadow"
         >
           {loading ? (
-            <>
-              <SpinnerIcon />
-              Creando…
-            </>
+            "Creando…"
           ) : (
             <>
               <SparklesIcon />
               Reformular con IA
             </>
           )}
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -385,29 +382,4 @@ function SparklesIcon() {
     </svg>
   );
 }
-
-function SpinnerIcon() {
-  return (
-    <svg
-      className="size-4 animate-spin"
-      viewBox="0 0 24 24"
-      fill="none"
-    >
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-      />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-      />
-    </svg>
-  );
-}
-
 

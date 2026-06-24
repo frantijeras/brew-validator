@@ -107,17 +107,19 @@ function ProfileSection({ user }: { user: UserData | null }) {
           <p className="mt-1 text-sm text-slate-400">Tu información personal</p>
         </div>
         {!editing && (
-          <button
+          <Button
             type="button"
+            variant="secondary"
+            size="sm"
             onClick={() => {
               setMessage(null);
               setEditing(true);
             }}
-            className="flex shrink-0 items-center gap-2 rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-300 transition-colors hover:bg-slate-800"
+            className="shrink-0"
           >
             <Pencil className="h-4 w-4" />
             Editar
-          </button>
+          </Button>
         )}
       </div>
 
@@ -269,13 +271,14 @@ function PasswordForm() {
 
         <Banner message={message} />
 
-        <button
+        <Button
           type="submit"
+          variant="secondary"
           disabled={pending}
-          className="rounded-lg border border-slate-700 px-5 py-2 text-sm font-semibold text-slate-200 transition-colors hover:bg-slate-800 disabled:opacity-50"
+          className="px-5 font-semibold"
         >
           {pending ? "Cambiando..." : "Cambiar contraseña"}
-        </button>
+        </Button>
       </form>
     </div>
   );
@@ -478,16 +481,18 @@ function AIModelSection() {
             Un modelo por defecto para todos los agentes, con excepciones por agente si las necesitas
           </p>
         </div>
-        <button
+        <Button
           type="button"
+          variant="secondary"
+          size="sm"
           onClick={refreshModels}
           disabled={refreshing}
           title="Volver a consultar los modelos disponibles"
-          className="flex shrink-0 items-center gap-2 rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-300 transition-colors hover:bg-slate-800 disabled:opacity-50"
+          className="shrink-0"
         >
           <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
           {refreshing ? "Actualizando..." : "Actualizar modelos"}
-        </button>
+        </Button>
       </div>
 
       {/* Modelo por defecto */}
@@ -520,13 +525,14 @@ function AIModelSection() {
       ))}
 
       <div className="mt-6 flex items-center gap-3">
-        <button
+        <Button
           type="button"
+          variant="primary"
           onClick={handleSave}
-          className="rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-400"
+          className="px-5"
         >
           Guardar configuración
-        </button>
+        </Button>
         {saved && <span className="animate-in fade-in text-sm text-emerald-400">✓ Guardado</span>}
       </div>
     </section>
@@ -688,14 +694,16 @@ function UsersSection({ users }: { users: ListedUser[] }) {
           <h2 className="text-lg font-semibold text-white">Usuarios</h2>
           <p className="mt-1 text-sm text-slate-400">Gestiona quién tiene acceso a BrewIdea</p>
         </div>
-        <button
+        <Button
           type="button"
+          variant="primary"
+          size="sm"
           onClick={() => setModalOpen(true)}
-          className="flex shrink-0 items-center gap-2 rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-400"
+          className="shrink-0"
         >
           <Plus className="h-4 w-4" />
           Añadir usuario
-        </button>
+        </Button>
       </div>
 
       {/* User list */}
