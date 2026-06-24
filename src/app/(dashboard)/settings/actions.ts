@@ -83,7 +83,10 @@ export async function changePassword(formData: FormData) {
   return { success: "Contraseña cambiada correctamente" };
 }
 
-export async function saveAgentModels(config: Record<string, string>) {
+export async function saveAgentModels(
+  config: Record<string, string>,
+  thinking?: Record<string, string>
+) {
   const session = await auth();
   if (!session?.user?.id) {
     return { error: "No autorizado" };
@@ -92,7 +95,24 @@ export async function saveAgentModels(config: Record<string, string>) {
   const userId = session.user.id;
 
   try {
-    // 1. Try to forward to the local bridge daemon (fastest path)
+    // 0. Persist reasoning levels (additive). DB is the durable source the
+    //    job-creation flow reads via resolveThinkingForJobAgent(). The bridge's
+    //    /api/update-models only accepts model ids, so thinking is NOT forwarded
+    //    there — it travels per-job in each job's _thinking field.
+    if (thinking) {
+      try {
+        await prisma.setting.upsert({
+          where: { key_userId: { key: "agent-thinking", userId } },
+          create: { key: "agent-thinking", value: thinking, userId },
+          update: { value: thinking },
+        });
+      } catch (err) {
+        console.error("[saveAgentModels] thinking persist failed", err);
+      }
+    }
+
+    // 1. Try to forward the model map to the local bridge daemon (fastest path).
+    let bridgeOk = false;
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 3000);
@@ -105,10 +125,7 @@ export async function saveAgentModels(config: Record<string, string>) {
       });
 
       clearTimeout(timeout);
-
-      if (res.ok) {
-        return { success: true, savedTo: "bridge" };
-      }
+      bridgeOk = res.ok;
     } catch {
       // Bridge not reachable — fall through to file + DB
     }
@@ -128,14 +145,15 @@ export async function saveAgentModels(config: Record<string, string>) {
       // File write may fail in serverless — that's expected
     }
 
-    // 3. Always persist to DB as reliable fallback
+    // 3. Always persist models to DB as reliable fallback (source of truth for
+    //    resolveModelForJobAgent at job-creation time).
     await prisma.setting.upsert({
       where: { key_userId: { key: "agent-models", userId } },
       create: { key: "agent-models", value: config, userId },
       update: { value: config },
     });
 
-    return { success: true, savedTo: "db" };
+    return { success: true, savedTo: bridgeOk ? "bridge+db" : "db" };
   } catch (err) {
     console.error("[saveAgentModels]", err);
     return { error: "Error al guardar la configuración de modelos" };

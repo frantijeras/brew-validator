@@ -75,7 +75,7 @@ def _load_bridge_secret():
 BRIDGE_SECRET = _load_bridge_secret()
 CONFIG_PATH = os.path.join(SKILLS_DIR, "bridge-daemon", "agent-models.json")
 AVAILABLE_MODELS_PATH = os.path.join(CREDENTIALS_DIR, "available-models.json")
-DEFAULT_MODEL = "opencode-go/deepseek-v4-flash"
+DEFAULT_MODEL = "opencode-zen-free/deepseek-v4-flash-free"
 AGENT_MAP = {
     "skeptic": "skeptic-agent",
     "advocate": "advocate-agent",
@@ -283,24 +283,82 @@ def clean_scorecard_json(scorecard_str):
         return scorecard_str
 
 
+def _model_label(model_id):
+    """Build a human-readable label from a model id like
+    'opencode-zen-free/deepseek-v4-flash-free' → 'DeepSeek V4 Flash Free'."""
+    if not isinstance(model_id, str) or not model_id:
+        return str(model_id)
+    name = model_id.split("/")[-1]
+    parts = re.split(r"[-_.]", name)
+    words = []
+    for p in parts:
+        if not p:
+            continue
+        # Keep version-like tokens (v4, k2, m3, 3.6) mostly as-is but capitalized
+        if re.match(r"^v\d", p, re.IGNORECASE):
+            words.append(p.upper())
+        elif p.isupper():
+            words.append(p)
+        else:
+            words.append(p.capitalize())
+    return " ".join(words) if words else name
+
+
 def load_available_models():
-    """Load available models list from credentials. Falls back to built-in list."""
+    """Load available models from credentials and return a list of
+    {value, label} options for the app's model picker.
+
+    Reads ~/.openclaw/credentials/available-models.json and tolerates the
+    common shapes it may take:
+      - ["opencode-zen-free/deepseek-v4-flash-free", ...]            (list of ids)
+      - [{"id": "...", "label"/"name": "..."}, ...]                  (list of dicts)
+      - [{"value": "...", "label": "..."}, ...]                      (already shaped)
+      - {"opencode-zen-free/...": {...}, ...} or {"models": [...]}   (dict wrappers)
+
+    If the file is missing/unreadable/empty, falls back to a SHORT list of
+    known-good free models (opencode-zen-free/*-free), never opencode-go.
+    """
     fallback = [
-        {"value": "opencode-go/deepseek-v4-flash", "label": "DeepSeek V4 Flash"},
-        {"value": "opencode-go/deepseek-v4-pro", "label": "DeepSeek V4 Pro"},
-        {"value": "opencode-go/minimax-m3-free", "label": "MiniMax M3 Free"},
-        {"value": "opencode-go/kimi-k2.6", "label": "Kimi K2.6"},
-        {"value": "opencode-go/mimo-v2.5-free", "label": "Mimo V2.5 Free"},
-        {"value": "opencode-go/qwen3.6-plus-free", "label": "Qwen 3.6 Plus Free"},
-        {"value": "opencode-go/nemotron-3-super-free", "label": "Nemotron 3 Super Free"},
-        {"value": "opencode-go/big-pickle", "label": "Big Pickle"},
+        {"value": "opencode-zen-free/deepseek-v4-flash-free", "label": "DeepSeek V4 Flash Free"},
+        {"value": "opencode-zen-free/qwen3.6-plus-free", "label": "Qwen 3.6 Plus Free"},
+        {"value": "opencode-zen-free/nemotron-3-super-free", "label": "Nemotron 3 Super Free"},
     ]
+
+    def _normalize(raw):
+        """Turn whatever is in the file into a [{value, label}, ...] list."""
+        # Unwrap dict shapes
+        if isinstance(raw, dict):
+            if isinstance(raw.get("models"), list):
+                raw = raw["models"]
+            else:
+                # Treat as {id: meta} map → list of ids
+                raw = list(raw.keys())
+        if not isinstance(raw, list):
+            return []
+        options = []
+        seen = set()
+        for item in raw:
+            value = None
+            label = None
+            if isinstance(item, str):
+                value = item
+            elif isinstance(item, dict):
+                value = item.get("value") or item.get("id") or item.get("model")
+                label = item.get("label") or item.get("name")
+            if not value or value in seen:
+                continue
+            seen.add(value)
+            options.append({"value": value, "label": label or _model_label(value)})
+        return options
+
     try:
         if os.path.exists(AVAILABLE_MODELS_PATH):
             with open(AVAILABLE_MODELS_PATH, "r") as f:
-                models = json.load(f)
-                if isinstance(models, list) and len(models) > 0:
-                    return models
+                raw = json.load(f)
+            options = _normalize(raw)
+            if options:
+                return options
+            log("⚠ available-models.json had no usable models; using fallback list")
     except Exception as e:
         log(f"⚠ Could not load available models: {e}")
     return fallback
@@ -312,7 +370,7 @@ def load_model_config():
         "generator": "opencode-zen-free/deepseek-v4-flash-free",
         "skeptic": "opencode-zen-free/deepseek-v4-flash-free",
         "defender": "opencode-zen-free/deepseek-v4-flash-free",
-        "judge": "opencode-zen-free/minimax-m3-free",
+        "judge": "opencode-zen-free/deepseek-v4-flash-free",
         "refiner": "opencode-zen-free/deepseek-v4-flash-free",
     }
     try:
@@ -474,7 +532,11 @@ def parse_agent_output(output):
     return parsed
 
 
-def execute_agent(instruction, agent_name="main", timeout=180, model_override=None, idea_id=None):
+VALID_THINKING_LEVELS = ("off", "minimal", "low", "medium", "high")
+FALLBACK_MODEL = "opencode-zen-free/deepseek-v4-flash-free"
+
+
+def execute_agent(instruction, agent_name="main", timeout=180, model_override=None, idea_id=None, thinking=None):
     """Execute an OpenClaw agent via CLI.
 
     If model_override is provided, use it directly (from job._bridgeModel).
@@ -514,6 +576,9 @@ def execute_agent(instruction, agent_name="main", timeout=180, model_override=No
            "--model", model,
            "--json",
            "--timeout", str(timeout)]
+    # Optional reasoning level (--thinking off|minimal|low|medium|high)
+    if thinking and thinking in VALID_THINKING_LEVELS:
+        cmd += ["--thinking", thinking]
     log(f"  Running {agent_name} with model: {model} (session={session_id[:24]}...)")
     # Update live state tracker (reported in heartbeat to Vercel)
     global BRIDGE_STATE, BRIDGE_STATE_DETAIL, BRIDGE_CURRENT_AGENT, BRIDGE_CURRENT_MODEL
@@ -606,25 +671,48 @@ def execute_agent(instruction, agent_name="main", timeout=180, model_override=No
         log(f"  ⚠ Error: {e}")
         _set_error(f"Error ejecutando {agent_name}: {str(e)[:150]}")
         return None
-def execute_agent_with_retry(instruction, agent_name="main", timeout=180, model_override=None, idea_id=None, required_keys=None):
+def execute_agent_with_retry(instruction, agent_name="main", timeout=180, model_override=None, idea_id=None, required_keys=None, thinking=None):
     """execute_agent + 1 reintento si el modelo no devuelve JSON válido.
 
     Los modelos gratuitos a veces responden con prosa o JSON roto. En vez de
     fallar el job, reintentamos UNA vez con un recordatorio estricto de "solo
     JSON". Devuelve el dict parseado, o None si ambos intentos fallan.
+
+    Robustez extra: si tras el reintento la salida SIGUE sin ser válida y el
+    modelo usado no es el conocido-bueno (FALLBACK_MODEL), hace UN último
+    intento con ese modelo libre fiable a thinking "low", para que un modelo
+    inestable no tumbe el job entero.
     """
-    result = execute_agent(instruction, agent_name=agent_name, timeout=timeout, model_override=model_override, idea_id=idea_id)
-    ok = isinstance(result, dict) and (not required_keys or all(result.get(k) for k in required_keys))
-    if ok:
+    def _valid(r):
+        return isinstance(r, dict) and (not required_keys or all(r.get(k) for k in required_keys))
+
+    result = execute_agent(instruction, agent_name=agent_name, timeout=timeout, model_override=model_override, idea_id=idea_id, thinking=thinking)
+    if _valid(result):
         return result
     log(f"  ↻ {agent_name}: salida no válida, reintento con recordatorio JSON")
     retry_instruction = instruction + (
         "\n\nIMPORTANTE: tu respuesta anterior no fue JSON válido. Devuelve "
         "ÚNICAMENTE el objeto JSON pedido, sin texto antes ni después y sin ```."
     )
-    result2 = execute_agent(retry_instruction, agent_name=agent_name, timeout=timeout, model_override=model_override, idea_id=idea_id)
-    if isinstance(result2, dict) and (not required_keys or all(result2.get(k) for k in required_keys)):
+    result2 = execute_agent(retry_instruction, agent_name=agent_name, timeout=timeout, model_override=model_override, idea_id=idea_id, thinking=thinking)
+    if _valid(result2):
         return result2
+
+    # ── Fallback de modelo: último intento con un modelo libre conocido-bueno ──
+    # Determina el modelo que se acaba de usar (mismo criterio que execute_agent).
+    used_model = model_override or get_agent_model(agent_name)
+    if used_model != FALLBACK_MODEL:
+        log(f"  ⤇ {agent_name}: modelo {used_model.split('/')[-1]} sigue fallando — fallback a {FALLBACK_MODEL.split('/')[-1]} (thinking=low)")
+        result3 = execute_agent(retry_instruction, agent_name=agent_name, timeout=timeout, model_override=FALLBACK_MODEL, idea_id=idea_id, thinking="low")
+        if _valid(result3):
+            log(f"  ✅ {agent_name}: fallback con {FALLBACK_MODEL.split('/')[-1]} OK")
+            return result3
+        # Devuelve lo mejor disponible (preferimos un dict aunque incompleto)
+        for r in (result, result2, result3):
+            if isinstance(r, dict):
+                return r
+        return None
+
     return result if isinstance(result, dict) else result2
 
 
@@ -641,6 +729,7 @@ def process_idea_generator(job, idea):
     skill_content = read_skill(skill_name)
     job_input = json.loads(job.get("input", "{}"))
     bridge_model = job_input.pop("_bridgeModel", None)
+    thinking = job_input.pop("_thinking", None) or "low"
 
     raw_idea = job_input.get("rawIdea", "")
     sector = job_input.get("sector", "")
@@ -722,7 +811,7 @@ Mantén la esencia de la idea del usuario pero mejórala con contexto de mercado
 
     instruction += '\n\nRESPONDE SOLO CON JSON EXACTO:\n{"title": "NombreCorto", "description": "Descripción estructurada", "problem": "Problema específico que resuelve", "valueProposition": "Propuesta de valor única", "targetUser": "Público objetivo específico", "monetization": "Modelo de monetización concreto"}\n\nIMPORTANTE: title debe ser SOLO el nombre de la idea, sin descripción, sin guiones, sin coletilla. Ej: "BarApp" no "BarApp — Comandas para bares". Los campos problem y valueProposition son obligatorios.'
 
-    result = execute_agent_with_retry(instruction, agent_name="idea-generator", timeout=300, model_override=bridge_model, idea_id=idea_id, required_keys=["title", "description"])
+    result = execute_agent_with_retry(instruction, agent_name="idea-generator", timeout=300, model_override=bridge_model, idea_id=idea_id, required_keys=["title", "description"], thinking=thinking)
     if result and "title" in result and "description" in result:
         callback = {
             "jobId": job_id,
@@ -766,6 +855,7 @@ def process_qa_refiner(job, idea):
     skill_content = read_skill(skill_name)
     job_input = json.loads(job.get("input", "{}"))
     bridge_model = job_input.pop("_bridgeModel", None)
+    thinking = job_input.pop("_thinking", None) or "low"
 
     log(f"▶ {agent_name} ({job_id[:12]})")
 
@@ -778,14 +868,14 @@ def process_qa_refiner(job, idea):
     mode = job_input.get("mode", "chat")
 
     if mode == "quiz":
-        process_quiz_mode(job_id, job_input, skill_content, bridge_model, idea_id=idea_id)
+        process_quiz_mode(job_id, job_input, skill_content, bridge_model, idea_id=idea_id, thinking=thinking)
     elif mode == "manual":
-        process_manual_text_mode(job_id, job_input, skill_content, bridge_model, idea_id=idea_id)
+        process_manual_text_mode(job_id, job_input, skill_content, bridge_model, idea_id=idea_id, thinking=thinking)
     else:
-        process_chat_mode(job_id, job_input, skill_content, bridge_model, idea_id=idea_id)
+        process_chat_mode(job_id, job_input, skill_content, bridge_model, idea_id=idea_id, thinking=thinking)
 
 
-def process_quiz_mode(job_id, job_input, skill_content, bridge_model=None, idea_id=None):
+def process_quiz_mode(job_id, job_input, skill_content, bridge_model=None, idea_id=None, thinking=None):
     """Process a quiz-mode refinement job (two-phase).
     
     Phase 1 (no answers): Agent generates ALL questions at once.
@@ -858,7 +948,7 @@ Responde SOLO con JSON:
 {"status": "QUESTIONS_READY", "questions": [{"id": "q1", "questionText": "...", "options": ["opcion1", "opcion2", "opcion3"]}]}
 """
 
-    result = execute_agent(instruction, agent_name="brew-qa-refiner", timeout=240, model_override=bridge_model, idea_id=idea_id or "")
+    result = execute_agent(instruction, agent_name="brew-qa-refiner", timeout=240, model_override=bridge_model, idea_id=idea_id or "", thinking=thinking)
     if result and "status" in result:
         agent_status = result.get("status", "?")
 
@@ -903,7 +993,7 @@ Responde SOLO con JSON:
             pass
 
 
-def process_manual_text_mode(job_id, job_input, skill_content, bridge_model=None, idea_id=None):
+def process_manual_text_mode(job_id, job_input, skill_content, bridge_model=None, idea_id=None, thinking=None):
     """Process a manual-text refinement job.
 
     The user pastes raw text describing their refined idea. The agent
@@ -950,7 +1040,7 @@ Responde SOLO con JSON:
 {{"status": "DONE", "title": "Título actual (sin cambios)", "description": "Descripción mejorada", "problem": "Problema refinado", "valueProposition": "Propuesta de valor mejorada", "targetUser": "Público objetivo refinado", "monetization": "Modelo de monetización refinado", "summary": "Resumen amigable para el usuario explicando los cambios realizados y por qué", "suggestedBusinessModel": "SaaS, Marketplace, etc. (solo si la idea ha evolucionado mucho, si no, omite este campo)"}}
 """
 
-    result = execute_agent(instruction, agent_name="brew-qa-refiner", timeout=240, model_override=bridge_model, idea_id=idea_id or "")
+    result = execute_agent(instruction, agent_name="brew-qa-refiner", timeout=240, model_override=bridge_model, idea_id=idea_id or "", thinking=thinking)
     if result and "status" in result:
         callback = {
             "jobId": job_id,
@@ -972,7 +1062,7 @@ Responde SOLO con JSON:
             pass
 
 
-def process_chat_mode(job_id, job_input, skill_content, bridge_model=None, idea_id=None):
+def process_chat_mode(job_id, job_input, skill_content, bridge_model=None, idea_id=None, thinking=None):
     """Process a chat-mode refinement job (legacy)."""
     conversation_history = job_input.get("conversationHistory", [])
     idea_data = job_input.get("idea", {})
@@ -1016,7 +1106,7 @@ NO hagas preguntas genéricas ya respondidas. Responde SOLO con JSON:
 {"status": "RUNNING", "message": "Tu pregunta contextual aquí"}
 """
 
-    result = execute_agent(instruction, agent_name="brew-qa-refiner", timeout=180, model_override=bridge_model, idea_id=idea_id or "")
+    result = execute_agent(instruction, agent_name="brew-qa-refiner", timeout=180, model_override=bridge_model, idea_id=idea_id or "", thinking=thinking)
     if result and "status" in result:
         callback = {
             "jobId": job_id,
@@ -1052,6 +1142,7 @@ def process_idea_renamer(job, idea):
     skill_content = read_skill(skill_name)
     job_input = json.loads(job.get("input", "{}"))
     bridge_model = job_input.pop("_bridgeModel", None)
+    thinking = job_input.pop("_thinking", None) or "low"
 
     log(f"▶ {agent_name} ({job_id[:12]})")
 
@@ -1083,7 +1174,7 @@ RESPONDE SOLO CON JSON EXACTO:
 {{"suggestions": [{{"name": "NombreSugerido", "available": true, "reason": "Por qué este nombre encaja bien con la idea"}}]}}
 """
 
-    result = execute_agent(instruction, agent_name="idea-renamer", timeout=300, model_override=bridge_model, idea_id=idea_id)
+    result = execute_agent(instruction, agent_name="idea-renamer", timeout=300, model_override=bridge_model, idea_id=idea_id, thinking=thinking)
     if result and isinstance(result, dict) and "suggestions" in result:
         suggestions = result["suggestions"]
         if isinstance(suggestions, list) and len(suggestions) > 0:
@@ -1138,6 +1229,7 @@ def process_project_phase(job):
     skill_content = read_skill(skill_name)
     job_input = json.loads(job.get("input", "{}"))
     bridge_model = job_input.pop("_bridgeModel", None)
+    thinking = job_input.pop("_thinking", None) or "low"
     mode = job_input.get("mode", "report")
 
     sub_step = job_input.get("subStep", None)
@@ -1252,7 +1344,7 @@ def process_project_phase(job):
     # Reintento tolerante: el informe de fase (sobre todo Estrategia/Distribución)
     # puede ser enorme y el parser falla de forma intermitente por el escapado del
     # markdown dentro del JSON; si el 1er intento no parsea, reintenta pidiendo SOLO JSON.
-    result = execute_agent_with_retry(instruction, agent_name=agent_name, timeout=timeout, model_override=model, idea_id=idea_id)
+    result = execute_agent_with_retry(instruction, agent_name=agent_name, timeout=timeout, model_override=model, idea_id=idea_id, thinking=thinking)
 
     if result is None:
         log(f"  \u26a0 {agent_name} returned None — marking FAILED")
@@ -1320,6 +1412,7 @@ def process_validation_jobs(idea):
         skill_content = read_skill(skill_name)
         job_input = json.loads(job.get("input", "{}"))
         bridge_model = job_input.pop("_bridgeModel", None)
+        thinking = job_input.pop("_thinking", None) or "low"
 
         log(f"▶ {agent_name} ({job_id[:12]})")
         try:
@@ -1352,7 +1445,7 @@ CONTEXTO:
         instruction += "}"
 
         judge_timeout = 300 if agent_name == "judge" else 180
-        result = execute_agent_with_retry(instruction, agent_name=agent_name, timeout=judge_timeout, model_override=bridge_model, idea_id=idea_id, required_keys=["reportMarkdown"])
+        result = execute_agent_with_retry(instruction, agent_name=agent_name, timeout=judge_timeout, model_override=bridge_model, idea_id=idea_id, required_keys=["reportMarkdown"], thinking=thinking)
         if result:
             report_md = result.get("reportMarkdown", json.dumps(result))
 

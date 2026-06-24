@@ -9,6 +9,29 @@ import path from "path";
 // rejects nested objects, arrays or non-string values being injected as config.
 const agentModelsSchema = z.record(z.string().min(1), z.string().min(1));
 
+// Agent → reasoning level map. Values restricted to the valid thinking levels.
+const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high"] as const;
+const agentThinkingSchema = z.record(
+  z.string().min(1),
+  z.enum(THINKING_LEVELS)
+);
+
+// POST body: accepts either the legacy FLAT model map (back-compat) OR the
+// wrapped shape { models, thinking? } so reasoning levels can be saved too.
+const wrappedBodySchema = z.object({
+  models: agentModelsSchema,
+  thinking: agentThinkingSchema.optional(),
+});
+
+function isWrappedBody(body: unknown): boolean {
+  return (
+    typeof body === "object" &&
+    body !== null &&
+    "models" in body &&
+    typeof (body as Record<string, unknown>).models === "object"
+  );
+}
+
 const CONFIG_PATH = path.resolve(
   process.env.HOME || "/root",
   ".openclaw/workspace/skills/bridge-daemon/agent-models.json"
@@ -60,6 +83,18 @@ async function readConfigFromDB(): Promise<Record<string, string> | null> {
   }
 }
 
+async function readThinkingFromDB(): Promise<Record<string, string> | null> {
+  try {
+    const setting = await prisma.setting.findFirst({
+      where: { key: "agent-thinking" },
+    });
+    if (!setting) return null;
+    return setting.value as Record<string, string>;
+  } catch {
+    return null;
+  }
+}
+
 function writeConfigToFile(config: Record<string, string>): void {
   const dir = path.dirname(CONFIG_PATH);
   if (!fs.existsSync(dir)) {
@@ -79,6 +114,17 @@ async function saveConfigToDB(
   });
 }
 
+async function saveThinkingToDB(
+  userId: string,
+  thinking: Record<string, string>
+): Promise<void> {
+  await prisma.setting.upsert({
+    where: { key_userId: { key: "agent-thinking", userId } },
+    create: { key: "agent-thinking", value: thinking, userId },
+    update: { value: thinking },
+  });
+}
+
 async function forwardToBridge(
   config: Record<string, string>
 ): Promise<boolean> {
@@ -86,6 +132,9 @@ async function forwardToBridge(
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 3000);
 
+    // The bridge's /api/update-models validates each value as a model id, so we
+    // forward ONLY the flat model map here (thinking is delivered per-job via
+    // each job's _thinking field — see resolveThinkingForJobAgent).
     const res = await fetch(`${BRIDGE_URL}/api/update-models`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -108,22 +157,31 @@ async function forwardToBridge(
 export async function GET() {
   // Priority: DB (user settings) > file (bridge-synced) > defaults
   // Merge with defaults so any agent without explicit config gets a fallback.
+  //
+  // BACK-COMPAT: the response keeps the FLAT { agent: model } map at the top
+  // level (the bridge's sync_model_settings reads it directly). Reasoning
+  // levels are exposed as a SIBLING top-level `thinking` key — the bridge
+  // looks up models by specific agent name, so this extra key is ignored
+  // there and never breaks the model sync.
 
   const dbConfig = await readConfigFromDB();
   const fileConfig = await readConfigFromFile();
+  const dbThinking = await readThinkingFromDB();
+
+  const thinking = dbThinking ?? {};
 
   if (dbConfig) {
     // DB is the source of truth — merge with defaults for missing agents
-    return NextResponse.json({ ...DEFAULT_MODELS, ...dbConfig });
+    return NextResponse.json({ ...DEFAULT_MODELS, ...dbConfig, thinking });
   }
 
   if (fileConfig) {
     // File config merged with defaults (covers project agents not in file)
-    return NextResponse.json({ ...DEFAULT_MODELS, ...fileConfig });
+    return NextResponse.json({ ...DEFAULT_MODELS, ...fileConfig, thinking });
   }
 
   // Fallback to hardcoded defaults
-  return NextResponse.json(DEFAULT_MODELS);
+  return NextResponse.json({ ...DEFAULT_MODELS, thinking });
 }
 
 // POST /api/settings/agent-models
@@ -135,22 +193,47 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const parsed = agentModelsSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json(
-        {
-          error: "Formato inválido: se esperaba un objeto { agente: modelo } de strings",
-          details: parsed.error.flatten(),
-        },
-        { status: 400 }
-      );
-    }
 
-    const config = parsed.data;
+    // Normalise both shapes into { config, thinking? }.
+    let config: Record<string, string>;
+    let thinking: Record<string, string> | undefined;
+
+    if (isWrappedBody(body)) {
+      const parsed = wrappedBodySchema.safeParse(body);
+      if (!parsed.success) {
+        return NextResponse.json(
+          {
+            error: "Formato inválido: se esperaba { models, thinking }",
+            details: parsed.error.flatten(),
+          },
+          { status: 400 }
+        );
+      }
+      config = parsed.data.models;
+      thinking = parsed.data.thinking;
+    } else {
+      const parsed = agentModelsSchema.safeParse(body);
+      if (!parsed.success) {
+        return NextResponse.json(
+          {
+            error: "Formato inválido: se esperaba un objeto { agente: modelo } de strings",
+            details: parsed.error.flatten(),
+          },
+          { status: 400 }
+        );
+      }
+      config = parsed.data;
+      thinking = undefined;
+    }
 
     // 1. Always persist to DB FIRST — this is the durable source of truth
     //    used by resolveModelForJobAgent() when creating jobs.
     await saveConfigToDB(session.user.id, config);
+
+    // 1b. Persist reasoning levels too (additive — only if provided).
+    if (thinking) {
+      await saveThinkingToDB(session.user.id, thinking);
+    }
 
     // 2. Always try to write to the local file (works on Fran's VPS,
     //    silently fails on Vercel serverless). The bridge daemon reads

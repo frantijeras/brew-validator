@@ -106,3 +106,45 @@ export async function resolveModelForJobAgent(jobAgentName: string): Promise<str
   const settingsKey = getSettingsKeyForJobAgent(jobAgentName);
   return getAgentModelForAgent(settingsKey);
 }
+
+/* ── Reasoning level (thinking) — mirror of the model config above ── */
+
+// Niveles de razonamiento aceptados por el CLI a través del bridge (--thinking).
+export const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high"] as const;
+export type ThinkingLevel = (typeof THINKING_LEVELS)[number];
+
+// Nivel por defecto cuando no hay configuración (acordado con el bridge: "low").
+export const DEFAULT_THINKING_LEVEL: ThinkingLevel = "low";
+
+function isThinkingLevel(value: unknown): value is ThinkingLevel {
+  return typeof value === "string" && (THINKING_LEVELS as readonly string[]).includes(value);
+}
+
+/**
+ * Resuelve el nivel de razonamiento configurado para un agente (por su clave de
+ * ajustes). Lee el Setting `"agent-thinking"` (JSON { settingsKey: level }) y
+ * cae al default "low". Refleja el estilo de búsqueda de getAgentModelForAgent.
+ */
+export async function getThinkingForAgent(agentId: string): Promise<ThinkingLevel> {
+  try {
+    const fullConfig = await prisma.setting.findFirst({
+      where: { key: "agent-thinking" },
+    });
+    if (fullConfig?.value) {
+      const configObj = fullConfig.value as Record<string, unknown>;
+      if (typeof configObj === "object" && !Array.isArray(configObj)) {
+        const level = configObj[agentId];
+        if (isThinkingLevel(level)) return level;
+      }
+    }
+  } catch {
+    // DB unreachable — use default
+  }
+
+  return DEFAULT_THINKING_LEVEL;
+}
+
+export async function resolveThinkingForJobAgent(jobAgentName: string): Promise<ThinkingLevel> {
+  const settingsKey = getSettingsKeyForJobAgent(jobAgentName);
+  return getThinkingForAgent(settingsKey);
+}

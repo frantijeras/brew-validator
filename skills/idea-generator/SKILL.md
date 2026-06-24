@@ -5,7 +5,6 @@ description: |
   Reformula ideas de negocio en crudo en propuestas estructuradas usando web_search.
   Soporta modo aleatorio (tendencias actuales → 1 idea) y modo personalizado
   (rawIdea + sector + target + hints → idea estructurada).
-model: deepseek-v4-flash
 agent: idea-generator
 ---
 

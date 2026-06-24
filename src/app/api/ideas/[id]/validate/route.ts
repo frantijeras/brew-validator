@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { resolveModelForJobAgent } from "@/lib/agent-models";
+import { resolveModelForJobAgent, resolveThinkingForJobAgent } from "@/lib/agent-models";
 import { isIdeaBusy } from "@/lib/idea-state";
 import { guardIdea } from "@/lib/ownership";
 import { getBridgeHealth, BRIDGE_OFFLINE_MESSAGE } from "@/lib/bridge/health";
@@ -78,12 +78,13 @@ export async function POST(
     const jobs = await Promise.all(
       AGENTS.map(async (agentName) => {
         const bridgeModel = await resolveModelForJobAgent(agentName);
+        const thinking = await resolveThinkingForJobAgent(agentName);
         return prisma.job.create({
           data: {
             ideaId: id,
             agentName,
             status: "PENDING",
-            input: JSON.stringify({ ...baseInput, _bridgeModel: bridgeModel }),
+            input: JSON.stringify({ ...baseInput, _bridgeModel: bridgeModel, _thinking: thinking }),
           },
         });
       })

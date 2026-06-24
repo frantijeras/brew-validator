@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/db";
-import { resolveModelForJobAgent, agentForIdentitySubStep } from "@/lib/agent-models";
+import {
+  resolveModelForJobAgent,
+  resolveThinkingForJobAgent,
+  agentForIdentitySubStep,
+} from "@/lib/agent-models";
 import { buildAgentContextRules } from "@/lib/agent-context-rules";
 import type { ProjectMemory } from "@/lib/project-memory";
 import { parsePreviousPhaseArtifacts } from "@/lib/phase-context-parser";
@@ -198,6 +202,7 @@ export async function enqueuePhaseJob(
       ? agentForIdentitySubStep(effectiveSubStep)
       : PHASE_TO_AGENT[phaseType] || `project-${phaseType.toLowerCase()}`;
   const model = modelOverride || (await resolveModelForJobAgent(agentName));
+  const thinking = await resolveThinkingForJobAgent(agentName);
 
   const contextRules = buildAgentContextRules(projectMemory);
 
@@ -219,6 +224,7 @@ export async function enqueuePhaseJob(
     _currentYear: currentYear,
     _previousYear: currentYear - 1,
     _bridgeModel: model,
+    _thinking: thinking,
   };
 
   if (mode === "report" && answers) {

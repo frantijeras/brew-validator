@@ -58,6 +58,7 @@ export default function IdeaDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [validating, setValidating] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
   const [apiError, setApiError] = useState("");
   const [archPending, setArchPending] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -160,6 +161,55 @@ export default function IdeaDetailPage() {
       setApiError(err instanceof Error ? err.message : "Error");
     } finally {
       setValidating(false);
+    }
+  }
+
+  async function handleRegenerate() {
+    if (!idea) return;
+    if (bridgeDown) {
+      setApiError(
+        "El servicio de IA no está disponible. El servidor local puede estar apagado. Inténtalo más tarde."
+      );
+      return;
+    }
+    setRegenerating(true);
+    setApiError("");
+    try {
+      // Re-run generation reusing the idea's stored inputs. A custom idea keeps
+      // the user's raw text (originalIdea); otherwise we fall back to a random
+      // generation. The generate endpoint creates a brand-new idea, so once it
+      // succeeds we delete the failed one and navigate to the new idea.
+      const body = idea.originalIdea
+        ? {
+            mode: "custom" as const,
+            rawIdea: idea.originalIdea,
+            businessModel: idea.businessModel || undefined,
+          }
+        : {
+            mode: "random" as const,
+            businessModel: idea.businessModel || undefined,
+          };
+      const res = await fetch(`/api/ideas/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Error al reintentar la generación");
+      }
+      const data = await res.json();
+      // Best-effort cleanup of the failed idea (don't block navigation on it).
+      await fetch(`/api/ideas/${ideaId}`, {
+        method: "DELETE",
+        credentials: "same-origin",
+      }).catch(() => {});
+      router.push(`/ideas/${data.ideaId}`);
+      router.refresh();
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : "Error");
+      setRegenerating(false);
     }
   }
 
@@ -316,11 +366,30 @@ export default function IdeaDetailPage() {
   // Bloquea acciones de mutación de contenido (validar, exportar, etc.)
   // mientras la idea está siendo procesada por el bridge.
   const isBusy = isIdeaBusy(idea.status);
+  const isDraft = idea.status === "DRAFT";
+
+  // Distinguish a GENERATION failure from a VALIDATION failure.
+  //
+  // Robust signal from the callback (see agent-callback/route.ts):
+  //  - idea-generator failure → status="FAILED"   (idea never produced content)
+  //  - validation-agent failure → status="COMPLETED", validationStatus="FAILED"
+  //    (the idea already had real content from a prior generation)
+  //
+  // So status==="FAILED" + no reports means the idea was never generated. We
+  // also confirm it never reached DRAFT (placeholder content still in place)
+  // for custom ideas where the title is the user's raw text. The dominant
+  // signal is status==="FAILED" with no reports.
+  const isGenerationFailure =
+    idea.status === "FAILED" && idea.reports.length === 0;
+  const isValidationFailure =
+    idea.validationStatus === "FAILED" && !isGenerationFailure;
+
+  // No tiene sentido ofrecer "Validar" cuando la idea ni siquiera se generó.
   const canValidate =
     !isBusy &&
+    !isGenerationFailure &&
     idea.validationStatus !== "RUNNING" &&
     idea.validationStatus !== "DONE";
-  const isDraft = idea.status === "DRAFT";
 
   const formattedCreated = new Date(idea.createdAt).toLocaleDateString("es-ES", {
     day: "numeric",
@@ -785,8 +854,39 @@ export default function IdeaDetailPage() {
         );
       })()}
 
-      {/* Failed state */}
-      {idea.validationStatus === "FAILED" && (
+      {/* Generation failure — the idea was never produced */}
+      {isGenerationFailure && (
+        <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-6">
+          <div className="flex items-start gap-3">
+            <AlertTriangleIcon />
+            <div>
+              <h3 className="text-lg font-semibold text-red-400">
+                Error al generar la idea
+              </h3>
+              <p className="mt-1 text-sm text-slate-400">
+                No se pudo generar la idea. Puedes reintentar la generación con
+                los mismos datos.
+              </p>
+              <Button
+                variant="danger"
+                onClick={handleRegenerate}
+                disabled={regenerating}
+                title={
+                  bridgeDown
+                    ? "El servicio de IA no está disponible"
+                    : undefined
+                }
+                className="mt-4 bg-red-500/20 font-medium text-red-400 hover:bg-red-500/30"
+              >
+                {regenerating ? "Reintentando…" : "Reintentar generación"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Validation failure — the idea had content but validation failed */}
+      {isValidationFailure && (
         <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-6">
           <div className="flex items-start gap-3">
             <AlertTriangleIcon />

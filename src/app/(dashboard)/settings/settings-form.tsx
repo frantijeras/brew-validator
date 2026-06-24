@@ -319,6 +319,96 @@ const MODEL_FALLBACK: ModelOption[] = [
 // Modelo aplicado por defecto a todos los agentes mientras no se añada una excepción.
 const GLOBAL_DEFAULT_MODEL = "opencode-zen-free/deepseek-v4-flash-free";
 
+/* ── Reasoning level (thinking) ── */
+const THINKING_LEVELS = ["off", "minimal", "low", "medium", "high"] as const;
+type ThinkingLevel = (typeof THINKING_LEVELS)[number];
+// Nivel por defecto acordado con el bridge cuando no hay configuración.
+const DEFAULT_THINKING: ThinkingLevel = "low";
+const THINKING_LABELS: Record<ThinkingLevel, string> = {
+  off: "Sin razonamiento",
+  minimal: "Mínimo",
+  low: "Bajo",
+  medium: "Medio",
+  high: "Alto",
+};
+const THINKING_STORAGE_KEY = "brew-ia-agent-thinking";
+
+function isThinkingLevel(v: unknown): v is ThinkingLevel {
+  return typeof v === "string" && (THINKING_LEVELS as readonly string[]).includes(v);
+}
+
+function loadThinkingConfig(): Record<string, ThinkingLevel> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(THINKING_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const out: Record<string, ThinkingLevel> = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      if (isThinkingLevel(v)) out[k] = v;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function saveThinkingConfig(config: Record<string, ThinkingLevel>) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(THINKING_STORAGE_KEY, JSON.stringify(config));
+}
+
+// Deduce el nivel por defecto (el más repetido) y las excepciones por agente.
+function deriveThinkingDefaultAndOverrides(full: Record<string, ThinkingLevel>): {
+  defaultLevel: ThinkingLevel;
+  overrides: Record<string, ThinkingLevel>;
+} {
+  const counts = new Map<ThinkingLevel, number>();
+  for (const a of ALL_AGENTS) {
+    const t = full[a.id];
+    if (t) counts.set(t, (counts.get(t) ?? 0) + 1);
+  }
+  let defaultLevel: ThinkingLevel = DEFAULT_THINKING;
+  let max = 0;
+  for (const [t, c] of counts) {
+    if (c > max) {
+      max = c;
+      defaultLevel = t;
+    }
+  }
+  const overrides: Record<string, ThinkingLevel> = {};
+  for (const a of ALL_AGENTS) {
+    const t = full[a.id];
+    if (t && t !== defaultLevel) overrides[a.id] = t;
+  }
+  return { defaultLevel, overrides };
+}
+
+/* ── Reusable reasoning-level <select> ── */
+function ThinkingSelect({
+  value,
+  onChange,
+  className = "",
+}: {
+  value: ThinkingLevel;
+  onChange: (level: ThinkingLevel) => void;
+  className?: string;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value as ThinkingLevel)}
+      className={`w-full max-w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 ${className}`}
+    >
+      {THINKING_LEVELS.map((lvl) => (
+        <option key={lvl} value={lvl}>
+          {THINKING_LABELS[lvl]}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 const DEFAULT_AGENT_MODELS: Record<string, string> = {
   generator: "opencode-zen-free/deepseek-v4-flash-free",
   skeptic: "opencode-zen-free/deepseek-v4-flash-free",
@@ -409,6 +499,8 @@ function deriveDefaultAndOverrides(full: Record<string, string>): {
 function AIModelSection() {
   const [defaultModel, setDefaultModel] = useState<string>(GLOBAL_DEFAULT_MODEL);
   const [overrides, setOverrides] = useState<Record<string, string>>({});
+  const [defaultThinking, setDefaultThinking] = useState<ThinkingLevel>(DEFAULT_THINKING);
+  const [thinkingOverrides, setThinkingOverrides] = useState<Record<string, ThinkingLevel>>({});
   const [saved, setSaved] = useState(false);
   const [modelOptions, setModelOptions] = useState<ModelOption[]>([...MODEL_FALLBACK]);
   const [refreshing, setRefreshing] = useState(false);
@@ -417,6 +509,9 @@ function AIModelSection() {
     const { defaultModel: d, overrides: o } = deriveDefaultAndOverrides(loadModelConfig());
     setDefaultModel(d);
     setOverrides(o);
+    const { defaultLevel, overrides: to } = deriveThinkingDefaultAndOverrides(loadThinkingConfig());
+    setDefaultThinking(defaultLevel);
+    setThinkingOverrides(to);
   }, []);
 
   // Carga la lista de modelos disponibles desde la API (live > fallback).
@@ -460,14 +555,29 @@ function AIModelSection() {
     setSaved(false);
   }
 
+  function setThinkingOverride(agentId: string, level: ThinkingLevel) {
+    setThinkingOverrides((prev) => ({ ...prev, [agentId]: level }));
+    setSaved(false);
+  }
+
+  function handleDefaultThinkingChange(level: ThinkingLevel) {
+    setDefaultThinking(level);
+    setSaved(false);
+  }
+
   function handleSave() {
     // Expandir a config completo: cada agente usa su excepción o el modelo por defecto.
     const full: Record<string, string> = {};
+    const thinkingFull: Record<string, ThinkingLevel> = {};
     for (const a of ALL_AGENTS) {
       full[a.id] = overrides[a.id] ?? defaultModel;
+      thinkingFull[a.id] = thinkingOverrides[a.id] ?? defaultThinking;
     }
     saveModelConfig(full);
-    saveAgentModels(full).catch((err) => console.error("Failed to persist agent models:", err));
+    saveThinkingConfig(thinkingFull);
+    saveAgentModels(full, thinkingFull).catch((err) =>
+      console.error("Failed to persist agent models:", err)
+    );
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   }
@@ -509,6 +619,17 @@ function AIModelSection() {
             className="sm:w-72 sm:shrink-0"
           />
         </div>
+        <div className="mt-3 flex flex-col gap-3 border-t border-amber-500/15 pt-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-medium text-amber-300">Razonamiento por defecto</p>
+            <p className="mt-0.5 text-xs text-slate-400">Nivel de razonamiento aplicado a todos los agentes sin excepción</p>
+          </div>
+          <ThinkingSelect
+            value={defaultThinking}
+            onChange={handleDefaultThinkingChange}
+            className="sm:w-72 sm:shrink-0"
+          />
+        </div>
       </div>
 
       {/* Grupos con excepciones */}
@@ -519,8 +640,11 @@ function AIModelSection() {
           defaultModel={defaultModel}
           overrides={overrides}
           modelOptions={modelOptions}
+          defaultThinking={defaultThinking}
+          thinkingOverrides={thinkingOverrides}
           onSetOverride={setOverride}
           onRemoveOverride={removeOverride}
+          onSetThinkingOverride={setThinkingOverride}
         />
       ))}
 
@@ -579,15 +703,21 @@ function ExceptionGroup({
   defaultModel,
   overrides,
   modelOptions,
+  defaultThinking,
+  thinkingOverrides,
   onSetOverride,
   onRemoveOverride,
+  onSetThinkingOverride,
 }: {
   group: { key: string; title: string; description: string; agents: AgentInfo[] };
   defaultModel: string;
   overrides: Record<string, string>;
   modelOptions: ModelOption[];
+  defaultThinking: ThinkingLevel;
+  thinkingOverrides: Record<string, ThinkingLevel>;
   onSetOverride: (id: string, model: string) => void;
   onRemoveOverride: (id: string) => void;
+  onSetThinkingOverride: (id: string, level: ThinkingLevel) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -633,21 +763,33 @@ function ExceptionGroup({
                 <p className="text-sm font-medium text-white">{agent.name}</p>
                 <p className="mt-0.5 text-xs leading-relaxed text-slate-400">{agent.description}</p>
               </div>
-              <div className="flex w-full items-center gap-2 sm:w-auto sm:shrink-0">
-                <ModelSelect
-                  value={overrides[agent.id]}
-                  onChange={(model) => onSetOverride(agent.id, model)}
-                  modelOptions={modelOptions}
-                  className="sm:w-56"
-                />
-                <button
-                  type="button"
-                  onClick={() => onRemoveOverride(agent.id)}
-                  title="Quitar excepción (volver al modelo por defecto)"
-                  className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-slate-700 text-slate-400 transition-colors hover:bg-slate-800 hover:text-red-400"
-                >
-                  <X className="size-4" />
-                </button>
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:shrink-0 sm:flex-row sm:items-center">
+                <div className="flex w-full items-center gap-2 sm:w-auto">
+                  <ModelSelect
+                    value={overrides[agent.id]}
+                    onChange={(model) => onSetOverride(agent.id, model)}
+                    modelOptions={modelOptions}
+                    className="sm:w-56"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => onRemoveOverride(agent.id)}
+                    title="Quitar excepción (volver al modelo por defecto)"
+                    className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-slate-700 text-slate-400 transition-colors hover:bg-slate-800 hover:text-red-400"
+                  >
+                    <X className="size-4" />
+                  </button>
+                </div>
+                <div className="flex w-full items-center gap-2 sm:w-auto">
+                  <span className="shrink-0 text-xs text-slate-500" title="Nivel de razonamiento">
+                    Razonamiento
+                  </span>
+                  <ThinkingSelect
+                    value={thinkingOverrides[agent.id] ?? defaultThinking}
+                    onChange={(level) => onSetThinkingOverride(agent.id, level)}
+                    className="sm:w-40"
+                  />
+                </div>
               </div>
             </div>
           ))}
