@@ -35,7 +35,7 @@ export interface UserFacingMessage {
  * Si no hay var de entorno, cae a un mailto genérico. Nunca contiene secretos.
  */
 export const SUPPORT_URL =
-  process.env.NEXT_PUBLIC_SUPPORT_URL || "mailto:soporte@copyfly.es";
+  process.env.NEXT_PUBLIC_SUPPORT_URL || "mailto:fjtijeras@gmail.com";
 
 /**
  * Mensaje exacto por categoría de error, según el spec. Cubre las 10 categorías
