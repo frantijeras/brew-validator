@@ -25,10 +25,19 @@ const BRIDGE_PATHS = [
   "/api/settings/agent-models",
 ];
 
+// Rutas de PÁGINA públicas (sin sesión): el invitado abre /invite/{token} sin
+// cuenta, y /terms es informativa. /consent y /suspended NO van aquí: requieren
+// sesión (si no hay, que vayan a login).
+const PUBLIC_PATHS = ["/invite", "/terms"];
+
 export default auth((req) => {
   const { pathname } = req.nextUrl;
 
   if (!req.auth) {
+    // Páginas públicas: dejar pasar sin sesión.
+    if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
+      return;
+    }
     // Bridge-facing routes: allow when the shared secret check passes.
     if (
       BRIDGE_PATHS.some((p) => pathname.startsWith(p)) &&
