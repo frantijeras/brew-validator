@@ -590,24 +590,10 @@ export async function buildHandoffZip(options: HandoffOptions): Promise<Buffer> 
         // Fallback: generate deterministically with the SAME builder as the app.
         archive.append(buildSkillMarkdown(skill.id, ctx), { name: `${prefix}skills/${filename}` });
       }
-    } else {
-      // No skills selected/generated (user skipped, or none matched). Include
-      // only the project-handoff meta-context skill so the package is still
-      // usable — we do NOT ship skills the user didn't ask for (e.g. landing).
-      archive.append(buildSkillMarkdown("project-handoff", ctx), {
-        name: `${prefix}skills/project-handoff.md`,
-      });
     }
-
-    // Ensure the project-handoff meta-context skill is present exactly once.
-    // When skills were selected but project-handoff wasn't among them, add it.
-    // (When it WAS selected, the loop above already wrote it; when there were
-    // no skills, the else branch above already wrote it.)
-    if (hasSkills && !selectedSkills.some(s => s.id === "project-handoff")) {
-      archive.append(buildSkillMarkdown("project-handoff", ctx), {
-        name: `${prefix}skills/project-handoff.md`,
-      });
-    }
+    // Si no hay skills seleccionadas, el paquete se entrega igualmente: AGENTS.md
+    // (orquestador) + CLAUDE.md + contexto/ + assets/ ya lo hacen utilizable. La
+    // antigua skill "project-handoff" se eliminó por ser redundante con AGENTS.md.
 
     void archive.finalize();
   });

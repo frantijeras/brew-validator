@@ -42,13 +42,11 @@ const SKILL_REFS: Record<string, ContextDocKey[]> = {
   analytics: ["BUSINESS", "ROADMAP"],
   "ads-manager": ["CONTENT", "BUSINESS", "ANALYSIS"],
   "finance-contabilidad": ["BUSINESS", "ROADMAP"],
-  "project-handoff": ["ANALYSIS", "BUSINESS", "VOICE", "STYLE", "CONTENT", "ROADMAP"],
 };
 
 // Assets de identidad (carpeta assets/) que algunas skills usan.
 const SKILL_ASSETS: Record<string, string[]> = {
   "web-creator": ["../assets/logo.svg", "../assets/template.html"],
-  "project-handoff": ["../assets/logo.svg", "../assets/template.html", "../assets/guia-estilos.pdf"],
 };
 
 /**
@@ -70,8 +68,6 @@ const SKILL_ROLE: Record<string, string> = {
     "Eres un media buyer / gestor de paid media. Planificas campañas con segmentación, presupuesto y creatividades basadas en datos reales del proyecto.",
   "finance-contabilidad":
     "Eres un asesor financiero para pequeños negocios. Trabajas sobre los números reales del análisis de viabilidad.",
-  "project-handoff":
-    "Eres la guía de arranque para un agente externo (o un nuevo miembro del equipo) que va a ejecutar el paquete del proyecto.",
 };
 
 /**
@@ -149,16 +145,6 @@ const SKILL_SECTION_GUIDES: Record<string, Record<string, string>> = {
     Indicadores:
       "Margen, burn rate (consumo de caja), runway (meses de caja), ticket medio; con semáforos de alerta.",
   },
-  "project-handoff": {
-    "Que es el proyecto":
-      "Un párrafo: qué es, para quién y modelo de negocio (tómalo de AGENT.md). Resultado final, no el proceso.",
-    "Estructura del paquete":
-      "Árbol de carpetas (`contexto/`, `assets/`, `skills/`) con una línea por archivo y para qué sirve.",
-    "Orden de lectura":
-      "Empieza SIEMPRE por `../AGENT.md`; luego ve SOLO al doc de contexto que pida la tarea concreta. No leer todo por defecto.",
-    "Como ejecutar cada skill":
-      "Cada archivo de `skills/` indica su Rol y qué documentos consultar; ejecuta la que toque según la necesidad (web, contenido, ads…).",
-  },
 };
 
 /** Nota de guía por sección: usa la guía concreta si existe; si no, una
@@ -209,8 +195,6 @@ const SKILL_HOWTO: Record<string, string> = {
     "Usa el target y la competencia (`../contexto/1.analisis-de-mercado.md`), los canales (`../contexto/4.estrategia-distribucion.md`) y los unit economics (`../contexto/2.viabilidad-economica.md`) para presupuestos y segmentación. Mantén la voz/tono en las creatividades.",
   "finance-contabilidad":
     "Parte de los números del análisis de viabilidad (`../contexto/2.viabilidad-economica.md`) y del roadmap (`../contexto/5.roadmap.md`).",
-  "project-handoff":
-    "Empieza SIEMPRE por `../AGENT.md` (eje central con decisiones). Consulta cada doc de `../contexto/` solo cuando la tarea lo requiera.",
 };
 
 /** Etiquetas legibles para las claves de memoria más relevantes del contexto. */
@@ -245,7 +229,7 @@ export function buildSkillMarkdown(skillId: string, ctx: ProjectContext): string
   }
 
   // Bloque con datos reales del proyecto para que el preview en la app no salga
-  // vacío. El contexto AUTORITATIVO sigue viviendo en ../AGENT.md y ../contexto/*.md
+  // vacío. El contexto AUTORITATIVO sigue viviendo en ../AGENTS.md y ../contexto/*.md
   // (ver más abajo); esto es solo un resumen rápido.
   L.push("## Contexto del proyecto");
   L.push(`- **Proyecto:** ${ctx.projectName}`);
@@ -271,7 +255,7 @@ export function buildSkillMarkdown(skillId: string, ctx: ProjectContext): string
     "El contexto autoritativo del proyecto **NO es la idea inicial**: vive en los " +
       "documentos del paquete, ya validados y evolucionados por las fases. Las " +
       "decisiones finales (target, modelo de negocio, pricing, tono, canales) están " +
-      "en `../AGENT.md`; el detalle por área, en `../contexto/*.md` (ver mapa abajo). " +
+      "en `../AGENTS.md`; el detalle por área, en `../contexto/*.md` (ver mapa abajo). " +
       "Trabaja SIEMPRE sobre esas fuentes; no asumas datos de la idea de partida."
   );
   L.push("");
@@ -279,7 +263,7 @@ export function buildSkillMarkdown(skillId: string, ctx: ProjectContext): string
   if (refs.length || assets.length) {
     L.push("## Mapa del paquete (consulta puntual)");
     L.push(
-      "No leas todo el contexto por defecto. Empieza por `../AGENT.md` (eje central " +
+      "No leas todo el contexto por defecto. Empieza por `../AGENTS.md` (eje central " +
         "con el resumen e instrucciones del proyecto) y, para esta tarea, ve SOLO al " +
         "archivo de abajo cuya información necesites:"
     );

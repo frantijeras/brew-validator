@@ -78,14 +78,6 @@ export const SKILL_CATALOG: SkillDefinition[] = [
     icon: "DollarSign",
     category: "finanzas",
   },
-  {
-    id: "project-handoff",
-    name: "Guia para Agentes",
-    description:
-      "Como un agente externo debe leer y ejecutar el paquete (estructura de carpetas y orden de lectura).",
-    icon: "Target",
-    category: "desarrollo",
-  },
 ];
 
 /**
@@ -134,12 +126,6 @@ export const SKILL_OUTPUT_META: Record<string, SkillOutputMeta> = {
   "finance-contabilidad": {
     outputSummary: "Facturacion, impuestos, cashflow y proyeccion de ingresos.",
     sections: ["Facturacion e impuestos", "Cashflow", "Proyeccion de ingresos", "Indicadores"],
-    length: "media",
-  },
-  "project-handoff": {
-    outputSummary:
-      "Guia para que un agente externo lea y ejecute el paquete: estructura de carpetas y orden de lectura.",
-    sections: ["Que es el proyecto", "Estructura del paquete", "Orden de lectura", "Como ejecutar cada skill"],
     length: "media",
   },
 };
