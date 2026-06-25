@@ -42,6 +42,7 @@ const SKILL_REFS: Record<string, ContextDocKey[]> = {
   analytics: ["BUSINESS", "ROADMAP"],
   "ads-manager": ["CONTENT", "BUSINESS", "ANALYSIS"],
   "finance-contabilidad": ["BUSINESS", "ROADMAP"],
+  "legal-privacidad": ["BUSINESS"],
 };
 
 // Assets de identidad (carpeta assets/) que algunas skills usan.
@@ -68,6 +69,8 @@ const SKILL_ROLE: Record<string, string> = {
     "Eres un media buyer / gestor de paid media. Planificas campañas con segmentación, presupuesto y creatividades basadas en datos reales del proyecto.",
   "finance-contabilidad":
     "Eres un asesor financiero para pequeños negocios. Trabajas sobre los números reales del análisis de viabilidad.",
+  "legal-privacidad":
+    "Eres un asesor legal para negocios digitales (NO sustituyes a un abogado). Preparas BORRADORES de aviso legal, política de privacidad (RGPD/LOPDGDD), política de cookies y términos, adaptados al modelo de negocio y al país. Marca SIEMPRE lo que requiere datos reales del titular o revisión profesional.",
 };
 
 /**
@@ -145,6 +148,16 @@ const SKILL_SECTION_GUIDES: Record<string, Record<string, string>> = {
     Indicadores:
       "Margen, burn rate (consumo de caja), runway (meses de caja), ticket medio; con semáforos de alerta.",
   },
+  "legal-privacidad": {
+    "Aviso legal":
+      "Datos identificativos del titular (nombre/razón social, NIF/CIF, domicilio, email de contacto), objeto del sitio y condiciones de uso. Marca con [PENDIENTE] los datos que debe rellenar el titular; NO inventes identidades ni números fiscales.",
+    "Politica de privacidad (RGPD)":
+      "Responsable del tratamiento; qué datos se recogen, con qué finalidad y base legal (consentimiento, ejecución de contrato, interés legítimo); plazo de conservación; destinatarios/encargados (p. ej. proveedor de email, analítica, hosting, pasarela de pago); transferencias internacionales; y derechos (acceso, rectificación, supresión, oposición, portabilidad, limitación) con cómo ejercerlos. Deriva los datos recogidos de lo que el proyecto USA realmente (formularios, email marketing, analítica, ads).",
+    "Politica de cookies":
+      "Clasifica las cookies (técnicas, analíticas, de marketing) en una tabla con proveedor, finalidad y duración, coherente con la analítica/ads del proyecto. Exige banner de consentimiento PREVIO con rechazar tan fácil como aceptar (no muros de cookies).",
+    "Terminos y condiciones":
+      "Condiciones de contratación/uso según la monetización (suscripción, pago único, marketplace, freemium…): precio e impuestos, proceso de compra, derecho de desistimiento (14 días en e-commerce B2C UE, con excepciones), garantías, limitación de responsabilidad, propiedad intelectual, ley aplicable y resolución de conflictos.",
+  },
 };
 
 /** Nota de guía por sección: usa la guía concreta si existe; si no, una
@@ -195,6 +208,8 @@ const SKILL_HOWTO: Record<string, string> = {
     "Usa el target y la competencia (`../contexto/1.analisis-de-mercado.md`), los canales (`../contexto/4.estrategia-distribucion.md`) y los unit economics (`../contexto/2.viabilidad-economica.md`) para presupuestos y segmentación. Mantén la voz/tono en las creatividades.",
   "finance-contabilidad":
     "Parte de los números del análisis de viabilidad (`../contexto/2.viabilidad-economica.md`) y del roadmap (`../contexto/5.roadmap.md`).",
+  "legal-privacidad":
+    "Parte del modelo de negocio y el país/jurisdicción (`../contexto/2.viabilidad-economica.md`). Ajusta los datos REALMENTE recogidos a lo que usen las demás áreas (email, analítica, ads). Entrega borradores y marca [PENDIENTE] o «revisar con un profesional» donde haga falta.",
 };
 
 /** Etiquetas legibles para las claves de memoria más relevantes del contexto. */
@@ -239,9 +254,10 @@ export function buildSkillMarkdown(skillId: string, ctx: ProjectContext): string
   if (ctx.monetization && ctx.monetization !== businessModel) {
     L.push(`- **Monetización:** ${ctx.monetization}`);
   }
-  const keyDecisions = ctx.memoryEntries
-    .filter(([k]) => MEMORY_KEY_LABELS[k])
-    .slice(0, 3);
+  // Enriquecido: mostramos TODAS las decisiones clave registradas (target, tono,
+  // canales, pricing, modelo, competencia, keywords), no solo 3, para que cada
+  // skill sea más autosuficiente sin tener que abrir el contexto.
+  const keyDecisions = ctx.memoryEntries.filter(([k]) => MEMORY_KEY_LABELS[k]);
   if (keyDecisions.length) {
     L.push("- **Decisiones clave:**");
     for (const [k, v] of keyDecisions) {

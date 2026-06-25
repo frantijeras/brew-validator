@@ -78,6 +78,14 @@ export const SKILL_CATALOG: SkillDefinition[] = [
     icon: "DollarSign",
     category: "finanzas",
   },
+  {
+    id: "legal-privacidad",
+    name: "Legal y Privacidad",
+    description:
+      "Borradores de aviso legal, politica de privacidad (RGPD), cookies y terminos, adaptados al negocio.",
+    icon: "Scale",
+    category: "legal",
+  },
 ];
 
 /**
@@ -126,6 +134,12 @@ export const SKILL_OUTPUT_META: Record<string, SkillOutputMeta> = {
   "finance-contabilidad": {
     outputSummary: "Facturacion, impuestos, cashflow y proyeccion de ingresos.",
     sections: ["Facturacion e impuestos", "Cashflow", "Proyeccion de ingresos", "Indicadores"],
+    length: "media",
+  },
+  "legal-privacidad": {
+    outputSummary:
+      "Borradores de aviso legal, politica de privacidad (RGPD/LOPDGDD), politica de cookies y terminos y condiciones, con lo que requiere revision profesional marcado.",
+    sections: ["Aviso legal", "Politica de privacidad (RGPD)", "Politica de cookies", "Terminos y condiciones"],
     length: "media",
   },
 };

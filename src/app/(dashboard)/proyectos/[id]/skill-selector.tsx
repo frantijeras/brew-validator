@@ -12,6 +12,7 @@ import {
   DollarSign,
   Globe,
   Megaphone,
+  Scale,
   Sparkles,
   ArrowRight,
   Eye,
@@ -32,6 +33,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   DollarSign,
   Globe,
   Megaphone,
+  Scale,
 };
 
 const categoryLabel: Record<string, string> = {
