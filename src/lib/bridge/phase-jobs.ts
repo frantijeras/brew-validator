@@ -135,9 +135,16 @@ export async function enqueuePhaseJob(
     })
     .filter((a): a is { title: string; content: string } => a !== null);
 
-  // For SUBSTEP_READY phases, also include the subStepArtifact + choice in
-  // the context the next job will see.
-  if (includePreviousSubStepArtifact && phase.status === "SUBSTEP_READY" && phase.subStepArtifact) {
+  // For SUBSTEP_READY / SUBSTEP_PENDING phases, also include the
+  // subStepArtifact + choice in the context the next job will see. (When the
+  // user confirms a non-last sub-step, /substep/choose pauses the phase in
+  // SUBSTEP_PENDING keeping the just-confirmed artifact; the manually-started
+  // next sub-step — via /substep/start-next — must still receive it.)
+  if (
+    includePreviousSubStepArtifact &&
+    (phase.status === "SUBSTEP_READY" || phase.status === "SUBSTEP_PENDING") &&
+    phase.subStepArtifact
+  ) {
     const subArtifact = phase.subStepArtifact as { type?: string; content?: string };
     if (subArtifact.content) {
       rawPreviousArtifacts.push({
@@ -231,7 +238,7 @@ export async function enqueuePhaseJob(
     jobInput.answers = answers;
   }
 
-  if (phase.status === "SUBSTEP_READY") {
+  if (phase.status === "SUBSTEP_READY" || phase.status === "SUBSTEP_PENDING") {
     jobInput.subStepChoice = phase.subStepChoice || null;
     if (phase.subStep) {
       jobInput.previousSubStep = phase.subStep;

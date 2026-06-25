@@ -216,6 +216,23 @@ function getSubStepStatus(
     return "locked";
   }
 
+  if (phaseStatus === "SUBSTEP_PENDING") {
+    // El usuario confirmó el sub-paso `currentIdx` pero aún NO ha arrancado el
+    // siguiente: la fase está PAUSADA. El sub-paso confirmado (y los previos)
+    // quedan "completed"; el SIGUIENTE (currentIdx + 1) queda "available" para
+    // que muestre el botón "Iniciar <siguiente>" (que llama a /substep/start-next).
+    const currentIdx =
+      phase.subStepOrder !== null && phase.subStepOrder !== undefined
+        ? phase.subStepOrder
+        : phase.subStep
+          ? getSubStepIndex(phase.subStep, phase.type)
+          : 0;
+
+    if (subStepMeta.order <= currentIdx) return "completed";
+    if (subStepMeta.order === currentIdx + 1) return "available";
+    return "locked";
+  }
+
   if (phaseStatus === "QUESTIONING") {
     // Quiz sub-step shows as available (clickable to open questions modal)
     // For IDENTITY phases, the current sub-step should also be available
@@ -418,6 +435,49 @@ export function ProjectPhasesWithModal({
         setSubStepErrors((prev) => ({
           ...prev,
           [key]: "Error de conexión. Inténtalo de nuevo.",
+        }));
+      } finally {
+        inFlightSubSteps.current.delete(key);
+      }
+    },
+    [projectId, router]
+  );
+
+  // Arranque MANUAL del siguiente sub-paso de IDENTITY (fase en
+  // SUBSTEP_PENDING). Confirmar un sub-paso intermedio ya NO auto-arranca el
+  // siguiente: el usuario pulsa "Iniciar <siguiente>" y aquí llamamos al
+  // endpoint /substep/start-next, que encola el job y pasa a PROCESSING.
+  const startNextSubStep = useCallback(
+    async (phaseId: string, nextSubStepId: string) => {
+      const key = `${phaseId}:start-next:${nextSubStepId}`;
+      if (inFlightSubSteps.current.has(key)) return;
+      inFlightSubSteps.current.add(key);
+      const errKey = `${phaseId}:${nextSubStepId}`;
+      setSubStepErrors((prev) => {
+        if (!prev[errKey]) return prev;
+        const next = { ...prev };
+        delete next[errKey];
+        return next;
+      });
+      try {
+        const res = await fetch(
+          `/api/projects/${projectId}/phases/${phaseId}/substep/start-next`,
+          { method: "POST" }
+        );
+        if (res.ok) {
+          window.dispatchEvent(new CustomEvent("project-changed"));
+          router.refresh();
+        } else {
+          const data = await res.json().catch(() => ({}));
+          setSubStepErrors((prev) => ({
+            ...prev,
+            [errKey]: data?.error || "No se pudo iniciar el sub-paso. Inténtalo de nuevo.",
+          }));
+        }
+      } catch {
+        setSubStepErrors((prev) => ({
+          ...prev,
+          [errKey]: "Error de conexión. Inténtalo de nuevo.",
         }));
       } finally {
         inFlightSubSteps.current.delete(key);
@@ -671,6 +731,9 @@ export function ProjectPhasesWithModal({
           const isQuestioning = phase.status === "QUESTIONING";
           const isProcessing = phase.status === "PROCESSING";
           const isSubstepReady = phase.status === "SUBSTEP_READY";
+          // Fase PAUSADA: el usuario confirmó un sub-paso intermedio y aún no ha
+          // arrancado el siguiente (botón "Iniciar <siguiente>" en la sub-card).
+          const isSubstepPending = phase.status === "SUBSTEP_PENDING";
           const artifacts = phase.artifacts as Array<{ title: string; type: string }> | null;
           const questions = phase.questions as Array<{ id: string; label: string; type: string }> | null;
           // Normalize subStepArtifact so `type` is always defined (default
@@ -708,13 +771,27 @@ export function ProjectPhasesWithModal({
           if (hasSubSteps && !isLocked) {
             subStepCards = phaseSubsteps!.map((meta) => {
               const sStatus = getSubStepStatus(phase, meta, phase.status);
-              const executeLabel = meta.id === "quiz" && isQuestioning ? "Responder" : (subStepExecuteLabels[meta.id] || "Iniciar");
+              // En SUBSTEP_PENDING el sub-paso "available" es el SIGUIENTE: el
+              // botón debe decir "Iniciar <label del siguiente sub-paso>"
+              // (p. ej. "Iniciar Voz y Tono") para que el usuario sepa qué
+              // arranca. En el resto de casos, el verbo genérico "Iniciar".
+              const executeLabel =
+                meta.id === "quiz" && isQuestioning
+                  ? "Responder"
+                  : phase.status === "SUBSTEP_PENDING" && sStatus === "available"
+                    ? `Iniciar ${meta.label}`
+                    : subStepExecuteLabels[meta.id] || "Iniciar";
               const reviewLabel = subStepReviewLabels[meta.id] || "Revisar";
               const processingMsg = subStepProcessingMessages[meta.id] || "Generando...";
 
               // Determinar onAction según el estado y tipo de sub-step
               let onAction: (() => void) | undefined;
-              if (sStatus === "available") {
+              if (sStatus === "available" && phase.status === "SUBSTEP_PENDING") {
+                // Fase PAUSADA tras confirmar un sub-paso intermedio: el sub-paso
+                // "available" es el SIGUIENTE, y arrancarlo no es un execute-phase
+                // normal sino el endpoint de arranque manual /substep/start-next.
+                onAction = () => startNextSubStep(phase.id, meta.id);
+              } else if (sStatus === "available") {
                 // Si el sub-step actual tiene preguntas activas, abrir modal
                 if ((hasQuestions || (isQuestioning && meta.id === "quiz")) && meta.id === "quiz") {
                   onAction = () => setModalPhase(phase);
@@ -854,6 +931,12 @@ export function ProjectPhasesWithModal({
                 if (isLocked) return "locked" as const;
                 if (isProcessing) return "processing" as const;
                 if (isSubstepReady) return "substep" as const;
+                // SUBSTEP_PENDING (fase pausada esperando que el usuario arranque
+                // el siguiente sub-paso): NO es "processing" (no debe disparar
+                // polling ni spinner) ni "substep" (no abre el chooser). En
+                // IDENTITY el badge de fase está oculto (las sub-cards llevan el
+                // estado), así que lo mapeamos a "available" de forma neutra.
+                if (isSubstepPending) return "available" as const;
                 if (isQuestioning) return "questioning" as const;
                 return "available" as const;
               })()}
@@ -862,6 +945,7 @@ export function ProjectPhasesWithModal({
                 if (isLocked) return "slate" as const;
                 if (isProcessing) return "amber" as const;
                 if (isSubstepReady) return "purple" as const;
+                if (isSubstepPending) return "purple" as const;
                 return "blue" as const;
               })()}
               // FIX 1: No pasamos artifacts al PhaseCard para fases completadas

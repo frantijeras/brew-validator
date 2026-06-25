@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { guardProject } from "@/lib/ownership";
+import { getUserAccess } from "@/lib/quota";
 import { enqueuePhaseJob } from "@/lib/bridge/phase-jobs";
 
 /**
@@ -22,6 +23,18 @@ export async function POST(
     const { id: projectId, phaseId } = await params;
     const guard = await guardProject(projectId);
     if (!guard.ok) return guard.response;
+
+    // Iterar consume llamadas extra al Bridge: bloqueado en modo demo (no-admin).
+    if (guard.userId) {
+      const access = await getUserAccess(guard.userId);
+      if (!access.isAdmin) {
+        return NextResponse.json(
+          { error: "La iteración no está disponible en el modo demo. Pídela al administrador." },
+          { status: 403 }
+        );
+      }
+    }
+
     const { feedback } = await req.json();
 
     if (!feedback || typeof feedback !== "string" || !feedback.trim()) {

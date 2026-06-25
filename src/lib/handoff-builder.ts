@@ -151,7 +151,7 @@ function getThreeDAssets(ctx: HandoffOptions) {
   );
 }
 
-/* ── AGENT.md builder ────────────────────────────────────────────────── */
+/* ── AGENTS.md builder ────────────────────────────────────────────────── */
 
 function buildAgentMd(ctx: HandoffOptions): string {
   const { projectName, ideaContext, memory } = ctx;
@@ -192,7 +192,7 @@ function buildAgentMd(ctx: HandoffOptions): string {
     : "  - Sin skills seleccionadas.";
 
   return [
-    `# AGENT.md — ${projectName}`,
+    `# AGENTS.md — ${projectName}`,
     "",
     "> Este archivo da contexto completo a cualquier agente de IA (Cursor, Cline, Copilot, Claude, etc.) sobre el proyecto.",
     "> Pónlo en la raíz del proyecto. Los agentes lo leerán automáticamente.",
@@ -250,7 +250,7 @@ function buildAgentMd(ctx: HandoffOptions): string {
     "",
     "## 🗂️ Mapa del paquete (consulta puntual)",
     "",
-    "**Este archivo (`AGENT.md`) es el eje central**: contiene el resumen y las decisiones",
+    "**Este archivo (`AGENTS.md`) es el eje central**: contiene el resumen y las decisiones",
     "del proyecto. Empieza siempre por aquí. NO leas todo el contexto por defecto: usa el",
     "mapa de abajo para ir SOLO al archivo que necesites para la tarea concreta.",
     "",
@@ -265,7 +265,7 @@ function buildAgentMd(ctx: HandoffOptions): string {
     "",
     "## 📋 Instrucciones para el Agente",
     "",
-    "1. **Empieza por este archivo** (`AGENT.md`) — es el eje central de contexto.",
+    "1. **Empieza por este archivo** (`AGENTS.md`) — es el eje central de contexto.",
     "2. **Busca solo lo necesario**: ve al archivo del mapa que cubra la tarea actual; no leas todo.",
     "3. **Respeta las decisiones** tomadas (target, tono, canales, etc.).",
     "4. **Usa español** para todo el contenido y copy.",
@@ -275,6 +275,25 @@ function buildAgentMd(ctx: HandoffOptions): string {
     "---",
     "",
     `*Generado por BrewIdea Validator el ${new Date().toISOString().split("T")[0]}*`,
+  ].join("\n");
+}
+
+/* ── CLAUDE.md builder ───────────────────────────────────────────────── */
+
+// Claude Code / Claude Desktop leen CLAUDE.md por convención; lo apuntamos al
+// AGENTS.md para que el orquestador funcione igual en cualquier IDE/agente.
+function buildClaudeMd(): string {
+  return [
+    "# CLAUDE.md",
+    "",
+    "Este proyecto usa **`AGENTS.md`** (en la raíz) como contexto principal para",
+    "continuar el trabajo. Léelo primero: contiene el resumen del proyecto, las",
+    "decisiones tomadas, la identidad visual, el mapa de `contexto/` y `skills/`,",
+    "y las instrucciones para el agente.",
+    "",
+    "👉 **Abre `AGENTS.md` y sigue sus instrucciones.**",
+    "",
+    "_Generado por BrewIdea._",
   ].join("\n");
 }
 
@@ -308,7 +327,7 @@ function buildReadme(ctx: HandoffOptions): string {
     "",
     "```",
     `${safeName}/`,
-    `├── AGENT.md                       <- Contexto para agentes IA (leer primero)`,
+    `├── AGENTS.md                       <- Contexto para agentes IA (leer primero)`,
     `├── README.md                      <- Este archivo`,
     `├── contexto/                      <- Documentacion del proyecto (leer en orden)`,
     `│   ├── 1.analisis-de-mercado.md`,
@@ -333,14 +352,14 @@ function buildReadme(ctx: HandoffOptions): string {
     "",
     "### Con Cursor / Cline / Copilot",
     "1. Abre esta carpeta en VS Code",
-    "2. Los agentes leerán `AGENT.md` automáticamente",
+    "2. Los agentes leerán `AGENTS.md` automáticamente",
     "3. Para tareas específicas, referencia la skill correspondiente:",
     '   - "Usa `skills/landing-page.md` para construir la landing"',
     '   - "Usa `skills/contenido-editorial.md` para escribir posts"',
     "",
     "### Con ChatGPT / Claude",
     "Copia el contenido de la skill que necesites como prompt inicial.",
-    "Para contexto completo, copia `AGENT.md`.",
+    "Para contexto completo, copia `AGENTS.md`.",
     "",
     "---",
     "",
@@ -427,7 +446,7 @@ function buildRoadmap(ctx: HandoffOptions, assets: PhaseAsset[]): string | null 
  * Genera un Buffer con el ZIP del handoff package.
  *
  * El ZIP ahora:
- * - Incluye AGENT.md con contexto completo para agentes AI
+ * - Incluye AGENTS.md con contexto completo para agentes AI
  * - Usa las skills seleccionadas por el usuario (no hardcodeadas)
  * - Tiene estructura de proyecto lista para VS Code
  * - Cada skill tiene un nombre de archivo descriptivo
@@ -454,8 +473,11 @@ export async function buildHandoffZip(options: HandoffOptions): Promise<Buffer> 
 
     const assets = extractPhaseAssets(options);
 
-    // ── AGENT.md (context for AI agents — read first) ──
-    archive.append(buildAgentMd(options), { name: `${prefix}AGENT.md` });
+    // ── AGENTS.md (contexto para agentes/IDEs — leer primero) + CLAUDE.md ──
+    // AGENTS.md es la convención que leen Cursor/opencode/agentes; CLAUDE.md
+    // apunta a ella para Claude Desktop/Code. Mismo contenido de referencia.
+    archive.append(buildAgentMd(options), { name: `${prefix}AGENTS.md` });
+    archive.append(buildClaudeMd(), { name: `${prefix}CLAUDE.md` });
 
     // ── README.md ──
     archive.append(buildReadme(options), { name: `${prefix}README.md` });

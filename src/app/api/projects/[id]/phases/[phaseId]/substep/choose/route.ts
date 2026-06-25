@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { guardProject } from "@/lib/ownership";
-import { enqueuePhaseJob } from "@/lib/bridge/phase-jobs";
 import { completePhaseAndAutostart } from "@/lib/bridge/complete-phase";
 import { PHASE_SUBSTEPS } from "@/lib/phase-substeps";
 import { buildIdentitySummaryMarkdown } from "@/lib/identity-summary";
@@ -62,13 +61,14 @@ async function recordIdentityDecision(
  * POST /api/projects/[id]/phases/[phaseId]/substep/choose
  *
  * El usuario eligió (A/B/C o nombre custom) en el modal de sub-step.
- * Crea un nuevo job en el bridge con:
- *  - subStep: nextSubStep (calculado desde PHASE_SUBSTEPS si se omite)
- *  - mode: "report"
- *  - answers: { subStepChoice: choice }
- *  - previousArtifacts: ya poblado por el helper con el subStepArtifact previo
  *
- * Status: SUBSTEP_READY → PROCESSING.
+ * Sub-paso NO final: registra la elección (subStepChoice + subStepHistory) y
+ * PAUSA la fase en `SUBSTEP_PENDING` SIN encolar nada. El usuario arranca
+ * manualmente el siguiente sub-paso con el botón "Iniciar <siguiente>" que
+ * llama a POST /substep/start-next. Status: SUBSTEP_READY → SUBSTEP_PENDING.
+ *
+ * Sub-paso final: cierra la fase vía `completePhaseAndAutostart` (que ya NO
+ * auto-arranca la siguiente FASE).
  *
  * Flujo IDENTITY: naming → voice → logo → visual → (fase completada).
  *
@@ -219,20 +219,25 @@ export async function POST(
       return NextResponse.json({ success: true, completed: true, choice });
     }
 
-    const result = await enqueuePhaseJob({
-      projectId,
-      phaseId,
-      phaseType: phase.type,
-      mode: "report",
-      subStep: nextSubStepName,
-      answers: { subStepChoice: choice },
-      includePreviousSubStepArtifact: true,
+    // ── Sub-paso NO final: PAUSAR (no auto-arrancar el siguiente) ──
+    // El usuario confirmó un sub-paso intermedio (naming → voice → logo). En
+    // lugar de encolar automáticamente el siguiente, registramos la elección y
+    // dejamos la fase en SUBSTEP_PENDING: la tarjeta mostrará "Iniciar
+    // <siguiente sub-paso>" y solo entonces (vía /substep/start-next) se genera.
+    //
+    // Importante: NO movemos `subStep` ni `subStepArtifact`/`subStepOrder` — se
+    // quedan en el sub-paso recién confirmado para que `start-next` pueda
+    // calcular el siguiente desde la posición actual y reutilizar el artefacto
+    // previo como contexto.
+    await prisma.projectPhase.update({
+      where: { id: phaseId },
+      data: { status: "SUBSTEP_PENDING" },
     });
 
     return NextResponse.json({
       success: true,
-      jobId: result.jobId,
-      subStep: result.subStep,
+      pendingNext: true,
+      nextSubStep: nextSubStepName,
       choice,
     });
   } catch (error) {
