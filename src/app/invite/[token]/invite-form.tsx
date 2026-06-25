@@ -1,15 +1,17 @@
 "use client";
 
-import { signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { acceptInvitation } from "./actions";
 
-export function LoginForm() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
+export function InviteForm({
+  token,
+  email,
+}: {
+  token: string;
+  email: string;
+}) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const justInvited = searchParams.get("invited") === "1";
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -17,33 +19,17 @@ export function LoginForm() {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
+    const result = await acceptInvitation(token, formData);
 
-    const result = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
-
+    // Si la acción tiene éxito hace redirect() y no devuelve nada.
     if (result?.error) {
-      setError("Credenciales inválidas");
+      setError(result.error);
       setLoading(false);
-    } else {
-      const callbackUrl = searchParams.get("callbackUrl") ?? "/ideas";
-      router.push(callbackUrl);
-      router.refresh();
     }
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {justInvited && !error && (
-        <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
-          Cuenta creada. Inicia sesión con tu email y contraseña.
-        </div>
-      )}
-
       {error && (
         <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
           {error}
@@ -51,20 +37,32 @@ export function LoginForm() {
       )}
 
       <div>
-        <label
-          htmlFor="email"
-          className="mb-1.5 block text-sm font-medium text-slate-300"
-        >
+        <label className="mb-1.5 block text-sm font-medium text-slate-300">
           Email
         </label>
         <input
-          id="email"
-          name="email"
           type="email"
-          autoComplete="email"
+          value={email}
+          readOnly
+          className="w-full cursor-not-allowed rounded-lg border border-slate-700 bg-slate-800/50 px-4 py-2.5 text-slate-400"
+        />
+      </div>
+
+      <div>
+        <label
+          htmlFor="name"
+          className="mb-1.5 block text-sm font-medium text-slate-300"
+        >
+          Nombre
+        </label>
+        <input
+          id="name"
+          name="name"
+          type="text"
+          autoComplete="name"
           required
           className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-white placeholder:text-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-          placeholder="tu@email.com"
+          placeholder="Tu nombre"
         />
       </div>
 
@@ -79,8 +77,28 @@ export function LoginForm() {
           id="password"
           name="password"
           type="password"
-          autoComplete="current-password"
+          autoComplete="new-password"
           required
+          minLength={6}
+          className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-white placeholder:text-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+          placeholder="••••••••"
+        />
+      </div>
+
+      <div>
+        <label
+          htmlFor="confirmPassword"
+          className="mb-1.5 block text-sm font-medium text-slate-300"
+        >
+          Confirmar contraseña
+        </label>
+        <input
+          id="confirmPassword"
+          name="confirmPassword"
+          type="password"
+          autoComplete="new-password"
+          required
+          minLength={6}
           className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2.5 text-white placeholder:text-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
           placeholder="••••••••"
         />
@@ -91,7 +109,7 @@ export function LoginForm() {
         disabled={loading}
         className="w-full rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-400 disabled:opacity-50"
       >
-        {loading ? "Entrando..." : "Entrar"}
+        {loading ? "Creando cuenta..." : "Crear cuenta"}
       </button>
     </form>
   );

@@ -20,11 +20,47 @@ model User {
   isAdmin       Boolean   @default(false)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
+  // ── Demo multiusuario: estado, procedencia e invitación ──
+  status      String    @default("active") // "active" | "suspended"
+  invitedById String?
+  invitedAt   DateTime?
+
+  // ── Consentimiento (gate del primer login) ──
+  termsAcceptedAt  DateTime?
+  termsVersion     String?
+  consentIp        String?
+  consentUserAgent String?
+
+  // ── Cuotas y permisos por usuario (editables por el admin) ──
+  maxIdeas          Int     @default(3)
+  maxProjects       Int     @default(1)
+  phaseUndosAllowed Int     @default(1)
+  canAccessSkills   Boolean @default(false)
+  canAccessHandoff  Boolean @default(false)
+
   accounts      Account[]
   sessions      Session[]
   settings      Setting[]
   ideas         Idea[]
   notifications Notification[]
+}
+
+/// Invitaciones que el admin envía por email. El invitado abre /invite/{token},
+/// crea su contraseña y se le crea la cuenta (con las cuotas por defecto).
+model Invitation {
+  id             String    @id @default(cuid())
+  email          String
+  token          String    @unique
+  status         String    @default("PENDING") // PENDING | ACCEPTED | REVOKED
+  invitedById    String?
+  acceptedUserId String?
+  createdAt      DateTime  @default(now())
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+
+  @@index([email])
+  @@index([status])
 }
 
 model Session {
@@ -129,6 +165,7 @@ model Project {
   skills          Json?
   handoffReady    Boolean        @default(false)
   generatedSkills Json?
+  rollbacksUsed   Int            @default(0)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   idea            Idea           @relation(fields: [ideaId], references: [id], onDelete: Cascade)

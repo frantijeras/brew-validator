@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { LoginForm } from "./login-form";
+import { Footer } from "@/components/footer";
 
 export default async function LoginPage() {
   const session = await auth();
@@ -38,6 +39,8 @@ export default async function LoginPage() {
         <Suspense>
           <LoginForm />
         </Suspense>
+
+        <Footer />
       </div>
     </div>
   );

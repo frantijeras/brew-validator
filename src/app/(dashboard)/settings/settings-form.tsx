@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronRight, RefreshCw, Pencil, X, Plus } from "lucide-react";
 import { updateProfile, changePassword, addUser, saveAgentModels } from "./actions";
 import { Button } from "@/components/ui/button";
+import { InvitationsSection } from "./invitations-section";
 
 interface UserData {
   id: string;
@@ -43,6 +44,7 @@ export function SettingsForm({ user, users, isAdmin }: Props) {
       <ProfileSection user={user} />
       {isAdmin && <AIModelSection />}
       {isAdmin && <UsersSection users={users} />}
+      {isAdmin && <InvitationsSection />}
     </div>
   );
 }
