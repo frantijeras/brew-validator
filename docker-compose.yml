@@ -26,6 +26,13 @@ services:
     restart: unless-stopped
     env_file:
       - .env.production
+    environment:
+      # Ruta (dentro del contenedor) al allowlist de modelos del agente brew.
+      BREW_MODELS_PATH: /brew-models.json
+    volumes:
+      # Allowlist de modelos del agente brew, montado en solo lectura. Es la
+      # fuente autoritativa de modelos usables y su capacidad de razonamiento.
+      - /root/.openclaw/agents/brew/agent/models.json:/brew-models.json:ro
     depends_on:
       db:
         condition: service_healthy

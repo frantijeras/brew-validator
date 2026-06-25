@@ -13,6 +13,7 @@ interface ModelOption {
   value: string;
   label: string;
   provider: string;
+  reasoning?: boolean;
 }
 
 interface RawModel {
@@ -139,6 +140,50 @@ function humanizeModelId(id: string): string {
   );
 }
 
+// ── Brew agent allowlist (fuente autoritativa en el VPS) ─────────
+// Estructura: { providers: { [providerKey]: { models: [{ id, name, reasoning }] } } }
+interface BrewAllowlistModel {
+  id?: string;
+  name?: string;
+  reasoning?: boolean;
+}
+interface BrewAllowlist {
+  providers?: Record<string, { models?: BrewAllowlistModel[] }>;
+}
+
+// Lee el allowlist del agente brew si BREW_MODELS_PATH está definido y el
+// archivo existe/parsea. Devuelve la lista de modelos USABLES (con su capacidad
+// de razonamiento) o null si no se puede usar (para caer al comportamiento dev).
+function readBrewAllowlist(): ModelOption[] | null {
+  try {
+    const allowlistPath = process.env.BREW_MODELS_PATH;
+    if (!allowlistPath) return null;
+    if (!fs.existsSync(allowlistPath)) return null;
+    const raw = fs.readFileSync(allowlistPath, "utf-8");
+    const parsed = JSON.parse(raw) as BrewAllowlist;
+    const providers = parsed?.providers;
+    if (!providers || typeof providers !== "object") return null;
+
+    const models: ModelOption[] = [];
+    for (const [provider, entry] of Object.entries(providers)) {
+      const list = entry?.models;
+      if (!Array.isArray(list)) continue;
+      for (const m of list) {
+        if (!m?.id) continue;
+        models.push({
+          value: `${provider}/${m.id}`,
+          label: m.name || humanizeModelId(m.id),
+          provider,
+          reasoning: !!m.reasoning,
+        });
+      }
+    }
+    return models.length > 0 ? models : null;
+  } catch {
+    return null;
+  }
+}
+
 function readAvailableModels(): ModelOption[] | null {
   try {
     if (!fs.existsSync(AVAILABLE_MODELS_PATH)) return null;
@@ -224,7 +269,19 @@ async function fetchZenFreeModels(): Promise<ModelOption[] | null> {
 // GET /api/settings/available-models — public, no auth required
 // Returns the list of available AI models (zen-free + opencode-go).
 export async function GET() {
-  // zen-free: archivo local (VPS) > endpoint en vivo > lista fija de respaldo
+  // Si el allowlist del agente brew está disponible (VPS), es la lista
+  // AUTORITATIVA: son los únicos modelos usables, con su capacidad de
+  // razonamiento. No se mezcla con el catálogo amplio de opencode-go/zen.
+  const brewModels = readBrewAllowlist();
+  if (brewModels) {
+    brewModels.sort(
+      (a, b) =>
+        a.provider.localeCompare(b.provider) || a.label.localeCompare(b.label)
+    );
+    return NextResponse.json(brewModels);
+  }
+
+  // Fallback (dev local): zen-free: archivo local (VPS) > endpoint en vivo > lista fija de respaldo
   const zenModels =
     readAvailableModels() ?? (await fetchZenFreeModels()) ?? ZEN_FREE_MODELS;
 

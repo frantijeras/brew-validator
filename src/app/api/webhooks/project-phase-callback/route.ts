@@ -15,7 +15,6 @@ import {
 } from "@/lib/phase-schemas";
 import { RESOLUTION_ACTION, isCritical } from "@/lib/bridge-retry";
 import { dispatchCriticalAlert } from "@/lib/critical-alert";
-import { enqueuePhaseJob } from "@/lib/bridge/phase-jobs";
 import {
   mergeProjectMemory,
   type MemorySource,
@@ -515,7 +514,7 @@ export async function POST(req: Request) {
               // concurrent callback can't observe a half-applied transition.
               // Only unlock the next phase if it's still LOCKED (don't reopen a
               // phase a user already started elsewhere).
-              const unlocked = await prisma.$transaction(async (tx) => {
+              await prisma.$transaction(async (tx) => {
                 await tx.projectPhase.update({
                   where: { id: phaseId },
                   data: {
@@ -538,33 +537,13 @@ export async function POST(req: Request) {
                 });
               });
 
-              // ── Auto-arranque de la siguiente fase ──
-              // El usuario ya no pulsa "Iniciar": en cuanto una fase termina con
-              // éxito, lanzamos automáticamente el quiz (mode "questions") de la
-              // fase inmediatamente posterior. Solo si la acabamos de desbloquear
-              // nosotros (count===1) para evitar dobles arranques en callbacks
-              // concurrentes. Un fallo aquí NO debe tumbar el callback: la fase
-              // ya quedó COMPLETED y la siguiente AVAILABLE como fallback.
-              if (unlocked.count === 1 && projectId) {
-                try {
-                  const nextPhase = await prisma.projectPhase.findFirst({
-                    where: { projectId, sortOrder: phase.sortOrder + 1 },
-                  });
-                  if (nextPhase && nextPhase.status === "AVAILABLE") {
-                    await enqueuePhaseJob({
-                      projectId,
-                      phaseId: nextPhase.id,
-                      phaseType: nextPhase.type,
-                      mode: "questions",
-                    });
-                  }
-                } catch (autoErr) {
-                  console.error(
-                    `[project-phase-callback] auto-start de la siguiente fase falló (projectId=${projectId}, tras phase ${phaseId}):`,
-                    autoErr
-                  );
-                }
-              }
+              // ── Sin auto-arranque ──
+              // Por decisión de producto, el usuario inicia CADA fase
+              // manualmente: al terminar una fase con éxito solo la marcamos
+              // COMPLETED y desbloqueamos la siguiente a AVAILABLE; NO lanzamos
+              // su job automáticamente. El usuario pulsa "Iniciar fase" cuando
+              // quiera. (Esto además evita arrancar IDENTITY en modo "questions",
+              // que generaba un quiz fantasma y el error "faltan respuestas".)
             }
           }
         }

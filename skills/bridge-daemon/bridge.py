@@ -696,6 +696,15 @@ def execute_agent(instruction, agent_name="main", timeout=180, model_override=No
                     "model": model,
                     "thinking": _thinking_used,
                 }
+            elif "not supported" in err_msg.lower() and (
+                "thinking" in err_msg.lower() or "level" in err_msg.lower()
+            ):
+                LAST_AGENT_ERROR = {
+                    "category": "thinking_not_supported",
+                    "message": f"El modelo {model} no soporta el nivel de razonamiento '{_thinking_used}'. Usa 'Sin razonamiento' o elige otro modelo.",
+                    "model": model,
+                    "thinking": _thinking_used,
+                }
             else:
                 _detail = _err_real if _err_real else "sin un error claro en stderr (posible corte por tamaño de salida o recursos del servidor)"
                 LAST_AGENT_ERROR = {

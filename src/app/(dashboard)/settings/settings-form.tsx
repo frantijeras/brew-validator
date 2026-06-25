@@ -29,7 +29,7 @@ interface Props {
   isAdmin: boolean;
 }
 
-type ModelOption = { value: string; label: string; provider: string };
+type ModelOption = { value: string; label: string; provider: string; reasoning?: boolean };
 type Message = { type: "success" | "error"; text: string } | null;
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -337,6 +337,15 @@ function isThinkingLevel(v: unknown): v is ThinkingLevel {
   return typeof v === "string" && (THINKING_LEVELS as readonly string[]).includes(v);
 }
 
+// ¿Soporta razonamiento el modelo seleccionado? Busca su `reasoning` en la lista
+// cargada. Por defecto `true` cuando se desconoce (listas fallback/no-brew), para
+// no ocultar niveles que sí podrían funcionar.
+function modelSupportsReasoning(value: string, options: ModelOption[]): boolean {
+  const m = options.find((o) => o.value === value);
+  if (!m) return true;
+  return m.reasoning !== false;
+}
+
 function loadThinkingConfig(): Record<string, ThinkingLevel> {
   if (typeof window === "undefined") return {};
   try {
@@ -389,16 +398,19 @@ function ThinkingSelect({
   value,
   onChange,
   className = "",
+  disabled = false,
 }: {
   value: ThinkingLevel;
   onChange: (level: ThinkingLevel) => void;
   className?: string;
+  disabled?: boolean;
 }) {
   return (
     <select
       value={value}
       onChange={(e) => onChange(e.target.value as ThinkingLevel)}
-      className={`w-full max-w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 ${className}`}
+      disabled={disabled}
+      className={`w-full max-w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
     >
       {THINKING_LEVELS.map((lvl) => (
         <option key={lvl} value={lvl}>
@@ -538,6 +550,10 @@ function AIModelSection() {
 
   function setOverride(agentId: string, model: string) {
     setOverrides((prev) => ({ ...prev, [agentId]: model }));
+    // Si el modelo elegido no razona, forzamos el nivel del agente a "off".
+    if (!modelSupportsReasoning(model, modelOptions)) {
+      setThinkingOverrides((prev) => ({ ...prev, [agentId]: "off" }));
+    }
     setSaved(false);
   }
 
@@ -552,6 +568,10 @@ function AIModelSection() {
 
   function handleDefaultChange(model: string) {
     setDefaultModel(model);
+    // Si el modelo por defecto no razona, forzamos su nivel a "off".
+    if (!modelSupportsReasoning(model, modelOptions)) {
+      setDefaultThinking("off");
+    }
     setSaved(false);
   }
 
@@ -570,8 +590,12 @@ function AIModelSection() {
     const full: Record<string, string> = {};
     const thinkingFull: Record<string, ThinkingLevel> = {};
     for (const a of ALL_AGENTS) {
-      full[a.id] = overrides[a.id] ?? defaultModel;
-      thinkingFull[a.id] = thinkingOverrides[a.id] ?? defaultThinking;
+      const model = overrides[a.id] ?? defaultModel;
+      full[a.id] = model;
+      const level = thinkingOverrides[a.id] ?? defaultThinking;
+      // Los modelos sin razonamiento solo admiten "off": no persistimos un nivel
+      // no soportado aunque la UI tuviera otro valor.
+      thinkingFull[a.id] = modelSupportsReasoning(model, modelOptions) ? level : "off";
     }
     saveModelConfig(full);
     saveThinkingConfig(thinkingFull);
@@ -627,11 +651,23 @@ function AIModelSection() {
               Los modelos que no razonan lo ignoran sin fallar.
             </p>
           </div>
-          <ThinkingSelect
-            value={defaultThinking}
-            onChange={handleDefaultThinkingChange}
-            className="sm:w-72 sm:shrink-0"
-          />
+          {modelSupportsReasoning(defaultModel, modelOptions) ? (
+            <ThinkingSelect
+              value={defaultThinking}
+              onChange={handleDefaultThinkingChange}
+              className="sm:w-72 sm:shrink-0"
+            />
+          ) : (
+            <div className="sm:w-72 sm:shrink-0">
+              <ThinkingSelect
+                value="off"
+                onChange={() => {}}
+                disabled
+                className="w-full"
+              />
+              <p className="mt-1 text-xs text-slate-500">Este modelo no soporta razonamiento</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -777,11 +813,20 @@ function ExceptionGroup({
                   <span className="shrink-0 text-xs text-slate-500" title="Nivel de razonamiento">
                     Razonamiento
                   </span>
-                  <ThinkingSelect
-                    value={thinkingOverrides[agent.id] ?? defaultThinking}
-                    onChange={(level) => onSetThinkingOverride(agent.id, level)}
-                    className="sm:w-40"
-                  />
+                  {modelSupportsReasoning(overrides[agent.id], modelOptions) ? (
+                    <ThinkingSelect
+                      value={thinkingOverrides[agent.id] ?? defaultThinking}
+                      onChange={(level) => onSetThinkingOverride(agent.id, level)}
+                      className="sm:w-40"
+                    />
+                  ) : (
+                    <span
+                      className="shrink-0 text-xs text-slate-400"
+                      title="Este modelo no soporta razonamiento"
+                    >
+                      Sin razonamiento
+                    </span>
+                  )}
                 </div>
                 <button
                   type="button"

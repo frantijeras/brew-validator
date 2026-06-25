@@ -43,11 +43,15 @@ export function PhaseActionButton({
       const res = await fetch("/api/projects/execute-phase", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // En reintento de informe, NO regeneramos el quiz: relanzamos el
-        // informe reutilizando las respuestas persistidas (el backend las lee
-        // de la fase cuando no llegan en el body).
+        // - retryReport: NO regeneramos el quiz; relanzamos el informe
+        //   reutilizando las respuestas persistidas (el backend las lee de la
+        //   fase cuando no llegan en el body).
+        // - IDENTITY: arranca SIEMPRE en modo "report" (genera el primer
+        //   sub-paso "naming" directamente; NO tiene quiz). Lanzarla en
+        //   "questions" generaba un cuestionario fantasma y el error
+        //   "faltan respuestas".
         body: JSON.stringify(
-          retryReport
+          retryReport || phaseType === "IDENTITY"
             ? { projectId, phaseId, phaseType, mode: "report" }
             : { projectId, phaseId, phaseType }
         ),

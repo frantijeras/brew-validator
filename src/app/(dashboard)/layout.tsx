@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { NavItem } from "@/components/nav-item";
 import { ToastProvider } from "@/components/toast";
-import { NotificationBell } from "@/components/notification-bell";
 import { BridgeStatusBanner } from "@/components/bridge-status-banner";
 import { Lightbulb, Folder } from "lucide-react";
 
@@ -137,7 +136,6 @@ export default function DashboardLayout({
                   {session.user.email}
                 </p>
               </div>
-              <NotificationBell />
               <button
                 onClick={() => signOut({ callbackUrl: "/login" })}
                 className="shrink-0 rounded-lg p-1.5 text-slate-500 hover:bg-slate-800 hover:text-slate-300 transition-colors"
@@ -166,9 +164,6 @@ export default function DashboardLayout({
           <CauldronStarsSmallIcon />
           <span className="text-lg font-bold tracking-tight text-white">BrewIdea</span>
         </Link>
-        <div className="ml-auto">
-          <NotificationBell />
-        </div>
       </div>
 
       {/* ── Main content ── */}
