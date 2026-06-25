@@ -78,6 +78,8 @@ interface ProjectTabsProps {
   memory: ProjectMemory | null;
   hasCompletedPhases: boolean;
   handoffReady: boolean;
+  canAccessSkills: boolean;
+  canAccessHandoff: boolean;
   existingSkills: SkillData[] | null;
   idea: IdeaData | null;
 }
@@ -94,6 +96,8 @@ export function ProjectTabs({
   memory,
   hasCompletedPhases,
   handoffReady,
+  canAccessSkills,
+  canAccessHandoff,
   existingSkills,
   idea,
 }: ProjectTabsProps) {
@@ -203,25 +207,49 @@ export function ProjectTabs({
         </div>
       )}
 
-      {activeTab === "skills" && (
-        <Suspense fallback={<div className="animate-pulse bg-slate-800/50 rounded-xl h-48" />}>
-          <SkillSelector
-            projectId={projectId}
-            onHandoffReady={() => {
-              router.refresh();
-            }}
-            onContinue={() => setActiveTab("handoff")}
-          />
-        </Suspense>
-      )}
+      {activeTab === "skills" &&
+        (canAccessSkills ? (
+          <Suspense fallback={<div className="animate-pulse bg-slate-800/50 rounded-xl h-48" />}>
+            <SkillSelector
+              projectId={projectId}
+              onHandoffReady={() => {
+                router.refresh();
+              }}
+              onContinue={() => setActiveTab("handoff")}
+            />
+          </Suspense>
+        ) : (
+          <LockedSection feature="Skills" />
+        ))}
 
-      {activeTab === "handoff" && (
-        <HandoffTab
-          projectId={projectId}
-          projectName={projectName}
-          existingSkills={existingSkills}
-        />
-      )}
+      {activeTab === "handoff" &&
+        (canAccessHandoff ? (
+          <HandoffTab
+            projectId={projectId}
+            projectName={projectName}
+            existingSkills={existingSkills}
+          />
+        ) : (
+          <LockedSection feature="Hand-off" />
+        ))}
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Locked Section (feature gate)
+   ══════════════════════════════════════════════════════════════════════ */
+
+function LockedSection({ feature }: { feature: "Skills" | "Hand-off" }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-700 bg-slate-900/50 py-16 px-6 text-center">
+      <div className="rounded-full bg-slate-800 p-3 text-slate-400">
+        <Lock className="size-6" />
+      </div>
+      <p className="mt-4 max-w-md text-sm text-slate-300">
+        Esta sección ({feature}) no está disponible en tu cuenta. Solicítala al
+        administrador.
+      </p>
     </div>
   );
 }

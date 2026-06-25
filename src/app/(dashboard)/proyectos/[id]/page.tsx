@@ -2,6 +2,8 @@ import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { notFound } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { getUserAccess } from "@/lib/quota";
 import { ProjectTabs } from "./project-tabs";
 import { ProjectHeaderMenu } from "./project-header-menu";
 import { phaseDescription } from "@/lib/phase-descriptions";
@@ -45,6 +47,14 @@ export default async function ProjectDetailPage({ params }: Props) {
   });
 
   if (!project) notFound();
+
+  // Feature gates del usuario actual: admin ve todo; el resto según sus flags.
+  const session = await auth();
+  const access = session?.user?.id
+    ? await getUserAccess(session.user.id)
+    : null;
+  const canAccessSkills = access ? access.isAdmin || access.canAccessSkills : false;
+  const canAccessHandoff = access ? access.isAdmin || access.canAccessHandoff : false;
 
   const allCompleted = project.phases.every((p) => p.status === "COMPLETED");
 
@@ -153,6 +163,8 @@ export default async function ProjectDetailPage({ params }: Props) {
         memory={project.memory as import("@/lib/project-memory").ProjectMemory | null}
         hasCompletedPhases={allCompleted}
         handoffReady={project.handoffReady ?? false}
+        canAccessSkills={canAccessSkills}
+        canAccessHandoff={canAccessHandoff}
         existingSkills={existingSkills}
         idea={project.idea ? {
           title: project.idea.title,

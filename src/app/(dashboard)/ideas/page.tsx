@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { ideaOwnerWhere } from "@/lib/ownership";
+import { getUserAccess, countIdeas } from "@/lib/quota";
 import { IdeaCard } from "@/components/idea-card";
 import { IdeasAutoRefresh } from "./auto-refresh";
 import { IdeasToolbar } from "./ideas-toolbar";
@@ -25,6 +26,13 @@ export default async function IdeasPage({ searchParams }: Props) {
   const ownerWhere = userId
     ? ideaOwnerWhere(userId)
     : { id: "__no_session__" };
+
+  // Cuota de ideas del usuario (admin → ilimitado).
+  const access = userId ? await getUserAccess(userId) : null;
+  const ideaCount = userId ? await countIdeas(userId) : 0;
+  const ideaLimitReached = access
+    ? !access.isAdmin && ideaCount >= access.maxIdeas
+    : false;
 
   const whereBase =
     activeTab === "archived"
@@ -81,13 +89,30 @@ export default async function IdeasPage({ searchParams }: Props) {
               : `${ideas.length} idea${ideas.length === 1 ? "" : "s"} en ${tabLabel.toLowerCase()}`}
           </p>
         </div>
-        <Link
-          href="/ideas/new"
-          className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow transition-colors hover:bg-amber-400 active:bg-amber-600"
-        >
-          <PlusIcon />
-          Nueva idea
-        </Link>
+        <div className="flex flex-col items-end gap-1">
+          {access && !access.isAdmin && (
+            <span className="text-xs text-slate-500 tabular-nums">
+              {ideaCount}/{access.maxIdeas} ideas
+            </span>
+          )}
+          {ideaLimitReached ? (
+            <span
+              title={`Has alcanzado el máximo de ${access?.maxIdeas} ideas. Pide más al administrador.`}
+              className="inline-flex cursor-not-allowed items-center gap-2 rounded-lg bg-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-400 opacity-60"
+            >
+              <PlusIcon />
+              Nueva idea
+            </span>
+          ) : (
+            <Link
+              href="/ideas/new"
+              className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow transition-colors hover:bg-amber-400 active:bg-amber-600"
+            >
+              <PlusIcon />
+              Nueva idea
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Tabs + Filter toolbar */}

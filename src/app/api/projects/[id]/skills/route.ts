@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { guardProject } from "@/lib/ownership";
+import { assertCanAccessSkills } from "@/lib/quota";
 import { SKILL_CATALOG } from "@/lib/skill-catalog";
 import type { SkillData } from "@/lib/skill-types";
 
@@ -19,6 +20,12 @@ export async function GET(
     const { id } = await params;
     const guard = await guardProject(id);
     if (!guard.ok) return guard.response;
+
+    // Gate de Skills (admin o flag canAccessSkills).
+    const gate = await assertCanAccessSkills(guard.userId as string);
+    if (!gate.ok) {
+      return NextResponse.json({ error: gate.error }, { status: 403 });
+    }
 
     const project = await prisma.project.findUnique({
       where: { id },

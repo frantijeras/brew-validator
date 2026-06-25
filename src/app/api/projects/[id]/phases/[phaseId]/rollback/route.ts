@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { guardProject } from "@/lib/ownership";
+import { getUserAccess } from "@/lib/quota";
 
 /**
  * POST /api/projects/[id]/phases/[phaseId]/rollback
@@ -61,6 +62,29 @@ export async function POST(
     }
 
     const targetSortOrder = targetPhase.sortOrder;
+
+    // Cuota de "deshacer fase": los NO-admin tienen un máximo de undos por
+    // proyecto (`phaseUndosAllowed`). Los admin son ilimitados y no consumen
+    // cuota. `guardProject` garantiza una sesión, así que userId no es null.
+    const access = await getUserAccess(guard.userId as string);
+    let projectRollbacks: { rollbacksUsed: number } | null = null;
+    if (!access.isAdmin) {
+      projectRollbacks = await prisma.project.findUnique({
+        where: { id: projectId },
+        select: { rollbacksUsed: true },
+      });
+      if (
+        projectRollbacks &&
+        projectRollbacks.rollbacksUsed >= access.phaseUndosAllowed
+      ) {
+        return NextResponse.json(
+          {
+            error: `Solo puedes deshacer una fase ${access.phaseUndosAllowed} veces.`,
+          },
+          { status: 403 }
+        );
+      }
+    }
 
     // Identificar los jobs en vuelo (PENDING/RUNNING) de las fases que vamos a
     // purgar (objetivo + posteriores) ANTES de la transacción. Los jobs
@@ -151,6 +175,8 @@ export async function POST(
         data: {
           handoffReady: false,
           generatedSkills: Prisma.JsonNull,
+          // Consume cuota de undo SOLO para no-admin (admin ilimitado).
+          ...(access.isAdmin ? {} : { rollbacksUsed: { increment: 1 } }),
         },
       });
 

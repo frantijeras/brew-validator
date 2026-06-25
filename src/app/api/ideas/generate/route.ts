@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { BUSINESS_MODELS } from "@/lib/business-models";
 import { resolveModelForJobAgent, resolveThinkingForJobAgent } from "@/lib/agent-models";
 import { requireAuth } from "@/lib/require-auth";
+import { assertCanCreateIdea } from "@/lib/quota";
 
 const generateIdeaSchema = z.discriminatedUnion("mode", [
   z.object({
@@ -29,6 +30,12 @@ export async function POST(req: NextRequest) {
   try {
     const auth = await requireAuth();
     if (!auth.ok) return auth.response;
+
+    // Cuota de ideas (los admin están exentos).
+    const quota = await assertCanCreateIdea(auth.userId);
+    if (!quota.ok) {
+      return NextResponse.json({ error: quota.error }, { status: 403 });
+    }
 
     const body = await req.json();
     const data = generateIdeaSchema.parse(body);

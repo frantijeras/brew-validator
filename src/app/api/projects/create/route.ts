@@ -2,17 +2,29 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { PHASE_DESCRIPTIONS } from "@/lib/phase-descriptions";
+import { requireAuth } from "@/lib/require-auth";
+import { ideaOwnerWhere } from "@/lib/ownership";
+import { assertCanCreateProject } from "@/lib/quota";
 
 export async function POST(req: Request) {
   try {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth.response;
+
     const { ideaId } = await req.json();
     if (!ideaId) {
       return NextResponse.json({ error: "ideaId required" }, { status: 400 });
     }
 
-    // Check idea exists and is completed
-    const idea = await prisma.idea.findUnique({
-      where: { id: ideaId },
+    // Cuota de proyectos (los admin están exentos).
+    const quota = await assertCanCreateProject(auth.userId);
+    if (!quota.ok) {
+      return NextResponse.json({ error: quota.error }, { status: 403 });
+    }
+
+    // Check idea exists, is owned by the user, and is completed
+    const idea = await prisma.idea.findFirst({
+      where: { id: ideaId, ...ideaOwnerWhere(auth.userId) },
       include: { project: true },
     });
 

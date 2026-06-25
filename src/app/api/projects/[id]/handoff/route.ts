@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { guardProject } from "@/lib/ownership";
+import { assertCanAccessHandoff } from "@/lib/quota";
 import { buildHandoffZip } from "@/lib/handoff-builder";
 import type { ProjectMemory } from "@/lib/project-memory";
 import type { HandoffOptions } from "@/lib/handoff-builder";
@@ -30,6 +31,12 @@ export async function GET(
 
     const guard = await guardProject(id);
     if (!guard.ok) return guard.response;
+
+    // Gate de Hand-off (admin o flag canAccessHandoff).
+    const gate = await assertCanAccessHandoff(guard.userId as string);
+    if (!gate.ok) {
+      return NextResponse.json({ error: gate.error }, { status: 403 });
+    }
 
     const project = await prisma.project.findUnique({
       where: { id },

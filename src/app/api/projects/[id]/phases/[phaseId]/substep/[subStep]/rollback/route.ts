@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { guardProject } from "@/lib/ownership";
+import { getUserAccess } from "@/lib/quota";
 import { PHASE_SUBSTEPS } from "@/lib/phase-substeps";
 
 /**
@@ -38,6 +39,24 @@ export async function POST(
     const target = order.find((s) => s.id === subStep);
     if (!target) {
       return NextResponse.json({ error: "Sub-paso no válido para esta fase" }, { status: 400 });
+    }
+
+    // Cuota de "deshacer fase" (compartida con el rollback de fase completa):
+    // los NO-admin tienen un máximo de undos por proyecto. Admin ilimitado.
+    const access = await getUserAccess(guard.userId as string);
+    if (!access.isAdmin) {
+      const proj = await prisma.project.findUnique({
+        where: { id: projectId },
+        select: { rollbacksUsed: true },
+      });
+      if (proj && proj.rollbacksUsed >= access.phaseUndosAllowed) {
+        return NextResponse.json(
+          {
+            error: `Solo puedes deshacer una fase ${access.phaseUndosAllowed} veces.`,
+          },
+          { status: 403 }
+        );
+      }
     }
 
     // Historial: conservar sub-pasos con order < objetivo; quitar el resto.
@@ -120,7 +139,12 @@ export async function POST(
 
       await tx.project.update({
         where: { id: projectId },
-        data: { handoffReady: false, generatedSkills: Prisma.JsonNull },
+        data: {
+          handoffReady: false,
+          generatedSkills: Prisma.JsonNull,
+          // Consume cuota de undo SOLO para no-admin (admin ilimitado).
+          ...(access.isAdmin ? {} : { rollbacksUsed: { increment: 1 } }),
+        },
       });
 
       if (jobIdsToCancel.length > 0) {

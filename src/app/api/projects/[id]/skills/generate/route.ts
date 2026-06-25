@@ -3,6 +3,7 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { guardProject } from "@/lib/ownership";
+import { assertCanAccessSkills } from "@/lib/quota";
 import type { ProjectMemory } from "@/lib/project-memory";
 import type { GeneratedSkill } from "@/lib/skill-types";
 import { buildProjectContext } from "@/lib/skill-context";
@@ -25,6 +26,13 @@ export async function POST(
     const { id } = await params;
     const guard = await guardProject(id);
     if (!guard.ok) return guard.response;
+
+    // Gate de Skills (admin o flag canAccessSkills).
+    const gate = await assertCanAccessSkills(guard.userId as string);
+    if (!gate.ok) {
+      return NextResponse.json({ error: gate.error }, { status: 403 });
+    }
+
     const body = await req.json();
     const parsed = generateSkillsSchema.safeParse(body);
     if (!parsed.success) {
