@@ -3,9 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight, RefreshCw, Pencil, X, Plus } from "lucide-react";
-import { updateProfile, changePassword, addUser, saveAgentModels } from "./actions";
+import { updateProfile, changePassword, saveAgentModels } from "./actions";
 import { Button } from "@/components/ui/button";
-import { InvitationsSection } from "./invitations-section";
 
 interface UserData {
   id: string;
@@ -15,18 +14,8 @@ interface UserData {
   isAdmin: boolean;
 }
 
-interface ListedUser {
-  id: string;
-  name: string | null;
-  email: string;
-  isAdmin: boolean;
-  image: string | null;
-  createdAt: Date;
-}
-
 interface Props {
   user: UserData | null;
-  users: ListedUser[];
   isAdmin: boolean;
 }
 
@@ -38,13 +27,11 @@ const PROVIDER_LABELS: Record<string, string> = {
   "opencode-go": "OpenCode Go",
 };
 
-export function SettingsForm({ user, users, isAdmin }: Props) {
+export function SettingsForm({ user, isAdmin }: Props) {
   return (
     <div className="space-y-8">
       <ProfileSection user={user} />
       {isAdmin && <AIModelSection />}
-      {isAdmin && <UsersSection users={users} />}
-      {isAdmin && <InvitationsSection />}
     </div>
   );
 }
@@ -867,161 +854,6 @@ function ExceptionGroup({
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-/* ── Users Section (Admin only) ── */
-
-function UsersSection({ users }: { users: ListedUser[] }) {
-  const router = useRouter();
-  const [modalOpen, setModalOpen] = useState(false);
-
-  return (
-    <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-semibold text-white">Usuarios</h2>
-          <p className="mt-1 text-sm text-slate-400">Gestiona quién tiene acceso a BrewIdea</p>
-        </div>
-        <Button
-          type="button"
-          variant="primary"
-          size="sm"
-          onClick={() => setModalOpen(true)}
-          className="shrink-0"
-        >
-          <Plus className="h-4 w-4" />
-          Añadir usuario
-        </Button>
-      </div>
-
-      {/* User list */}
-      <div className="mt-6 space-y-2">
-        {users.map((u) => (
-          <div
-            key={u.id}
-            className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-900 px-4 py-3"
-          >
-            {u.image ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={u.image} alt="" className="size-8 rounded-full object-cover" />
-            ) : (
-              <div className="flex size-8 items-center justify-center rounded-full bg-slate-700 text-xs font-bold text-slate-300">
-                {initialsOf(u.name, u.email)}
-              </div>
-            )}
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-white">{u.name ?? "Sin nombre"}</p>
-              <p className="truncate text-xs text-slate-400">{u.email}</p>
-            </div>
-            {u.isAdmin && (
-              <span className="shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400">
-                Admin
-              </span>
-            )}
-          </div>
-        ))}
-
-        {users.length === 0 && (
-          <p className="py-4 text-center text-sm text-slate-500">No hay usuarios</p>
-        )}
-      </div>
-
-      {modalOpen && (
-        <AddUserModal
-          onClose={() => setModalOpen(false)}
-          onAdded={() => {
-            setModalOpen(false);
-            router.refresh();
-          }}
-        />
-      )}
-    </section>
-  );
-}
-
-/* ── Add user modal ── */
-function AddUserModal({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
-  const [message, setMessage] = useState<Message>(null);
-  const [pending, setPending] = useState(false);
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setPending(true);
-    setMessage(null);
-    const formData = new FormData(e.currentTarget);
-    const result = await addUser(formData);
-    if (result.error) {
-      setMessage({ type: "error", text: result.error });
-      setPending(false);
-    } else {
-      onAdded();
-    }
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md rounded-xl border border-slate-800 bg-slate-900 p-6 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-4">
-          <h3 className="text-base font-semibold text-white">Añadir nuevo usuario</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex size-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="mt-4 space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label htmlFor="newUserName" className="mb-1 block text-xs font-medium text-slate-400">
-                Nombre
-              </label>
-              <input id="newUserName" name="name" type="text" required autoComplete="off" className={inputClass} placeholder="Nombre" />
-            </div>
-            <div>
-              <label htmlFor="newUserEmail" className="mb-1 block text-xs font-medium text-slate-400">
-                Email
-              </label>
-              <input id="newUserEmail" name="email" type="email" required autoComplete="off" className={inputClass} placeholder="usuario@email.com" />
-            </div>
-          </div>
-          <div>
-            <label htmlFor="tempPassword" className="mb-1 block text-xs font-medium text-slate-400">
-              Contraseña temporal
-            </label>
-            <input id="tempPassword" name="tempPassword" type="password" required autoComplete="new-password" className={inputClass} placeholder="Mínimo 6 caracteres" />
-          </div>
-
-          <Banner message={message} />
-
-          <div className="flex items-center justify-end gap-3 pt-1">
-            <Button type="button" variant="ghost" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button type="submit" variant="primary" loading={pending}>
-              {pending ? "Añadiendo..." : "Añadir usuario"}
-            </Button>
-          </div>
-        </form>
-      </div>
     </div>
   );
 }

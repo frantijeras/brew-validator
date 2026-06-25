@@ -36,6 +36,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
+        // Cuentas suspendidas no pueden iniciar sesión.
+        if (user.status === "suspended") {
+          return null;
+        }
+
         return {
           id: user.id,
           name: user.name,

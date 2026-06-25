@@ -8,12 +8,14 @@ import { NavItem } from "@/components/nav-item";
 import { ToastProvider } from "@/components/toast";
 import { BridgeStatusBanner } from "@/components/bridge-status-banner";
 import { Footer } from "@/components/footer";
-import { Lightbulb, Folder } from "lucide-react";
+import { Lightbulb, Folder, ShieldCheck } from "lucide-react";
 
 export function DashboardShell({
   children,
+  isAdmin = false,
 }: {
   children: React.ReactNode;
+  isAdmin?: boolean;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
@@ -110,6 +112,23 @@ export function DashboardShell({
             </p>
             <div className="space-y-1">
               <NavItem href="/settings" icon="settings" label="Ajustes" />
+              {isAdmin && (
+                <Link
+                  href="/admin"
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                    pathname.startsWith("/admin")
+                      ? "bg-slate-800 text-white"
+                      : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200"
+                  }`}
+                >
+                  <ShieldCheck
+                    className={`size-4 ${
+                      pathname.startsWith("/admin") ? "text-amber-400" : "text-slate-500"
+                    }`}
+                  />
+                  Admin
+                </Link>
+              )}
             </div>
           </div>
         </div>

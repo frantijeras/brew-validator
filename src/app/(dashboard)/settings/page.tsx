@@ -7,20 +7,6 @@ export default async function SettingsPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const users = session.user.isAdmin
-    ? await prisma.user.findMany({
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          isAdmin: true,
-          image: true,
-          createdAt: true,
-        },
-        orderBy: { createdAt: "desc" },
-      })
-    : [];
-
   const currentUser = await prisma.user.findUnique({
     where: { id: session.user.id },
     select: {
@@ -41,7 +27,7 @@ export default async function SettingsPage() {
         </p>
       </div>
 
-      <SettingsForm user={currentUser} users={users} isAdmin={session.user.isAdmin} />
+      <SettingsForm user={currentUser} isAdmin={session.user.isAdmin} />
     </div>
   );
 }

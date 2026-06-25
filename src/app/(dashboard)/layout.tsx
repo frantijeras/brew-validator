@@ -14,14 +14,19 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { status: true, termsAcceptedAt: true, termsVersion: true },
+  });
+
+  // Cuenta suspendida: cortar acceso al dashboard.
+  if (user?.status === "suspended") {
+    redirect("/suspended");
+  }
+
   // Gate de consentimiento: los usuarios NO admin deben haber aceptado la
   // versión vigente de los términos. Los admin están exentos.
   if (!session.user.isAdmin) {
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { termsAcceptedAt: true, termsVersion: true },
-    });
-
     const accepted =
       !!user?.termsAcceptedAt && user.termsVersion === TERMS_VERSION;
 
@@ -30,5 +35,7 @@ export default async function DashboardLayout({
     }
   }
 
-  return <DashboardShell>{children}</DashboardShell>;
+  return (
+    <DashboardShell isAdmin={session.user.isAdmin}>{children}</DashboardShell>
+  );
 }
