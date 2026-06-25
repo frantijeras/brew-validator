@@ -8,8 +8,6 @@ export const TERMS_VERSION = "1.0";
 
 export const CREATOR = "Fran Tijeras";
 
-export const CREATOR_EMAIL = "fran@copyfly.es";
-
 export const TERMS_MARKDOWN = `# Términos y condiciones de uso
 
 **Versión ${TERMS_VERSION}**
@@ -51,6 +49,6 @@ Al tratarse de un prototipo en pruebas, no debe usarse para información crític
 
 ## 6. Contacto
 
-Para cualquier duda, solicitud o para que tus datos sean eliminados, puedes
-contactar con el creador, **${CREATOR}**, en ${CREATOR_EMAIL}.
+Para cualquier duda, solicitud o para que tus datos sean eliminados, contacta
+con el administrador que te facilitó el acceso.
 `;
