@@ -41,7 +41,7 @@ export function SettingsForm({ user, users, isAdmin }: Props) {
   return (
     <div className="space-y-8">
       <ProfileSection user={user} />
-      <AIModelSection />
+      {isAdmin && <AIModelSection />}
       {isAdmin && <UsersSection users={users} />}
     </div>
   );

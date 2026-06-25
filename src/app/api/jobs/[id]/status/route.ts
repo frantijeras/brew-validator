@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { guardJobOrBridge } from "@/lib/ownership";
 
 const statusSchema = z.object({
   status: z.enum(["PENDING", "RUNNING", "COMPLETED", "FAILED"]),
@@ -12,11 +13,13 @@ const statusSchema = z.object({
  * la mejora con IA de una skill). Solo metadatos de estado, sin el output.
  */
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+    const guard = await guardJobOrBridge(req, id);
+    if (!guard.ok) return guard.response;
     const job = await prisma.job.findUnique({
       where: { id },
       select: { id: true, status: true, error: true },
@@ -43,6 +46,8 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
+    const guard = await guardJobOrBridge(req, id);
+    if (!guard.ok) return guard.response;
     const body = await req.json();
     const { status, error: errorMsg } = statusSchema.parse(body);
 

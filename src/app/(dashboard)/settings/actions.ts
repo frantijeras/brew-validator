@@ -88,8 +88,10 @@ export async function saveAgentModels(
   thinking?: Record<string, string>
 ) {
   const session = await auth();
-  if (!session?.user?.id) {
-    return { error: "No autorizado" };
+  // Solo el admin puede cambiar la configuración de modelos/razonamiento
+  // (es config del sistema, no por usuario).
+  if (!session?.user?.isAdmin) {
+    return { error: "Solo el administrador puede cambiar los modelos" };
   }
 
   const userId = session.user.id;

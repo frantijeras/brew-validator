@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { auth } from "@/lib/auth";
+import { ideaOwnerWhere } from "@/lib/ownership";
 import { IdeaCard } from "@/components/idea-card";
 import { IdeasAutoRefresh } from "./auto-refresh";
 import { IdeasToolbar } from "./ideas-toolbar";
@@ -17,6 +19,13 @@ export default async function IdeasPage({ searchParams }: Props) {
   const activeTab: Tab = rawTab === "archived" ? "archived" : "all";
   const activeModel = rawModel || "";
 
+  // Aislamiento multi-usuario: cada usuario solo ve SUS ideas.
+  const session = await auth();
+  const userId = session?.user?.id;
+  const ownerWhere = userId
+    ? ideaOwnerWhere(userId)
+    : { id: "__no_session__" };
+
   const whereBase =
     activeTab === "archived"
       ? { isArchived: true }
@@ -24,8 +33,8 @@ export default async function IdeasPage({ searchParams }: Props) {
 
   // Exclude ideas that have been converted to projects
   const where = activeModel
-    ? { ...whereBase, businessModel: activeModel, project: null }
-    : { ...whereBase, project: null };
+    ? { ...whereBase, ...ownerWhere, businessModel: activeModel, project: null }
+    : { ...whereBase, ...ownerWhere, project: null };
 
   const orderBy = [{ updatedAt: "desc" as const }];
 

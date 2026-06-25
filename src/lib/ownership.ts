@@ -99,3 +99,20 @@ export async function guardPhase(phaseId: string): Promise<Guard> {
   if (!phase) return { ok: false, response: notFound() };
   return { ok: true, userId: auth.userId };
 }
+
+/**
+ * Route guard for JOB endpoints (owner via job.idea.userId). The bridge also
+ * hits these (read status, mark RUNNING/FAILED) so a valid bridge secret is
+ * allowed without a session; otherwise we require the authenticated owner.
+ */
+export async function guardJobOrBridge(req: Request, jobId: string): Promise<Guard> {
+  if (verifyBridgeSecret(req)) return { ok: true, userId: null };
+  const auth = await requireAuth();
+  if (!auth.ok) return auth;
+  const job = await prisma.job.findFirst({
+    where: { id: jobId, idea: ideaOwnerWhere(auth.userId) },
+    select: { id: true },
+  });
+  if (!job) return { ok: false, response: notFound() };
+  return { ok: true, userId: auth.userId };
+}

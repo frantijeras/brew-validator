@@ -2,6 +2,8 @@ import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { FolderKanban, Plus } from "lucide-react";
 import { ProjectRow } from "@/components/project-row";
+import { auth } from "@/lib/auth";
+import { ideaOwnerWhere } from "@/lib/ownership";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +15,13 @@ const avatarColors: Record<string, { bg: string; text: string }> = {
 };
 
 export default async function ProyectosPage() {
+  // Aislamiento multi-usuario: cada usuario solo ve SUS proyectos.
+  const session = await auth();
+  const userId = session?.user?.id;
   const projects = await prisma.project.findMany({
+    where: userId
+      ? { idea: ideaOwnerWhere(userId) }
+      : { id: "__no_session__" },
     select: {
       id: true,
       name: true,

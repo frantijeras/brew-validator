@@ -187,8 +187,9 @@ export async function GET() {
 // POST /api/settings/agent-models
 export async function POST(request: Request) {
   const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  // Config del sistema: solo admin puede modificarla.
+  if (!session?.user?.isAdmin) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
   try {

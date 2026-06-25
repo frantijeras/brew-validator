@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { guardJobOrBridge } from "@/lib/ownership";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+
+    const guard = await guardJobOrBridge(req, id);
+    if (!guard.ok) return guard.response;
 
     const job = await prisma.job.findUnique({
       where: { id },
