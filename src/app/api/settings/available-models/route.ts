@@ -269,46 +269,40 @@ async function fetchZenFreeModels(): Promise<ModelOption[] | null> {
 // GET /api/settings/available-models — public, no auth required
 // Returns the list of available AI models (zen-free + opencode-go).
 export async function GET() {
-  // Si el allowlist del agente brew está disponible (VPS), es la lista
-  // AUTORITATIVA: son los únicos modelos usables, con su capacidad de
-  // razonamiento. No se mezcla con el catálogo amplio de opencode-go/zen.
-  const brewModels = readBrewAllowlist();
-  if (brewModels) {
-    brewModels.sort(
-      (a, b) =>
-        a.provider.localeCompare(b.provider) || a.label.localeCompare(b.label)
-    );
-    return NextResponse.json(brewModels);
-  }
-
-  // Fallback (dev local): zen-free: archivo local (VPS) > endpoint en vivo > lista fija de respaldo
+  // Catálogo COMPLETO: zen-free (gratis) + opencode-go (suscripción de pago).
+  // Mostramos TODOS los modelos disponibles; NO restringimos a la allowlist.
   const zenModels =
     readAvailableModels() ?? (await fetchZenFreeModels()) ?? ZEN_FREE_MODELS;
-
-  // opencode-go: endpoint en vivo > lista fija de respaldo
   const goModels = (await fetchGoModels()) ?? GO_MODELS_FALLBACK;
 
   const seen = new Set<string>();
   const merged: ModelOption[] = [];
-
-  // zen-free primero
-  for (const m of zenModels) {
+  for (const m of [...zenModels, ...goModels]) {
     if (!seen.has(m.value)) {
       seen.add(m.value);
       merged.push(m);
     }
   }
 
-  // Add opencode-go models
-  for (const m of goModels) {
-    if (!seen.has(m.value)) {
-      seen.add(m.value);
-      merged.push(m);
+  // Enriquecimiento (NO filtra): el models.json del agente brew indica la
+  // capacidad real de razonamiento por modelo. Solo AÑADE el flag `reasoning`
+  // a los modelos que aparezcan allí (hoy, los zen-free); los demás quedan sin
+  // flag y la UI los trata como con razonamiento (muestra todos los niveles).
+  const brewModels = readBrewAllowlist();
+  if (brewModels) {
+    const reasoningByValue = new Map(
+      brewModels.map((m) => [m.value, m.reasoning])
+    );
+    for (const m of merged) {
+      if (reasoningByValue.has(m.value)) {
+        m.reasoning = reasoningByValue.get(m.value);
+      }
     }
   }
 
-  merged.sort((a, b) =>
-    a.provider.localeCompare(b.provider) || a.label.localeCompare(b.label)
+  merged.sort(
+    (a, b) =>
+      a.provider.localeCompare(b.provider) || a.label.localeCompare(b.label)
   );
 
   return NextResponse.json(merged);
