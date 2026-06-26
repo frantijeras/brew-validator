@@ -84,10 +84,7 @@ AGENT_MAP = {
     "idea-refiner": "idea-refiner",
     "idea-improver": "idea-improver",
     "project-analyst": "project-analyst",
-    "project-branding": "project-branding",
     "project-content": "project-content",
-    "project-dev": "project-dev",
-    "project-dossier": "project-dossier",
     "project-business": "project-business",
     "project-execution": "project-execution",
     "project-naming": "project-naming",
@@ -99,7 +96,7 @@ VALIDATION_AGENTS = ["skeptic", "advocate", "judge"]
 GENERATOR_AGENTS = ["idea-generator"]
 REFINER_AGENTS = ["idea-refiner"]
 IMPROVER_AGENTS = ["idea-improver"]
-PROJECT_AGENTS =["project-analyst", "project-branding", "project-naming", "project-voice", "project-logo", "project-template", "project-content", "project-dev", "project-dossier", "project-business", "project-execution"]
+PROJECT_AGENTS =["project-analyst", "project-naming", "project-voice", "project-logo", "project-template", "project-content", "project-business", "project-execution"]
 
 # Agent ID in the bridge → settings key
 AGENT_SETTINGS_KEY = {
@@ -108,10 +105,7 @@ AGENT_SETTINGS_KEY = {
     "advocate": "defender",
     "judge": "judge",
     "project-analyst": "project-analyst",
-    "project-branding": "project-branding",
     "project-content": "project-content",
-    "project-dev": "project-dev",
-    "project-dossier": "project-dossier",
     "project-business": "project-business",
     "project-execution": "project-execution",
     "project-naming": "project-naming",
@@ -568,14 +562,10 @@ def execute_agent(instruction, agent_name="main", timeout=180, model_override=No
         model = model_override
     else:
         model = get_agent_model(agent_name)
-    if idea_id and False:  # disabled: per-idea sessions caused context contamination between jobs
-        # Per-idea session: stable across re-runs and across agents
-        # working on the same idea. Lets the model keep context.
-        session_id = f"brew-idea-{idea_id}-{agent_name}"
-    else:
-        # Per-job session: every job is fully isolated. Avoids context
-        # contamination from prior ideas/validations.
-        session_id = f"brew-{agent_name}-{int(time.time() * 1000)}-{os.getpid()}-{uuid.uuid4().hex[:8]}"
+    # Per-job session: every job is fully isolated. Avoids context
+    # contamination from prior ideas/validations. (Per-idea sessions were
+    # tried and removed — they leaked context between jobs of the same idea.)
+    session_id = f"brew-{agent_name}-{int(time.time() * 1000)}-{os.getpid()}-{uuid.uuid4().hex[:8]}"
     # Dedicated agent 'brew' — only sees 6 skills (no codebot, no build triggers).
     # Loads its own auth-profiles.json (separate API key for usage tracking).
     cmd = ["openclaw", "agent",
@@ -605,13 +595,8 @@ def execute_agent(instruction, agent_name="main", timeout=180, model_override=No
         "skeptic": "Generando informe escéptico",
         "advocate": "Generando informe defensor",
         "judge": "Generando veredicto",
-        "brew-qa-refiner": "Puliendo idea",
-        "idea-renamer": "Buscando nombres",
         "project-analyst": "Analizando mercado",
-        "project-branding": "Creando identidad de marca",
         "project-content": "Generando estrategia de distribución",
-        "project-dev": "Creando landing page",
-        "project-dossier": "Compilando dossier completo",
         "project-business": "Analizando modelo de negocio",
         "project-execution": "Generando roadmap 30/60/90",
     }
@@ -720,10 +705,15 @@ def execute_agent(instruction, agent_name="main", timeout=180, model_override=No
             return None
         output = (stdout or "").strip()
         log(f"  Output: {len(output)} chars")
-        try:
-            open("/tmp/last_agent_output.txt", "w").write(output)
-        except Exception:
-            pass
+        # Optional debug dump of the raw agent output. Off by default; enable
+        # by setting BRIDGE_DEBUG_DUMP to a writable file path.
+        _debug_dump = os.environ.get("BRIDGE_DEBUG_DUMP")
+        if _debug_dump:
+            try:
+                with open(_debug_dump, "w") as _df:
+                    _df.write(output)
+            except Exception:
+                pass
         # CLI ran ok but produced no content at all.
         if not output:
             log(f"  ⚠ {agent_name}: CLI ok but empty output")
@@ -1180,369 +1170,9 @@ array "options" cuando encaje una pregunta cerrada.
                 pass
 
 
-def process_qa_refiner(job, idea):
-    """Process a brew-qa-refiner job — quiz or chat mode.
-    
-    Quiz mode (two-phase):
-      Phase 1 — input has NO answers → agent generates ALL questions → QUESTIONS_READY
-      Phase 2 — input HAS answers → agent generates refined idea → DONE
-    
-    Chat mode input: { idea, conversationHistory, mode: "chat" }
-    """
-    job_id = job["id"]
-    idea_id = job["ideaId"]
-    agent_name = job["agentName"]
-    skill_name = AGENT_MAP[agent_name]
-    skill_content = read_skill(skill_name)
-    job_input = json.loads(job.get("input", "{}"))
-    bridge_model = job_input.pop("_bridgeModel", None)
-    thinking = job_input.pop("_thinking", None) or "low"
-
-    log(f"▶ {agent_name} ({job_id[:12]})")
-
-    # Mark as RUNNING
-    try:
-        api_post(f"/api/jobs/{job_id}/status", {"status": "RUNNING"})
-    except Exception as e:
-        log(f"  ⚠ Failed to mark job {job_id[:12]} as RUNNING: {e}")
-
-    mode = job_input.get("mode", "chat")
-
-    if mode == "quiz":
-        process_quiz_mode(job_id, job_input, skill_content, bridge_model, idea_id=idea_id, thinking=thinking)
-    elif mode == "manual":
-        process_manual_text_mode(job_id, job_input, skill_content, bridge_model, idea_id=idea_id, thinking=thinking)
-    else:
-        process_chat_mode(job_id, job_input, skill_content, bridge_model, idea_id=idea_id, thinking=thinking)
-
-
-def process_quiz_mode(job_id, job_input, skill_content, bridge_model=None, idea_id=None, thinking=None):
-    """Process a quiz-mode refinement job (two-phase).
-    
-    Phase 1 (no answers): Agent generates ALL questions at once.
-    Phase 2 (with answers): Agent generates refined idea DONE.
-    """
-    idea_data = job_input.get("idea", {})
-    answers = job_input.get("answers", [])
-
-    has_answers = len(answers) > 0
-    phase = "Fase 2 (con respuestas)" if has_answers else "Fase 1 (sin respuestas)"
-    log(f"  Quiz mode — {phase}")
-
-    instruction = f"""
-INSTRUCCIÓN: Eres un consultor de negocio refinando una idea mediante preguntas.
-
-SKILL:
-{skill_content}
-
-IDEA ACTUAL:
-- Título: {idea_data.get('title', '')}
-- Descripción: {idea_data.get('description', '')}
-- Usuario objetivo: {idea_data.get('targetUser', '')}
-- Monetización: {idea_data.get('monetization', '')}
-"""
-
-    if idea_data.get('problem'):
-        instruction += f"- Problema: {idea_data.get('problem')}\n"
-    if idea_data.get('valueProposition'):
-        instruction += f"- Propuesta de valor: {idea_data.get('valueProposition')}\n"
-
-    if has_answers:
-        # ── Phase 2: Generate refined idea from answers ──
-        instruction += f"""
-MODO: Quiz — Fase 2 (refinamiento con respuestas)
-
-RESPUESTAS DEL EMPRENDEDOR:
-"""
-        for a in answers:
-            instruction += f"\n- Pregunta: {a.get('questionText', a.get('question', ''))}"
-            instruction += f"\n  Respuesta: {a.get('answer', '')}"
-
-        instruction += """
-
-Todas las preguntas han sido respondidas. Genera la VERSIÓN REFINADA FINAL.
-Usa web_search para enriquecer las sugerencias con datos reales de mercado.
-
-Analiza las respuestas del emprendedor e incorpora los insights en la idea refinada.
-
-Si la idea ha evolucionado significativamente, puedes sugerir un cambio de modelo
-de negocio más adecuado en el campo suggestedBusinessModel.
-
-Responde SOLO con JSON:
-{"status": "DONE", "title": "Título actual (sin cambios)", "description": "Descripción mejorada", "problem": "Problema refinado", "valueProposition": "Propuesta de valor mejorada", "targetUser": "Público objetivo refinado", "monetization": "Modelo de monetización refinado", "summary": "Resumen amigable para el usuario explicando los cambios realizados y por qué", "suggestedBusinessModel": "SaaS, Marketplace, etc. (solo si la idea ha evolucionado mucho, si no, omite este campo)"}
-"""
-    else:
-        # ── Phase 1: Generate ALL questions at once ──
-        instruction += """
-MODO: Quiz — Fase 1 (generación de preguntas)
-
-Genera TODAS las preguntas de UNA SOLA VEZ. Mínimo 5, máximo 8 según el contexto.
-
-Cada pregunta debe tener:
-- id: identificador único (q1, q2, q3...)
-- questionText: la pregunta en español
-- options: exactamente 3 opciones sugeridas por IA
-
-Usa web_search para investigar el sector y mercado antes de generar las preguntas.
-
-Responde SOLO con JSON:
-{"status": "QUESTIONS_READY", "questions": [{"id": "q1", "questionText": "...", "options": ["opcion1", "opcion2", "opcion3"]}]}
-"""
-
-    result = execute_agent(instruction, agent_name="brew-qa-refiner", timeout=240, model_override=bridge_model, idea_id=idea_id or "", thinking=thinking)
-    if result and "status" in result:
-        agent_status = result.get("status", "?")
-
-        if agent_status == "QUESTIONS_READY":
-            # Questions generated — leave job COMPLETED so UI can poll the output
-            callback = {
-                "jobId": job_id,
-                "status": "COMPLETED",
-                "output": result,
-                "cost": 0.03,
-            }
-            n_q = len(result.get("questions", []))
-            log(f"  ✅ qa-refiner submitted — QUESTIONS_READY ({n_q} preguntas)")
-        elif agent_status == "DONE":
-            # Refined idea generated — COMPLETED
-            callback = {
-                "jobId": job_id,
-                "status": "COMPLETED",
-                "output": result,
-                "cost": 0.03,
-            }
-            log(f"  ✅ qa-refiner submitted — DONE title={result.get('title', '')[:40]}")
-        else:
-            # Unknown status, still submit
-            callback = {
-                "jobId": job_id,
-                "status": "COMPLETED",
-                "output": result,
-                "cost": 0.03,
-            }
-            log(f"  ✅ qa-refiner submitted — status={agent_status}")
-
-        try:
-            api_post("/api/webhooks/agent-callback", callback)
-        except Exception as e:
-            log(f"  ❌ Callback fail: {e}")
-    else:
-        log(f"  ❌ qa-refiner (quiz) no valid result")
-        try:
-            api_post(f"/api/jobs/{job_id}/status", {"status": "FAILED", "error": _faithful_error("No valid result from agent")})
-        except Exception:
-            pass
-
-
-def process_manual_text_mode(job_id, job_input, skill_content, bridge_model=None, idea_id=None, thinking=None):
-    """Process a manual-text refinement job.
-
-    The user pastes raw text describing their refined idea. The agent
-    structures it into the standard fields and returns a DONE result.
-    """
-    idea_data = job_input.get("idea", {})
-    raw_text = job_input.get("rawText", "")
-
-    log(f"  Manual mode — raw text ({len(raw_text)} chars)")
-
-    instruction = f"""
-INSTRUCCIÓN: Eres un consultor de negocio refinando una idea emprendedora.
-
-SKILL:
-{skill_content}
-
-IDEA ACTUAL (ANTES):
-- Título: {idea_data.get('title', '')}
-- Descripción: {idea_data.get('description', '')}
-- Usuario objetivo: {idea_data.get('targetUser', '')}
-- Monetización: {idea_data.get('monetization', '')}
-"""
-
-    if idea_data.get('problem'):
-        instruction += f"- Problema: {idea_data.get('problem')}\n"
-    if idea_data.get('valueProposition'):
-        instruction += f"- Propuesta de valor: {idea_data.get('valueProposition')}\n"
-
-    instruction += f"""
-
-MODO: Manual — el usuario ha redactado una versión mejorada en texto libre.
-
-TEXTO DEL EMPRENDEDOR:
-{raw_text}
-
-Estructura y organiza el texto del emprendedor en los campos estándar de la idea.
-Usa web_search para enriquecer las sugerencias con datos reales de mercado.
-Mejora cada campo basándote en el texto del usuario y tu investigación.
-
-Si la idea ha evolucionado significativamente, puedes sugerir un cambio de modelo
-de negocio más adecuado en el campo suggestedBusinessModel.
-
-Responde SOLO con JSON:
-{{"status": "DONE", "title": "Título actual (sin cambios)", "description": "Descripción mejorada", "problem": "Problema refinado", "valueProposition": "Propuesta de valor mejorada", "targetUser": "Público objetivo refinado", "monetization": "Modelo de monetización refinado", "summary": "Resumen amigable para el usuario explicando los cambios realizados y por qué", "suggestedBusinessModel": "SaaS, Marketplace, etc. (solo si la idea ha evolucionado mucho, si no, omite este campo)"}}
-"""
-
-    result = execute_agent(instruction, agent_name="brew-qa-refiner", timeout=240, model_override=bridge_model, idea_id=idea_id or "", thinking=thinking)
-    if result and "status" in result:
-        callback = {
-            "jobId": job_id,
-            "status": "COMPLETED",
-            "output": result,
-            "cost": 0.03,
-        }
-        status = result.get("status", "?")
-        log(f"  ✅ qa-refiner (manual) submitted — status={status}")
-        try:
-            api_post("/api/webhooks/agent-callback", callback)
-        except Exception as e:
-            log(f"  ❌ Callback fail: {e}")
-    else:
-        log(f"  ❌ qa-refiner (manual) no valid result")
-        try:
-            api_post(f"/api/jobs/{job_id}/status", {"status": "FAILED", "error": _faithful_error("No valid result from agent")})
-        except Exception:
-            pass
-
-
-def process_chat_mode(job_id, job_input, skill_content, bridge_model=None, idea_id=None, thinking=None):
-    """Process a chat-mode refinement job (legacy)."""
-    conversation_history = job_input.get("conversationHistory", [])
-    idea_data = job_input.get("idea", {})
-
-    log(f"  Chat mode — {len(conversation_history)} messages")
-
-    message_count = len([m for m in conversation_history if m.get("role") == "user"])
-    should_finish = (message_count >= 3)
-
-    instruction = f"""
-INSTRUCCIÓN: Eres un consultor de negocio refinando una idea emprendedora mediante conversación.
-
-SKILL:
-{skill_content}
-
-IDEA ACTUAL:
-- Título: {idea_data.get('title', '')}
-- Descripción: {idea_data.get('description', '')}
-- Usuario objetivo: {idea_data.get('targetUser', '')}
-- Monetización: {idea_data.get('monetization', '')}
-
-HISTORIAL DE CONVERSACIÓN:
-"""
-
-    for msg in conversation_history:
-        role_label = "EMPRENDEDOR" if msg.get("role") == "user" else "CONSULTOR"
-        instruction += f"\n{role_label}: {msg.get('content', '')}"
-
-    if should_finish:
-        instruction += """
-
-La conversación ha tenido suficientes intercambios. Es hora de generar la VERSIÓN REFINADA FINAL.
-Responde SOLO con JSON:
-{"status": "DONE", "title": "Título refinado", "description": "Descripción mejorada", "targetUser": "Público objetivo refinado", "monetization": "Modelo de monetización refinado", "summary": "Resumen amigable para el usuario explicando los cambios"}
-"""
-    else:
-        instruction += """
-
-Haz UNA SOLA pregunta contextual relevante. Basa tu pregunta en el último mensaje del emprendedor.
-NO hagas preguntas genéricas ya respondidas. Responde SOLO con JSON:
-{"status": "RUNNING", "message": "Tu pregunta contextual aquí"}
-"""
-
-    result = execute_agent(instruction, agent_name="brew-qa-refiner", timeout=180, model_override=bridge_model, idea_id=idea_id or "", thinking=thinking)
-    if result and "status" in result:
-        callback = {
-            "jobId": job_id,
-            "status": "COMPLETED",
-            "output": result,
-            "cost": 0.03,
-        }
-        try:
-            api_post("/api/webhooks/agent-callback", callback)
-            status = result.get("status", "?")
-            log(f"  ✅ qa-refiner (chat) submitted — status={status}")
-        except Exception as e:
-            log(f"  ❌ Callback fail: {e}")
-    else:
-        log(f"  ❌ qa-refiner (chat) no valid result")
-        try:
-            api_post(f"/api/jobs/{job_id}/status", {"status": "FAILED", "error": _faithful_error("No valid result from agent")})
-        except Exception:
-            pass
-
-
-def process_idea_renamer(job, idea):
-    """Process a idea-renamer job.
-    
-    Generates name suggestions for a business idea with domain checks.
-    Input: { title, description, problem, targetUser, monetization, businessModel }
-    Output: { suggestions: [{ name, available, reason }] }
-    """
-    job_id = job["id"]
-    idea_id = job["ideaId"]
-    agent_name = job["agentName"]
-    skill_name = AGENT_MAP[agent_name]
-    skill_content = read_skill(skill_name)
-    job_input = json.loads(job.get("input", "{}"))
-    bridge_model = job_input.pop("_bridgeModel", None)
-    thinking = job_input.pop("_thinking", None) or "low"
-
-    log(f"▶ {agent_name} ({job_id[:12]})")
-
-    # Mark as RUNNING
-    try:
-        api_post(f"/api/jobs/{job_id}/status", {"status": "RUNNING"})
-    except Exception as e:
-        log(f"  ⚠ Failed to mark job {job_id[:12]} as RUNNING: {e}")
-
-    instruction = f"""
-INSTRUCCIÓN: Eres un experto en naming y branding de startups. Tu tarea es generar nombres creativos y originales para una idea de negocio.
-
-SKILL:
-{skill_content}
-
-CONTEXTO DE LA IDEA:
-- Título actual: {job_input.get('title', '')}
-- Descripción: {job_input.get('description', '')}
-- Problema: {job_input.get('problem', 'No especificado')}
-- Usuario objetivo: {job_input.get('targetUser', 'No especificado')}
-- Monetización: {job_input.get('monetization', 'No especificado')}
-- Modelo de negocio: {job_input.get('businessModel', 'No especificado')}
-
-Investiga con web_search nombres existentes en este sector, dominios .com disponibles, y posibles conflictos con marcas registradas.
-
-Genera MÍNIMO 10 sugerencias de nombres originales.
-
-RESPONDE SOLO CON JSON EXACTO:
-{{"suggestions": [{{"name": "NombreSugerido", "available": true, "reason": "Por qué este nombre encaja bien con la idea"}}]}}
-"""
-
-    result = execute_agent(instruction, agent_name="idea-renamer", timeout=300, model_override=bridge_model, idea_id=idea_id, thinking=thinking)
-    if result and isinstance(result, dict) and "suggestions" in result:
-        suggestions = result["suggestions"]
-        if isinstance(suggestions, list) and len(suggestions) > 0:
-            callback = {
-                "jobId": job_id,
-                "status": "COMPLETED",
-                "output": {
-                    "suggestions": suggestions,
-                },
-                "cost": 0.04,
-            }
-            try:
-                api_post("/api/webhooks/agent-callback", callback)
-                log(f"  ✅ {agent_name} submitted — {len(suggestions)} suggestions")
-            except Exception as e:
-                log(f"  ❌ Callback fail: {e}")
-            return
-
-    log(f"  ❌ {agent_name} no valid suggestions")
-    try:
-        api_post(f"/api/jobs/{job_id}/status", {"status": "FAILED", "error": _faithful_error("No valid suggestions generated")})
-    except Exception:
-        pass
-
-
 def process_project_phase(job):
-    """Process a project-phase job (analyst, branding, content, dev, dossier).
+    """Process a project-phase job (analyst, business, content, execution,
+    and the identity sub-skills: naming, voice, logo, template).
 
     The job.input contains:
     {
@@ -1644,7 +1274,6 @@ def process_project_phase(job):
             "project-business": ("la viabilidad financiera del negocio", "Cubre estos ejes: costes fijos mensuales estimados, dedicacion economica inicial (capital propio), expectativas de precio frente a la competencia y pasarelas de pago."),
             "project-content": ("la estrategia de distribucion y contenido", "Cubre estos ejes: disponibilidad de tiempo semanal, experiencia del equipo en marketing y preferencias de canales."),
             "project-execution": ("el roadmap y la ejecucion 30/60/90", "Cubre estos ejes: fechas limite que condicionen el plan, tamano del equipo ejecutor y dependencias tecnicas criticas."),
-            "project-branding": ("la identidad visual de la marca", "Cubre estos ejes: estilo visual deseado, paleta de colores, referencias o marcas que admira y tipografia."),
         }
         _topic, _axes = _QHINTS.get(agent_name, ("la idea", ""))
         _desc = (idea_ctx.get("description", "") or "")[:500]

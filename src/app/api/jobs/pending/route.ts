@@ -1,17 +1,7 @@
 import { prisma } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyBridgeSecret } from "@/lib/bridge-auth";
-
-const MONITORED_AGENTS = [
-  "skeptic", "advocate", "judge",
-  "idea-generator",
-  // Refinar idea / Mejorar idea según el veredicto (¡deben despacharse!).
-  "idea-refiner", "idea-improver",
-  "project-analyst", "project-branding", "project-content",
-  "project-business", "project-execution",
-  // Fase 3 separada en 4 sub-skills (project-branding se mantiene de fallback).
-  "project-naming", "project-voice", "project-logo", "project-template",
-];
+import { DISPATCHABLE_AGENTS } from "@/lib/agent-models";
 
 /**
  * GET /api/jobs/pending
@@ -30,7 +20,7 @@ export async function GET(req: NextRequest) {
 
     const where: Record<string, unknown> = {
       status: "PENDING",  // solo PENDING, no más RUNNING
-      agentName: { in: MONITORED_AGENTS },
+      agentName: { in: DISPATCHABLE_AGENTS },
     };
 
     if (ideaId) {

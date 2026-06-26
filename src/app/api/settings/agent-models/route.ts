@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import fs from "fs";
 import path from "path";
-import { AI_PLANS, type AiPlan, getPlanModels, getPlanThinking } from "@/lib/agent-models";
+import { AGENT_DEFAULTS, AI_PLANS, type AiPlan, getPlanModels, getPlanThinking } from "@/lib/agent-models";
 
 function parsePlan(value: unknown): AiPlan | null {
   return typeof value === "string" && (AI_PLANS as readonly string[]).includes(value)
@@ -49,26 +49,9 @@ const CONFIG_PATH = path.resolve(
 // Where to forward updates when the local bridge is running
 const BRIDGE_URL = process.env.BRIDGE_API_URL ?? "http://127.0.0.1:9090";
 
-// Default models used as fallback when nothing is configured.
-// Se usan modelos gratuitos (-free) presentes en la lista de modelos disponibles.
-const DEFAULT_MODELS: Record<string, string> = {
-  generator: "opencode-zen-free/deepseek-v4-flash-free",
-  skeptic: "opencode-zen-free/deepseek-v4-flash-free",
-  defender: "opencode-zen-free/deepseek-v4-flash-free",
-  // minimax-m3-free no devuelve JSON válido para el juez; deepseek sí.
-  judge: "opencode-zen-free/deepseek-v4-flash-free",
-  // Alineado con el modelo operativo del bridge (antes "opencode-go/..." no
-  // operativo dejaba colgadas las fases de Identidad).
-  "project-analyst": "opencode-zen-free/mimo-v2.5-free",
-  "project-branding": "opencode-zen-free/mimo-v2.5-free",
-  "project-naming": "opencode-zen-free/mimo-v2.5-free",
-  "project-voice": "opencode-zen-free/mimo-v2.5-free",
-  "project-logo": "opencode-zen-free/mimo-v2.5-free",
-  "project-template": "opencode-zen-free/mimo-v2.5-free",
-  "project-content": "opencode-zen-free/mimo-v2.5-free",
-  "project-business": "opencode-zen-free/mimo-v2.5-free",
-  "project-execution": "opencode-zen-free/mimo-v2.5-free",
-}
+// Default models used as fallback when nothing is configured. Single source of
+// truth: AGENT_DEFAULTS from agent-models.ts (keyed by settings-key).
+const DEFAULT_MODELS: Record<string, string> = AGENT_DEFAULTS;
 
 async function readConfigFromFile(): Promise<Record<string, string> | null> {
   try {

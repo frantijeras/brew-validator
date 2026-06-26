@@ -13,7 +13,7 @@ function isAiPlan(value: unknown): value is AiPlan {
   return typeof value === "string" && (AI_PLANS as readonly string[]).includes(value);
 }
 
-const AGENT_DEFAULTS: Record<string, string> = {
+export const AGENT_DEFAULTS: Record<string, string> = {
   generator: "opencode-zen-free/deepseek-v4-flash-free",
   // El refinador de ideas usa el mismo modelo libre que el generador.
   "idea-refiner": "opencode-zen-free/deepseek-v4-flash-free",
@@ -29,7 +29,6 @@ const AGENT_DEFAULTS: Record<string, string> = {
   // operativo para el agente 'brew' y hacía que los jobs fallaran con
   // "returned None / respuesta vacía" (p. ej. la fase de Análisis de mercado).
   "project-analyst": "opencode-zen-free/mimo-v2.5-free",
-  "project-branding": "opencode-zen-free/mimo-v2.5-free",
   "project-naming": "opencode-zen-free/mimo-v2.5-free",
   "project-voice": "opencode-zen-free/mimo-v2.5-free",
   "project-logo": "opencode-zen-free/mimo-v2.5-free",
@@ -47,7 +46,6 @@ const JOB_AGENT_TO_SETTINGS_KEY: Record<string, string> = {
   advocate: "defender",
   judge: "judge",
   "project-analyst": "project-analyst",
-  "project-branding": "project-branding",
   "project-naming": "project-naming",
   "project-voice": "project-voice",
   "project-logo": "project-logo",
@@ -66,6 +64,27 @@ export const PROJECT_AGENTS = [
   "project-content",
   "project-business",
   "project-execution",
+];
+
+/** Agentes de validación (job `agentName`). */
+export const VALIDATION_AGENTS = ["skeptic", "advocate", "judge"];
+
+/**
+ * Agentes de idea (job `agentName`). idea-refiner/idea-improver son los que
+ * refinan/mejoran la idea según el veredicto: DEBEN despacharse.
+ */
+export const IDEA_AGENTS = ["idea-generator", "idea-refiner", "idea-improver"];
+
+/**
+ * ÚNICA fuente de verdad de los agentes despachables: el conjunto completo de
+ * `agentName` que el bridge procesa. Cualquier consumidor (p. ej. el endpoint de
+ * jobs pendientes) DEBE derivar de aquí en lugar de re-listar agentes, para que
+ * añadir un agente nuevo no pueda volver a quedarse sin despachar.
+ */
+export const DISPATCHABLE_AGENTS: string[] = [
+  ...VALIDATION_AGENTS,
+  ...IDEA_AGENTS,
+  ...PROJECT_AGENTS,
 ];
 
 /**
