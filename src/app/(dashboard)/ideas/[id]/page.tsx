@@ -17,12 +17,8 @@ import { useBridgeStatus } from "@/hooks/use-bridge-status";
 import { isIdeaBusy } from "@/lib/idea-state";
 import { Button } from "@/components/ui/button";
 import { DemoLimitDialog } from "@/components/demo-limit-dialog";
-import {
-  RefineIdeaPanel,
-  parseRefineOutput,
-  REFINABLE_FIELDS,
-  type FieldKey,
-} from "./refine-idea-panel";
+import { RefineIdeaPanel, type FieldKey } from "./refine-idea-panel";
+import { ImproveIdeaPanel } from "./improve-idea-panel";
 
 interface IdeaData {
   id: string;
@@ -72,15 +68,19 @@ export default function IdeaDetailPage() {
   const [archPending, setArchPending] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  // Refinado de idea (flujo inline, sin modal)
+  // Refinado de idea (flujo inline, sin modal) — ahora dirigido por estado.
+  // El servidor aplica los cambios; la página detecta status === "REFINING",
+  // muestra el spinner y sondea la idea hasta que el estado cambia.
   const [refinePanelOpen, setRefinePanelOpen] = useState(false);
-  const [refining, setRefining] = useState(false);
-  const [refineJobId, setRefineJobId] = useState<string | null>(null);
   const [refineError, setRefineError] = useState<string | null>(null);
   const [refineSuccess, setRefineSuccess] = useState(false);
   const [refineLimit, setRefineLimit] = useState(false);
   const [undoSnapshot, setUndoSnapshot] = useState<Record<string, string> | null>(null);
-  const refinePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Mejorar idea (quiz según el veredicto). El panel gestiona preguntas/apply;
+  // tras el apply la idea entra en status === "IMPROVING" (mismo mecanismo).
+  const [improvePanelOpen, setImprovePanelOpen] = useState(false);
+  const [improveSuccess, setImproveSuccess] = useState(false);
+  const [improveLimit, setImproveLimit] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [cancellingValidation, setCancellingValidation] = useState(false);
@@ -137,22 +137,48 @@ export default function IdeaDetailPage() {
     fetchIdea();
   }, [fetchIdea]);
 
-  // Polling when validating or when idea generation is in progress
+  // Estados dirigidos por el servidor: la idea está siendo refinada/mejorada por
+  // el bridge. El servidor aplica los cambios y resetea el estado al terminar.
+  const busyRefine = idea?.status === "REFINING";
+  const busyImprove = idea?.status === "IMPROVING";
+
+  // Polling when validating, when idea generation is in progress, or while el
+  // servidor está refinando/mejorando la idea (sondeo rápido para reaccionar
+  // en cuanto el estado cambie).
   const shouldPoll =
     idea?.validationStatus === "RUNNING" ||
     (idea?.status === "DRAFT" && idea?.validationStatus === "PENDING");
+  const shouldPollFast = busyRefine || busyImprove;
 
   useEffect(() => {
-    if (shouldPoll) {
+    if (shouldPollFast) {
+      pollRef.current = setInterval(fetchIdea, 2000);
+    } else if (shouldPoll) {
       pollRef.current = setInterval(fetchIdea, 3000);
-      return () => {
-        if (pollRef.current) clearInterval(pollRef.current);
-      };
     }
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [shouldPoll, fetchIdea]);
+  }, [shouldPoll, shouldPollFast, fetchIdea]);
+
+  // Detecta la transición de salida de REFINING/IMPROVING para mostrar el aviso
+  // de éxito correspondiente (funciona también si la página se montó ya en uno
+  // de esos estados y luego termina).
+  const prevStatusRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+    const curr = idea?.status ?? null;
+    if (prev === "REFINING" && curr !== "REFINING") {
+      setRefineSuccess(true);
+      setRefinePanelOpen(false);
+      setRefineError(null);
+    }
+    if (prev === "IMPROVING" && curr !== "IMPROVING") {
+      setImproveSuccess(true);
+      setImprovePanelOpen(false);
+    }
+    prevStatusRef.current = curr;
+  }, [idea?.status]);
 
   const isCompleted = idea?.status === "COMPLETED" || idea?.validationStatus === "DONE";
 
@@ -359,108 +385,24 @@ export default function IdeaDetailPage() {
     }
   }
 
-  // ── Refinado de idea (inline) ────────────────────────────────────────────
-
-  const stopRefinePolling = useCallback(() => {
-    if (refinePollRef.current) {
-      clearInterval(refinePollRef.current);
-      refinePollRef.current = null;
-    }
-  }, []);
-
-  // Limpieza del intervalo de sondeo al desmontar.
-  useEffect(() => stopRefinePolling, [stopRefinePolling]);
-
-  // Aplica los campos refinados directamente vía PATCH y refresca la idea.
-  const applyRefinedFields = useCallback(
-    async (fields: Record<string, string>) => {
-      if (!idea) return;
-      // Captura los valores previos para poder deshacer.
-      const snapshot: Record<string, string> = {};
-      for (const key of Object.keys(fields)) {
-        snapshot[key] = (idea[key as keyof IdeaData] ?? "").toString();
-      }
-      try {
-        const res = await fetch(`/api/ideas/${ideaId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-          body: JSON.stringify(fields),
-        });
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          throw new Error(data?.error || "No se pudieron aplicar los cambios");
-        }
-        setUndoSnapshot(snapshot);
-        setRefining(false);
-        setRefineJobId(null);
-        setRefineSuccess(true);
-        await fetchIdea();
-        router.refresh();
-      } catch (err) {
-        setRefining(false);
-        setRefineJobId(null);
-        setRefineError(
-          err instanceof Error ? err.message : "Error al aplicar el refinado"
-        );
-      }
-    },
-    [idea, ideaId, fetchIdea, router]
-  );
-
-  // Sondeo del job de refinado.
-  const startRefinePolling = useCallback(
-    (jobId: string) => {
-      stopRefinePolling();
-      const tick = async () => {
-        try {
-          const res = await fetch(`/api/jobs/${jobId}`, {
-            credentials: "same-origin",
-            cache: "no-store",
-          });
-          if (!res.ok) return; // reintenta en el siguiente tick
-          const job = await res.json();
-          if (job.status === "COMPLETED") {
-            stopRefinePolling();
-            const parsed = parseRefineOutput(job.output);
-            const toApply: Record<string, string> = {};
-            for (const f of REFINABLE_FIELDS) {
-              const value = parsed[f.key];
-              if (typeof value === "string" && value.trim().length > 0) {
-                toApply[f.key] = value.trim();
-              }
-            }
-            if (Object.keys(toApply).length === 0) {
-              setRefining(false);
-              setRefineJobId(null);
-              setRefineError(
-                "La IA no devolvió cambios. Inténtalo con otra instrucción."
-              );
-              return;
-            }
-            void applyRefinedFields(toApply);
-          } else if (job.status === "FAILED") {
-            stopRefinePolling();
-            setRefining(false);
-            setRefineJobId(null);
-            setRefineError(
-              job.error || "El refinado ha fallado. Inténtalo de nuevo."
-            );
-          }
-        } catch {
-          // Error transitorio de red: reintenta en el siguiente tick.
-        }
-      };
-      void tick();
-      refinePollRef.current = setInterval(tick, 2000);
-    },
-    [stopRefinePolling, applyRefinedFields]
-  );
-
-  // Lanza el refinado desde el panel inline.
+  // ── Refinado de idea (dirigido por estado) ────────────────────────────────
+  //
+  // Ya NO se sondea el job ni se aplican los cambios en el cliente. El servidor
+  // aplica los campos y resetea el estado al terminar. Aquí solo lanzamos el
+  // POST: tras el éxito la idea queda en status === "REFINING", lo que hace que
+  // la página muestre el spinner y sondee la idea (ver shouldPollFast). Esto
+  // sobrevive a recargas y navegación: al volver con status REFINING, el spinner
+  // y el sondeo se reactivan solos.
   async function handleStartRefine(fields: FieldKey[], instruction: string) {
+    if (!idea) return;
     setRefineError(null);
     setRefineSuccess(false);
+    // Captura best-effort de los valores actuales para poder deshacer mientras
+    // sigamos en pantalla (no disponible tras recargar, y no pasa nada).
+    const snapshot: Record<string, string> = {};
+    for (const key of fields) {
+      snapshot[key] = (idea[key as keyof IdeaData] ?? "").toString();
+    }
     try {
       const res = await fetch(`/api/ideas/${ideaId}/refine`, {
         method: "POST",
@@ -478,11 +420,12 @@ export default function IdeaDetailPage() {
       }
       const data = await res.json();
       if (!data?.jobId) throw new Error("Respuesta inesperada del servidor");
-      // Entra en estado "refinando": oculta panel y tarjeta, muestra spinner.
+      // No sondeamos el job: el servidor pone la idea en REFINING y aplica los
+      // cambios. Guardamos el snapshot para el "Deshacer" y refrescamos para
+      // recoger cuanto antes el nuevo estado (que dispara el spinner).
+      setUndoSnapshot(snapshot);
       setRefinePanelOpen(false);
-      setRefineJobId(data.jobId);
-      setRefining(true);
-      startRefinePolling(data.jobId);
+      await fetchIdea();
     } catch (err) {
       setRefineError(err instanceof Error ? err.message : "Error al refinar");
     }
@@ -536,8 +479,9 @@ export default function IdeaDetailPage() {
   }
 
   // Bloquea acciones de mutación de contenido (validar, exportar, etc.)
-  // mientras la idea está siendo procesada por el bridge.
-  const isBusy = isIdeaBusy(idea.status);
+  // mientras la idea está siendo procesada por el bridge. Incluimos también
+  // IMPROVING aquí explícitamente (refine/improve dirigidos por estado).
+  const isBusy = isIdeaBusy(idea.status) || busyRefine || busyImprove;
   const isDraft = idea.status === "DRAFT";
 
   // Distinguish a GENERATION failure from a VALIDATION failure.
@@ -572,6 +516,11 @@ export default function IdeaDetailPage() {
     !isGenerationFailure &&
     idea.validationStatus !== "RUNNING" &&
     idea.validationStatus !== "DONE";
+
+  // "Mejorar idea según el veredicto" — solo DESPUÉS de validar: la idea está
+  // validada (DONE), no está ocupada y no es la vista readonly.
+  const canImprove =
+    !readonly && !isBusy && idea.validationStatus === "DONE";
 
   const formattedCreated = new Date(idea.createdAt).toLocaleDateString("es-ES", {
     day: "numeric",
@@ -762,7 +711,7 @@ export default function IdeaDetailPage() {
                   )}
                 </Button>
               )}
-              {canRefine && !refining && (
+              {canRefine && (
                 <Button
                   variant="secondary"
                   onClick={() => {
@@ -773,6 +722,19 @@ export default function IdeaDetailPage() {
                 >
                   <Sparkles className="size-4" />
                   Refinar idea
+                </Button>
+              )}
+              {canImprove && (
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setImproveSuccess(false);
+                    setImprovePanelOpen((prev) => !prev);
+                  }}
+                  className="gap-2 py-2.5 shadow"
+                >
+                  <Sparkles className="size-4" />
+                  Mejorar idea según el veredicto
                 </Button>
               )}
               {/* Convertir en proyecto */}
@@ -838,7 +800,7 @@ export default function IdeaDetailPage() {
       )}
 
       {/* Aviso de éxito tras refinar (descartable, con opción de deshacer) */}
-      {refineSuccess && !refining && (
+      {refineSuccess && !busyRefine && !busyImprove && (
         <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
           <span className="font-medium">Idea refinada ✓</span>
           <div className="flex items-center gap-4">
@@ -863,8 +825,25 @@ export default function IdeaDetailPage() {
         </div>
       )}
 
+      {/* Aviso de éxito tras mejorar según el veredicto (validación reseteada) */}
+      {improveSuccess && !busyRefine && !busyImprove && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+          <span className="font-medium">
+            Idea mejorada según el veredicto. Vuelve a validarla.
+          </span>
+          <button
+            type="button"
+            onClick={() => setImproveSuccess(false)}
+            aria-label="Descartar aviso"
+            className="text-emerald-200/70 hover:text-white"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      )}
+
       {/* Panel inline de refinado — sustituye al antiguo modal (paso formulario) */}
-      {canRefine && refinePanelOpen && !refining && (
+      {canRefine && refinePanelOpen && (
         <RefineIdeaPanel
           idea={{
             description: idea.description,
@@ -882,19 +861,43 @@ export default function IdeaDetailPage() {
         />
       )}
 
+      {/* Panel de mejora según el veredicto (quiz). Gestiona preguntas + apply.
+          Al hacer apply, la idea entra en IMPROVING y la página muestra el
+          spinner correspondiente (mecanismo dirigido por estado). */}
+      {canImprove && improvePanelOpen && (
+        <ImproveIdeaPanel
+          ideaId={ideaId}
+          onApplied={() => {
+            // El apply ya dejó la idea en IMPROVING server-side: refresca para
+            // recoger el estado y disparar el spinner "Mejorando idea…".
+            setImprovePanelOpen(false);
+            void fetchIdea();
+          }}
+          onCancel={() => setImprovePanelOpen(false)}
+          onLimit={() => {
+            setImprovePanelOpen(false);
+            setImproveLimit(true);
+          }}
+        />
+      )}
+
       {/* Error de refinado fuera del panel (p. ej. tras un job FAILED) */}
-      {refineError && !refinePanelOpen && !refining && (
+      {refineError && !refinePanelOpen && !busyRefine && !busyImprove && (
         <div className="mb-4 flex items-start gap-2.5 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
           <AlertCircle className="mt-0.5 size-4 shrink-0" />
           <span>{refineError}</span>
         </div>
       )}
 
-      {/* Mientras se refina: spinner centrado en lugar de la tarjeta de contenido */}
-      {refining ? (
+      {/* Spinner dirigido por estado: mientras el servidor refina o mejora la
+          idea, sustituye a la tarjeta de contenido. Funciona también en carga
+          en frío (si la idea ya viene en REFINING/IMPROVING) gracias al sondeo. */}
+      {busyRefine || busyImprove ? (
         <div className="mb-8 flex flex-col items-center justify-center gap-4 rounded-xl border border-amber-500/30 bg-slate-900/50 px-6 py-20 text-center">
           <span className="size-10 animate-spin rounded-full border-4 border-slate-700 border-t-amber-400" />
-          <p className="text-sm font-medium text-slate-300">Refinando idea…</p>
+          <p className="text-sm font-medium text-slate-300">
+            {busyImprove ? "Mejorando idea…" : "Refinando idea…"}
+          </p>
         </div>
       ) : (
       <>
@@ -1183,6 +1186,14 @@ export default function IdeaDetailPage() {
       <DemoLimitDialog
         open={refineLimit}
         onClose={() => setRefineLimit(false)}
+        type="refine"
+      />
+
+      {/* Diálogo de límite de plan al mejorar (cuota agotada → 403). Reutiliza
+          el tipo "refine" según el contrato. */}
+      <DemoLimitDialog
+        open={improveLimit}
+        onClose={() => setImproveLimit(false)}
         type="refine"
       />
 

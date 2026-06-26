@@ -33,6 +33,41 @@ const callbackSchema = z.object({
 const VALIDATION_AGENTS = ["skeptic", "advocate", "judge"];
 const GENERATOR_AGENT = "idea-generator";
 const REFINER_AGENT = "idea-refiner";
+const IMPROVER_AGENT = "idea-improver";
+
+/** Campos de la idea que el refinador/mejorador pueden reescribir. */
+const REFINABLE_FIELDS = [
+  "description",
+  "problem",
+  "valueProposition",
+  "targetUser",
+  "monetization",
+] as const;
+
+/**
+ * Estado NO-busy al que vuelve una idea tras terminar (o fallar) un job que la
+ * dejó "ocupada" (REFINING/IMPROVING): COMPLETED si ya estaba validada, DRAFT
+ * si no. Mantiene la idea fuera de un estado bloqueante para que el usuario
+ * pueda seguir actuando aunque el navegador se hubiera cerrado.
+ */
+function nonBusyStatus(validationStatus: string | null | undefined): "COMPLETED" | "DRAFT" {
+  return validationStatus === "DONE" ? "COMPLETED" : "DRAFT";
+}
+
+/**
+ * Aplica a la idea los campos reescritos por el agente que vengan no vacíos.
+ * Devuelve solo el subconjunto presente en `output` con valor string no vacío.
+ */
+function pickRefinedFields(output: Record<string, unknown>): Record<string, string> {
+  const data: Record<string, string> = {};
+  for (const field of REFINABLE_FIELDS) {
+    const value = output[field];
+    if (typeof value === "string" && value.trim() !== "") {
+      data[field] = value;
+    }
+  }
+  return data;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -55,6 +90,21 @@ export async function POST(req: NextRequest) {
     const isValidationAgent = VALIDATION_AGENTS.includes(job.agentName);
     const isGeneratorAgent = job.agentName === GENERATOR_AGENT;
     const isRefinerAgent = job.agentName === REFINER_AGENT;
+    const isImproverAgent = job.agentName === IMPROVER_AGENT;
+
+    // El modo del mejorador ("questions" | "report") se determina desde el JOB
+    // (su input), NO desde el payload del bridge, para no fiarnos del exterior.
+    let improverMode: "questions" | "report" | null = null;
+    if (isImproverAgent && job.input) {
+      try {
+        const parsedInput = JSON.parse(job.input) as { mode?: unknown };
+        if (parsedInput.mode === "questions" || parsedInput.mode === "report") {
+          improverMode = parsedInput.mode;
+        }
+      } catch {
+        // input malformado: improverMode queda null (tratado como report-safe abajo)
+      }
+    }
 
     // Telemetría estructurada del bridge (httpStatus, model, tokens, ...).
     const telemetry = extractBridgeTelemetry(body as Record<string, unknown>);
@@ -156,6 +206,34 @@ export async function POST(req: NextRequest) {
         });
       }
 
+      // El refinador dejó la idea en REFINING: al fallar, la devolvemos a un
+      // estado no-busy para que no quede bloqueada (COMPLETED si validada, DRAFT
+      // si no). El job ya quedó marcado FAILED por el claim atómico de arriba.
+      if (isRefinerAgent) {
+        const idea = await prisma.idea.findUnique({
+          where: { id: job.ideaId },
+          select: { validationStatus: true },
+        });
+        await prisma.idea.update({
+          where: { id: job.ideaId },
+          data: { status: nonBusyStatus(idea?.validationStatus) },
+        });
+      }
+
+      // El mejorador en modo "report" dejó la idea en IMPROVING: al fallar, la
+      // devolvemos a un estado no-busy. El modo "questions" NUNCA tocó el estado
+      // de la idea, así que no hay nada que revertir.
+      if (isImproverAgent && improverMode === "report") {
+        const idea = await prisma.idea.findUnique({
+          where: { id: job.ideaId },
+          select: { validationStatus: true },
+        });
+        await prisma.idea.update({
+          where: { id: job.ideaId },
+          data: { status: nonBusyStatus(idea?.validationStatus) },
+        });
+      }
+
       return NextResponse.json({ success: true });
     }
 
@@ -180,11 +258,55 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Idea Refiner callback ──
-    // El refinado SOLO propone campos: ya guardamos `output` (dict de campos
-    // reescritos) en el Job en el claim atómico de arriba. NO tocamos la Idea:
-    // la UI previsualiza Job.output y el usuario decide aceptarlo. No cae en las
-    // ramas de generador/validación.
+    // Navigation-proof: APLICAMOS en el servidor los campos reescritos no vacíos
+    // (entre description/problem/valueProposition/targetUser/monetization) y
+    // devolvemos la idea a un estado no-busy. El output ya quedó guardado en el
+    // Job (claim atómico de arriba). Así el refinado se aplica aunque el
+    // navegador se hubiera cerrado durante el proceso.
     if (isRefinerAgent) {
+      const idea = await prisma.idea.findUnique({
+        where: { id: job.ideaId },
+        select: { validationStatus: true },
+      });
+      const refined = pickRefinedFields(output);
+      await prisma.idea.update({
+        where: { id: job.ideaId },
+        data: {
+          ...refined,
+          status: nonBusyStatus(idea?.validationStatus),
+        },
+      });
+      return NextResponse.json({ success: true });
+    }
+
+    // ── Idea Improver callback ──
+    if (isImproverAgent) {
+      // Modo "questions": solo persistimos el output ({questions:[...]}), que ya
+      // quedó guardado en el Job por el claim atómico. La UI lo lee vía
+      // GET /api/jobs/[id]. NO tocamos la idea (su estado no cambió al lanzarlo).
+      if (improverMode === "questions") {
+        return NextResponse.json({ success: true });
+      }
+
+      // Modo "report" (o input no parseable → tratamos como report, que es el que
+      // dejó la idea en IMPROVING): APLICAMOS los campos reescritos y RESETEAMOS
+      // la validación para que el usuario pueda re-validar la idea mejorada.
+      const refined = pickRefinedFields(output);
+      await prisma.$transaction([
+        prisma.report.deleteMany({
+          where: { ideaId: job.ideaId, agentName: { in: VALIDATION_AGENTS } },
+        }),
+        prisma.idea.update({
+          where: { id: job.ideaId },
+          data: {
+            ...refined,
+            verdict: null,
+            score: null,
+            validationStatus: "PENDING",
+            status: "DRAFT",
+          },
+        }),
+      ]);
       return NextResponse.json({ success: true });
     }
 

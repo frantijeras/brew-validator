@@ -9,6 +9,7 @@ export const BLOCKING_STATUSES: readonly IdeaStatus[] = [
   "GENERATING",
   "VALIDATING",
   "REFINING",
+  "IMPROVING",
   "POLISHING",
 ] as const;
 

@@ -154,29 +154,3 @@ function emptySelection(): Record<FieldKey, boolean> {
     monetization: false,
   };
 }
-
-/**
- * El output del job puede llegar como objeto o como string JSON. Devuelve un
- * dict plano de campos refinables → string.
- */
-export function parseRefineOutput(
-  output: unknown
-): Partial<Record<FieldKey, string>> {
-  let obj: unknown = output;
-  if (typeof obj === "string") {
-    try {
-      obj = JSON.parse(obj);
-    } catch {
-      return {};
-    }
-  }
-  if (!obj || typeof obj !== "object") return {};
-  const record = obj as Record<string, unknown>;
-  const result: Partial<Record<FieldKey, string>> = {};
-  for (const f of REFINABLE_FIELDS) {
-    const v = record[f.key];
-    if (typeof v === "string") result[f.key] = v;
-    else if (v != null && typeof v !== "object") result[f.key] = String(v);
-  }
-  return result;
-}

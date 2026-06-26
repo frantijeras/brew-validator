@@ -82,6 +82,7 @@ AGENT_MAP = {
     "judge": "judge-agent",
     "idea-generator": "idea-generator",
     "idea-refiner": "idea-refiner",
+    "idea-improver": "idea-improver",
     "project-analyst": "project-analyst",
     "project-branding": "project-branding",
     "project-content": "project-content",
@@ -97,6 +98,7 @@ AGENT_MAP = {
 VALIDATION_AGENTS = ["skeptic", "advocate", "judge"]
 GENERATOR_AGENTS = ["idea-generator"]
 REFINER_AGENTS = ["idea-refiner"]
+IMPROVER_AGENTS = ["idea-improver"]
 PROJECT_AGENTS =["project-analyst", "project-branding", "project-naming", "project-voice", "project-logo", "project-template", "project-content", "project-dev", "project-dossier", "project-business", "project-execution"]
 
 # Agent ID in the bridge → settings key
@@ -1036,6 +1038,148 @@ español, sin texto antes ni después y sin ```. Devuelve un JSON con SOLO esas 
             pass
 
 
+def process_idea_improver(job):
+    """Process a single idea-improver job.
+
+    Improves a business idea based on the JUDGE's validation verdict, via a
+    short quiz. The agent has TWO modes (selected by the job input `mode`):
+
+      MODE "questions":
+        input:  { mode:"questions", ideaId, current:{...}, verdict, score,
+                  judgeReport, _bridgeModel, _thinking }
+        output: { "questions": [ { "id", "label", "type", ("options")? }, ... ] }
+        Generates a SHORT quiz (3-5 questions) targeting the weaknesses/risks
+        the judge raised, to gather info needed to improve the idea.
+
+      MODE "report":
+        input:  { mode:"report", ideaId, current:{...}, verdict, score,
+                  judgeReport, answers:{q1:"…",…}, _bridgeModel, _thinking }
+        output: { "description", "problem", "valueProposition", "targetUser",
+                  "monetization" }  (improved, all 5 keys)
+        Rewrites the idea incorporating the user's answers AND addressing the
+        judge's verdict.
+    """
+    job_id = job["id"]
+    idea_id = job["ideaId"]
+    agent_name = job["agentName"]
+    skill_name = AGENT_MAP[agent_name]
+    skill_content = read_skill(skill_name)
+    job_input = json.loads(job.get("input", "{}"))
+    bridge_model = job_input.pop("_bridgeModel", None)
+    thinking = job_input.pop("_thinking", None) or "low"
+
+    mode = job_input.get("mode", "questions")
+    current = job_input.get("current", {}) or {}
+    verdict = job_input.get("verdict", "") or ""
+    score = job_input.get("score", "")
+    judge_report = job_input.get("judgeReport", "") or ""
+    answers = job_input.get("answers", {}) or {}
+
+    log(f"▶ {agent_name} ({job_id[:12]}) — mode={mode}")
+
+    # Mark as RUNNING
+    try:
+        api_post(f"/api/jobs/{job_id}/status", {"status": "RUNNING"})
+    except Exception as e:
+        log(f"  ⚠ Failed to mark job {job_id[:12]} as RUNNING: {e}")
+
+    base = f"""
+INSTRUCCIÓN: Eres un experto que MEJORA una idea de negocio a partir del veredicto del juez.
+
+SKILL:
+{skill_content}
+
+IDEA ACTUAL:
+Título: {current.get("title", "N/A")}
+Descripción: {current.get("description", "N/A")}
+Problema: {current.get("problem", "N/A")}
+Propuesta de valor: {current.get("valueProposition", "N/A")}
+Usuario objetivo: {current.get("targetUser", "N/A")}
+Monetización: {current.get("monetization", "N/A")}
+Modelo de negocio: {current.get("businessModel", "N/A")}
+
+VEREDICTO DEL JUEZ: {verdict} (puntuación: {score})
+
+INFORME DEL JUEZ:
+{judge_report}
+"""
+
+    if mode == "report":
+        answers_str = "\n".join(f"- {k}: {v}" for k, v in answers.items()) or "(sin respuestas)"
+        instruction = base + f"""
+RESPUESTAS DEL EMPRENDEDOR AL CUESTIONARIO:
+{answers_str}
+
+TAREA: Reescribe y MEJORA la idea incorporando las respuestas del emprendedor Y
+abordando las debilidades/riesgos del veredicto del juez. Mantén la coherencia;
+no inventes datos ajenos a la idea.
+
+RESPONDE SOLO CON UN JSON que contenga ÚNICAMENTE estas 5 claves (mejoradas), en
+español, sin texto antes ni después y sin ```:
+{{"description": "...", "problem": "...", "valueProposition": "...", "targetUser": "...", "monetization": "..."}}
+"""
+        required = ["description", "problem", "valueProposition", "targetUser", "monetization"]
+        result = execute_agent_with_retry(instruction, agent_name="idea-improver", timeout=300, model_override=bridge_model, idea_id=idea_id, required_keys=required, thinking=thinking)
+        ok = result and all(result.get(k) for k in required)
+        if ok:
+            output = {k: result.get(k, "") for k in required}
+            callback = {
+                "jobId": job_id,
+                "agentName": "idea-improver",
+                "mode": mode,
+                "status": "COMPLETED",
+                "output": output,
+                "cost": 0.05,
+            }
+            try:
+                api_post("/api/webhooks/agent-callback", callback)
+                log(f"  ✅ {agent_name} submitted — mode=report (5 campos)")
+            except Exception as e:
+                log(f"  ❌ Callback fail: {e}")
+        else:
+            log(f"  ❌ {agent_name} no valid result (mode=report)")
+            err = _faithful_error("idea-improver: no se pudo mejorar la idea")
+            try:
+                api_post("/api/webhooks/agent-callback", {"jobId": job_id, "agentName": "idea-improver", "mode": mode, "status": "FAILED", "error": err})
+            except Exception:
+                pass
+    else:
+        instruction = base + """
+TAREA: Genera un cuestionario CORTO (3-5 preguntas) que apunte a las
+debilidades/riesgos que ha planteado el juez, para recabar la información
+necesaria para mejorar la idea.
+
+RESPONDE SOLO CON UN JSON con esta forma exacta, en español, sin texto antes ni
+después y sin ```:
+{"questions": [{"id": "q1", "label": "…", "type": "text"}, …]}
+
+Usa "type": "text" para preguntas abiertas. Puedes usar "type": "choice" con un
+array "options" cuando encaje una pregunta cerrada.
+"""
+        result = execute_agent_with_retry(instruction, agent_name="idea-improver", timeout=300, model_override=bridge_model, idea_id=idea_id, required_keys=["questions"], thinking=thinking)
+        if result and result.get("questions"):
+            callback = {
+                "jobId": job_id,
+                "agentName": "idea-improver",
+                "mode": mode,
+                "status": "COMPLETED",
+                "output": {"questions": result.get("questions", [])},
+                "cost": 0.05,
+            }
+            try:
+                api_post("/api/webhooks/agent-callback", callback)
+                log(f"  ✅ {agent_name} submitted — mode=questions ({len(result.get('questions', []))} preguntas)")
+            except Exception as e:
+                log(f"  ❌ Callback fail: {e}")
+        else:
+            log(f"  ❌ {agent_name} no valid result (mode=questions)")
+            err = _faithful_error("idea-improver: no se pudo generar el cuestionario")
+            try:
+                api_post("/api/webhooks/agent-callback", {"jobId": job_id, "agentName": "idea-improver", "mode": mode, "status": "FAILED", "error": err})
+            except Exception:
+                pass
+
+
 def process_qa_refiner(job, idea):
     """Process a brew-qa-refiner job — quiz or chat mode.
     
@@ -1764,6 +1908,30 @@ def process_jobs():
                 log(f"⚠ HTTP {e.code} checking refiner jobs")
         except Exception as e:
             log(f"⚠ Refiner check: {e}")
+
+        # ── 1c. Process idea-improver jobs ──
+        try:
+            imp_data = api_get("/api/jobs/pending")
+            imp_jobs = [j for j in imp_data if j.get("agentName") in IMPROVER_AGENTS]
+            for job in imp_jobs:
+                picked_up_jobs = True
+                try:
+                    process_idea_improver(job)
+                except Exception as e:
+                    job_id = job.get("id", "?")
+                    idea_id = job.get("ideaId", "?")
+                    log(f"⚠ Improver error on job={job_id} idea={idea_id}: {e}")
+                    try:
+                        api_post(f"/api/jobs/{job_id}/status", {"status": "FAILED", "error": str(e)[:200]})
+                    except Exception:
+                        pass
+                    continue
+                time.sleep(2)
+        except urllib.error.HTTPError as e:
+            if e.code != 404:
+                log(f"⚠ HTTP {e.code} checking improver jobs")
+        except Exception as e:
+            log(f"⚠ Improver check: {e}")
 
         # (Eliminado) qa-refiner e idea-renamer: la opción "Pulir/Refinar idea"
         # se retiró del producto. No se despachan esos agentes.

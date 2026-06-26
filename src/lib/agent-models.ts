@@ -17,6 +17,8 @@ const AGENT_DEFAULTS: Record<string, string> = {
   generator: "opencode-zen-free/deepseek-v4-flash-free",
   // El refinador de ideas usa el mismo modelo libre que el generador.
   "idea-refiner": "opencode-zen-free/deepseek-v4-flash-free",
+  // El mejorador de ideas (verdict-based) usa también el modelo libre.
+  "idea-improver": "opencode-zen-free/deepseek-v4-flash-free",
   skeptic: "opencode-zen-free/deepseek-v4-flash-free",
   defender: "opencode-zen-free/deepseek-v4-flash-free",
   // minimax-m3-free no devuelve JSON válido para el juez (falla incluso con
@@ -40,6 +42,7 @@ const AGENT_DEFAULTS: Record<string, string> = {
 const JOB_AGENT_TO_SETTINGS_KEY: Record<string, string> = {
   "idea-generator": "generator",
   "idea-refiner": "idea-refiner",
+  "idea-improver": "idea-improver",
   skeptic: "skeptic",
   advocate: "defender",
   judge: "judge",

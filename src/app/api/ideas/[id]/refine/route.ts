@@ -121,6 +121,14 @@ export async function POST(
 
     await incrementRefinesUsed(userId);
 
+    // Marca la idea como "ocupada" (REFINING). El webhook la devuelve a un
+    // estado no-busy al COMPLETAR/FALLAR y APLICA los campos refinados en el
+    // servidor, así que el refinado sobrevive aunque el navegador se cierre.
+    await prisma.idea.update({
+      where: { id },
+      data: { status: "REFINING" },
+    });
+
     return NextResponse.json({ jobId: job.id });
   } catch (error) {
     console.error("[POST /api/ideas/:id/refine]", error);
