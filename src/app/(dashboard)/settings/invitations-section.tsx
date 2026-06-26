@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Mail, Copy, Check, X, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 type InviteStatus = "PENDING" | "ACCEPTED" | "REVOKED";
 
@@ -15,9 +16,6 @@ interface Invitation {
   acceptedAt: string | null;
   inviteUrl: string | null;
 }
-
-const inputClass =
-  "w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500";
 
 const STATUS_META: Record<InviteStatus, { label: string; className: string }> = {
   PENDING: {
@@ -176,13 +174,12 @@ export function InvitationsSection() {
           <label htmlFor="inviteEmail" className="mb-1 block text-xs font-medium text-slate-400">
             Email de la persona invitada
           </label>
-          <input
+          <Input
             id="inviteEmail"
             type="email"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className={inputClass}
             placeholder="persona@email.com"
             autoComplete="off"
           />

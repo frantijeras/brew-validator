@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { Pencil, RefreshCw, ShieldCheck } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Pencil, RefreshCw, ShieldCheck, ArrowDown, ArrowUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 
@@ -64,6 +64,21 @@ export function UsersTable({ currentUserId }: { currentUserId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<AdminUser | null>(null);
+  // Orden por coste de IA: null = orden por defecto (más recientes primero, de la
+  // API). "desc"/"asc" ordenan por totalCost para detectar quién gasta más.
+  const [costSort, setCostSort] = useState<"desc" | "asc" | null>("desc");
+
+  const sortedUsers = useMemo(() => {
+    if (!costSort) return users;
+    const sign = costSort === "desc" ? -1 : 1;
+    return [...users].sort((a, b) => sign * (a.totalCost - b.totalCost));
+  }, [users, costSort]);
+
+  const toggleCostSort = useCallback(() => {
+    setCostSort((prev) =>
+      prev === "desc" ? "asc" : prev === "asc" ? null : "desc"
+    );
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -122,7 +137,18 @@ export function UsersTable({ currentUserId }: { currentUserId: string }) {
               <th className="px-3 py-2 font-medium">Plan</th>
               <th className="px-3 py-2 text-right font-medium">Ideas</th>
               <th className="px-3 py-2 text-right font-medium">Proyectos</th>
-              <th className="px-3 py-2 text-right font-medium">Coste IA</th>
+              <th className="px-3 py-2 text-right font-medium">
+                <button
+                  type="button"
+                  onClick={toggleCostSort}
+                  className="ml-auto flex items-center gap-1 font-medium uppercase tracking-wider text-slate-400 transition-colors hover:text-amber-400"
+                  title="Ordenar por coste de IA"
+                >
+                  Coste IA
+                  {costSort === "desc" && <ArrowDown className="h-3 w-3" />}
+                  {costSort === "asc" && <ArrowUp className="h-3 w-3" />}
+                </button>
+              </th>
               <th className="px-3 py-2 font-medium">Últ. actividad</th>
               <th className="px-3 py-2 font-medium">Permisos</th>
               <th className="px-3 py-2 text-right font-medium">Acciones</th>
@@ -143,7 +169,7 @@ export function UsersTable({ currentUserId }: { currentUserId: string }) {
                 </td>
               </tr>
             )}
-            {users.map((u) => (
+            {sortedUsers.map((u) => (
               <tr
                 key={u.id}
                 className="border-b border-slate-800/60 align-middle hover:bg-slate-800/20"
@@ -191,7 +217,11 @@ export function UsersTable({ currentUserId }: { currentUserId: string }) {
                   {u.projectsCreated}
                   <span className="text-slate-600"> / {u.maxProjects}</span>
                 </td>
-                <td className="px-3 py-3 text-right text-slate-300">
+                <td
+                  className={`px-3 py-3 text-right font-semibold tabular-nums ${
+                    u.totalCost > 0 ? "text-amber-300" : "text-slate-600"
+                  }`}
+                >
                   {fmtCost(u.totalCost)}
                 </td>
                 <td className="px-3 py-3 text-slate-400">

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { acceptInvitation } from "./actions";
+import { Button } from "@/components/ui/button";
 
 export function InviteForm({
   token,
@@ -104,13 +105,9 @@ export function InviteForm({
         />
       </div>
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-400 disabled:opacity-50"
-      >
+      <Button type="submit" variant="primary" fullWidth loading={loading}>
         {loading ? "Creando cuenta..." : "Crear cuenta"}
-      </button>
+      </Button>
     </form>
   );
 }

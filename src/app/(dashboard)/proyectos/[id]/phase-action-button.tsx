@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sparkles, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface PhaseActionButtonProps {
   projectId: string;
@@ -72,24 +73,23 @@ export function PhaseActionButton({
 
   return (
     <>
-      <button
+      <Button
+        type="button"
+        variant="primary"
+        fullWidth
+        loading={running}
         onClick={handleClick}
-        disabled={running}
-        className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 transition-all hover:bg-amber-400 active:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
         title={error ?? label}
       >
         {running ? (
-          <>
-            <span className="inline-block size-4 animate-spin rounded-full border-2 border-slate-950 border-t-transparent" />
-            Iniciando…
-          </>
+          "Iniciando…"
         ) : (
           <>
             <Sparkles className="size-4" />
             {retryReport ? "Reintentar informe" : "Iniciar fase"}
           </>
         )}
-      </button>
+      </Button>
       {error && (
         <span className="inline-flex items-center gap-1 text-xs text-red-400">
           <AlertCircle className="size-3" />

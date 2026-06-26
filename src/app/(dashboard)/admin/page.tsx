@@ -14,15 +14,19 @@ export const dynamic = "force-dynamic";
 async function getStats() {
   const [
     invitationGroups,
+    invitationsTotal,
     usersTotal,
     totalIdeas,
     totalProjects,
     costAgg,
     distinctIdeaOwners,
+    distinctValidatedOwners,
     ideasWithProject,
+    ideasWithHandoff,
     costByAgentGroups,
   ] = await Promise.all([
     prisma.invitation.groupBy({ by: ["status"], _count: { _all: true } }),
+    prisma.invitation.count(),
     prisma.user.count(),
     prisma.idea.count(),
     prisma.project.count(),
@@ -33,7 +37,16 @@ async function getStats() {
       select: { userId: true },
     }),
     prisma.idea.findMany({
+      where: { userId: { not: null }, validationStatus: "DONE" },
+      distinct: ["userId"],
+      select: { userId: true },
+    }),
+    prisma.idea.findMany({
       where: { userId: { not: null }, project: { isNot: null } },
+      select: { userId: true },
+    }),
+    prisma.idea.findMany({
+      where: { userId: { not: null }, project: { is: { handoffReady: true } } },
       select: { userId: true },
     }),
     prisma.job.groupBy({
@@ -46,6 +59,7 @@ async function getStats() {
   const invCount = (status: string) =>
     invitationGroups.find((g) => g.status === status)?._count._all ?? 0;
   const projectOwners = new Set(ideasWithProject.map((i) => i.userId));
+  const handoffOwners = new Set(ideasWithHandoff.map((i) => i.userId));
 
   const costByAgent = costByAgentGroups
     .map((g) => ({
@@ -55,6 +69,11 @@ async function getStats() {
     }))
     .sort((a, b) => b.cost - a.cost);
 
+  const usersWithIdea = distinctIdeaOwners.length;
+  const usersWithValidatedIdea = distinctValidatedOwners.length;
+  const usersWithProject = projectOwners.size;
+  const usersWithHandoff = handoffOwners.size;
+
   return {
     invitations: {
       pending: invCount("PENDING"),
@@ -62,12 +81,23 @@ async function getStats() {
       revoked: invCount("REVOKED"),
     },
     users: usersTotal,
-    usersWithIdea: distinctIdeaOwners.length,
-    usersWithProject: projectOwners.size,
+    usersWithIdea,
+    usersWithValidatedIdea,
+    usersWithProject,
+    usersWithHandoff,
     totalIdeas,
     totalProjects,
     totalCost: costAgg._sum.cost ?? 0,
     costByAgent,
+    // Embudo de conversión: pasos ordenados (cada paso ⊆ anterior).
+    funnel: [
+      { key: "invited", label: "Invitados", value: invitationsTotal },
+      { key: "accounts", label: "Cuentas", value: usersTotal },
+      { key: "withIdea", label: "Con idea", value: usersWithIdea },
+      { key: "withValidatedIdea", label: "Idea validada", value: usersWithValidatedIdea },
+      { key: "withProject", label: "Con proyecto", value: usersWithProject },
+      { key: "withHandoff", label: "Hand-off exportado", value: usersWithHandoff },
+    ],
   };
 }
 
@@ -89,6 +119,61 @@ function StatCard({
   );
 }
 
+/**
+ * Un paso del embudo de conversión. Muestra el recuento absoluto, una barra de
+ * proporción respecto al primer paso (Invitados) y el % de conversión respecto
+ * al paso anterior (cuántos de los del paso previo llegan hasta aquí).
+ */
+function FunnelStep({
+  index,
+  label,
+  value,
+  first,
+  prev,
+}: {
+  index: number;
+  label: string;
+  value: number;
+  first: number;
+  prev: number | null;
+}) {
+  const widthPct =
+    first > 0 ? Math.max(value > 0 ? 4 : 0, Math.round((value / first) * 100)) : 0;
+  const stepPct =
+    prev === null ? null : prev > 0 ? Math.round((value / prev) * 100) : 0;
+
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4">
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
+          {index + 1}. {label}
+        </p>
+        {stepPct !== null && (
+          <span
+            className={`shrink-0 text-xs font-semibold tabular-nums ${
+              stepPct >= 50
+                ? "text-emerald-400"
+                : stepPct > 0
+                  ? "text-amber-400"
+                  : "text-slate-600"
+            }`}
+            title="Conversión respecto al paso anterior"
+          >
+            {stepPct}%
+          </span>
+        )}
+      </div>
+      <p className="mt-1 text-2xl font-bold text-white tabular-nums">{value}</p>
+      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
+        <div
+          className="h-full rounded-full bg-amber-500"
+          style={{ width: `${widthPct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export default async function AdminPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
@@ -105,25 +190,38 @@ export default async function AdminPage() {
         </p>
       </div>
 
-      {/* Embudo de invitaciones */}
+      {/* Embudo de conversión */}
+      <section>
+        <h2 className="mb-1 text-sm font-semibold uppercase tracking-wider text-slate-500">
+          Embudo de conversión
+        </h2>
+        <p className="mb-3 text-xs text-slate-500">
+          De invitación enviada a hand-off exportado. El % es la conversión
+          respecto al paso anterior; la barra, la proporción sobre Invitados.
+        </p>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          {stats.funnel.map((step, i) => (
+            <FunnelStep
+              key={step.key}
+              index={i}
+              label={step.label}
+              value={step.value}
+              first={stats.funnel[0]?.value ?? 0}
+              prev={i === 0 ? null : stats.funnel[i - 1].value}
+            />
+          ))}
+        </div>
+      </section>
+
+      {/* Estado de invitaciones */}
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-500">
-          Embudo de invitaciones
+          Estado de invitaciones
         </h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-3 gap-3">
           <StatCard label="Pendientes" value={stats.invitations.pending} />
           <StatCard label="Aceptadas" value={stats.invitations.accepted} />
           <StatCard label="Revocadas" value={stats.invitations.revoked} />
-          <StatCard
-            label="Con idea"
-            value={stats.usersWithIdea}
-            hint={`de ${stats.users} usuarios`}
-          />
-          <StatCard
-            label="Con proyecto"
-            value={stats.usersWithProject}
-            hint={`de ${stats.users} usuarios`}
-          />
         </div>
       </section>
 

@@ -8,6 +8,7 @@ import { NavItem } from "@/components/nav-item";
 import { ToastProvider } from "@/components/toast";
 import { BridgeStatusBanner } from "@/components/bridge-status-banner";
 import { Footer } from "@/components/footer";
+import { NotificationBell } from "@/components/notification-bell";
 import { Lightbulb, Folder, ShieldCheck } from "lucide-react";
 
 export function DashboardShell({
@@ -156,6 +157,7 @@ export function DashboardShell({
                   {session.user.email}
                 </p>
               </div>
+              <NotificationBell />
               <button
                 onClick={() => signOut({ callbackUrl: "/login" })}
                 className="shrink-0 rounded-lg p-1.5 text-slate-500 hover:bg-slate-800 hover:text-slate-300 transition-colors"

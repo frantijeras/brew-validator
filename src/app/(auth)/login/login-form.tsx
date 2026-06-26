@@ -3,6 +3,7 @@
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
 export function LoginForm() {
   const router = useRouter();
@@ -86,13 +87,9 @@ export function LoginForm() {
         />
       </div>
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-400 disabled:opacity-50"
-      >
+      <Button type="submit" variant="primary" fullWidth loading={loading}>
         {loading ? "Entrando..." : "Entrar"}
-      </button>
+      </Button>
     </form>
   );
 }

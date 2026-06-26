@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { acceptTerms } from "./actions";
+import { Button } from "@/components/ui/button";
 
 export function ConsentButton() {
   const [loading, setLoading] = useState(false);
@@ -17,13 +18,15 @@ export function ConsentButton() {
   }
 
   return (
-    <button
+    <Button
       type="button"
+      variant="primary"
+      fullWidth
+      loading={loading}
       onClick={handleClick}
-      disabled={loading}
-      className="w-full rounded-lg bg-amber-500 px-4 py-3 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-400 disabled:opacity-50"
+      className="py-3"
     >
       {loading ? "Guardando..." : "Acepto y continuar"}
-    </button>
+    </Button>
   );
 }

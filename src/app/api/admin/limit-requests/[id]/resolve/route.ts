@@ -9,6 +9,20 @@ const resolveSchema = z
   })
   .strict();
 
+// Etiqueta legible del tipo de límite para el cuerpo de la notificación.
+const TYPE_LABELS: Record<string, string> = {
+  skills: "Acceso a Skills",
+  handoff: "Acceso a Handoff",
+  ideas: "Cuota de ideas",
+  projects: "Cuota de proyectos",
+  refine: "Refinamientos",
+  phase_undo: "Deshacer fases",
+};
+
+function typeLabel(type: string): string {
+  return TYPE_LABELS[type] ?? type;
+}
+
 /**
  * POST /api/admin/limit-requests/[id]/resolve — El admin concede ("grant") o
  * descarta ("dismiss") una solicitud PENDING. Solo admin (403 en caso contrario).
@@ -120,6 +134,19 @@ export async function POST(
         status: grant ? "GRANTED" : "DISMISSED",
         resolvedAt: new Date(),
         resolvedById: session.user!.id,
+      },
+    });
+
+    // Avisar al usuario solicitante del resultado mediante notificación in-app.
+    const label = typeLabel(request.type);
+    await tx.notification.create({
+      data: {
+        userId: request.userId,
+        level: "info",
+        title: grant ? "Solicitud concedida" : "Solicitud descartada",
+        body: grant
+          ? `Tu solicitud de "${label}" ha sido concedida.`
+          : `Tu solicitud de "${label}" ha sido descartada.`,
       },
     });
   });
