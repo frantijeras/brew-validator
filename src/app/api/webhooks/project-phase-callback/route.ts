@@ -196,6 +196,28 @@ export async function POST(req: Request) {
     const telemetry = extractBridgeTelemetry(body);
 
     if (status === "COMPLETED" && !isEmptyOutput(output)) {
+      // ── ATOMIC CLAIM (mismo patrón que agent-callback) ──
+      // La idempotencia de arriba es read-then-write: dos callbacks COMPLETED
+      // concurrentes del MISMO job (reintento/entrega duplicada del bridge)
+      // podían ambos leer un job no-terminal y proceder, aplicando dos veces las
+      // transiciones de fase, el desbloqueo de la siguiente fase y el merge de
+      // Project.memory. Reclamamos el job de forma atómica ANTES de mutar nada:
+      // solo el callback que consigue sacarlo de un estado NO-terminal continúa;
+      // el duplicado obtiene count===0 y se descarta (skipped). Los caminos de
+      // abajo que necesitan marcar el job como FAILED (esquema inválido, sub-paso
+      // sin artefacto) lo sobreescriben con un `update` normal, lo cual es
+      // seguro: la exclusividad ya está garantizada por este claim.
+      const claim = await prisma.job.updateMany({
+        where: {
+          id: jobId,
+          status: { notIn: ["COMPLETED", "FAILED", "CANCELLED"] },
+        },
+        data: { status: "COMPLETED" },
+      });
+      if (claim.count === 0) {
+        return NextResponse.json({ success: true, skipped: true });
+      }
+
       // Parse output
       let parsedOutput: Record<string, unknown> = {};
       try {

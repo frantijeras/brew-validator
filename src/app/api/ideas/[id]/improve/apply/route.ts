@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { guardIdea } from "@/lib/ownership";
-import { assertCanRefine, incrementRefinesUsed } from "@/lib/quota";
+import { consumeRefineQuota, refundRefineQuota } from "@/lib/quota";
 import {
   resolveModelForJobAgent,
   resolveThinkingForJobAgent,
@@ -68,12 +68,6 @@ export async function POST(
       return NextResponse.json({ error: "Idea no encontrada" }, { status: 404 });
     }
 
-    // Cuota de refinados (solo comprobación; admins exentos).
-    const quota = await assertCanRefine(userId);
-    if (!quota.ok) {
-      return NextResponse.json({ error: quota.error }, { status: 403 });
-    }
-
     // Informe del juez más reciente para esta idea.
     const judge = await prisma.report.findFirst({
       where: { ideaId: id, agentName: "judge" },
@@ -100,24 +94,34 @@ export async function POST(
       _thinking: await resolveThinkingForJobAgent("idea-improver", userId),
     };
 
-    const job = await prisma.job.create({
-      data: {
-        ideaId: id,
-        agentName: "idea-improver",
-        status: "PENDING",
-        input: JSON.stringify(input),
-      },
-    });
+    // "Mejorar idea" cuenta como UN refinado (cuota vitalicia). Consumo ATÓMICO
+    // (gate + incremento); admins exentos. Reembolso si la creación falla.
+    const quota = await consumeRefineQuota(userId);
+    if (!quota.ok) {
+      return NextResponse.json({ error: quota.error }, { status: 403 });
+    }
 
-    // Marca la idea como ocupada (IMPROVING). El webhook la devuelve a DRAFT al
-    // completar/fallar.
-    await prisma.idea.update({
-      where: { id },
-      data: { status: "IMPROVING" },
-    });
+    let job;
+    try {
+      job = await prisma.job.create({
+        data: {
+          ideaId: id,
+          agentName: "idea-improver",
+          status: "PENDING",
+          input: JSON.stringify(input),
+        },
+      });
 
-    // "Mejorar idea" cuenta como UN refinado (cuota vitalicia).
-    await incrementRefinesUsed(userId);
+      // Marca la idea como ocupada (IMPROVING). El webhook la devuelve a DRAFT al
+      // completar/fallar.
+      await prisma.idea.update({
+        where: { id },
+        data: { status: "IMPROVING" },
+      });
+    } catch (createError) {
+      await refundRefineQuota(userId);
+      throw createError;
+    }
 
     return NextResponse.json({ jobId: job.id });
   } catch (error) {

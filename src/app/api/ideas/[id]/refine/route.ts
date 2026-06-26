@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { guardIdea } from "@/lib/ownership";
-import { assertCanRefine, incrementRefinesUsed } from "@/lib/quota";
+import { consumeRefineQuota, refundRefineQuota } from "@/lib/quota";
 import {
   resolveModelForJobAgent,
   resolveThinkingForJobAgent,
@@ -87,8 +87,9 @@ export async function POST(
       );
     }
 
-    // Cuota de refinados (los admins están exentos).
-    const quota = await assertCanRefine(userId);
+    // Cuota de refinados: consumo ATÓMICO (gate + incremento). Admins exentos.
+    // Si la creación del job o la actualización de estado falla, se reembolsa.
+    const quota = await consumeRefineQuota(userId);
     if (!quota.ok) {
       return NextResponse.json({ error: quota.error }, { status: 403 });
     }
@@ -110,24 +111,29 @@ export async function POST(
       _thinking: await resolveThinkingForJobAgent("idea-refiner", userId),
     };
 
-    const job = await prisma.job.create({
-      data: {
-        ideaId: id,
-        agentName: "idea-refiner",
-        status: "PENDING",
-        input: JSON.stringify(input),
-      },
-    });
+    let job;
+    try {
+      job = await prisma.job.create({
+        data: {
+          ideaId: id,
+          agentName: "idea-refiner",
+          status: "PENDING",
+          input: JSON.stringify(input),
+        },
+      });
 
-    await incrementRefinesUsed(userId);
-
-    // Marca la idea como "ocupada" (REFINING). El webhook la devuelve a un
-    // estado no-busy al COMPLETAR/FALLAR y APLICA los campos refinados en el
-    // servidor, así que el refinado sobrevive aunque el navegador se cierre.
-    await prisma.idea.update({
-      where: { id },
-      data: { status: "REFINING" },
-    });
+      // Marca la idea como "ocupada" (REFINING). El webhook la devuelve a un
+      // estado no-busy al COMPLETAR/FALLAR y APLICA los campos refinados en el
+      // servidor, así que el refinado sobrevive aunque el navegador se cierre.
+      await prisma.idea.update({
+        where: { id },
+        data: { status: "REFINING" },
+      });
+    } catch (createError) {
+      // La cuota ya se consumió: reembolsa antes de propagar.
+      await refundRefineQuota(userId);
+      throw createError;
+    }
 
     return NextResponse.json({ jobId: job.id });
   } catch (error) {

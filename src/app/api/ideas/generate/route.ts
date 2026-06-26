@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { BUSINESS_MODELS } from "@/lib/business-models";
 import { resolveModelForJobAgent, resolveThinkingForJobAgent } from "@/lib/agent-models";
 import { requireAuth } from "@/lib/require-auth";
-import { assertCanCreateIdea, incrementIdeasCreated } from "@/lib/quota";
+import { consumeIdeaQuota, refundIdeaQuota } from "@/lib/quota";
 
 const generateIdeaSchema = z.discriminatedUnion("mode", [
   z.object({
@@ -31,12 +31,14 @@ export async function POST(req: NextRequest) {
     const auth = await requireAuth();
     if (!auth.ok) return auth.response;
 
-    // Cuota de ideas (los admin están exentos).
-    const quota = await assertCanCreateIdea(auth.userId);
+    // Cuota de ideas: consumo ATÓMICO (gate + incremento). Admins exentos.
+    // Se hace antes de crear; si la creación falla, se reembolsa.
+    const quota = await consumeIdeaQuota(auth.userId);
     if (!quota.ok) {
       return NextResponse.json({ error: quota.error }, { status: 403 });
     }
 
+    try {
     const body = await req.json();
     const data = generateIdeaSchema.parse(body);
 
@@ -123,9 +125,6 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Contador VITALICIO de ideas creadas (nunca se decrementa al borrar).
-    await incrementIdeasCreated(auth.userId);
-
     return NextResponse.json(
       {
         success: true,
@@ -135,6 +134,12 @@ export async function POST(req: NextRequest) {
       },
       { status: 201 }
     );
+    } catch (innerError) {
+      // La cuota ya se consumió atómicamente antes de crear: si algo falla
+      // después (parseo, create idea/job…), se reembolsa para no penalizar.
+      await refundIdeaQuota(auth.userId);
+      throw innerError;
+    }
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(

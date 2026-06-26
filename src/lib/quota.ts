@@ -116,6 +116,108 @@ export async function assertCanRefine(userId: string): Promise<QuotaCheck> {
   return { ok: true };
 }
 
+// ── Consumo ATÓMICO de cuota (gate + incremento en una sola operación) ──
+//
+// PROBLEMA (TOCTOU): hacer `assertCan*` (lectura) y luego `increment*`
+// (escritura) por separado deja una ventana en la que dos peticiones
+// concurrentes pasan ambas la comprobación y exceden la cuota vitalicia en +1.
+//
+// SOLUCIÓN: una única `updateMany` condicional `{ where: { <counter>: { lt:
+// <max> } }, data: { <counter>: { increment: 1 } } }`. La condición y el
+// incremento son atómicos a nivel de fila en la base de datos, así que solo una
+// de las peticiones concurrentes consigue `count === 1`; el resto recibe
+// `count === 0` (cuota agotada). Los admins están EXENTOS (no se incrementa).
+//
+// Si la creación posterior falla, usa el `refund*` correspondiente para
+// deshacer el consumo (decremento con suelo en 0).
+
+/**
+ * Consume 1 de la cuota vitalicia de ideas de forma atómica. Admin → exento.
+ * Devuelve `{ ok: false, error }` si la cuota está agotada (sin incrementar).
+ */
+export async function consumeIdeaQuota(userId: string): Promise<QuotaCheck> {
+  const { isAdmin, maxIdeas } = await prisma.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { isAdmin: true, maxIdeas: true },
+  });
+  if (isAdmin) return { ok: true };
+  const { count } = await prisma.user.updateMany({
+    where: { id: userId, ideasCreated: { lt: maxIdeas } },
+    data: { ideasCreated: { increment: 1 } },
+  });
+  if (count === 1) return { ok: true };
+  return {
+    ok: false,
+    error: `Has alcanzado el máximo de ${maxIdeas} ideas de tu plan.`,
+  };
+}
+
+/**
+ * Consume 1 de la cuota vitalicia de proyectos de forma atómica. Admin → exento.
+ * Devuelve `{ ok: false, error }` si la cuota está agotada (sin incrementar).
+ */
+export async function consumeProjectQuota(userId: string): Promise<QuotaCheck> {
+  const { isAdmin, maxProjects } = await prisma.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { isAdmin: true, maxProjects: true },
+  });
+  if (isAdmin) return { ok: true };
+  const { count } = await prisma.user.updateMany({
+    where: { id: userId, projectsCreated: { lt: maxProjects } },
+    data: { projectsCreated: { increment: 1 } },
+  });
+  if (count === 1) return { ok: true };
+  return {
+    ok: false,
+    error: `Has alcanzado el máximo de ${maxProjects} proyectos de tu plan.`,
+  };
+}
+
+/**
+ * Consume 1 de la cuota vitalicia de refinados de forma atómica. Admin → exento.
+ * Devuelve `{ ok: false, error }` si la cuota está agotada (sin incrementar).
+ */
+export async function consumeRefineQuota(userId: string): Promise<QuotaCheck> {
+  const { isAdmin, maxRefines } = await prisma.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { isAdmin: true, maxRefines: true },
+  });
+  if (isAdmin) return { ok: true };
+  const { count } = await prisma.user.updateMany({
+    where: { id: userId, refinesUsed: { lt: maxRefines } },
+    data: { refinesUsed: { increment: 1 } },
+  });
+  if (count === 1) return { ok: true };
+  return {
+    ok: false,
+    error: "Has alcanzado el máximo de refinados de tu plan.",
+  };
+}
+
+/** Devuelve 1 a la cuota de ideas (deshacer un consume). No-op en admin. */
+export async function refundIdeaQuota(userId: string): Promise<void> {
+  await prisma.user.updateMany({
+    where: { id: userId, isAdmin: false, ideasCreated: { gt: 0 } },
+    data: { ideasCreated: { decrement: 1 } },
+  });
+}
+
+/** Devuelve 1 a la cuota de proyectos (deshacer un consume). No-op en admin. */
+export async function refundProjectQuota(userId: string): Promise<void> {
+  await prisma.user.updateMany({
+    where: { id: userId, isAdmin: false, projectsCreated: { gt: 0 } },
+    data: { projectsCreated: { decrement: 1 } },
+  });
+}
+
+/** Devuelve 1 a la cuota de refinados (deshacer un consume). No-op en admin. */
+export async function refundRefineQuota(userId: string): Promise<void> {
+  await prisma.user.updateMany({
+    where: { id: userId, isAdmin: false, refinesUsed: { gt: 0 } },
+    data: { refinesUsed: { decrement: 1 } },
+  });
+}
+
 /** Incrementa el contador vitalicio de refinados usados (+1). */
 export async function incrementRefinesUsed(userId: string): Promise<void> {
   await prisma.user.update({

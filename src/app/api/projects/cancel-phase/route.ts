@@ -13,7 +13,10 @@ export async function POST(req: Request) {
     const guard = await guardPhase(phaseId);
     if (!guard.ok) return guard.response;
 
-    const phase = await prisma.projectPhase.findUnique({ where: { id: phaseId } });
+    const phase = await prisma.projectPhase.findUnique({
+      where: { id: phaseId },
+      select: { id: true, status: true, project: { select: { ideaId: true } } },
+    });
     if (!phase) {
       return NextResponse.json({ error: "Phase not found" }, { status: 404 });
     }
@@ -40,20 +43,44 @@ export async function POST(req: Request) {
       },
     });
 
-    // Marca como CANCELLED los jobs aún en vuelo de esta fase (su phaseId va en
-    // job.input). Evita jobs huérfanos PENDING/RUNNING; un callback tardío se
-    // ignora por idempotencia.
-    await prisma.job.updateMany({
+    // Marca como CANCELLED los jobs aún en vuelo de ESTA fase. Antes se filtraba
+    // con `input: { contains: phaseId }` (substring sobre el JSON serializado y
+    // SIN acotar al proyecto), lo que podía cancelar jobs de OTRO proyecto/otra
+    // fase si el id aparecía como subcadena. Ahora replicamos el patrón de las
+    // rutas de rollback: cargamos los jobs en vuelo del proyecto (vía su ideaId),
+    // PARSEAMOS `job.input` y conservamos SOLO aquellos cuyo `phaseId` coincide
+    // EXACTAMENTE. Best-effort: un input no parseable se ignora sin abortar.
+    const activeJobs = await prisma.job.findMany({
       where: {
+        ideaId: phase.project.ideaId,
         status: { in: ["PENDING", "RUNNING"] },
-        input: { contains: phaseId },
       },
-      data: {
-        status: "CANCELLED",
-        error: "Cancelado por el usuario",
-        finishedAt: new Date(),
-      },
+      select: { id: true, input: true },
     });
+    const jobIdsToCancel = activeJobs
+      .filter((job) => {
+        if (!job.input) return false;
+        try {
+          const parsed = JSON.parse(job.input) as { phaseId?: unknown };
+          return parsed.phaseId === phaseId;
+        } catch {
+          return false;
+        }
+      })
+      .map((job) => job.id);
+
+    if (jobIdsToCancel.length > 0) {
+      // Evita jobs huérfanos PENDING/RUNNING; un callback tardío se ignora por
+      // idempotencia al ver el job en estado terminal.
+      await prisma.job.updateMany({
+        where: { id: { in: jobIdsToCancel }, status: { in: ["PENDING", "RUNNING"] } },
+        data: {
+          status: "CANCELLED",
+          error: "Cancelado por el usuario",
+          finishedAt: new Date(),
+        },
+      });
+    }
 
     return NextResponse.json({ success: true, message: "Fase cancelada y disponible de nuevo" });
   } catch (error) {

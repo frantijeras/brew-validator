@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/require-auth";
 import { ideaOwnerWhere } from "@/lib/ownership";
 import { verifyBridgeSecret } from "@/lib/bridge-auth";
-import { assertCanCreateIdea, incrementIdeasCreated } from "@/lib/quota";
+import { consumeIdeaQuota, refundIdeaQuota } from "@/lib/quota";
 
 const createIdeaSchema = z.object({
   title: z.string().min(3, "El título debe tener al menos 3 caracteres"),
@@ -22,7 +22,8 @@ export async function POST(req: NextRequest) {
     const data = createIdeaSchema.parse(body);
 
     // Misma cuota que /generate (crear idea manual no debe saltarse maxIdeas).
-    const quota = await assertCanCreateIdea(auth.userId);
+    // Consumo ATÓMICO (gate + incremento); admins exentos. Reembolso si falla.
+    const quota = await consumeIdeaQuota(auth.userId);
     if (!quota.ok) {
       return NextResponse.json({ error: quota.error }, { status: 403 });
     }
@@ -36,8 +37,13 @@ export async function POST(req: NextRequest) {
       userId: auth.userId,
     };
 
-    const idea = await prisma.idea.create({ data: ideaData });
-    await incrementIdeasCreated(auth.userId);
+    let idea;
+    try {
+      idea = await prisma.idea.create({ data: ideaData });
+    } catch (createError) {
+      await refundIdeaQuota(auth.userId);
+      throw createError;
+    }
 
     return NextResponse.json(idea, { status: 201 });
   } catch (error) {

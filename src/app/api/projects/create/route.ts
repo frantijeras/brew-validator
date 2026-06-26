@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { PHASE_DESCRIPTIONS } from "@/lib/phase-descriptions";
 import { requireAuth } from "@/lib/require-auth";
 import { ideaOwnerWhere } from "@/lib/ownership";
-import { assertCanCreateProject, incrementProjectsCreated } from "@/lib/quota";
+import { consumeProjectQuota, refundProjectQuota } from "@/lib/quota";
 
 export async function POST(req: Request) {
   try {
@@ -14,12 +14,6 @@ export async function POST(req: Request) {
     const { ideaId } = await req.json();
     if (!ideaId) {
       return NextResponse.json({ error: "ideaId required" }, { status: 400 });
-    }
-
-    // Cuota de proyectos (los admin están exentos).
-    const quota = await assertCanCreateProject(auth.userId);
-    if (!quota.ok) {
-      return NextResponse.json({ error: quota.error }, { status: 403 });
     }
 
     // Check idea exists, is owned by the user, and is completed
@@ -47,10 +41,20 @@ export async function POST(req: Request) {
       );
     }
 
+    // Cuota de proyectos: consumo ATÓMICO (gate + incremento). Admins exentos.
+    // Se hace justo antes de crear, tras pasar todas las precondiciones, para
+    // no quemar cuota en 404/409. Si la creación falla, se reembolsa.
+    const quota = await consumeProjectQuota(auth.userId);
+    if (!quota.ok) {
+      return NextResponse.json({ error: quota.error }, { status: 403 });
+    }
+
     // Create the project with its phases
     // Phase 0 (VALIDATION) is read-only on the frontend and points to /ideas/[id],
     // so it is NOT a ProjectPhase here. The 5 phases below are the agent-driven ones.
-    const project = await prisma.project.create({
+    let project;
+    try {
+      project = await prisma.project.create({
       data: {
         ideaId: idea.id,
         name: idea.title,
@@ -97,10 +101,12 @@ export async function POST(req: Request) {
         },
       },
       include: { phases: { orderBy: { sortOrder: "asc" } } },
-    });
-
-    // Contador VITALICIO de proyectos creados (nunca se decrementa al borrar).
-    await incrementProjectsCreated(auth.userId);
+      });
+    } catch (createError) {
+      // La cuota ya se consumió: reembolsa antes de propagar (incluido P2002).
+      await refundProjectQuota(auth.userId);
+      throw createError;
+    }
 
     return NextResponse.json({ project });
   } catch (error) {
