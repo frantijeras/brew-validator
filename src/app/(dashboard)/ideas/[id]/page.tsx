@@ -16,7 +16,12 @@ import { useBridgeStatus } from "@/hooks/use-bridge-status";
 import { isIdeaBusy } from "@/lib/idea-state";
 import { Button } from "@/components/ui/button";
 import { DemoLimitDialog } from "@/components/demo-limit-dialog";
-import { RefineIdeaModal } from "./refine-idea-modal";
+import {
+  RefineIdeaPanel,
+  parseRefineOutput,
+  REFINABLE_FIELDS,
+  type FieldKey,
+} from "./refine-idea-panel";
 
 interface IdeaData {
   id: string;
@@ -66,7 +71,15 @@ export default function IdeaDetailPage() {
   const [archPending, setArchPending] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showRefineModal, setShowRefineModal] = useState(false);
+  // Refinado de idea (flujo inline, sin modal)
+  const [refinePanelOpen, setRefinePanelOpen] = useState(false);
+  const [refining, setRefining] = useState(false);
+  const [refineJobId, setRefineJobId] = useState<string | null>(null);
+  const [refineError, setRefineError] = useState<string | null>(null);
+  const [refineSuccess, setRefineSuccess] = useState(false);
+  const [refineLimit, setRefineLimit] = useState(false);
+  const [undoSnapshot, setUndoSnapshot] = useState<Record<string, string> | null>(null);
+  const refinePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [cancellingValidation, setCancellingValidation] = useState(false);
@@ -345,6 +358,160 @@ export default function IdeaDetailPage() {
     }
   }
 
+  // ── Refinado de idea (inline) ────────────────────────────────────────────
+
+  const stopRefinePolling = useCallback(() => {
+    if (refinePollRef.current) {
+      clearInterval(refinePollRef.current);
+      refinePollRef.current = null;
+    }
+  }, []);
+
+  // Limpieza del intervalo de sondeo al desmontar.
+  useEffect(() => stopRefinePolling, [stopRefinePolling]);
+
+  // Aplica los campos refinados directamente vía PATCH y refresca la idea.
+  const applyRefinedFields = useCallback(
+    async (fields: Record<string, string>) => {
+      if (!idea) return;
+      // Captura los valores previos para poder deshacer.
+      const snapshot: Record<string, string> = {};
+      for (const key of Object.keys(fields)) {
+        snapshot[key] = (idea[key as keyof IdeaData] ?? "").toString();
+      }
+      try {
+        const res = await fetch(`/api/ideas/${ideaId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify(fields),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data?.error || "No se pudieron aplicar los cambios");
+        }
+        setUndoSnapshot(snapshot);
+        setRefining(false);
+        setRefineJobId(null);
+        setRefineSuccess(true);
+        await fetchIdea();
+        router.refresh();
+      } catch (err) {
+        setRefining(false);
+        setRefineJobId(null);
+        setRefineError(
+          err instanceof Error ? err.message : "Error al aplicar el refinado"
+        );
+      }
+    },
+    [idea, ideaId, fetchIdea, router]
+  );
+
+  // Sondeo del job de refinado.
+  const startRefinePolling = useCallback(
+    (jobId: string) => {
+      stopRefinePolling();
+      const tick = async () => {
+        try {
+          const res = await fetch(`/api/jobs/${jobId}`, {
+            credentials: "same-origin",
+            cache: "no-store",
+          });
+          if (!res.ok) return; // reintenta en el siguiente tick
+          const job = await res.json();
+          if (job.status === "COMPLETED") {
+            stopRefinePolling();
+            const parsed = parseRefineOutput(job.output);
+            const toApply: Record<string, string> = {};
+            for (const f of REFINABLE_FIELDS) {
+              const value = parsed[f.key];
+              if (typeof value === "string" && value.trim().length > 0) {
+                toApply[f.key] = value.trim();
+              }
+            }
+            if (Object.keys(toApply).length === 0) {
+              setRefining(false);
+              setRefineJobId(null);
+              setRefineError(
+                "La IA no devolvió cambios. Inténtalo con otra instrucción."
+              );
+              return;
+            }
+            void applyRefinedFields(toApply);
+          } else if (job.status === "FAILED") {
+            stopRefinePolling();
+            setRefining(false);
+            setRefineJobId(null);
+            setRefineError(
+              job.error || "El refinado ha fallado. Inténtalo de nuevo."
+            );
+          }
+        } catch {
+          // Error transitorio de red: reintenta en el siguiente tick.
+        }
+      };
+      void tick();
+      refinePollRef.current = setInterval(tick, 2000);
+    },
+    [stopRefinePolling, applyRefinedFields]
+  );
+
+  // Lanza el refinado desde el panel inline.
+  async function handleStartRefine(fields: FieldKey[], instruction: string) {
+    setRefineError(null);
+    setRefineSuccess(false);
+    try {
+      const res = await fetch(`/api/ideas/${ideaId}/refine`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ fields, instruction }),
+      });
+      if (res.status === 403) {
+        setRefineLimit(true);
+        return;
+      }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || "No se pudo iniciar el refinado");
+      }
+      const data = await res.json();
+      if (!data?.jobId) throw new Error("Respuesta inesperada del servidor");
+      // Entra en estado "refinando": oculta panel y tarjeta, muestra spinner.
+      setRefinePanelOpen(false);
+      setRefineJobId(data.jobId);
+      setRefining(true);
+      startRefinePolling(data.jobId);
+    } catch (err) {
+      setRefineError(err instanceof Error ? err.message : "Error al refinar");
+    }
+  }
+
+  // Deshace el último refinado restaurando los valores previos.
+  async function handleUndoRefine() {
+    if (!undoSnapshot) return;
+    try {
+      const res = await fetch(`/api/ideas/${ideaId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify(undoSnapshot),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || "No se pudo deshacer el refinado");
+      }
+      setUndoSnapshot(null);
+      setRefineSuccess(false);
+      await fetchIdea();
+      router.refresh();
+    } catch (err) {
+      setRefineError(
+        err instanceof Error ? err.message : "Error al deshacer el refinado"
+      );
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -594,10 +761,13 @@ export default function IdeaDetailPage() {
                   )}
                 </Button>
               )}
-              {canRefine && (
+              {canRefine && !refining && (
                 <Button
                   variant="secondary"
-                  onClick={() => setShowRefineModal(true)}
+                  onClick={() => {
+                    setRefineError(null);
+                    setRefinePanelOpen((prev) => !prev);
+                  }}
                   className="gap-2 py-2.5 shadow"
                 >
                   <Sparkles className="size-4" />
@@ -666,6 +836,67 @@ export default function IdeaDetailPage() {
         </div>
       )}
 
+      {/* Aviso de éxito tras refinar (descartable, con opción de deshacer) */}
+      {refineSuccess && !refining && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+          <span className="font-medium">Idea refinada ✓</span>
+          <div className="flex items-center gap-4">
+            {undoSnapshot && (
+              <button
+                type="button"
+                onClick={handleUndoRefine}
+                className="font-medium text-emerald-200 underline underline-offset-2 hover:text-white"
+              >
+                Deshacer
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setRefineSuccess(false)}
+              aria-label="Descartar aviso"
+              className="text-emerald-200/70 hover:text-white"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Panel inline de refinado — sustituye al antiguo modal (paso formulario) */}
+      {canRefine && refinePanelOpen && !refining && (
+        <RefineIdeaPanel
+          idea={{
+            description: idea.description,
+            problem: idea.problem,
+            valueProposition: idea.valueProposition,
+            targetUser: idea.targetUser,
+            monetization: idea.monetization,
+          }}
+          onSubmit={handleStartRefine}
+          onCancel={() => {
+            setRefinePanelOpen(false);
+            setRefineError(null);
+          }}
+          error={refineError}
+        />
+      )}
+
+      {/* Error de refinado fuera del panel (p. ej. tras un job FAILED) */}
+      {refineError && !refinePanelOpen && !refining && (
+        <div className="mb-4 flex items-start gap-2.5 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+          <AlertCircle className="mt-0.5 size-4 shrink-0" />
+          <span>{refineError}</span>
+        </div>
+      )}
+
+      {/* Mientras se refina: spinner centrado en lugar de la tarjeta de contenido */}
+      {refining ? (
+        <div className="mb-8 flex flex-col items-center justify-center gap-4 rounded-xl border border-amber-500/30 bg-slate-900/50 px-6 py-20 text-center">
+          <span className="size-10 animate-spin rounded-full border-4 border-slate-700 border-t-amber-400" />
+          <p className="text-sm font-medium text-slate-300">Refinando idea…</p>
+        </div>
+      ) : (
+      <>
       {/* Idea original / Edit mode */}
       <div className="mb-8 rounded-xl border border-slate-800 bg-slate-900/50 p-6">
         <div className="flex items-center justify-between mb-3">
@@ -853,6 +1084,8 @@ export default function IdeaDetailPage() {
           </div>
         </dl>
       </div>
+      </>
+      )}
 
       {/* Reports — only when validation is done and not DRAFT */}
       {idea.validationStatus === "DONE" && idea.reports.length > 0 && idea.status !== "DRAFT" && (() => {
@@ -945,19 +1178,11 @@ export default function IdeaDetailPage() {
         </div>
       )}
 
-      {/* Refinar idea con IA */}
-      <RefineIdeaModal
-        open={showRefineModal}
-        onClose={() => setShowRefineModal(false)}
-        ideaId={idea.id}
-        idea={{
-          description: idea.description,
-          problem: idea.problem,
-          valueProposition: idea.valueProposition,
-          targetUser: idea.targetUser,
-          monetization: idea.monetization,
-        }}
-        onApplied={fetchIdea}
+      {/* Diálogo de límite de plan al refinar (cuota agotada → 403) */}
+      <DemoLimitDialog
+        open={refineLimit}
+        onClose={() => setRefineLimit(false)}
+        type="refine"
       />
 
       {/* Confirm modals */}
