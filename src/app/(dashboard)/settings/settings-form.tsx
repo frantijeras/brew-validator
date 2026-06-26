@@ -876,9 +876,6 @@ function ExceptionGroup({
                   className="sm:w-56"
                 />
                 <div className="flex w-full items-center gap-2 sm:w-auto">
-                  <span className="shrink-0 text-xs text-slate-500" title="Nivel de razonamiento">
-                    Razonamiento
-                  </span>
                   {modelSupportsReasoning(overrides[agent.id], modelOptions) ? (
                     <ThinkingSelect
                       value={thinkingOverrides[agent.id] ?? defaultThinking}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Mail, Copy, Check, X } from "lucide-react";
+import { Mail, Copy, Check, X, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 type InviteStatus = "PENDING" | "ACCEPTED" | "REVOKED";
@@ -136,6 +136,29 @@ export function InvitationsSection() {
     }
   }
 
+  // Reenvía/reactiva una invitación revocada o caducada (vuelve a PENDING con
+  // token nuevo y reenvía el email). Útil si se rechazó por error.
+  async function handleResend(id: string) {
+    setError(null);
+    setResult(null);
+    try {
+      const res = await fetch(`/api/invitations/${id}/resend`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "No se pudo reenviar la invitación");
+        return;
+      }
+      setResult({
+        inviteUrl: data.inviteUrl,
+        emailSent: data.emailSent,
+        emailError: data.emailError,
+      });
+      await load();
+    } catch {
+      setError("Error de red al reenviar la invitación");
+    }
+  }
+
   return (
     <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
       <div className="flex items-start justify-between gap-4">
@@ -247,6 +270,18 @@ export function InvitationsSection() {
                   >
                     <X className="h-4 w-4" />
                     Revocar
+                  </Button>
+                )}
+                {(inv.status === "REVOKED" || expired) && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleResend(inv.id)}
+                    title="Volver a enviar esta invitación (token nuevo)"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    Reenviar
                   </Button>
                 )}
               </div>

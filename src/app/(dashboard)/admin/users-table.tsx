@@ -429,10 +429,20 @@ function EditUserModal({
             <option value="premium">Premium</option>
           </select>
           <p className="mt-1.5 text-xs text-slate-500">
-            Al guardar, el plan ajusta los límites por defecto del usuario.
+            El plan define qué modelos de IA usa este usuario.
           </p>
         </div>
 
+        {isAdmin && (
+          <p className="rounded-lg border border-slate-800 bg-slate-900 px-4 py-3 text-xs text-slate-400">
+            Los administradores están{" "}
+            <span className="text-amber-300">exentos de límites</span>: no se aplican
+            cuotas, accesos ni undos. Solo el plan de IA y el estado/rol.
+          </p>
+        )}
+
+        {!isAdmin && (
+        <>
         <div>
           <div className="mb-2 flex items-center justify-between gap-3">
             <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -501,6 +511,8 @@ function EditUserModal({
             />
           </div>
         </div>
+        </>
+        )}
 
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
