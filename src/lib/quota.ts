@@ -18,8 +18,10 @@ export interface UserAccess {
   plan: string;
   maxIdeas: number;
   maxProjects: number;
+  maxRefines: number;
   ideasCreated: number;
   projectsCreated: number;
+  refinesUsed: number;
   phaseUndosAllowed: number;
   canAccessSkills: boolean;
   canAccessHandoff: boolean;
@@ -36,8 +38,10 @@ export async function getUserAccess(userId: string): Promise<UserAccess> {
       plan: true,
       maxIdeas: true,
       maxProjects: true,
+      maxRefines: true,
       ideasCreated: true,
       projectsCreated: true,
+      refinesUsed: true,
       phaseUndosAllowed: true,
       canAccessSkills: true,
       canAccessHandoff: true,
@@ -94,6 +98,30 @@ export async function assertCanCreateProject(
     };
   }
   return { ok: true };
+}
+
+/**
+ * ¿Puede el usuario refinar una idea más? Admin → siempre.
+ * Cuota VITALICIA: compara `refinesUsed` acumulado con `maxRefines`.
+ */
+export async function assertCanRefine(userId: string): Promise<QuotaCheck> {
+  const access = await getUserAccess(userId);
+  if (access.isAdmin) return { ok: true };
+  if (access.refinesUsed >= access.maxRefines) {
+    return {
+      ok: false,
+      error: "Has alcanzado el máximo de refinados de tu plan.",
+    };
+  }
+  return { ok: true };
+}
+
+/** Incrementa el contador vitalicio de refinados usados (+1). */
+export async function incrementRefinesUsed(userId: string): Promise<void> {
+  await prisma.user.update({
+    where: { id: userId },
+    data: { refinesUsed: { increment: 1 } },
+  });
 }
 
 /** Incrementa el contador vitalicio de ideas creadas (+1). */

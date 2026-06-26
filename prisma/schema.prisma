@@ -36,12 +36,14 @@ model User {
   maxIdeas          Int     @default(3)
   maxProjects       Int     @default(1)
   phaseUndosAllowed Int     @default(1)
+  maxRefines        Int     @default(3)
   canAccessSkills   Boolean @default(false)
   canAccessHandoff  Boolean @default(false)
 
   // ── Uso de POR VIDA (no baja al borrar; solo el admin lo resetea) ──
   ideasCreated    Int @default(0)
   projectsCreated Int @default(0)
+  refinesUsed     Int @default(0)
 
   // ── Plan de IA asignado (define qué modelos/razonamiento usan sus jobs) ──
   plan String @default("gratis") // "gratis" | "estandar" | "premium"

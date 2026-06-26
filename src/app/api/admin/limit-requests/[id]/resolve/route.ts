@@ -18,6 +18,7 @@ const resolveSchema = z
  *  - "handoff"    → canAccessHandoff = true
  *  - "ideas"      → ideasCreated = 0 (recupera la cuota de su plan)
  *  - "projects"   → projectsCreated = 0
+ *  - "refine"     → refinesUsed = 0
  *  - "phase_undo" → phaseUndosAllowed += 1 y rollbacksUsed = 0 en sus proyectos
  *
  * Al DESCARTAR no se toca al usuario. En ambos casos se marca la solicitud como
@@ -90,6 +91,12 @@ export async function POST(
           await tx.user.update({
             where: { id: userId },
             data: { projectsCreated: 0 },
+          });
+          break;
+        case "refine":
+          await tx.user.update({
+            where: { id: userId },
+            data: { refinesUsed: 0 },
           });
           break;
         case "phase_undo":

@@ -23,6 +23,7 @@ const TYPE_LABELS: Record<string, string> = {
   phase_undo: "Deshacer fase",
   skills: "Acceso a Skills",
   handoff: "Acceso a Hand-off",
+  refine: "Más refinados",
 };
 
 function fmtDate(value: string | null): string {

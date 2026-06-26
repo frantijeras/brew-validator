@@ -9,6 +9,7 @@ const LIMIT_REQUEST_TYPES = [
   "phase_undo",
   "skills",
   "handoff",
+  "refine",
 ] as const;
 
 const createSchema = z

@@ -9,7 +9,8 @@ export type LimitRequestType =
   | "projects"
   | "phase_undo"
   | "skills"
-  | "handoff";
+  | "handoff"
+  | "refine";
 
 interface DemoLimitDialogProps {
   open: boolean;
@@ -25,6 +26,7 @@ const DEFAULT_TITLES: Record<LimitRequestType, string> = {
   phase_undo: "Has agotado los reintentos de fase",
   skills: "Acceso a Skills no disponible",
   handoff: "Acceso a Hand-off no disponible",
+  refine: "Has alcanzado el límite de refinados",
 };
 
 const DEFAULT_MESSAGES: Record<LimitRequestType, string> = {
@@ -33,6 +35,7 @@ const DEFAULT_MESSAGES: Record<LimitRequestType, string> = {
   phase_undo: "Has alcanzado el máximo de veces que puedes deshacer una fase.",
   skills: "La sección de Skills no está incluida en tu plan.",
   handoff: "La sección de Hand-off no está incluida en tu plan.",
+  refine: "Has alcanzado el máximo de refinados de tu plan.",
 };
 
 /**

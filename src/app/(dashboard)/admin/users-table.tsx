@@ -18,6 +18,8 @@ interface AdminUser {
   plan: Plan;
   maxIdeas: number;
   maxProjects: number;
+  maxRefines: number;
+  refinesUsed: number;
   phaseUndosAllowed: number;
   canAccessSkills: boolean;
   canAccessHandoff: boolean;
@@ -328,6 +330,7 @@ function EditUserModal({
   const [plan, setPlan] = useState<Plan>(user.plan);
   const [maxIdeas, setMaxIdeas] = useState(user.maxIdeas);
   const [maxProjects, setMaxProjects] = useState(user.maxProjects);
+  const [maxRefines, setMaxRefines] = useState(user.maxRefines ?? 0);
   const [phaseUndosAllowed, setPhaseUndos] = useState(user.phaseUndosAllowed);
   const [canAccessSkills, setSkills] = useState(user.canAccessSkills);
   const [canAccessHandoff, setHandoff] = useState(user.canAccessHandoff);
@@ -348,6 +351,7 @@ function EditUserModal({
           plan,
           maxIdeas,
           maxProjects,
+          maxRefines,
           phaseUndosAllowed,
           canAccessSkills,
           canAccessHandoff,
@@ -474,6 +478,13 @@ function EditUserModal({
                 <span className="text-slate-600"> / {maxProjects}</span>
               </p>
             </div>
+            <div className="rounded-lg border border-slate-800 bg-slate-900 px-4 py-3">
+              <p className="text-xs text-slate-500">Refinados usados</p>
+              <p className="mt-0.5 font-medium text-white tabular-nums">
+                {user.refinesUsed ?? 0}
+                <span className="text-slate-600"> / {maxRefines}</span>
+              </p>
+            </div>
           </div>
         </div>
 
@@ -484,6 +495,7 @@ function EditUserModal({
           <div className="grid grid-cols-3 gap-3">
             <NumberField label="Máx. ideas" value={maxIdeas} onChange={setMaxIdeas} />
             <NumberField label="Máx. proyectos" value={maxProjects} onChange={setMaxProjects} />
+            <NumberField label="Máx. refinados" value={maxRefines} onChange={setMaxRefines} />
             <NumberField
               label="Undos de fase"
               value={phaseUndosAllowed}

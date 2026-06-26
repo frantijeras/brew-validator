@@ -32,6 +32,7 @@ const callbackSchema = z.object({
 
 const VALIDATION_AGENTS = ["skeptic", "advocate", "judge"];
 const GENERATOR_AGENT = "idea-generator";
+const REFINER_AGENT = "idea-refiner";
 
 export async function POST(req: NextRequest) {
   try {
@@ -53,6 +54,7 @@ export async function POST(req: NextRequest) {
 
     const isValidationAgent = VALIDATION_AGENTS.includes(job.agentName);
     const isGeneratorAgent = job.agentName === GENERATOR_AGENT;
+    const isRefinerAgent = job.agentName === REFINER_AGENT;
 
     // Telemetría estructurada del bridge (httpStatus, model, tokens, ...).
     const telemetry = extractBridgeTelemetry(body as Record<string, unknown>);
@@ -175,6 +177,15 @@ export async function POST(req: NextRequest) {
     });
     if (claim.count === 0) {
       return NextResponse.json({ success: true, skipped: true });
+    }
+
+    // ── Idea Refiner callback ──
+    // El refinado SOLO propone campos: ya guardamos `output` (dict de campos
+    // reescritos) en el Job en el claim atómico de arriba. NO tocamos la Idea:
+    // la UI previsualiza Job.output y el usuario decide aceptarlo. No cae en las
+    // ramas de generador/validación.
+    if (isRefinerAgent) {
+      return NextResponse.json({ success: true });
     }
 
     // ── Idea Generator callback ──

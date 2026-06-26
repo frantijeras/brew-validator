@@ -7,6 +7,7 @@ const updateUserSchema = z
   .object({
     maxIdeas: z.number().int().min(0).optional(),
     maxProjects: z.number().int().min(0).optional(),
+    maxRefines: z.number().int().min(0).optional(),
     phaseUndosAllowed: z.number().int().min(0).optional(),
     canAccessSkills: z.boolean().optional(),
     canAccessHandoff: z.boolean().optional(),
@@ -89,7 +90,9 @@ export async function PATCH(
       where: { id },
       data: {
         ...userData,
-        ...(resetUsage ? { ideasCreated: 0, projectsCreated: 0 } : {}),
+        ...(resetUsage
+          ? { ideasCreated: 0, projectsCreated: 0, refinesUsed: 0 }
+          : {}),
       },
       select: {
         id: true,
@@ -101,12 +104,14 @@ export async function PATCH(
         invitedAt: true,
         maxIdeas: true,
         maxProjects: true,
+        maxRefines: true,
         phaseUndosAllowed: true,
         canAccessSkills: true,
         canAccessHandoff: true,
         plan: true,
         ideasCreated: true,
         projectsCreated: true,
+        refinesUsed: true,
       },
     });
   });

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Archive, Trash2, Undo2, MoreHorizontal, Pencil, FileDown, Save, X, AlertCircle, FolderKanban } from "lucide-react";
+import { Archive, Trash2, Undo2, MoreHorizontal, Pencil, FileDown, Save, X, AlertCircle, FolderKanban, Sparkles } from "lucide-react";
 import { ValidationProgress } from "@/components/validation-progress";
 import { ReportViewer } from "@/components/report-viewer";
 import { ConfirmModal } from "@/components/confirm-modal";
@@ -16,6 +16,7 @@ import { useBridgeStatus } from "@/hooks/use-bridge-status";
 import { isIdeaBusy } from "@/lib/idea-state";
 import { Button } from "@/components/ui/button";
 import { DemoLimitDialog } from "@/components/demo-limit-dialog";
+import { RefineIdeaModal } from "./refine-idea-modal";
 
 interface IdeaData {
   id: string;
@@ -65,6 +66,7 @@ export default function IdeaDetailPage() {
   const [archPending, setArchPending] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showRefineModal, setShowRefineModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [cancellingValidation, setCancellingValidation] = useState(false);
@@ -393,6 +395,16 @@ export default function IdeaDetailPage() {
     idea.validationStatus !== "RUNNING" &&
     idea.validationStatus !== "DONE";
 
+  // "Refinar idea" — solo ANTES de validar: la idea ya está generada (no es un
+  // fallo de generación), no está ocupada y aún no se ha validado ni se está
+  // validando. Oculta en readonly (no es el autor en su vista normal).
+  const canRefine =
+    !readonly &&
+    !isBusy &&
+    !isGenerationFailure &&
+    idea.validationStatus !== "RUNNING" &&
+    idea.validationStatus !== "DONE";
+
   const formattedCreated = new Date(idea.createdAt).toLocaleDateString("es-ES", {
     day: "numeric",
     month: "long",
@@ -580,6 +592,16 @@ export default function IdeaDetailPage() {
                       {isDraft ? "Validar esta idea" : "Validar con IA"}
                     </>
                   )}
+                </Button>
+              )}
+              {canRefine && (
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowRefineModal(true)}
+                  className="gap-2 py-2.5 shadow"
+                >
+                  <Sparkles className="size-4" />
+                  Refinar idea
                 </Button>
               )}
               {/* Convertir en proyecto */}
@@ -922,6 +944,21 @@ export default function IdeaDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Refinar idea con IA */}
+      <RefineIdeaModal
+        open={showRefineModal}
+        onClose={() => setShowRefineModal(false)}
+        ideaId={idea.id}
+        idea={{
+          description: idea.description,
+          problem: idea.problem,
+          valueProposition: idea.valueProposition,
+          targetUser: idea.targetUser,
+          monetization: idea.monetization,
+        }}
+        onApplied={fetchIdea}
+      />
 
       {/* Confirm modals */}
       <ConfirmModal
