@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, type IdeaStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getBridgeHealth } from "@/lib/bridge/health";
 
@@ -23,6 +23,8 @@ const IDEA_AGENTS = new Set([
   "advocate",
   "judge",
   "idea-generator",
+  "idea-refiner",
+  "idea-improver",
 ]);
 
 export interface ReapResult {
@@ -103,19 +105,23 @@ export async function reapStuckProcesses(opts?: {
         });
         result.phases += upd.count;
       } else if (IDEA_AGENTS.has(job.agentName)) {
-        // Validación / generación / refinamiento de idea colgado.
-        const unstuck = await prisma.idea.updateMany({
-          where: {
-            id: job.ideaId,
-            status: { in: ["VALIDATING", "GENERATING", "REFINING", "POLISHING"] },
-          },
+        // Idea colgada (validación / generación / refinar / mejorar). La sacamos
+        // del estado ocupado: si seguía validada (DONE) → COMPLETED; si no → DRAFT,
+        // igual que el `nonBusyStatus` del webhook (no degradar una idea validada).
+        const busy: IdeaStatus[] = ["VALIDATING", "GENERATING", "REFINING", "IMPROVING", "POLISHING"];
+        const toCompleted = await prisma.idea.updateMany({
+          where: { id: job.ideaId, status: { in: busy }, validationStatus: "DONE" },
+          data: { status: "COMPLETED" },
+        });
+        const toDraft = await prisma.idea.updateMany({
+          where: { id: job.ideaId, status: { in: busy }, validationStatus: { not: "DONE" } },
           data: { status: "DRAFT" },
         });
         await prisma.idea.updateMany({
           where: { id: job.ideaId, validationStatus: "RUNNING" },
           data: { validationStatus: "FAILED" },
         });
-        result.ideas += unstuck.count;
+        result.ideas += toCompleted.count + toDraft.count;
       }
     } catch (e) {
       console.error("[reaper] no se pudo resetear el recurso del job", job.id, e);

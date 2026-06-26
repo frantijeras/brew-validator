@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { verifyBridgeSecret } from "@/lib/bridge-auth";
 
 /**
  * POST /api/bridge/heartbeat
@@ -36,6 +37,10 @@ async function resolveSystemUserId(): Promise<string | null> {
 
 export async function POST(req: NextRequest) {
   try {
+    // Solo el bridge (con su secreto) puede reportar estado del sistema.
+    if (!verifyBridgeSecret(req)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const body = await req.json().catch(() => null);
     if (!body || typeof body !== "object") {
       return NextResponse.json(

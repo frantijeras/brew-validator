@@ -36,7 +36,9 @@ export async function POST(req: Request) {
     const guard = await guardProject(projectId);
     if (!guard.ok) return guard.response;
 
-    const phase = await prisma.projectPhase.findUnique({ where: { id: phaseId } });
+    // Cruzar phaseId ↔ projectId: el guard valida el proyecto, pero la fase debe
+    // pertenecer a ESE proyecto (evita operar sobre una fase de otro tenant).
+    const phase = await prisma.projectPhase.findFirst({ where: { id: phaseId, projectId } });
     if (!phase) {
       return NextResponse.json({ error: "Phase not found" }, { status: 404 });
     }

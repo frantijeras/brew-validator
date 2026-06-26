@@ -17,7 +17,7 @@ const callbackSchema = z.object({
   status: z.enum(["COMPLETED", "FAILED"]),
   output: z.record(z.string(), z.unknown()).optional(),
   error: z.string().optional(),
-  cost: z.number().positive().optional(),
+  cost: z.number().nonnegative().optional(),
   // Campos estructurados que manda el bridge para diagnóstico (opcionales:
   // un bridge antiguo simplemente no los envía).
   errorType: z.string().optional(),
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
       // state proceeds. A concurrent duplicate gets count===0 and is skipped,
       // preventing double idea-state mutations.
       const claim = await prisma.job.updateMany({
-        where: { id: data.jobId, status: { notIn: ["COMPLETED", "FAILED"] } },
+        where: { id: data.jobId, status: { notIn: ["COMPLETED", "FAILED", "CANCELLED"] } },
         data: {
           status: "FAILED",
           error: rawError,
@@ -220,10 +220,10 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // El mejorador en modo "report" dejó la idea en IMPROVING: al fallar, la
-      // devolvemos a un estado no-busy. El modo "questions" NUNCA tocó el estado
-      // de la idea, así que no hay nada que revertir.
-      if (isImproverAgent && improverMode === "report") {
+      // El mejorador en modo "report" (o con input ilegible → mode null) dejó la
+      // idea en IMPROVING: al fallar, la devolvemos a un estado no-busy. Solo el
+      // modo "questions" NUNCA tocó el estado, así que ahí no hay nada que revertir.
+      if (isImproverAgent && improverMode !== "questions") {
         const idea = await prisma.idea.findUnique({
           where: { id: job.ideaId },
           select: { validationStatus: true },
@@ -245,7 +245,7 @@ export async function POST(req: NextRequest) {
     // proceeds past this point for a given job, so reports aren't created
     // twice when duplicate callbacks race.
     const claim = await prisma.job.updateMany({
-      where: { id: data.jobId, status: { notIn: ["COMPLETED", "FAILED"] } },
+      where: { id: data.jobId, status: { notIn: ["COMPLETED", "FAILED", "CANCELLED"] } },
       data: {
         status: "COMPLETED",
         output: JSON.stringify(output),
