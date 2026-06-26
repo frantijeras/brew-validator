@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Archive, Trash2, Undo2, MoreHorizontal, Pencil, Rocket } from "lucide-react";
-import { getScoreColor, STATUS_COLORS, STATUS_LABELS } from "@/lib/translations";
+import { getScoreColor, getIdeaLifecycleBadge } from "@/lib/translations";
 import { ConfirmModal } from "@/components/confirm-modal";
 
 import { BUSINESS_MODELS } from "@/lib/business-models";
@@ -298,13 +298,18 @@ export function IdeaCard({
 
             {isArchived && <Archive className="size-3 text-amber-400 shrink-0" fill="currentColor" />}
           </span>
-          {/* Status badge with color */}
-          <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${STATUS_COLORS[idea.status] ?? STATUS_COLORS["DRAFT"]}`}>
-            {idea.status === "GENERATING" || idea.status === "VALIDATING" || idea.status === "REFINING" ? (
-              <span className="size-1.5 rounded-full bg-current animate-pulse" />
-            ) : null}
-            {STATUS_LABELS[idea.status] ?? idea.status}
-          </span>
+          {/* Status badge: estado REAL del ciclo de vida (status + validationStatus) */}
+          {(() => {
+            const badge = getIdeaLifecycleBadge(idea.status, idea.validationStatus);
+            return (
+              <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${badge.color}`}>
+                {badge.showSpinner ? (
+                  <span className="size-1.5 rounded-full bg-current animate-pulse" />
+                ) : null}
+                {badge.label}
+              </span>
+            );
+          })()}
         </div>
       </Link>
 

@@ -19,9 +19,11 @@ import {
  * - Cuota de refinados (assertCanRefine): SOLO comprobación → 403 si está
  *   agotada. NO se consume aquí (se consume en /improve/apply).
  *
- * NO cambia el estado de la idea: generar preguntas no la deja "ocupada".
- * Devuelve `{ jobId }`. El output del job ({questions:[...]}) lo lee la UI vía
- * GET /api/jobs/[id].
+ * Marca la idea como IMPROVING (ocupada) para que TODO el flujo de mejora
+ * (preguntas + quiz + apply) sea visible en el chip y RESUMABLE: si el usuario
+ * se va y vuelve a mitad del flujo, la página recupera el sub-paso vía
+ * GET /improve/state. Devuelve `{ jobId }`. El output del job
+ * ({questions:[...]}) lo lee la UI vía GET /api/jobs/[id].
  */
 export async function POST(
   req: NextRequest,
@@ -88,6 +90,15 @@ export async function POST(
         status: "PENDING",
         input: JSON.stringify(input),
       },
+    });
+
+    // Marca la idea como ocupada (IMPROVING). Así el flujo completo de mejora es
+    // visible/resumable. El webhook la devuelve a un estado no-busy si el job de
+    // preguntas FALLA; el usuario puede cancelar (POST /improve/cancel) para
+    // desbloquearla mientras está generando preguntas o en el quiz.
+    await prisma.idea.update({
+      where: { id },
+      data: { status: "IMPROVING" },
     });
 
     return NextResponse.json({ jobId: job.id });

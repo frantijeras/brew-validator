@@ -16,12 +16,13 @@ export const STATUS_LABELS: Record<string, string> = {
   GENERATING: "Generando",
   DRAFT: "Borrador",
   VALIDATING: "Validando",
-  COMPLETED: "Completada",
-  REFINING: "Puliendo",
+  COMPLETED: "Validada",
+  REFINING: "Refinando",
+  IMPROVING: "Mejorando",
   POLISHING: "Puliendo",
   FAILED: "Error",
   // Legacy
-  DONE: "Completada",
+  DONE: "Validada",
   PENDING: "Pendiente",
   RUNNING: "En progreso",
   KILLED: "Cancelada",
@@ -50,6 +51,7 @@ export const STATUS_COLORS: Record<string, string> = {
   VALIDATING: "text-orange-400 bg-orange-500/10 border-orange-500/30",
   COMPLETED: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30",
   REFINING: "text-blue-400 bg-blue-500/10 border-blue-500/30",
+  IMPROVING: "text-purple-400 bg-purple-500/10 border-purple-500/30",
   POLISHING: "text-blue-400 bg-blue-500/10 border-blue-500/30",
   FAILED: "text-red-400 bg-red-500/10 border-red-500/30",
   // Legacy mappings
@@ -114,4 +116,29 @@ export function getBadgeInfo(
  */
 export function getScoreColor(_score: number): string {
   return "text-slate-300";
+}
+
+/**
+ * Estado REAL del ciclo de vida de una idea para el chip de la tarjeta,
+ * combinando `status` (enum) y `validationStatus`. No es el veredicto: es en qué
+ * punto está la idea. Spinner para los estados "ocupados" (hay un job corriendo).
+ */
+export function getIdeaLifecycleBadge(
+  status: string,
+  validationStatus: string,
+): { label: string; color: string; showSpinner: boolean } {
+  const C = STATUS_COLORS;
+  if (status === "GENERATING")
+    return { label: "Generando", color: C.GENERATING, showSpinner: true };
+  if (status === "VALIDATING" || validationStatus === "RUNNING")
+    return { label: "Validando", color: C.VALIDATING, showSpinner: true };
+  if (status === "REFINING")
+    return { label: "Refinando", color: C.REFINING, showSpinner: true };
+  if (status === "IMPROVING")
+    return { label: "Mejorando", color: C.IMPROVING, showSpinner: true };
+  if (status === "FAILED")
+    return { label: "Error", color: C.FAILED, showSpinner: false };
+  if (validationStatus === "DONE" || status === "COMPLETED")
+    return { label: "Validada", color: C.COMPLETED, showSpinner: false };
+  return { label: "Borrador", color: C.DRAFT, showSpinner: false };
 }

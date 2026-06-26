@@ -220,10 +220,11 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // El mejorador en modo "report" (o con input ilegible → mode null) dejó la
-      // idea en IMPROVING: al fallar, la devolvemos a un estado no-busy. Solo el
-      // modo "questions" NUNCA tocó el estado, así que ahí no hay nada que revertir.
-      if (isImproverAgent && improverMode !== "questions") {
+      // El mejorador deja la idea en IMPROVING en AMBOS modos (questions y
+      // report), porque ahora el flujo entero es "ocupado"/resumable. Por tanto,
+      // al fallar CUALQUIER job del mejorador, la devolvemos a un estado no-busy
+      // para que no quede bloqueada. (improverMode se mantiene para el COMPLETED.)
+      if (isImproverAgent) {
         const idea = await prisma.idea.findUnique({
           where: { id: job.ideaId },
           select: { validationStatus: true },

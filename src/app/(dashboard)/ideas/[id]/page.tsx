@@ -76,9 +76,11 @@ export default function IdeaDetailPage() {
   const [refineSuccess, setRefineSuccess] = useState(false);
   const [refineLimit, setRefineLimit] = useState(false);
   const [undoSnapshot, setUndoSnapshot] = useState<Record<string, string> | null>(null);
-  // Mejorar idea (quiz según el veredicto). El panel gestiona preguntas/apply;
-  // tras el apply la idea entra en status === "IMPROVING" (mismo mecanismo).
-  const [improvePanelOpen, setImprovePanelOpen] = useState(false);
+  // Mejorar idea (quiz según el veredicto). Ahora dirigido por estado: arrancar
+  // la mejora deja la idea en status === "IMPROVING" desde el primer paso
+  // (generación de preguntas), de modo que TODO el flujo es resumible. La página
+  // renderiza <ImproveIdeaPanel> en modo RESUME siempre que status==="IMPROVING".
+  const [improveStarting, setImproveStarting] = useState(false);
   const [improveSuccess, setImproveSuccess] = useState(false);
   const [improveLimit, setImproveLimit] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -173,9 +175,11 @@ export default function IdeaDetailPage() {
       setRefinePanelOpen(false);
       setRefineError(null);
     }
-    if (prev === "IMPROVING" && curr !== "IMPROVING") {
+    // Solo es "mejora aplicada" cuando el webhook reescribió la idea y reseteó
+    // la validación (status → DRAFT). Una cancelación deja la idea en COMPLETED
+    // (validación intacta), así que NO mostramos el aviso de éxito en ese caso.
+    if (prev === "IMPROVING" && curr === "DRAFT") {
       setImproveSuccess(true);
-      setImprovePanelOpen(false);
     }
     prevStatusRef.current = curr;
   }, [idea?.status]);
@@ -456,6 +460,41 @@ export default function IdeaDetailPage() {
     }
   }
 
+  // ── Mejorar idea (dirigido por estado) ────────────────────────────────────
+  //
+  // Arrancar la mejora = POST /improve/questions, que deja la idea en IMPROVING
+  // desde el primer paso. Tras el éxito refrescamos: la página detecta
+  // status==="IMPROVING" y renderiza el panel en modo RESUME (que consulta
+  // /improve/state y muestra "Generando preguntas…" → quiz → "Mejorando idea…").
+  // Esto sobrevive a recargas y navegación en CUALQUIER punto del flujo.
+  async function handleStartImprove() {
+    if (!idea) return;
+    setImproveSuccess(false);
+    setApiError("");
+    setImproveStarting(true);
+    try {
+      const res = await fetch(`/api/ideas/${ideaId}/improve/questions`, {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      if (res.status === 403) {
+        setImproveLimit(true);
+        return;
+      }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || "No se pudo iniciar la mejora");
+      }
+      // La idea ya está en IMPROVING server-side: refresca para renderizar el
+      // panel en modo resume (sondeo rápido reactivo via shouldPollFast).
+      await fetchIdea();
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : "Error al iniciar la mejora");
+    } finally {
+      setImproveStarting(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
@@ -727,14 +766,19 @@ export default function IdeaDetailPage() {
               {canImprove && (
                 <Button
                   variant="secondary"
-                  onClick={() => {
-                    setImproveSuccess(false);
-                    setImprovePanelOpen((prev) => !prev);
-                  }}
+                  onClick={handleStartImprove}
+                  loading={improveStarting}
+                  title={
+                    bridgeDown
+                      ? "El servicio de IA no está disponible"
+                      : undefined
+                  }
                   className="gap-2 py-2.5 shadow"
                 >
                   <Sparkles className="size-4" />
-                  Mejorar idea según el veredicto
+                  {improveStarting
+                    ? "Iniciando…"
+                    : "Mejorar idea según el veredicto"}
                 </Button>
               )}
               {/* Convertir en proyecto */}
@@ -861,26 +905,6 @@ export default function IdeaDetailPage() {
         />
       )}
 
-      {/* Panel de mejora según el veredicto (quiz). Gestiona preguntas + apply.
-          Al hacer apply, la idea entra en IMPROVING y la página muestra el
-          spinner correspondiente (mecanismo dirigido por estado). */}
-      {canImprove && improvePanelOpen && (
-        <ImproveIdeaPanel
-          ideaId={ideaId}
-          onApplied={() => {
-            // El apply ya dejó la idea en IMPROVING server-side: refresca para
-            // recoger el estado y disparar el spinner "Mejorando idea…".
-            setImprovePanelOpen(false);
-            void fetchIdea();
-          }}
-          onCancel={() => setImprovePanelOpen(false)}
-          onLimit={() => {
-            setImprovePanelOpen(false);
-            setImproveLimit(true);
-          }}
-        />
-      )}
-
       {/* Error de refinado fuera del panel (p. ej. tras un job FAILED) */}
       {refineError && !refinePanelOpen && !busyRefine && !busyImprove && (
         <div className="mb-4 flex items-start gap-2.5 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
@@ -889,16 +913,32 @@ export default function IdeaDetailPage() {
         </div>
       )}
 
-      {/* Spinner dirigido por estado: mientras el servidor refina o mejora la
-          idea, sustituye a la tarjeta de contenido. Funciona también en carga
-          en frío (si la idea ya viene en REFINING/IMPROVING) gracias al sondeo. */}
-      {busyRefine || busyImprove ? (
+      {/* Estados dirigidos por el servidor (sustituyen a la tarjeta de contenido,
+          y funcionan también en carga en frío gracias al sondeo):
+          - REFINING → spinner genérico "Refinando idea…".
+          - IMPROVING → panel RESUMABLE: consulta /improve/state y muestra el
+            sub-paso correcto (generando preguntas / quiz / aplicando), con la
+            opción de "Cancelar mejora" para desbloquear. */}
+      {busyRefine ? (
         <div className="mb-8 flex flex-col items-center justify-center gap-4 rounded-xl border border-amber-500/30 bg-slate-900/50 px-6 py-20 text-center">
           <span className="size-10 animate-spin rounded-full border-4 border-slate-700 border-t-amber-400" />
-          <p className="text-sm font-medium text-slate-300">
-            {busyImprove ? "Mejorando idea…" : "Refinando idea…"}
-          </p>
+          <p className="text-sm font-medium text-slate-300">Refinando idea…</p>
         </div>
+      ) : busyImprove ? (
+        <ImproveIdeaPanel
+          ideaId={ideaId}
+          onApplied={() => {
+            // El apply dejó la idea en IMPROVING (applying) o el flujo ya no está
+            // activo: refresca para recoger el estado del servidor.
+            void fetchIdea();
+          }}
+          onCancelled={() => {
+            // El servidor sacó la idea de IMPROVING: refresca para volver a la
+            // vista normal.
+            void fetchIdea();
+          }}
+          onLimit={() => setImproveLimit(true)}
+        />
       ) : (
       <>
       {/* Idea original / Edit mode */}
