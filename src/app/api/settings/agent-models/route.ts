@@ -4,6 +4,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import fs from "fs";
 import path from "path";
+import { AI_PLANS, type AiPlan, getPlanModels, getPlanThinking } from "@/lib/agent-models";
+
+function parsePlan(value: unknown): AiPlan | null {
+  return typeof value === "string" && (AI_PLANS as readonly string[]).includes(value)
+    ? (value as AiPlan)
+    : null;
+}
 
 // Agent → model id map. Both keys and values must be non-empty strings; this
 // rejects nested objects, arrays or non-string values being injected as config.
@@ -17,8 +24,10 @@ const agentThinkingSchema = z.record(
 );
 
 // POST body: accepts either the legacy FLAT model map (back-compat) OR the
-// wrapped shape { models, thinking? } so reasoning levels can be saved too.
+// wrapped shape { models, thinking?, plan? } so reasoning levels (and an
+// optional target plan) can be saved too.
 const wrappedBodySchema = z.object({
+  plan: z.enum(AI_PLANS).optional(),
   models: agentModelsSchema,
   thinking: agentThinkingSchema.optional(),
 });
@@ -105,22 +114,24 @@ function writeConfigToFile(config: Record<string, string>): void {
 
 async function saveConfigToDB(
   userId: string,
-  config: Record<string, string>
+  config: Record<string, string>,
+  key = "agent-models"
 ): Promise<void> {
   await prisma.setting.upsert({
-    where: { key_userId: { key: "agent-models", userId } },
-    create: { key: "agent-models", value: config, userId },
+    where: { key_userId: { key, userId } },
+    create: { key, value: config, userId },
     update: { value: config },
   });
 }
 
 async function saveThinkingToDB(
   userId: string,
-  thinking: Record<string, string>
+  thinking: Record<string, string>,
+  key = "agent-thinking"
 ): Promise<void> {
   await prisma.setting.upsert({
-    where: { key_userId: { key: "agent-thinking", userId } },
-    create: { key: "agent-thinking", value: thinking, userId },
+    where: { key_userId: { key, userId } },
+    create: { key, value: thinking, userId },
     update: { value: thinking },
   });
 }
@@ -154,7 +165,7 @@ async function forwardToBridge(
 // Gated by the middleware (session OR bridge secret) — the bridge daemon polls
 // it with the shared secret. Returns the latest saved config (single-tenant
 // today: the most recently saved user's config).
-export async function GET() {
+export async function GET(request: Request) {
   // Priority: DB (user settings) > file (bridge-synced) > defaults
   // Merge with defaults so any agent without explicit config gets a fallback.
   //
@@ -163,6 +174,22 @@ export async function GET() {
   // levels are exposed as a SIBLING top-level `thinking` key — the bridge
   // looks up models by specific agent name, so this extra key is ignored
   // there and never breaks the model sync.
+
+  // Per-plan request (?plan=gratis|estandar|premium): return that plan's
+  // models+thinking. getPlanModels/getPlanThinking fall back to the legacy
+  // global config (and then defaults), so all 3 plans START identical to the
+  // current config until each one is personalised. We still merge DEFAULT_MODELS
+  // so any agent missing from the source map gets a sane fallback.
+  const plan = parsePlan(new URL(request.url).searchParams.get("plan"));
+  if (plan) {
+    const planModels = await getPlanModels(plan);
+    const planThinking = await getPlanThinking(plan);
+    return NextResponse.json({
+      ...DEFAULT_MODELS,
+      ...planModels,
+      thinking: planThinking,
+    });
+  }
 
   const dbConfig = await readConfigFromDB();
   const fileConfig = await readConfigFromFile();
@@ -195,16 +222,17 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    // Normalise both shapes into { config, thinking? }.
+    // Normalise both shapes into { config, thinking?, plan? }.
     let config: Record<string, string>;
     let thinking: Record<string, string> | undefined;
+    let plan: AiPlan | null = null;
 
     if (isWrappedBody(body)) {
       const parsed = wrappedBodySchema.safeParse(body);
       if (!parsed.success) {
         return NextResponse.json(
           {
-            error: "Formato inválido: se esperaba { models, thinking }",
+            error: "Formato inválido: se esperaba { plan?, models, thinking }",
             details: parsed.error.flatten(),
           },
           { status: 400 }
@@ -212,6 +240,7 @@ export async function POST(request: Request) {
       }
       config = parsed.data.models;
       thinking = parsed.data.thinking;
+      plan = parsed.data.plan ?? null;
     } else {
       const parsed = agentModelsSchema.safeParse(body);
       if (!parsed.success) {
@@ -226,6 +255,21 @@ export async function POST(request: Request) {
       config = parsed.data;
       thinking = undefined;
     }
+
+    // Per-plan save: persist ONLY to the plan-specific Setting keys. The bridge
+    // needs no plan knowledge (the model/thinking travel per-job in
+    // _bridgeModel/_thinking, resolved from the owner's plan at job creation),
+    // so we do NOT write the file nor forward to the bridge for plan configs.
+    if (plan) {
+      await saveConfigToDB(session.user.id, config, `agent-models:${plan}`);
+      if (thinking) {
+        await saveThinkingToDB(session.user.id, thinking, `agent-thinking:${plan}`);
+      }
+      return NextResponse.json({ success: true, savedTo: "db", plan });
+    }
+
+    // Legacy global save (no plan): keep persisting to the global keys + file +
+    // bridge exactly as before for back-compat.
 
     // 1. Always persist to DB FIRST — this is the durable source of truth
     //    used by resolveModelForJobAgent() when creating jobs.

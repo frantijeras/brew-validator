@@ -6,6 +6,7 @@ import { getUserAccess, countIdeas } from "@/lib/quota";
 import { IdeaCard } from "@/components/idea-card";
 import { IdeasAutoRefresh } from "./auto-refresh";
 import { IdeasToolbar } from "./ideas-toolbar";
+import { NewIdeaGate } from "./new-idea-gate";
 
 export const dynamic = "force-dynamic";
 
@@ -95,23 +96,10 @@ export default async function IdeasPage({ searchParams }: Props) {
               {ideaCount}/{access.maxIdeas} ideas
             </span>
           )}
-          {ideaLimitReached ? (
-            <span
-              title={`Has alcanzado el máximo de ${access?.maxIdeas} ideas. Pide más al administrador.`}
-              className="inline-flex cursor-not-allowed items-center gap-2 rounded-lg bg-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-400 opacity-60"
-            >
-              <PlusIcon />
-              Nueva idea
-            </span>
-          ) : (
-            <Link
-              href="/ideas/new"
-              className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-950 shadow transition-colors hover:bg-amber-400 active:bg-amber-600"
-            >
-              <PlusIcon />
-              Nueva idea
-            </Link>
-          )}
+          <NewIdeaGate
+            limitReached={ideaLimitReached}
+            maxIdeas={access?.maxIdeas}
+          />
         </div>
       </div>
 
@@ -153,23 +141,6 @@ export default async function IdeasPage({ searchParams }: Props) {
 }
 
 // Internal icon components to avoid extra imports
-function PlusIcon() {
-  return (
-    <svg
-      className="size-4"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <line x1="12" y1="5" x2="12" y2="19" />
-      <line x1="5" y1="12" x2="19" y2="12" />
-    </svg>
-  );
-}
-
 function LightbulbIcon({ className }: { className?: string }) {
   return (
     <svg

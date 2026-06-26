@@ -1,5 +1,18 @@
 import { prisma } from "./db";
 
+/**
+ * Planes de suscripción. Cada plan puede tener su propia configuración de
+ * modelos/razonamiento por agente, guardada en Settings con las claves
+ * `agent-models:<plan>` / `agent-thinking:<plan>` (misma forma JSON que la
+ * config global legacy "agent-models"/"agent-thinking").
+ */
+export const AI_PLANS = ["gratis", "estandar", "premium"] as const;
+export type AiPlan = (typeof AI_PLANS)[number];
+
+function isAiPlan(value: unknown): value is AiPlan {
+  return typeof value === "string" && (AI_PLANS as readonly string[]).includes(value);
+}
+
 const AGENT_DEFAULTS: Record<string, string> = {
   generator: "opencode-zen-free/deepseek-v4-flash-free",
   skeptic: "opencode-zen-free/deepseek-v4-flash-free",
@@ -69,32 +82,64 @@ export function isProjectAgent(agentName: string): boolean {
   return PROJECT_AGENTS.includes(agentName);
 }
 
-export async function getAgentModelForAgent(agentId: string): Promise<string> {
-  const defaultModel = AGENT_DEFAULTS[agentId] || "opencode-zen-free/deepseek-v4-flash-free";
-
+/** Lee el `plan` del usuario. Devuelve null si no hay userId o la DB falla. */
+async function getUserPlan(userId: string | null | undefined): Promise<AiPlan | null> {
+  if (!userId) return null;
   try {
-    const setting = await prisma.setting.findFirst({
-      where: { key: `agent_model_${agentId}` },
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { plan: true },
     });
-    if (setting) {
-      const value = typeof setting.value === "string" ? setting.value : String(setting.value);
-      if (value) return value;
-    }
+    return isAiPlan(user?.plan) ? user.plan : null;
+  } catch {
+    return null;
+  }
+}
 
-    const fullConfig = await prisma.setting.findFirst({
-      where: { key: "agent-models" },
-    });
-    if (fullConfig?.value) {
-      const configObj = fullConfig.value as Record<string, unknown>;
-      if (typeof configObj === "object" && !Array.isArray(configObj)) {
-        const model = (configObj as Record<string, unknown>)[agentId];
-        if (typeof model === "string" && model) return model;
-      }
+/** Lee un map { settingsKey: model } de un Setting por clave. */
+async function readModelMap(key: string): Promise<Record<string, unknown> | null> {
+  try {
+    const setting = await prisma.setting.findFirst({ where: { key } });
+    if (setting?.value && typeof setting.value === "object" && !Array.isArray(setting.value)) {
+      return setting.value as Record<string, unknown>;
     }
   } catch {
-    // DB unreachable — use default
+    // DB unreachable
+  }
+  return null;
+}
+
+/**
+ * Resuelve el modelo para un agente (por su clave de ajustes). Cadena de
+ * resolución:
+ *   1. Si hay `plan`, el Setting `agent-models:<plan>`.
+ *   2. El Setting global legacy `agent-models`.
+ *   3. AGENT_DEFAULTS.
+ * Sin `plan` se comporta como antes (solo legacy global → defaults).
+ */
+export async function getAgentModelForAgent(
+  agentId: string,
+  plan?: AiPlan | null
+): Promise<string> {
+  const defaultModel = AGENT_DEFAULTS[agentId] || "opencode-zen-free/deepseek-v4-flash-free";
+
+  // 1. Per-plan config (only when a plan is given)
+  if (plan) {
+    const planConfig = await readModelMap(`agent-models:${plan}`);
+    if (planConfig) {
+      const model = planConfig[agentId];
+      if (typeof model === "string" && model) return model;
+    }
   }
 
+  // 2. Legacy global config (back-compat)
+  const fullConfig = await readModelMap("agent-models");
+  if (fullConfig) {
+    const model = fullConfig[agentId];
+    if (typeof model === "string" && model) return model;
+  }
+
+  // 3. Hardcoded default
   return defaultModel;
 }
 
@@ -102,9 +147,18 @@ export function getSettingsKeyForJobAgent(jobAgentName: string): string {
   return JOB_AGENT_TO_SETTINGS_KEY[jobAgentName] || "generator";
 }
 
-export async function resolveModelForJobAgent(jobAgentName: string): Promise<string> {
+/**
+ * Resuelve el modelo para un job. Si se pasa `userId`, se usa el plan de ese
+ * usuario (dueño del job) para elegir su config de modelos; si no, cae a la
+ * config global legacy (back-compat).
+ */
+export async function resolveModelForJobAgent(
+  jobAgentName: string,
+  userId?: string | null
+): Promise<string> {
   const settingsKey = getSettingsKeyForJobAgent(jobAgentName);
-  return getAgentModelForAgent(settingsKey);
+  const plan = await getUserPlan(userId);
+  return getAgentModelForAgent(settingsKey, plan);
 }
 
 /* ── Reasoning level (thinking) — mirror of the model config above ── */
@@ -125,26 +179,70 @@ function isThinkingLevel(value: unknown): value is ThinkingLevel {
  * ajustes). Lee el Setting `"agent-thinking"` (JSON { settingsKey: level }) y
  * cae al default "low". Refleja el estilo de búsqueda de getAgentModelForAgent.
  */
-export async function getThinkingForAgent(agentId: string): Promise<ThinkingLevel> {
-  try {
-    const fullConfig = await prisma.setting.findFirst({
-      where: { key: "agent-thinking" },
-    });
-    if (fullConfig?.value) {
-      const configObj = fullConfig.value as Record<string, unknown>;
-      if (typeof configObj === "object" && !Array.isArray(configObj)) {
-        const level = configObj[agentId];
-        if (isThinkingLevel(level)) return level;
-      }
+export async function getThinkingForAgent(
+  agentId: string,
+  plan?: AiPlan | null
+): Promise<ThinkingLevel> {
+  // 1. Per-plan config
+  if (plan) {
+    const planConfig = await readModelMap(`agent-thinking:${plan}`);
+    if (planConfig) {
+      const level = planConfig[agentId];
+      if (isThinkingLevel(level)) return level;
     }
-  } catch {
-    // DB unreachable — use default
   }
 
+  // 2. Legacy global config (back-compat)
+  const fullConfig = await readModelMap("agent-thinking");
+  if (fullConfig) {
+    const level = fullConfig[agentId];
+    if (isThinkingLevel(level)) return level;
+  }
+
+  // 3. Default
   return DEFAULT_THINKING_LEVEL;
 }
 
-export async function resolveThinkingForJobAgent(jobAgentName: string): Promise<ThinkingLevel> {
+export async function resolveThinkingForJobAgent(
+  jobAgentName: string,
+  userId?: string | null
+): Promise<ThinkingLevel> {
   const settingsKey = getSettingsKeyForJobAgent(jobAgentName);
-  return getThinkingForAgent(settingsKey);
+  const plan = await getUserPlan(userId);
+  return getThinkingForAgent(settingsKey, plan);
+}
+
+/* ── Per-plan config readers (used by the settings route) ── */
+
+/**
+ * Devuelve el map { settingsKey: model } de un plan. Cadena de fallback:
+ * Setting `agent-models:<plan>` → Setting global legacy `agent-models` → {}.
+ * Así los 3 planes arrancan = config actual mientras no se personalice ninguno.
+ */
+export async function getPlanModels(plan: AiPlan): Promise<Record<string, string>> {
+  const planConfig = await readModelMap(`agent-models:${plan}`);
+  const source = planConfig ?? (await readModelMap("agent-models"));
+  const out: Record<string, string> = {};
+  if (source) {
+    for (const [k, v] of Object.entries(source)) {
+      if (typeof v === "string" && v) out[k] = v;
+    }
+  }
+  return out;
+}
+
+/**
+ * Devuelve el map { settingsKey: thinkingLevel } de un plan. Mismo fallback que
+ * getPlanModels: `agent-thinking:<plan>` → global legacy → {}.
+ */
+export async function getPlanThinking(plan: AiPlan): Promise<Record<string, ThinkingLevel>> {
+  const planConfig = await readModelMap(`agent-thinking:${plan}`);
+  const source = planConfig ?? (await readModelMap("agent-thinking"));
+  const out: Record<string, ThinkingLevel> = {};
+  if (source) {
+    for (const [k, v] of Object.entries(source)) {
+      if (isThinkingLevel(v)) out[k] = v;
+    }
+  }
+  return out;
 }

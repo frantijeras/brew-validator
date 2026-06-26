@@ -351,11 +351,6 @@ function loadThinkingConfig(): Record<string, ThinkingLevel> {
   }
 }
 
-function saveThinkingConfig(config: Record<string, ThinkingLevel>) {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(THINKING_STORAGE_KEY, JSON.stringify(config));
-}
-
 // Deduce el nivel por defecto (el más repetido) y las excepciones por agente.
 function deriveThinkingDefaultAndOverrides(full: Record<string, ThinkingLevel>): {
   defaultLevel: ThinkingLevel;
@@ -453,6 +448,39 @@ const ALL_AGENTS: AgentInfo[] = [...AGENT_INFO, ...PROJECT_AGENT_INFO];
 
 const STORAGE_KEY = "brew-ia-agent-models";
 
+/* ── Planes ── */
+const AI_PLANS = ["gratis", "estandar", "premium"] as const;
+type AiPlan = (typeof AI_PLANS)[number];
+const PLAN_LABELS: Record<AiPlan, string> = {
+  gratis: "Gratis",
+  estandar: "Estándar",
+  premium: "Premium",
+};
+
+// Carga la config (modelos + razonamiento) de un plan desde la API.
+// El endpoint cae a la config global/defaults si el plan aún no tiene la suya,
+// así que los 3 planes arrancan iguales a la configuración actual.
+async function fetchPlanConfig(plan: AiPlan): Promise<{
+  models: Record<string, string>;
+  thinking: Record<string, ThinkingLevel>;
+}> {
+  const res = await fetch(`/api/settings/agent-models?plan=${plan}`, {
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error("No se pudo cargar la configuración del plan");
+  const data = (await res.json()) as Record<string, unknown>;
+  const rawThinking = (data.thinking ?? {}) as Record<string, unknown>;
+  const models: Record<string, string> = {};
+  const thinking: Record<string, ThinkingLevel> = {};
+  for (const a of ALL_AGENTS) {
+    const m = data[a.id];
+    if (typeof m === "string" && m) models[a.id] = m;
+    const t = rawThinking[a.id];
+    if (isThinkingLevel(t)) thinking[a.id] = t;
+  }
+  return { models: { ...DEFAULT_AGENT_MODELS, ...models }, thinking };
+}
+
 function loadModelConfig(): Record<string, string> {
   if (typeof window === "undefined") return DEFAULT_AGENT_MODELS;
   try {
@@ -463,11 +491,6 @@ function loadModelConfig(): Record<string, string> {
   } catch {
     return DEFAULT_AGENT_MODELS;
   }
-}
-
-function saveModelConfig(config: Record<string, string>) {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
 }
 
 // A partir de un config completo {agente: modelo}, deduce el modelo por defecto
@@ -498,22 +521,50 @@ function deriveDefaultAndOverrides(full: Record<string, string>): {
 }
 
 function AIModelSection() {
+  const [selectedPlan, setSelectedPlan] = useState<AiPlan>("gratis");
   const [defaultModel, setDefaultModel] = useState<string>(GLOBAL_DEFAULT_MODEL);
   const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [defaultThinking, setDefaultThinking] = useState<ThinkingLevel>(DEFAULT_THINKING);
   const [thinkingOverrides, setThinkingOverrides] = useState<Record<string, ThinkingLevel>>({});
   const [saved, setSaved] = useState(false);
+  const [loadingPlan, setLoadingPlan] = useState(false);
   const [modelOptions, setModelOptions] = useState<ModelOption[]>([...MODEL_FALLBACK]);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Carga la config del plan seleccionado desde la API. Cada cambio de plan
+  // recarga su configuración (que cae a la global/defaults si aún no existe).
   useEffect(() => {
-    const { defaultModel: d, overrides: o } = deriveDefaultAndOverrides(loadModelConfig());
-    setDefaultModel(d);
-    setOverrides(o);
-    const { defaultLevel, overrides: to } = deriveThinkingDefaultAndOverrides(loadThinkingConfig());
-    setDefaultThinking(defaultLevel);
-    setThinkingOverrides(to);
-  }, []);
+    let cancelled = false;
+    setLoadingPlan(true);
+    setSaved(false);
+    fetchPlanConfig(selectedPlan)
+      .then(({ models, thinking }) => {
+        if (cancelled) return;
+        const { defaultModel: d, overrides: o } = deriveDefaultAndOverrides(models);
+        setDefaultModel(d);
+        setOverrides(o);
+        const { defaultLevel, overrides: to } = deriveThinkingDefaultAndOverrides(thinking);
+        setDefaultThinking(defaultLevel);
+        setThinkingOverrides(to);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("Failed to load plan config:", err);
+        // Fallback: defaults locales para no dejar la UI vacía.
+        const { defaultModel: d, overrides: o } = deriveDefaultAndOverrides(loadModelConfig());
+        setDefaultModel(d);
+        setOverrides(o);
+        const { defaultLevel, overrides: to } = deriveThinkingDefaultAndOverrides(loadThinkingConfig());
+        setDefaultThinking(defaultLevel);
+        setThinkingOverrides(to);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingPlan(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedPlan]);
 
   // Carga la lista de modelos disponibles desde la API (live > fallback).
   const refreshModels = useCallback(async () => {
@@ -586,9 +637,9 @@ function AIModelSection() {
       // no soportado aunque la UI tuviera otro valor.
       thinkingFull[a.id] = modelSupportsReasoning(model, modelOptions) ? level : "off";
     }
-    saveModelConfig(full);
-    saveThinkingConfig(thinkingFull);
-    saveAgentModels(full, thinkingFull).catch((err) =>
+    // Persistimos la config del PLAN seleccionado (DB por-plan). No usamos
+    // localStorage porque mezclaría planes; la fuente de verdad es la API.
+    saveAgentModels(full, thinkingFull, selectedPlan).catch((err) =>
       console.error("Failed to persist agent models:", err)
     );
     setSaved(true);
@@ -601,7 +652,7 @@ function AIModelSection() {
         <div>
           <h2 className="text-lg font-semibold text-white">Modelos de IA</h2>
           <p className="mt-1 text-sm text-slate-400">
-            Un modelo por defecto para todos los agentes, con excepciones por agente si las necesitas
+            Configuración por plan: un modelo por defecto para todos los agentes, con excepciones por agente si las necesitas
           </p>
         </div>
         <Button
@@ -616,6 +667,32 @@ function AIModelSection() {
           <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
           {refreshing ? "Actualizando..." : "Actualizar modelos"}
         </Button>
+      </div>
+
+      {/* Selector de plan: la configuración de abajo edita el plan seleccionado */}
+      <div className="mt-5">
+        <div className="inline-flex rounded-lg border border-slate-700 bg-slate-800/50 p-1">
+          {AI_PLANS.map((plan) => (
+            <button
+              key={plan}
+              type="button"
+              onClick={() => setSelectedPlan(plan)}
+              disabled={loadingPlan && selectedPlan !== plan}
+              className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
+                selectedPlan === plan
+                  ? "bg-amber-500 text-slate-900"
+                  : "text-slate-300 hover:bg-slate-700/50 hover:text-white"
+              }`}
+            >
+              {PLAN_LABELS[plan]}
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-slate-500">
+          {loadingPlan
+            ? "Cargando configuración del plan…"
+            : `Editando la configuración del plan ${PLAN_LABELS[selectedPlan]}.`}
+        </p>
       </div>
 
       {/* Modelo por defecto */}

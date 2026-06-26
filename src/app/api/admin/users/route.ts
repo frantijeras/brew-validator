@@ -35,6 +35,9 @@ export async function GET() {
       phaseUndosAllowed: true,
       canAccessSkills: true,
       canAccessHandoff: true,
+      plan: true,
+      ideasCreated: true,
+      projectsCreated: true,
     },
   });
 
@@ -111,6 +114,9 @@ export async function GET() {
       phaseUndosAllowed: u.phaseUndosAllowed,
       canAccessSkills: u.canAccessSkills,
       canAccessHandoff: u.canAccessHandoff,
+      plan: u.plan,
+      ideasCreated: u.ideasCreated,
+      projectsCreated: u.projectsCreated,
       ideasCount: ideaEntry?.ideaIds.length ?? 0,
       projectsCount: projectsByUser.get(u.id) ?? 0,
       totalCost: costByUser.get(u.id) ?? 0,

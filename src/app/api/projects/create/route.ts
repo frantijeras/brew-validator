@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { PHASE_DESCRIPTIONS } from "@/lib/phase-descriptions";
 import { requireAuth } from "@/lib/require-auth";
 import { ideaOwnerWhere } from "@/lib/ownership";
-import { assertCanCreateProject } from "@/lib/quota";
+import { assertCanCreateProject, incrementProjectsCreated } from "@/lib/quota";
 
 export async function POST(req: Request) {
   try {
@@ -98,6 +98,9 @@ export async function POST(req: Request) {
       },
       include: { phases: { orderBy: { sortOrder: "asc" } } },
     });
+
+    // Contador VITALICIO de proyectos creados (nunca se decrementa al borrar).
+    await incrementProjectsCreated(auth.userId);
 
     return NextResponse.json({ project });
   } catch (error) {

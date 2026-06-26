@@ -45,6 +45,7 @@ import {
 import { SubStepCard, type SubStepStatus } from "./sub-step-card";
 import type { PhaseError } from "@/lib/phase-errors";
 import { useReactivePolling } from "@/hooks/use-reactive-polling";
+import { DemoLimitDialog } from "@/components/demo-limit-dialog";
 
 interface PhaseData {
   id: string;
@@ -363,6 +364,9 @@ export function ProjectPhasesWithModal({
   // Guard de doble click + spinner mientras se ejecuta el rollback.
   const [rollbackInFlight, setRollbackInFlight] = useState(false);
   const [rollbackError, setRollbackError] = useState<string | null>(null);
+  // Demo gate: cuando el backend devuelve 403 al deshacer una fase (sin undos
+  // disponibles), abrimos el diálogo para solicitar ampliación al admin.
+  const [phaseUndoLimit, setPhaseUndoLimit] = useState(false);
   // Subpágina in-app (sin modal ni pestaña nueva) para "Ver" de fases y
   // sub-fases — misma lógica de navegación que la Fase 1 (Validación).
   const [subpage, setSubpage] = useState<SubpageView | null>(null);
@@ -384,6 +388,13 @@ export function ProjectPhasesWithModal({
         { method: "POST" }
       );
       if (!res.ok) {
+        if (res.status === 403) {
+          // Límite de "deshacer fase" del plan: cerramos la confirmación y
+          // abrimos el diálogo de solicitud de ampliación.
+          setSubstepRollback(null);
+          setPhaseUndoLimit(true);
+          return;
+        }
         const d = await res.json().catch(() => ({}));
         throw new Error(d.error || `Error ${res.status}`);
       }
@@ -568,6 +579,13 @@ export function ProjectPhasesWithModal({
         { method: "POST" }
       );
       if (!res.ok) {
+        if (res.status === 403) {
+          // Límite de "deshacer fase" del plan: cerramos la confirmación y
+          // abrimos el diálogo de solicitud de ampliación.
+          setRollbackPhase(null);
+          setPhaseUndoLimit(true);
+          return;
+        }
         const data = await res.json().catch(() => ({}));
         setRollbackError(
           data?.error || "No se pudo rehacer la fase. Inténtalo de nuevo."
@@ -1325,6 +1343,14 @@ export function ProjectPhasesWithModal({
           </div>
         </div>
       )}
+
+      {/* Demo gate: límite de "deshacer fase" alcanzado (403 del backend). */}
+      <DemoLimitDialog
+        open={phaseUndoLimit}
+        onClose={() => setPhaseUndoLimit(false)}
+        type="phase_undo"
+        message="Has alcanzado el máximo de veces que puedes deshacer una fase en tu plan."
+      />
     </>
   );
 }

@@ -15,6 +15,7 @@ import { TextExpander } from "@/components/text-expander";
 import { useBridgeStatus } from "@/hooks/use-bridge-status";
 import { isIdeaBusy } from "@/lib/idea-state";
 import { Button } from "@/components/ui/button";
+import { DemoLimitDialog } from "@/components/demo-limit-dialog";
 
 interface IdeaData {
   id: string;
@@ -1002,6 +1003,7 @@ function AlertTriangleIcon() {
 function ConvertToProjectButton({ ideaId }: { ideaId: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [projectLimit, setProjectLimit] = useState(false);
   const router = useRouter();
 
   async function handleConvert() {
@@ -1018,6 +1020,11 @@ function ConvertToProjectButton({ ideaId }: { ideaId: string }) {
         if (res.status === 409 && data.projectId) {
           window.dispatchEvent(new CustomEvent("project-changed"));
           router.push(`/proyectos/${data.projectId}`);
+          return;
+        }
+        if (res.status === 403) {
+          // Límite de proyectos del plan: abrimos el diálogo de ampliación.
+          setProjectLimit(true);
           return;
         }
         setError(data.error || "Error al crear proyecto");
@@ -1046,6 +1053,12 @@ function ConvertToProjectButton({ ideaId }: { ideaId: string }) {
       {error && (
         <p className="mt-1 text-xs text-red-400">{error}</p>
       )}
+      <DemoLimitDialog
+        open={projectLimit}
+        onClose={() => setProjectLimit(false)}
+        type="projects"
+        message="Has alcanzado el máximo de proyectos de tu plan."
+      />
     </>
   );
 }

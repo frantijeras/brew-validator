@@ -5,6 +5,8 @@ import { Pencil, RefreshCw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 
+type Plan = "gratis" | "estandar" | "premium";
+
 interface AdminUser {
   id: string;
   name: string | null;
@@ -13,6 +15,7 @@ interface AdminUser {
   status: "active" | "suspended";
   createdAt: string;
   invitedAt: string | null;
+  plan: Plan;
   maxIdeas: number;
   maxProjects: number;
   phaseUndosAllowed: number;
@@ -20,9 +23,17 @@ interface AdminUser {
   canAccessHandoff: boolean;
   ideasCount: number;
   projectsCount: number;
+  ideasCreated: number;
+  projectsCreated: number;
   totalCost: number;
   lastActivity: string | null;
 }
+
+const PLAN_LABELS: Record<Plan, string> = {
+  gratis: "Gratis",
+  estandar: "Estándar",
+  premium: "Premium",
+};
 
 const inputClass =
   "w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500";
@@ -106,6 +117,7 @@ export function UsersTable({ currentUserId }: { currentUserId: string }) {
             <tr className="border-b border-slate-800 text-xs uppercase tracking-wider text-slate-500">
               <th className="px-3 py-2 font-medium">Usuario</th>
               <th className="px-3 py-2 font-medium">Estado</th>
+              <th className="px-3 py-2 font-medium">Plan</th>
               <th className="px-3 py-2 text-right font-medium">Ideas</th>
               <th className="px-3 py-2 text-right font-medium">Proyectos</th>
               <th className="px-3 py-2 text-right font-medium">Coste IA</th>
@@ -117,14 +129,14 @@ export function UsersTable({ currentUserId }: { currentUserId: string }) {
           <tbody>
             {loading && users.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-3 py-6 text-center text-slate-500">
+                <td colSpan={9} className="px-3 py-6 text-center text-slate-500">
                   Cargando...
                 </td>
               </tr>
             )}
             {!loading && users.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-3 py-6 text-center text-slate-500">
+                <td colSpan={9} className="px-3 py-6 text-center text-slate-500">
                   No hay usuarios
                 </td>
               </tr>
@@ -164,12 +176,17 @@ export function UsersTable({ currentUserId }: { currentUserId: string }) {
                     {u.status === "active" ? "Activo" : "Suspendido"}
                   </span>
                 </td>
-                <td className="px-3 py-3 text-right text-slate-300">
-                  {u.ideasCount}
+                <td className="px-3 py-3">
+                  <span className="rounded-full bg-slate-700/60 px-2 py-0.5 text-xs font-medium text-slate-300">
+                    {PLAN_LABELS[u.plan] ?? u.plan}
+                  </span>
+                </td>
+                <td className="px-3 py-3 text-right text-slate-300 tabular-nums">
+                  {u.ideasCreated}
                   <span className="text-slate-600"> / {u.maxIdeas}</span>
                 </td>
-                <td className="px-3 py-3 text-right text-slate-300">
-                  {u.projectsCount}
+                <td className="px-3 py-3 text-right text-slate-300 tabular-nums">
+                  {u.projectsCreated}
                   <span className="text-slate-600"> / {u.maxProjects}</span>
                 </td>
                 <td className="px-3 py-3 text-right text-slate-300">
@@ -308,6 +325,7 @@ function EditUserModal({
   onClose: () => void;
   onSaved: (u: AdminUser) => void;
 }) {
+  const [plan, setPlan] = useState<Plan>(user.plan);
   const [maxIdeas, setMaxIdeas] = useState(user.maxIdeas);
   const [maxProjects, setMaxProjects] = useState(user.maxProjects);
   const [phaseUndosAllowed, setPhaseUndos] = useState(user.phaseUndosAllowed);
@@ -316,6 +334,7 @@ function EditUserModal({
   const [suspended, setSuspended] = useState(user.status === "suspended");
   const [isAdmin, setIsAdmin] = useState(user.isAdmin);
   const [pending, setPending] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSave() {
@@ -326,6 +345,7 @@ function EditUserModal({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          plan,
           maxIdeas,
           maxProjects,
           phaseUndosAllowed,
@@ -348,6 +368,35 @@ function EditUserModal({
     }
   }
 
+  async function handleResetUsage() {
+    if (
+      !window.confirm(
+        "¿Resetear el uso (ideas y proyectos creados) de este usuario? El recuento vuelve a cero."
+      )
+    ) {
+      return;
+    }
+    setResetting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resetUsage: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "No se pudo resetear el uso");
+        setResetting(false);
+        return;
+      }
+      onSaved(data.user as AdminUser);
+    } catch {
+      setError("Error de red al resetear el uso");
+      setResetting(false);
+    }
+  }
+
   return (
     <Modal
       open
@@ -366,6 +415,58 @@ function EditUserModal({
       }
     >
       <div className="space-y-5">
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Plan
+          </p>
+          <select
+            value={plan}
+            onChange={(e) => setPlan(e.target.value as Plan)}
+            className={inputClass}
+          >
+            <option value="gratis">Gratis</option>
+            <option value="estandar">Estándar</option>
+            <option value="premium">Premium</option>
+          </select>
+          <p className="mt-1.5 text-xs text-slate-500">
+            Al guardar, el plan ajusta los límites por defecto del usuario.
+          </p>
+        </div>
+
+        <div>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Uso (acumulado)
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              loading={resetting}
+              onClick={handleResetUsage}
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${resetting ? "animate-spin" : ""}`} />
+              Resetear uso
+            </Button>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="rounded-lg border border-slate-800 bg-slate-900 px-4 py-3">
+              <p className="text-xs text-slate-500">Ideas creadas</p>
+              <p className="mt-0.5 font-medium text-white tabular-nums">
+                {user.ideasCreated}
+                <span className="text-slate-600"> / {maxIdeas}</span>
+              </p>
+            </div>
+            <div className="rounded-lg border border-slate-800 bg-slate-900 px-4 py-3">
+              <p className="text-xs text-slate-500">Proyectos creados</p>
+              <p className="mt-0.5 font-medium text-white tabular-nums">
+                {user.projectsCreated}
+                <span className="text-slate-600"> / {maxProjects}</span>
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
             Límites

@@ -15,8 +15,11 @@ import { ideaOwnerWhere } from "@/lib/ownership";
 
 export interface UserAccess {
   isAdmin: boolean;
+  plan: string;
   maxIdeas: number;
   maxProjects: number;
+  ideasCreated: number;
+  projectsCreated: number;
   phaseUndosAllowed: number;
   canAccessSkills: boolean;
   canAccessHandoff: boolean;
@@ -30,8 +33,11 @@ export async function getUserAccess(userId: string): Promise<UserAccess> {
     where: { id: userId },
     select: {
       isAdmin: true,
+      plan: true,
       maxIdeas: true,
       maxProjects: true,
+      ideasCreated: true,
+      projectsCreated: true,
       phaseUndosAllowed: true,
       canAccessSkills: true,
       canAccessHandoff: true,
@@ -53,34 +59,57 @@ export function countProjects(userId: string): Promise<number> {
   return prisma.project.count({ where: { idea: ideaOwnerWhere(userId) } });
 }
 
-/** ¿Puede el usuario crear una idea más? Admin → siempre. */
+/**
+ * ¿Puede el usuario crear una idea más? Admin → siempre.
+ *
+ * Cuota VITALICIA: se compara el contador acumulado `ideasCreated` (que nunca
+ * se decrementa al borrar) con `maxIdeas`, NO el número de ideas vivas. Así,
+ * borrar ideas no "libera" cuota del plan.
+ */
 export async function assertCanCreateIdea(userId: string): Promise<QuotaCheck> {
   const access = await getUserAccess(userId);
   if (access.isAdmin) return { ok: true };
-  const used = await countIdeas(userId);
-  if (used >= access.maxIdeas) {
+  if (access.ideasCreated >= access.maxIdeas) {
     return {
       ok: false,
-      error: `Has alcanzado el máximo de ${access.maxIdeas} ideas.`,
+      error: `Has alcanzado el máximo de ${access.maxIdeas} ideas de tu plan.`,
     };
   }
   return { ok: true };
 }
 
-/** ¿Puede el usuario crear un proyecto más? Admin → siempre. */
+/**
+ * ¿Puede el usuario crear un proyecto más? Admin → siempre.
+ * Cuota VITALICIA: compara `projectsCreated` acumulado con `maxProjects`.
+ */
 export async function assertCanCreateProject(
   userId: string
 ): Promise<QuotaCheck> {
   const access = await getUserAccess(userId);
   if (access.isAdmin) return { ok: true };
-  const used = await countProjects(userId);
-  if (used >= access.maxProjects) {
+  if (access.projectsCreated >= access.maxProjects) {
     return {
       ok: false,
-      error: `Has alcanzado el máximo de ${access.maxProjects} proyectos.`,
+      error: `Has alcanzado el máximo de ${access.maxProjects} proyectos de tu plan.`,
     };
   }
   return { ok: true };
+}
+
+/** Incrementa el contador vitalicio de ideas creadas (+1). */
+export async function incrementIdeasCreated(userId: string): Promise<void> {
+  await prisma.user.update({
+    where: { id: userId },
+    data: { ideasCreated: { increment: 1 } },
+  });
+}
+
+/** Incrementa el contador vitalicio de proyectos creados (+1). */
+export async function incrementProjectsCreated(userId: string): Promise<void> {
+  await prisma.user.update({
+    where: { id: userId },
+    data: { projectsCreated: { increment: 1 } },
+  });
 }
 
 /** Gate de Skills: admin o flag activo → ok. */

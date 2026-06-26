@@ -9,6 +9,7 @@ import type { ProjectMemory } from "@/lib/project-memory";
 import { ReportViewer } from "@/components/report-viewer";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { DemoLimitDialog } from "@/components/demo-limit-dialog";
 
 import type { PhaseError } from "@/lib/phase-errors";
 
@@ -219,7 +220,7 @@ export function ProjectTabs({
             />
           </Suspense>
         ) : (
-          <LockedSection feature="Skills" />
+          <LockedSection feature="Skills" requestType="skills" />
         ))}
 
       {activeTab === "handoff" &&
@@ -230,7 +231,7 @@ export function ProjectTabs({
             existingSkills={existingSkills}
           />
         ) : (
-          <LockedSection feature="Hand-off" />
+          <LockedSection feature="Hand-off" requestType="handoff" />
         ))}
     </div>
   );
@@ -240,7 +241,14 @@ export function ProjectTabs({
    Locked Section (feature gate)
    ══════════════════════════════════════════════════════════════════════ */
 
-function LockedSection({ feature }: { feature: "Skills" | "Hand-off" }) {
+function LockedSection({
+  feature,
+  requestType,
+}: {
+  feature: "Skills" | "Hand-off";
+  requestType: "skills" | "handoff";
+}) {
+  const [open, setOpen] = useState(false);
   return (
     <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-700 bg-slate-900/50 py-16 px-6 text-center">
       <div className="rounded-full bg-slate-800 p-3 text-slate-400">
@@ -250,6 +258,21 @@ function LockedSection({ feature }: { feature: "Skills" | "Hand-off" }) {
         Esta sección ({feature}) no está disponible en tu cuenta. Solicítala al
         administrador.
       </p>
+      <Button
+        type="button"
+        variant="primary"
+        className="mt-5"
+        onClick={() => setOpen(true)}
+      >
+        Solicitar acceso
+      </Button>
+      <DemoLimitDialog
+        open={open}
+        onClose={() => setOpen(false)}
+        type={requestType}
+        title={`Acceso a ${feature} no disponible`}
+        message={`La sección de ${feature} no está incluida en tu plan.`}
+      />
     </div>
   );
 }

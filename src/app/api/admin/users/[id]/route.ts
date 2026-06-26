@@ -12,6 +12,8 @@ const updateUserSchema = z
     canAccessHandoff: z.boolean().optional(),
     status: z.enum(["active", "suspended"]).optional(),
     isAdmin: z.boolean().optional(),
+    plan: z.enum(["gratis", "estandar", "premium"]).optional(),
+    resetUsage: z.boolean().optional(),
   })
   .strict();
 
@@ -70,23 +72,43 @@ export async function PATCH(
     );
   }
 
-  const updated = await prisma.user.update({
-    where: { id },
-    data,
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      isAdmin: true,
-      status: true,
-      createdAt: true,
-      invitedAt: true,
-      maxIdeas: true,
-      maxProjects: true,
-      phaseUndosAllowed: true,
-      canAccessSkills: true,
-      canAccessHandoff: true,
-    },
+  // `resetUsage` no es una columna: se traduce a poner a 0 el uso de por vida
+  // del usuario y resetear los rollbacks de sus proyectos. El resto de campos
+  // (plan incluido) se aplican directamente.
+  const { resetUsage, ...userData } = data;
+
+  const updated = await prisma.$transaction(async (tx) => {
+    if (resetUsage) {
+      await tx.project.updateMany({
+        where: { idea: { userId: id } },
+        data: { rollbacksUsed: 0 },
+      });
+    }
+
+    return tx.user.update({
+      where: { id },
+      data: {
+        ...userData,
+        ...(resetUsage ? { ideasCreated: 0, projectsCreated: 0 } : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        isAdmin: true,
+        status: true,
+        createdAt: true,
+        invitedAt: true,
+        maxIdeas: true,
+        maxProjects: true,
+        phaseUndosAllowed: true,
+        canAccessSkills: true,
+        canAccessHandoff: true,
+        plan: true,
+        ideasCreated: true,
+        projectsCreated: true,
+      },
+    });
   });
 
   return NextResponse.json({ user: updated });

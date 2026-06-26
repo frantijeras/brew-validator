@@ -27,6 +27,7 @@ export async function GET() {
     totalProjects,
     costAgg,
     distinctIdeaOwners,
+    costByAgentGroups,
   ] = await Promise.all([
     prisma.invitation.groupBy({ by: ["status"], _count: { _all: true } }),
     prisma.user.count(),
@@ -38,7 +39,21 @@ export async function GET() {
       distinct: ["userId"],
       select: { userId: true },
     }),
+    prisma.job.groupBy({
+      by: ["agentName"],
+      _sum: { cost: true },
+      _count: { _all: true },
+    }),
   ]);
+
+  // Gasto de IA por agente/modelo (agentName), de mayor a menor coste.
+  const costByAgent = costByAgentGroups
+    .map((g) => ({
+      agent: g.agentName,
+      cost: g._sum.cost ?? 0,
+      jobs: g._count._all,
+    }))
+    .sort((a, b) => b.cost - a.cost);
 
   const invCount = (status: string) =>
     invitationGroups.find((g) => g.status === status)?._count._all ?? 0;
@@ -62,5 +77,6 @@ export async function GET() {
     totalIdeas,
     totalProjects,
     totalCost: costAgg._sum.cost ?? 0,
+    costByAgent,
   });
 }

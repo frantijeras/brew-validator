@@ -77,8 +77,8 @@ export async function POST(
 
     const jobs = await Promise.all(
       AGENTS.map(async (agentName) => {
-        const bridgeModel = await resolveModelForJobAgent(agentName);
-        const thinking = await resolveThinkingForJobAgent(agentName);
+        const bridgeModel = await resolveModelForJobAgent(agentName, idea.userId);
+        const thinking = await resolveThinkingForJobAgent(agentName, idea.userId);
         return prisma.job.create({
           data: {
             ideaId: id,

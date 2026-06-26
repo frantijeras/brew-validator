@@ -208,8 +208,10 @@ export async function enqueuePhaseJob(
     phaseType === "IDENTITY"
       ? agentForIdentitySubStep(effectiveSubStep)
       : PHASE_TO_AGENT[phaseType] || `project-${phaseType.toLowerCase()}`;
-  const model = modelOverride || (await resolveModelForJobAgent(agentName));
-  const thinking = await resolveThinkingForJobAgent(agentName);
+  // El plan del DUEÑO de la idea decide la config de modelos/razonamiento.
+  const ownerUserId = idea.userId;
+  const model = modelOverride || (await resolveModelForJobAgent(agentName, ownerUserId));
+  const thinking = await resolveThinkingForJobAgent(agentName, ownerUserId);
 
   const contextRules = buildAgentContextRules(projectMemory);
 

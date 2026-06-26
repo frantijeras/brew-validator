@@ -85,7 +85,8 @@ export async function changePassword(formData: FormData) {
 
 export async function saveAgentModels(
   config: Record<string, string>,
-  thinking?: Record<string, string>
+  thinking?: Record<string, string>,
+  plan?: "gratis" | "estandar" | "premium"
 ) {
   const session = await auth();
   // Solo el admin puede cambiar la configuración de modelos/razonamiento
@@ -95,6 +96,34 @@ export async function saveAgentModels(
   }
 
   const userId = session.user.id;
+
+  // Claves destino según el plan seleccionado. Sin plan → claves globales legacy.
+  const modelsKey = plan ? `agent-models:${plan}` : "agent-models";
+  const thinkingKey = plan ? `agent-thinking:${plan}` : "agent-thinking";
+
+  // Config POR PLAN: solo se persiste en DB (la config viaja por-job en
+  // _bridgeModel/_thinking resuelto desde el plan del dueño), así que NO se
+  // escribe el fichero ni se reenvía al bridge.
+  if (plan) {
+    try {
+      await prisma.setting.upsert({
+        where: { key_userId: { key: modelsKey, userId } },
+        create: { key: modelsKey, value: config, userId },
+        update: { value: config },
+      });
+      if (thinking) {
+        await prisma.setting.upsert({
+          where: { key_userId: { key: thinkingKey, userId } },
+          create: { key: thinkingKey, value: thinking, userId },
+          update: { value: thinking },
+        });
+      }
+      return { success: true, savedTo: "db", plan };
+    } catch (err) {
+      console.error("[saveAgentModels] plan persist failed", err);
+      return { error: "Error al guardar la configuración de modelos" };
+    }
+  }
 
   try {
     // 0. Persist reasoning levels (additive). DB is the durable source the

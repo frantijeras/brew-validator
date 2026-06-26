@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { BUSINESS_MODELS } from "@/lib/business-models";
 import { resolveModelForJobAgent, resolveThinkingForJobAgent } from "@/lib/agent-models";
 import { requireAuth } from "@/lib/require-auth";
-import { assertCanCreateIdea } from "@/lib/quota";
+import { assertCanCreateIdea, incrementIdeasCreated } from "@/lib/quota";
 
 const generateIdeaSchema = z.discriminatedUnion("mode", [
   z.object({
@@ -100,8 +100,8 @@ export async function POST(req: NextRequest) {
 
     // Resolve the model configured in Settings for this agent
     const agentName = "idea-generator";
-    const bridgeModel = await resolveModelForJobAgent(agentName);
-    const thinking = await resolveThinkingForJobAgent(agentName);
+    const bridgeModel = await resolveModelForJobAgent(agentName, auth.userId);
+    const thinking = await resolveThinkingForJobAgent(agentName, auth.userId);
 
     // Año dinámico: el generador busca tendencias del año actual/anterior en
     // vez de fechas fijas en el prompt (que envejecen).
@@ -122,6 +122,9 @@ export async function POST(req: NextRequest) {
         }),
       },
     });
+
+    // Contador VITALICIO de ideas creadas (nunca se decrementa al borrar).
+    await incrementIdeasCreated(auth.userId);
 
     return NextResponse.json(
       {

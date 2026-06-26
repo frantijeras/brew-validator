@@ -39,11 +39,36 @@ model User {
   canAccessSkills   Boolean @default(false)
   canAccessHandoff  Boolean @default(false)
 
+  // ── Uso de POR VIDA (no baja al borrar; solo el admin lo resetea) ──
+  ideasCreated    Int @default(0)
+  projectsCreated Int @default(0)
+
+  // ── Plan de IA asignado (define qué modelos/razonamiento usan sus jobs) ──
+  plan String @default("gratis") // "gratis" | "estandar" | "premium"
+
   accounts      Account[]
   sessions      Session[]
   settings      Setting[]
   ideas         Idea[]
   notifications Notification[]
+  limitRequests LimitRequest[]
+}
+
+/// Solicitudes de ampliación de límites/acceso que un usuario invitado envía al
+/// admin desde el popup de "modo demo". El admin las concede o descarta en /admin.
+model LimitRequest {
+  id           String    @id @default(cuid())
+  userId       String
+  type         String    // "ideas" | "projects" | "phase_undo" | "skills" | "handoff"
+  status       String    @default("PENDING") // PENDING | GRANTED | DISMISSED
+  message      String?
+  createdAt    DateTime  @default(now())
+  resolvedAt   DateTime?
+  resolvedById String?
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([userId])
 }
 
 /// Invitaciones que el admin envía por email. El invitado abre /invite/{token},
