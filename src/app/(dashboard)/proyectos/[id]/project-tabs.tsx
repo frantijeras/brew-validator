@@ -366,6 +366,23 @@ function ValidationTab({
 
   return (
     <div className="space-y-6">
+      {/* Cabecera: título + descargar PDF (alineado a la derecha) */}
+      {idea && (
+        <div className="flex flex-wrap items-center gap-3 border-b border-slate-800 pb-4">
+          <h2 className="min-w-0 flex-1 truncate text-lg font-semibold text-white">
+            Informe de validación
+          </h2>
+          <a
+            href={`/api/projects/${projectId}/validation/download`}
+            download
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs font-medium text-slate-200 transition-colors hover:bg-slate-700/60 hover:text-white"
+          >
+            <Download className="size-3.5" />
+            Descargar PDF
+          </a>
+        </div>
+      )}
+
       {/* Idea original */}
       {idea && (
         <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-5">
@@ -474,18 +491,6 @@ function ValidationTab({
           ))}
         </div>
       ) : null}
-
-      {/* Download PDF */}
-      {idea && (
-        <a
-          href={`/api/projects/${projectId}/validation/download`}
-          download
-          className="inline-flex items-center gap-2 rounded-lg bg-slate-800 border border-slate-700 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-700 hover:border-slate-600"
-        >
-          <Download className="size-4" />
-          Descargar PDF de validación
-        </a>
-      )}
     </div>
   );
 }
@@ -568,18 +573,7 @@ ${skillLines}`;
 
   return (
     <div className="space-y-6">
-      {/* 1. Estructura del Proyecto — árbol real del paquete final */}
-      <Card>
-        <h2 className="text-lg font-semibold text-white">Estructura del Proyecto</h2>
-        <p className="mt-1 mb-4 text-sm text-slate-400">
-          Así queda el paquete final que se descarga, con los archivos generados.
-        </p>
-        <pre className="rounded-lg border border-slate-700 bg-slate-900/60 p-4 font-mono text-xs text-slate-400 overflow-x-auto">
-{projectTree}
-        </pre>
-      </Card>
-
-      {/* 2. Descargar el Proyecto Completo */}
+      {/* 1. Descargar el Proyecto Completo */}
       <Card>
         <div className="flex items-center justify-between gap-4">
           <div>
@@ -595,6 +589,17 @@ ${skillLines}`;
             {downloading ? "Generando..." : "Descargar .zip"}
           </Button>
         </div>
+      </Card>
+
+      {/* 2. Estructura del Proyecto — árbol real del paquete final */}
+      <Card>
+        <h2 className="text-lg font-semibold text-white">Estructura del Proyecto</h2>
+        <p className="mt-1 mb-4 text-sm text-slate-400">
+          Así queda el paquete final que se descarga, con los archivos generados.
+        </p>
+        <pre className="rounded-lg border border-slate-700 bg-slate-900/60 p-4 font-mono text-xs text-slate-400 overflow-x-auto">
+{projectTree}
+        </pre>
       </Card>
     </div>
   );

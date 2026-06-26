@@ -12,6 +12,7 @@ import { BUSINESS_MODELS } from "@/lib/business-models";
 import { BusinessModelIcon } from "@/components/business-model-icon";
 import { generatePdf } from "@/lib/pdf-export";
 import { TextExpander } from "@/components/text-expander";
+import { ClampText } from "@/components/clamp-text";
 import { useBridgeStatus } from "@/hooks/use-bridge-status";
 import { isIdeaBusy } from "@/lib/idea-state";
 import { Button } from "@/components/ui/button";
@@ -984,7 +985,7 @@ export default function IdeaDetailPage() {
             />
           ) : (
             <div className="space-y-2">
-              <TextExpander text={idea.description} />
+              <ClampText text={idea.description} lines={2} />
               {idea.originalIdea && idea.originalIdea !== idea.description && (
                 <details className="text-xs text-slate-500">
                   <summary className="cursor-pointer hover:text-slate-300 transition-colors">
@@ -1015,7 +1016,7 @@ export default function IdeaDetailPage() {
               />
             ) : (
               <dd className="mt-1">
-                <TextExpander text={idea.targetUser} />
+                <ClampText text={idea.targetUser} lines={3} />
               </dd>
             )}
           </div>
@@ -1032,7 +1033,7 @@ export default function IdeaDetailPage() {
               />
             ) : (
               <dd className="mt-1">
-                <TextExpander text={idea.monetization} />
+                <ClampText text={idea.monetization} lines={3} />
               </dd>
             )}
           </div>
@@ -1053,7 +1054,7 @@ export default function IdeaDetailPage() {
             ) : (
               <dd className="mt-1">
                 {idea.problem ? (
-                  <TextExpander text={idea.problem} />
+                  <ClampText text={idea.problem} lines={3} />
                 ) : (
                   <span className="text-sm text-slate-600">—</span>
                 )}
@@ -1075,7 +1076,7 @@ export default function IdeaDetailPage() {
             ) : (
               <dd className="mt-1">
                 {idea.valueProposition ? (
-                  <TextExpander text={idea.valueProposition} />
+                  <ClampText text={idea.valueProposition} lines={3} />
                 ) : (
                   <span className="text-sm text-slate-600">—</span>
                 )}

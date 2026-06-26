@@ -13,7 +13,6 @@ import {
   Globe,
   Megaphone,
   Scale,
-  Sparkles,
   ArrowRight,
   Eye,
 } from "lucide-react";
@@ -152,32 +151,9 @@ export function SkillSelector({ projectId, onHandoffReady, onContinue }: SkillSe
   }
 
   return (
-    <div className="border border-slate-800 rounded-xl bg-slate-950/60 p-5">
-      <h2 className="text-lg font-semibold text-white">Skills del Proyecto</h2>
-      <p className="mt-1 mb-4 text-xs text-slate-500">
-        Guías accionables que referencian los documentos del proyecto. Se generan automáticamente
-        desde plantilla al completar el roadmap.
-      </p>
-
-      {/* Grid de skills: media fila en desktop (8 skills → 4 filas). */}
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        {skills.map((s) => (
-          <SkillCard
-            key={s.id}
-            skill={s}
-            generated={genById.get(s.id)}
-            iconComponent={Icon}
-            onView={(g) => setPreviewSkill(g)}
-          />
-        ))}
-      </div>
-
-      {/* Acciones del roadmap */}
-      <div className="mt-5 pt-4 border-t border-slate-800 flex flex-wrap items-center gap-3">
-        <Button variant="secondary" onClick={regenerateAll} loading={generating}>
-          {!generating && <Sparkles className="size-4" />}
-          {generating ? "Regenerando..." : "Regenerar todas con plantillas"}
-        </Button>
+    <div className="space-y-4">
+      {/* Acción "Continuar": fila alineada a la derecha sobre la tarjeta */}
+      <div className="flex justify-end">
         <Button
           variant="primary"
           onClick={() => onContinue?.()}
@@ -189,6 +165,27 @@ export function SkillSelector({ projectId, onHandoffReady, onContinue }: SkillSe
           Continuar
           <ArrowRight className="size-4" />
         </Button>
+      </div>
+
+      <div className="border border-slate-800 rounded-xl bg-slate-950/60 p-5">
+        <h2 className="text-lg font-semibold text-white">Skills del Proyecto</h2>
+        <p className="mt-1 mb-4 text-xs text-slate-500">
+          Guías accionables que referencian los documentos del proyecto. Se generan automáticamente
+          desde plantilla al completar el roadmap.
+        </p>
+
+        {/* Grid de skills: media fila en desktop (8 skills → 4 filas). */}
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {skills.map((s) => (
+            <SkillCard
+              key={s.id}
+              skill={s}
+              generated={genById.get(s.id)}
+              iconComponent={Icon}
+              onView={(g) => setPreviewSkill(g)}
+            />
+          ))}
+        </div>
       </div>
 
       {/* Preview del markdown ("Ver la Skill") */}

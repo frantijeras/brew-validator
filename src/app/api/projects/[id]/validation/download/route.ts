@@ -51,6 +51,11 @@ export async function GET(
       content: assembled.markdown,
       phaseType: assembled.phaseType,
       projectName: assembled.projectName,
+      // El markdown ya trae la tabla de scorecard del juez inyectada (y el
+      // cuerpo ya viene limpio de scorecards duplicadas). Hay que conservar esa
+      // tabla en el PDF — si no, la limpieza la borraría y el PDF saldría sin
+      // scorecard, truncado respecto a la web.
+      preserveInjectedScorecard: true,
     });
 
     const safeProjectName = assembled.projectName

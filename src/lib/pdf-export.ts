@@ -14,15 +14,24 @@ const JUDGE_EMOJI_REGEX_PDF = /[📊⭐✅🎯🏆💪🔍❌📈📋✨🔥💡
 /**
  * Limpia el contenido markdown del informe del juez para el PDF.
  *
+ * IMPORTANTE: esta limpieza DEBE reflejar exactamente la que hace la web
+ * (`cleanContent` en markdown-renderer.tsx). El PDF descargable tiene que
+ * contener el MISMO informe completo que ve el usuario en la pestaña
+ * "1. Validación" — ni más ni menos. Antes el PDF aplicaba además strippers
+ * destructivos de "andamiaje de roles internos" (## Veredicto del Juez,
+ * ## Deliberación, ### Juez, etc.) que la web NUNCA aplica; esos strippers
+ * borraban secciones enteras del cuerpo del juez (narrativa, riesgos,
+ * recomendaciones…) y dejaban el PDF truncado respecto a la web.
+ *
  * @param content   markdown crudo del informe.
  * @param hasJsonScorecard  si existe un `report.scorecard` (JSON) que se va a
- *   renderizar como tabla aparte. SOLO en ese caso quitamos del cuerpo la
- *   scorecard/secciones de puntuación y los encabezados de rol del juez, para
- *   no duplicar la tabla. Si NO hay scorecard JSON, conservamos esos
- *   contenidos: de lo contrario perderíamos la única scorecard/narrativa que
- *   trae el juez.
+ *   renderizar como tabla aparte. En ese caso quitamos del cuerpo la
+ *   scorecard/secciones de puntuación para no duplicar la tabla (la web hace
+ *   lo mismo, porque siempre pinta la tabla a partir del JSON). Sin scorecard
+ *   JSON conservamos esos contenidos para no perder la única scorecard del
+ *   cuerpo.
  */
-function cleanJudgeReportPdf(content: string, hasJsonScorecard = false): string {
+export function cleanJudgeReportPdf(content: string, hasJsonScorecard = false): string {
   let clean = content;
 
   // Strip replacement characters
@@ -47,14 +56,30 @@ function cleanJudgeReportPdf(content: string, hasJsonScorecard = false): string 
   // creates a visible "Veredicto Veredicto" duplication
   clean = clean.replace(/^## Veredicto\s*\n+/gm, "");
 
-  // ── Strippers destructivos: SOLO si hay scorecard JSON que sustituye al
-  // cuerpo. Sin scorecard JSON, conservamos la scorecard/tabla del cuerpo y
-  // la sección del juez para no perder su contenido. ──
+  // ── Scorecard del cuerpo: solo se quita si hay scorecard JSON que la
+  // sustituye como tabla aparte. Es exactamente lo que hace la web (siempre
+  // tiene el JSON → siempre quita la tabla suelta/sección de puntuación del
+  // cuerpo). NO se elimina ningún otro contenido (narrativa, riesgos,
+  // recomendaciones, secciones de rol…) para que el PDF no quede truncado. ──
   if (hasJsonScorecard) {
     // Remove any "## Puntuación*" / "## Scorecard*" / "## Tabla de Puntuaciones"
-    // section — the scorecard is rendered separately from the JSON
+    // section — the scorecard is rendered separately from the JSON. Match the
+    // web: remove the WHOLE section (header + body hasta el siguiente "## "),
+    // no solo la línea del encabezado.
     const sectionHeaderRe = /^##\s+[^\n]*(puntuación|puntuacion|scorecard|tabla\s+de\s+puntuaciones?|tabla\s+de\s+scores)[^\n]*$/gim;
-    clean = clean.replace(sectionHeaderRe, "");
+    const sectionRanges: Array<{ start: number; end: number }> = [];
+    let m: RegExpExecArray | null;
+    while ((m = sectionHeaderRe.exec(clean)) !== null) {
+      const start = m.index;
+      const rest = clean.slice(start + m[0].length);
+      const nextSection = rest.search(/^##\s+/m);
+      const end = nextSection === -1 ? clean.length : start + m[0].length + nextSection;
+      sectionRanges.push({ start, end });
+    }
+    for (let i = sectionRanges.length - 1; i >= 0; i--) {
+      const { start, end } = sectionRanges[i];
+      clean = clean.slice(0, start) + clean.slice(end);
+    }
 
     // Remove loose scorecard tables (header has "Dimensión" + "Puntuación")
     const looseTableRe = /^\|[^\n]*\|[^\n]*\|\s*\n\|[\s:|-]+\|[\s:|-]+\|\s*\n(?:\|[^\n]*\|\s*\n?)+/gm;
@@ -63,22 +88,7 @@ function cleanJudgeReportPdf(content: string, hasJsonScorecard = false): string 
       if (/dimensi[oó]n/.test(firstLine) && /(puntuaci[oó]n|puntuacion|score)/.test(firstLine)) return "";
       return match;
     });
-
-    // ── Andamiaje interno multi-agente (NO va en el entregable) ──
-    // Los informes pueden arrastrar términos del proceso interno de validación
-    // por debate de roles (Escéptico/Defensor/Abogado del diablo/Juez). Eso es
-    // ruido para el usuario final: lo quitamos del PDF descargable.
-    // Quitamos secciones cuyo encabezado ES uno de esos roles internos.
-    const internalSectionRe =
-      /^#{1,4}\s*(debate(\s+interno)?|escéptic[oa]|defensor[a]?|abogad[oa]\s+del\s+diablo|juez|veredicto\s+del\s+juez|deliberaci[oó]n|skeptic|advocate|judge)\b[^\n]*\n[\s\S]*?(?=^#{1,4}\s|\n---|$)/gim;
-    clean = clean.replace(internalSectionRe, "");
   }
-
-  // Quitamos etiquetas internas sueltas a principio de línea. Bajo riesgo
-  // (andamiaje, no narrativa principal), así que se aplica siempre.
-  const internalLabelRe =
-    /^\s*[*_]{0,2}(veredicto\s+del\s+juez|puntuaci[oó]n\s+interna|score\s+interno|abogad[oa]\s+del\s+diablo|nota\s+del\s+juez|el\s+juez\s+(dictamina|concluye)|el\s+escéptico|el\s+defensor)[*_]{0,2}\s*:?.*$/gim;
-  clean = clean.replace(internalLabelRe, "");
 
   // Collapse multiple blank lines
   clean = clean.replace(/\n{3,}/g, "\n\n");
@@ -728,10 +738,19 @@ export interface BuildReportPdfParams {
   projectName: string;
   /** Generation timestamp. Defaults to `new Date()`. */
   generatedAt?: Date;
+  /**
+   * Cuando el `content` ya trae una tabla de scorecard INYECTADA a propósito
+   * (caso del informe de validación, que `buildValidationReport` arma con la
+   * tabla del juez derivada del JSON), hay que conservarla. Con este flag la
+   * limpieza NO elimina las tablas/secciones de puntuación del cuerpo, de modo
+   * que la tabla inyectada llega al PDF (igual que la web la muestra). Por
+   * defecto `false`: comportamiento histórico (limpia las scorecards sueltas).
+   */
+  preserveInjectedScorecard?: boolean;
 }
 
 export function buildReportPdf(params: BuildReportPdfParams): Buffer {
-  const { title, content, projectName } = params;
+  const { title, content, projectName, preserveInjectedScorecard } = params;
 
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   // Register Roboto font
@@ -917,12 +936,14 @@ export function buildReportPdf(params: BuildReportPdfParams): Buffer {
   }
 
   // Clean and parse.
-  // `buildReportPdf` recibe el markdown ya consolidado por `buildValidationReport`,
-  // que inyecta la tabla de scorecard del juez (derivada del JSON) ANTES del
-  // contenido. Por eso aquí mantenemos el comportamiento destructivo previo
-  // (hasJsonScorecard = true): así no duplicamos la scorecard ni mostramos el
-  // andamiaje de roles internos en el cuerpo.
-  const cleanContent = cleanJudgeReportPdf(trimmed, true);
+  // El informe de validación (`buildValidationReport`) inyecta la tabla de
+  // scorecard del juez (derivada del JSON) en el cuerpo y ya limpia cada
+  // reporte por separado. En ese caso pasamos `preserveInjectedScorecard` para
+  // que la limpieza NO elimine esa tabla (antes la borraba la regla de "tablas
+  // de scorecard sueltas", dejando el PDF sin scorecard). Para el resto de
+  // fases mantenemos el comportamiento histórico (limpia las scorecards
+  // sueltas del cuerpo, que ya se muestran aparte).
+  const cleanContent = cleanJudgeReportPdf(trimmed, !preserveInjectedScorecard);
   const blocks = parseMarkdownBlocks(cleanContent);
   writeMdBlocks(blocks);
 

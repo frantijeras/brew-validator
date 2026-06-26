@@ -40,6 +40,45 @@ const AGENT_LABELS: Record<string, string> = {
 };
 
 /**
+ * Quita del cuerpo del informe del juez la scorecard que ya vamos a inyectar
+ * aparte (tabla derivada del JSON), para no duplicarla. Replica exactamente lo
+ * que hace la web (`cleanContent` en markdown-renderer.tsx): elimina las
+ * secciones de puntuación/scorecard/tabla de puntuaciones y las tablas
+ * sueltas cuyo encabezado tiene "Dimensión" + "Puntuación". NO toca el resto
+ * del informe (veredicto, fortalezas, riesgos, recomendaciones, etc.), de modo
+ * que el PDF contenga el MISMO contenido que ve el usuario en la web.
+ */
+function stripBodyScorecard(content: string): string {
+  let clean = content;
+
+  // Remove "## Puntuación*" / "## Scorecard*" / "## Tabla de Puntuaciones"
+  // sections (header + body up to the next "## " heading).
+  const sectionHeaderRe = /^##\s+[^\n]*(puntuación|puntuacion|scorecard|tabla\s+de\s+puntuaciones?|tabla\s+de\s+scores)[^\n]*$/gim;
+  const ranges: Array<{ start: number; end: number }> = [];
+  let m: RegExpExecArray | null;
+  while ((m = sectionHeaderRe.exec(clean)) !== null) {
+    const start = m.index;
+    const rest = clean.slice(start + m[0].length);
+    const next = rest.search(/^##\s+/m);
+    const end = next === -1 ? clean.length : start + m[0].length + next;
+    ranges.push({ start, end });
+  }
+  for (let i = ranges.length - 1; i >= 0; i--) {
+    clean = clean.slice(0, ranges[i].start) + clean.slice(ranges[i].end);
+  }
+
+  // Remove loose scorecard tables (header row has "Dimensión" + "Puntuación").
+  const looseTableRe = /^\|[^\n]*\|[^\n]*\|\s*\n\|[\s:|-]+\|[\s:|-]+\|\s*\n(?:\|[^\n]*\|\s*\n?)+/gm;
+  clean = clean.replace(looseTableRe, (match) => {
+    const firstLine = match.split("\n")[0].toLowerCase();
+    if (/dimensi[oó]n/.test(firstLine) && /(puntuaci[oó]n|puntuacion|score)/.test(firstLine)) return "";
+    return match;
+  });
+
+  return clean.replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/**
  * Convert a scorecard JSON (string) to a markdown table.
  * Handles both array format [{k,v,d}] and object format {key:value}.
  *
@@ -169,20 +208,28 @@ export async function buildValidationReport(
     lines.push(`## Reporte del ${label}`);
     lines.push("");
 
-    // For the judge, insert the scorecard table before the content
-    // so it appears in the PDF (buildReportPdf renders markdown only).
-    if (agent === "judge" && report.scorecard) {
-      const scorecardMd = scorecardToMarkdownTable(report.scorecard);
-      if (scorecardMd) {
-        lines.push(scorecardMd);
-        lines.push("");
-      }
+    // For the judge, insert the scorecard table before the content so it
+    // appears in the PDF (buildReportPdf renders markdown only). Esta tabla
+    // (derivada del JSON) es la misma que la web pinta aparte. Si la inyectamos
+    // y dejamos también la scorecard que pueda venir EN el cuerpo, saldría
+    // duplicada — así que limpiamos el cuerpo igual que hace la web.
+    const hasInjectedScorecard =
+      agent === "judge" &&
+      !!report.scorecard &&
+      !!scorecardToMarkdownTable(report.scorecard).trim();
+    if (hasInjectedScorecard) {
+      lines.push(scorecardToMarkdownTable(report.scorecard));
+      lines.push("");
     }
 
-    // The report.content is already cleaned by `cleanJudgeReport` in the
-    // web UI; the PDF pipeline applies the same cleanup defensively. We
-    // pass it through as-is.
-    lines.push(report.content || "");
+    // Cuerpo del informe. Para el juez con scorecard inyectada quitamos la
+    // scorecard del cuerpo (no duplicar), conservando TODO lo demás —
+    // exactamente lo que muestra la web. El PDF aplicará el resto de la
+    // limpieza (emojis, encabezado de Veredicto, etc.) sin borrar la tabla.
+    const body = hasInjectedScorecard
+      ? stripBodyScorecard(report.content || "")
+      : report.content || "";
+    lines.push(body);
     lines.push("");
     lines.push("---");
     lines.push("");

@@ -89,7 +89,19 @@ function cleanContent(markdown: string, agentName?: string): string {
   // NO unir si la línea siguiente empieza por `|` (fila o separador de tabla):
   // antes el lookahead solo excluía filas vacías (`| |`), por lo que las filas
   // reales se aplastaban en una sola línea y la tabla dejaba de detectarse.
-  clean = clean.replace(/(?<!\n)\n(?!\n|#{1,6}\s|\*\*|\d+\.\s|-\s|\|)/g, " ");
+  //
+  // BUG (negrita en párrafos enteros): el lookahead solo miraba la línea
+  // SIGUIENTE, no la ACTUAL. Si la línea actual era un encabezado (`## Rol`)
+  // o una cita (`> ...`) seguida directamente de un párrafo (sin línea en
+  // blanco, como genera buildSkillMarkdown), el `\n` se convertía en espacio
+  // y el párrafo quedaba pegado al encabezado: `## Rol Eres un diseñador…`.
+  // Luego la regex de encabezados engullía TODO en un `<h2>` (font-bold), de
+  // ahí que el párrafo entero saliese en negrita. El lookbehind impide unir
+  // cuando la línea que termina aquí es un encabezado, cita o ítem de lista.
+  clean = clean.replace(
+    /(?<!\n)(?<!^#{1,6}\s[^\n]*)(?<!^&?gt;?\s?[^\n]*)(?<!^>\s?[^\n]*)(?<!^[\t ]*[-*+]\s[^\n]*)(?<!^[\t ]*\d+\.\s[^\n]*)\n(?!\n|#{1,6}\s|\*\*|\d+\.\s|-\s|\|)/gm,
+    " "
+  );
 
   // Clean up multiple blank lines
   clean = clean.replace(/\n{3,}/g, "\n\n");
@@ -191,6 +203,14 @@ export function renderMarkdown(markdown: string, agentName?: string, skipClean?:
     '<h1 class="mt-6 mb-4 text-2xl font-bold text-white">$1</h1>'
   );
 
+  // Aísla cada encabezado/cita en su PROPIO bloque insertando un salto de
+  // párrafo después del elemento. buildSkillMarkdown genera encabezados y citas
+  // en líneas consecutivas sin línea en blanco (`# …\n> …\n## Rol\nEres…`); sin
+  // esta separación todos caen en un mismo bloque y el texto que sigue a un
+  // encabezado se quedaba sin envolver (ni `<p>` ni color de párrafo).
+  html = html.replace(/(<\/h[1-6]>)\n(?!\n)/g, "$1\n\n");
+  html = html.replace(/(<\/blockquote>)\n(?!\n)/g, "$1\n\n");
+
   // Links [text](url)
   html = html.replace(
     /\[([^\]]+)\]\(([^)]+)\)/g,
@@ -270,6 +290,23 @@ export function renderMarkdown(markdown: string, agentName?: string, skipClean?:
         })
         .join("\n");
       return `<ul class="my-3 space-y-1">${lis}</ul>`;
+    }
+
+    // Heading directly followed by paragraph text (sin línea en blanco entre
+    // ellos, como genera buildSkillMarkdown: `## Rol\nEres un diseñador…`).
+    // Sin esto, el bloque empieza por `<h…>` y se devolvía tal cual, dejando
+    // el párrafo SIN envolver (sin color/tamaño de párrafo). Separamos el
+    // encabezado de su texto y envolvemos el resto como párrafo normal.
+    const headingMatch = trimmed.match(/^(<h[1-6][^>]*>[\s\S]*?<\/h[1-6]>)([\s\S]*)$/);
+    if (headingMatch) {
+      const heading = headingMatch[1];
+      const rest = headingMatch[2].trim();
+      if (!rest) return heading;
+      // Si el resto ya es un bloque (lista, tabla…), no lo envolvemos.
+      if (/^<(ol|ul|li|pre|table|div|blockquote|hr|h[1-6])/.test(rest)) {
+        return `${heading}\n${rest}`;
+      }
+      return `${heading}\n<p class="mb-3 text-slate-300 leading-relaxed">${rest}</p>`;
     }
 
     // Regular paragraph — wrap if it's not already a block element
