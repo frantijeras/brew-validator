@@ -22,9 +22,13 @@ informe. Trabajas en DOS modos según el campo `mode` del input.
 
 ### MODE "questions" — generar el cuestionario
 
-Genera un cuestionario CORTO (3-5 preguntas) que apunte a las **debilidades y
-riesgos** que ha planteado el juez, para recabar la información necesaria para
-mejorar la idea.
+Genera un cuestionario al estilo de los quiz de las fases: **4-6 preguntas** que
+apunten a las **debilidades y riesgos** que ha planteado el juez, para recabar la
+información necesaria para mejorar la idea. **La MAYORÍA deben ser de opción
+múltiple** (`"type": "choice"` con 3-4 `options` concretas derivadas del
+veredicto), y la **ÚLTIMA pregunta SIEMPRE abierta** (`"type": "text"`) para que
+el emprendedor añada cualquier matiz propio (p. ej. "¿Algo más que quieras
+matizar o añadir para mejorar la idea?").
 
 Input (vía JSON en el job):
 
@@ -50,11 +54,12 @@ después y sin fences de markdown:
 {"questions": [{"id": "q1", "label": "…", "type": "text"}, {"id": "q2", "label": "…", "type": "text"}]}
 ```
 
-- Usa `"type": "text"` para preguntas abiertas.
-- Puedes usar `"type": "choice"` con un array `"options"` cuando encaje una
-  pregunta cerrada, por ejemplo:
-  `{"id": "q3", "label": "…", "type": "choice", "options": ["…", "…"]}`.
-- Entre 3 y 5 preguntas. Cada `id` debe ser único (`q1`, `q2`, …).
+- La mayoría de preguntas son cerradas: `"type": "choice"` con `"options"`
+  (3-4 opciones concretas y excluyentes), p. ej.
+  `{"id": "q1", "label": "…", "type": "choice", "options": ["…", "…", "…"]}`.
+- La ÚLTIMA pregunta SIEMPRE es abierta: `"type": "text"` (respuesta personalizada
+  del emprendedor).
+- Entre 4 y 6 preguntas en total. Cada `id` debe ser único (`q1`, `q2`, …).
 
 ### MODE "report" — reescribir la idea
 

@@ -1,8 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Sparkles, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  useWizard,
+  useFocusOnStepChange,
+  useKeyboardNavigation,
+  WizardProgress,
+  QuestionStep,
+  SummaryStep,
+  WizardNavigation,
+  type WizardQuestion,
+} from "@/components/wizard";
 
 /**
  * ImproveIdeaPanel — panel INLINE para mejorar la idea según el veredicto de la
@@ -54,7 +64,6 @@ export function ImproveIdeaPanel({
 }: ImproveIdeaPanelProps) {
   const [phase, setPhase] = useState<Phase>("loading");
   const [questions, setQuestions] = useState<ImproveQuestion[]>([]);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -161,7 +170,7 @@ export function ImproveIdeaPanel({
     return stopPolling;
   }, [loadState, stopPolling]);
 
-  async function handleSubmit() {
+  async function handleSubmit(answers: Record<string, string>) {
     setSubmitting(true);
     setError(null);
     try {
@@ -210,17 +219,96 @@ export function ImproveIdeaPanel({
     }
   }
 
-  // Todas las preguntas deben tener respuesta no vacía para poder enviar.
-  const canSubmit =
-    questions.length > 0 &&
-    questions.every((q) => (answers[q.id] ?? "").trim().length > 0);
+  // ── Wizard ──
+  // Mapeamos las preguntas de mejora al formato del wizard compartido:
+  //  - "choice" con opciones → wizard "choice" (string[] → {value,label}[]).
+  //  - cualquier otra (la pregunta abierta/personalizada final) → "textarea"
+  //    para ofrecer un campo de texto libre.
+  const wizardQuestions = useMemo<WizardQuestion[]>(
+    () =>
+      questions.map((q) =>
+        q.type === "choice" && q.options && q.options.length > 0
+          ? {
+              id: q.id,
+              label: q.label,
+              type: "choice",
+              options: q.options.map((o) => ({ value: o, label: o })),
+            }
+          : { id: q.id, label: q.label, type: "textarea" }
+      ),
+    [questions]
+  );
+
+  const wizard = useWizard(wizardQuestions);
+
+  // Reinicia el wizard cuando se cargan/regeneran las preguntas.
+  useEffect(() => {
+    if (wizardQuestions.length > 0) {
+      wizard.reset(wizardQuestions);
+    }
+    // Solo dependemos de las preguntas: no queremos reiniciar las respuestas
+    // del usuario en cada render del wizard.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wizardQuestions]);
+
+  // Construye el Record<string,string> que espera la API a partir de las
+  // respuestas del wizard. Para "multi" se unen con ", " (no se usa aquí, pero
+  // mantiene el contrato consistente con el quiz de fases).
+  const collectAnswers = useCallback((): Record<string, string> => {
+    const result: Record<string, string> = {};
+    for (const q of wizardQuestions) {
+      const value = (wizard.answers[q.id] ?? "").trim();
+      if (value) result[q.id] = value;
+    }
+    return result;
+  }, [wizardQuestions, wizard.answers]);
+
+  // ── Focus + teclado (igual que el quiz de fases) ──
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const stepContainerRef = useRef<HTMLDivElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+
+  const activeQuestion = wizard.isSummary
+    ? null
+    : wizardQuestions[wizard.currentStep] ?? null;
+
+  useFocusOnStepChange({
+    inputRef,
+    containerRef: stepContainerRef,
+    question: activeQuestion,
+    stepIndex: wizard.currentStep,
+  });
+
+  useKeyboardNavigation({
+    containerRef: panelRef,
+    isDisabled: phase !== "quiz" || submitting || cancelling,
+    canGoNext: wizard.isValid || wizard.isSummary,
+    canGoPrev: !wizard.isFirst,
+    onNext: () => {
+      if (wizard.isSummary) {
+        void handleSubmit(collectAnswers());
+      } else {
+        wizard.goNext();
+      }
+    },
+    onPrev: wizard.goPrev,
+    onClose: () => {},
+    activeType: activeQuestion?.type,
+  });
 
   // El botón "Cancelar mejora" solo está disponible en generating/quiz/error
   // (NO en applying, donde la mejora ya está consumida y en curso).
   const canCancel = phase === "generating" || phase === "quiz" || phase === "error";
 
+  const progressLabel = wizard.isSummary
+    ? "Revisa tus respuestas"
+    : `Pregunta ${wizard.currentStep + 1} de ${wizardQuestions.length}`;
+
   return (
-    <div className="mb-8 rounded-xl border border-amber-500/30 bg-slate-900/50 p-6">
+    <div
+      ref={panelRef}
+      className="mb-8 rounded-xl border border-amber-500/30 bg-slate-900/50 p-6"
+    >
       <div className="mb-4 flex items-center gap-2">
         <Sparkles className="size-4 text-amber-400" />
         <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-300">
@@ -275,56 +363,42 @@ export function ImproveIdeaPanel({
 
       {phase === "quiz" && (
         <>
-          <p className="mb-5 text-sm text-slate-400">
+          <WizardProgress
+            currentStep={wizard.currentStep}
+            totalSteps={wizard.totalSteps}
+            label={progressLabel}
+          />
+
+          <p className="mb-5 mt-4 text-sm text-slate-400">
             Responde estas preguntas para reescribir la idea con lo aprendido en
             la validación. Al aplicar, se reiniciará la validación para que puedas
             volver a validarla.
           </p>
 
-          <div className="space-y-5">
-            {questions.map((q) => (
-              <div key={q.id}>
-                <label
-                  htmlFor={`improve-q-${q.id}`}
-                  className="mb-1.5 block text-sm font-medium text-white"
-                >
-                  {q.label}
-                </label>
-                {q.type === "choice" && q.options && q.options.length > 0 ? (
-                  <div className="space-y-2">
-                    {q.options.map((opt) => (
-                      <label
-                        key={opt}
-                        className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-800 bg-slate-900 px-4 py-2.5 hover:border-slate-700"
-                      >
-                        <input
-                          type="radio"
-                          name={`improve-q-${q.id}`}
-                          value={opt}
-                          checked={answers[q.id] === opt}
-                          onChange={() =>
-                            setAnswers((prev) => ({ ...prev, [q.id]: opt }))
-                          }
-                          className="size-4 shrink-0 accent-amber-500"
-                        />
-                        <span className="text-sm text-slate-200">{opt}</span>
-                      </label>
-                    ))}
-                  </div>
-                ) : (
-                  <textarea
-                    id={`improve-q-${q.id}`}
-                    value={answers[q.id] ?? ""}
-                    onChange={(e) =>
-                      setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
-                    }
-                    rows={3}
-                    className="w-full resize-y rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                    placeholder="Tu respuesta"
-                  />
-                )}
-              </div>
-            ))}
+          <div
+            key={wizard.currentStep}
+            className={
+              wizard.direction === "next"
+                ? "animate-wizard-next"
+                : "animate-wizard-prev"
+            }
+          >
+            {wizard.isSummary ? (
+              <SummaryStep
+                questions={wizardQuestions}
+                answers={wizard.answers}
+                onEdit={(idx) => wizard.goTo(idx)}
+              />
+            ) : activeQuestion ? (
+              <QuestionStep
+                question={activeQuestion}
+                stepNumber={wizard.currentStep + 1}
+                answer={wizard.answers[activeQuestion.id] || ""}
+                inputRef={inputRef}
+                containerRef={stepContainerRef}
+                onChange={(value) => wizard.setAnswer(activeQuestion.id, value)}
+              />
+            ) : null}
           </div>
 
           {error && (
@@ -334,25 +408,34 @@ export function ImproveIdeaPanel({
             </div>
           )}
 
-          <div className="mt-6 flex items-center justify-end gap-3">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={handleCancel}
-              disabled={submitting || cancelling}
-            >
-              {cancelling ? "Cancelando…" : "Cancelar mejora"}
-            </Button>
-            <Button
-              type="button"
-              variant="primary"
-              loading={submitting}
-              disabled={!canSubmit || submitting || cancelling}
-              onClick={handleSubmit}
-            >
-              <Sparkles className="size-4" />
-              {submitting ? "Aplicando…" : "Mejorar idea"}
-            </Button>
+          {/* Navegación del wizard + acción de cancelar */}
+          <div className="mt-6 space-y-3">
+            <WizardNavigation
+              canGoBack={!wizard.isFirst}
+              canGoForward={wizard.isSummary ? !submitting : wizard.isValid}
+              onBack={wizard.goPrev}
+              onNext={() => {
+                if (wizard.isSummary) {
+                  void handleSubmit(collectAnswers());
+                } else {
+                  wizard.goNext();
+                }
+              }}
+              isSummary={wizard.isSummary}
+              isLastQuestion={wizard.isLastQuestion}
+              isSubmitting={submitting}
+              submitLabel={submitting ? "Aplicando…" : "Mejorar idea"}
+            />
+            <div className="flex justify-center">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={handleCancel}
+                disabled={submitting || cancelling}
+              >
+                {cancelling ? "Cancelando…" : "Cancelar mejora"}
+              </Button>
+            </div>
           </div>
         </>
       )}
